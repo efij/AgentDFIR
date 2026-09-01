@@ -17,10 +17,10 @@ import (
 
 // Observation is one independent endpoint fact from an external source.
 type Observation struct {
-	Source  string // adapter name, e.g. "shell_history"
-	Kind    string // "command" | "network" | "process" | "dns"
-	Value   string // normalized value (e.g. the command line)
-	Ref     string // evidence reference (file:line or export id)
+	Source string // adapter name, e.g. "shell_history"
+	Kind   string // "command" | "network" | "process" | "dns"
+	Value  string // normalized value (e.g. the command line)
+	Ref    string // evidence reference (file:line or export id)
 }
 
 // Adapter yields independent endpoint observations. Implementations must
