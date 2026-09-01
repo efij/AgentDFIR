@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/efij/AgentDFIR/internal/casepkg"
 	"github.com/efij/AgentDFIR/internal/detect"
+	"github.com/efij/AgentDFIR/internal/encrypt"
 	"github.com/efij/AgentDFIR/internal/export"
 	"github.com/efij/AgentDFIR/internal/normalize"
 	"github.com/efij/AgentDFIR/internal/report"
@@ -158,5 +160,55 @@ func cmdSign(args []string) int {
 		return 1
 	}
 	fmt.Printf("Signed %s (SEAL.sig written).\n", fs.Arg(0))
+	return 0
+}
+
+// cmdEncrypt encrypts a sealed package directory to a single file.
+func cmdEncrypt(args []string) int {
+	fs := flag.NewFlagSet("encrypt", flag.ContinueOnError)
+	out := fs.String("out", "", "output .adfir.enc file")
+	if err := fs.Parse(args); err != nil || fs.NArg() != 1 {
+		fmt.Fprintln(os.Stderr, "usage: agentdfir encrypt <package-dir> [--out file.adfir.enc]")
+		return 2
+	}
+	pass := os.Getenv("AGENTDFIR_PASSPHRASE")
+	if pass == "" {
+		fmt.Fprintln(os.Stderr, "set AGENTDFIR_PASSPHRASE (passphrase is never taken as a CLI argument)")
+		return 2
+	}
+	dst := *out
+	if dst == "" {
+		dst = fs.Arg(0) + ".enc"
+	}
+	if err := encrypt.Encrypt(fs.Arg(0), dst, pass); err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		return 1
+	}
+	fmt.Printf("Encrypted package written to %s (AES-256-GCM). Logical paths are not in the clear.\n", dst)
+	return 0
+}
+
+// cmdDecrypt extracts an encrypted package.
+func cmdDecrypt(args []string) int {
+	fs := flag.NewFlagSet("decrypt", flag.ContinueOnError)
+	out := fs.String("out", "", "output package directory")
+	if err := fs.Parse(args); err != nil || fs.NArg() != 1 {
+		fmt.Fprintln(os.Stderr, "usage: agentdfir decrypt <file.adfir.enc> [--out dir]")
+		return 2
+	}
+	pass := os.Getenv("AGENTDFIR_PASSPHRASE")
+	if pass == "" {
+		fmt.Fprintln(os.Stderr, "set AGENTDFIR_PASSPHRASE")
+		return 2
+	}
+	dst := *out
+	if dst == "" {
+		dst = strings.TrimSuffix(fs.Arg(0), ".enc")
+	}
+	if err := encrypt.Decrypt(fs.Arg(0), dst, pass); err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		return 1
+	}
+	fmt.Printf("Decrypted package extracted to %s. Run `agentdfir verify %s` to confirm integrity.\n", dst, dst)
 	return 0
 }

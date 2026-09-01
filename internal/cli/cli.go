@@ -37,6 +37,8 @@ Usage:
   agentdfir keygen                      generate ed25519 signing keypair
   agentdfir sign --key <k> <pkg>        sign a sealed package (SEAL.sig)
   agentdfir inspect <pkg> [--reveal-sensitive]  artifact inventory + secret scan
+  agentdfir encrypt <pkg>               encrypt a package (AGENTDFIR_PASSPHRASE)
+  agentdfir decrypt <file.adfir.enc>    decrypt an encrypted package
   agentdfir version                     print version
 
 Collect flags:
@@ -87,6 +89,10 @@ func Main(args []string) int {
 		return cmdSign(args[1:])
 	case "inspect":
 		return cmdInspect(args[1:])
+	case "encrypt":
+		return cmdEncrypt(args[1:])
+	case "decrypt":
+		return cmdDecrypt(args[1:])
 	case "version", "--version", "-v":
 		fmt.Printf("agentdfir %s (adfir format %s)\n", version.Version, version.ADFIRVersion)
 		return 0
