@@ -7,6 +7,30 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-09-01
+
+Every supported product now has a full parsing pipeline — detect,
+collect, normalize, timeline, detections and reports work end to end for
+all eight AI agent products.
+
+### Added
+- `genericchat` parser: Gemini CLI (API-style `parts` with
+  `functionCall`/`functionResponse`, `logs.json`, checkpoints), Cline and
+  Roo Code (Anthropic-style `api_conversation_history.json`, XML-style
+  `<execute_command>` tool extraction, `ui_messages.json`), Copilot CLI
+  (OpenAI-style `tool_calls`), OpenClaw (JSONL messages).
+- Cursor `store.db` support via deterministic JSON fragment carving —
+  recovered messages are explicitly marked `carved` so analysts can
+  weigh them; carving proves content presence, not database ordering.
+- Shell-command extraction across all styles (`run_shell_command`,
+  `execute_command`, `bash`, XML tool text), feeding the same
+  DESTRUCTIVE_COMMAND / rule-pack / correlation machinery.
+
+### Notes
+- The same evidence-vs-claims discipline applies to every product:
+  model narrative is REPORTED, tool records are OBSERVED, and
+  unparseable regions become TRACE_GAP evidence — never silent skips.
+
 ## [0.2.0] — 2026-09-01
 
 Completes the OSS plan surface: analyst interaction, live monitoring,
@@ -110,6 +134,7 @@ and interoperability exports.
   on all evidence-derived output; bounded parsers; zip-slip defense on archive
   extraction; secrets never printed by default.
 
-[Unreleased]: https://github.com/efij/AgentDFIR/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/efij/AgentDFIR/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/efij/AgentDFIR/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/efij/AgentDFIR/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/efij/AgentDFIR/releases/tag/v0.1.0

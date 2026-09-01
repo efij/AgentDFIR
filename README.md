@@ -134,14 +134,14 @@ Ships with wrappers for tools IR teams already run:
 | ✅ | Claude Code: detect, collect, normalize, timeline, triage |
 | ✅ | Detections: orphan agents, cross-agent messaging, destructive commands, trace gaps |
 | ✅ | `simulate` — synthetic incident generation (adversary emulation for AI agents) |
-| ✅ | Codex CLI parser; collector manifests for Cursor, Gemini CLI, Copilot, Cline, Roo, OpenClaw |
+| ✅ | Full parsers for all 8 products: Claude Code, Codex, Gemini CLI, Cursor (store.db carving), Copilot CLI, Cline, Roo, OpenClaw |
 | ✅ | Endpoint correlation (pluggable adapters; shell-history reference adapter) |
 | ✅ | Reports: network-silent HTML, JSON, CSV, STIX 2.1, OTel export |
 | ✅ | `monitor` live watch · `replay` session step-through · `investigate` explorer |
 | ✅ | Declarative rule packs ([agentdfir-rules](https://github.com/efij/agentdfir-rules)) + signed knowledge packs |
 | ✅ | Package signing (ed25519), full-package encryption (AES-256-GCM) |
 | ✅ | Injection-surface detections: prompt-injection indicators, invisible-Unicode smuggling, honeytokens |
-| 🔜 | More parsers (Cursor, Gemini, Copilot session formats), raw-NTFS/VSS fallback, fleet integrations |
+| 🔜 | Raw-NTFS/VSS locked-file fallback, EDR/DNS adapters, fleet integrations |
 
 ## 🤝 Contributing
 
