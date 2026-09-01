@@ -3,6 +3,7 @@ package genericchat
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -109,18 +110,16 @@ func TestGeminiCheckpointAndLogs(t *testing.T) {
 }
 
 func TestClineAnthropicHistoryAndXMLTools(t *testing.T) {
-	if os.Getenv("HOME") == "" {
-		t.Skip("no home")
-	}
-	res := collectAndParse(t, "cline",
-		"Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev",
+	// Cline manifests are platform-filtered; use this OS's storage path.
+	storage := clineStorageRel(t)
+	res := collectAndParse(t, "cline", storage,
 		map[string]string{
-			"Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/tasks/task-777/api_conversation_history.json": `[
+			storage + "/tasks/task-777/api_conversation_history.json": `[
 				{"role":"user","content":[{"type":"text","text":"clean the temp dir"}]},
 				{"role":"assistant","content":[{"type":"text","text":"I'll remove it.\n<execute_command>\n<command>rm -rf /tmp/scratch</command>\n</execute_command>"}]},
 				{"role":"user","content":[{"type":"tool_result","tool_use_id":"x","content":"done"}]}
 			]`,
-			"Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/tasks/task-777/ui_messages.json": `[
+			storage + "/tasks/task-777/ui_messages.json": `[
 				{"ts":1724930000000,"type":"say","say":"task","text":"clean the temp dir"}
 			]`,
 		})
@@ -212,5 +211,22 @@ func TestCarveIgnoresNonMessages(t *testing.T) {
 	blob := "\x00\x01" + `{"not_a":"message"}` + "\x00" + `{"role":"user"}` + "\x00"
 	if got := CarveMessages([]byte(blob)); len(got) != 0 {
 		t.Fatalf("carver accepted non-message fragments: %d", len(got))
+	}
+}
+
+// clineStorageRel returns the VS Code globalStorage path (relative to
+// the profile root) matching this platform's collector manifest entry.
+func clineStorageRel(t *testing.T) string {
+	t.Helper()
+	switch runtime.GOOS {
+	case "darwin":
+		return "Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev"
+	case "linux":
+		return ".config/Code/User/globalStorage/saoudrizwan.claude-dev"
+	case "windows":
+		return "AppData/Roaming/Code/User/globalStorage/saoudrizwan.claude-dev"
+	default:
+		t.Skip("no cline manifest for " + runtime.GOOS)
+		return ""
 	}
 }
