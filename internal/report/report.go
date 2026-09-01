@@ -97,6 +97,10 @@ var sevClass = map[string]string{
 	"CRITICAL": "crit", "HIGH": "high", "MEDIUM": "med", "LOW": "low", "INFO": "info",
 }
 
+// MaxHTMLRows caps timeline/inventory rows in HTML (full data lives in
+// normalized/events.jsonl and reports/timeline.csv).
+var MaxHTMLRows = 2000
+
 // WriteHTML renders a self-contained, network-silent HTML report.
 func WriteHTML(c *Case, path string) error {
 	f, err := os.Create(path)
@@ -187,7 +191,12 @@ func WriteHTML(c *Case, path string) error {
 
 	// Timeline
 	w(`<section><h2>Incident Timeline</h2><table class="tl"><thead><tr><th>Time</th><th>State</th><th>Actor</th><th>Event</th><th>Detail</th><th>Evidence</th></tr></thead><tbody>`)
-	for _, e := range sortedEvents(c.Events) {
+	tlEvents := sortedEvents(c.Events)
+	tlShown := tlEvents
+	if len(tlShown) > MaxHTMLRows {
+		tlShown = tlShown[:MaxHTMLRows]
+	}
+	for _, e := range tlShown {
 		detail := e.Summary
 		if e.Command != "" {
 			detail = "$ " + e.Command
@@ -198,7 +207,11 @@ func WriteHTML(c *Case, path string) error {
 		}
 		w(`<tr><td class="mono">` + safe(e.Timestamp) + `</td><td><span class="st st-` + e.Corroboration + `">` + safe(e.Corroboration) + `</span></td><td>` + safe(e.ActorType) + `</td><td class="mono">` + safe(label) + `</td><td>` + safe(detail) + `</td><td class="mono ev">` + safe(fmt.Sprintf("%s:%d", e.SourcePath, e.SourceLine)) + `</td></tr>`)
 	}
-	w(`</tbody></table></section>`)
+	w(`</tbody></table>`)
+	if len(tlEvents) > MaxHTMLRows {
+		w(fmt.Sprintf(`<p class="muted">Showing first %d of %d events. Full timeline: normalized/events.jsonl and reports/timeline.csv.</p>`, MaxHTMLRows, len(tlEvents)))
+	}
+	w(`</section>`)
 
 	// Evidence inventory
 	w(`<section><h2>Evidence Inventory</h2><table class="tl"><thead><tr><th>Logical path</th><th>Type</th><th>Status</th><th>Size</th><th>SHA-256</th></tr></thead><tbody>`)
