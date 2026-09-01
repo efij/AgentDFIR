@@ -1,0 +1,28 @@
+# AgentDFIR capability mapping — EU AI Act, treated primarily as an
+# evidence/traceability capability. Installing AgentDFIR does NOT make an
+# AI system compliant; it helps organizations preserve and analyze
+# relevant logs where AI-system logging/traceability requirements apply.
+standard: EU AI Act (Regulation 2024/1689) — traceability/logging support
+version: 1
+disclaimer: >
+  AgentDFIR is an evidence-preservation and analysis tool. It does not
+  assess conformity, classify AI systems, or establish compliance. It can
+  provide supporting evidence for record-keeping and post-market
+  monitoring processes operated by the organization.
+mappings:
+  - area: "Record-keeping / logging (Art. 12)"
+    capabilities:
+      - lossless acquisition of agent session logs, tool calls and MCP activity
+      - normalized, timestamped timeline traceable to source evidence
+  - area: "Traceability of automated decisions"
+    capabilities:
+      - agent/subagent relationship graph with evidence-backed provenance
+      - evidence-vs-claims states distinguishing model narrative from execution
+  - area: "Post-market monitoring / incident reporting (Art. 72, 73)"
+    capabilities:
+      - deterministic detections and IR-ready reports
+      - sealed, verifiable evidence packages with chain of custody
+  - area: "Human oversight (Art. 14)"
+    capabilities:
+      - analyst-facing outputs that mark unverified agent claims explicitly
+      - no automatic escalation to conclusions unsupported by evidence

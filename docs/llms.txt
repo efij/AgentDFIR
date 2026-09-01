@@ -7,6 +7,11 @@ Status: early development. Evidence-package foundation and the Claude Code colle
 ## Docs
 
 - [Overview](https://efij.github.io/AgentDFIR/): what AI agent forensics is and what AgentDFIR does
+- [Claude Code Forensic Artifacts](https://efij.github.io/AgentDFIR/claude-code-forensic-artifacts): artifact locations, JSONL schema, collection
+- [MCP Forensics](https://efij.github.io/AgentDFIR/mcp-forensics): MCP config and tool-activity investigation
+- [.adfir Package Spec](https://efij.github.io/AgentDFIR/adfir-spec): the open evidence-package format
+- [Event JSON Schema](https://efij.github.io/AgentDFIR/schema/event.schema.json)
+- [Finding JSON Schema](https://efij.github.io/AgentDFIR/schema/finding.schema.json)
 
 ## Facts
 

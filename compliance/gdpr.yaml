@@ -1,0 +1,28 @@
+# AgentDFIR capability mapping — GDPR principles relevant to forensic
+# evidence handling. AgentDFIR provides technical controls that help
+# organizations meet obligations; it does not make any deployment
+# "GDPR compliant" (a legal determination).
+standard: GDPR (EU 2016/679) — principles relevant to evidence handling
+version: 1
+disclaimer: >
+  Forensic collection may legitimately require preserving more data than
+  routine telemetry. AgentDFIR distinguishes collection modes explicitly
+  so organizations can apply their lawful basis and minimization decisions.
+mappings:
+  - principle: "Data minimization (Art. 5(1)(c))"
+    capabilities:
+      - support mode (agentdfir export --support) redacts secrets/PII from a copy
+      - redaction-manifest.json records categories/counts only, never values
+  - principle: "Storage limitation (Art. 5(1)(e))"
+    capabilities:
+      - self-contained packages enable defined retention and secure deletion
+  - principle: "Integrity and confidentiality (Art. 5(1)(f))"
+    capabilities:
+      - full-package encryption (AES-256-GCM); access-restricted forensic mode
+      - secrets never printed by default; inspect --reveal-sensitive is explicit
+  - principle: "Accountability (Art. 5(2))"
+    capabilities:
+      - hash-chained chain of custody; operator and authorization recorded
+  - principle: "Purpose limitation (Art. 5(1)(b))"
+    capabilities:
+      - explicit forensic vs support modes keep collection purpose distinct

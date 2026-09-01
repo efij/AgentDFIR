@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://efij.github.io/AgentDFIR/schema/finding.schema.json",
+  "title": "AgentDFIR Detection Finding",
+  "type": "object",
+  "required": ["rule_id", "severity", "title", "evidence_refs", "status", "endpoint_corroboration"],
+  "properties": {
+    "rule_id": {"type": "string", "examples": ["ORPHAN_AGENT", "CROSS_SESSION_MESSAGE", "PERMISSION_BYPASS_ENABLED", "POTENTIAL_SECRET_EXPOSURE", "TRACE_GAP"]},
+    "severity": {"enum": ["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"]},
+    "title": {"type": "string"},
+    "description": {"type": "string"},
+    "session_id": {"type": "string"},
+    "agent_id": {"type": "string"},
+    "parent_agent_id": {"type": "string", "description": "\"UNKNOWN\" when parentage is unverified."},
+    "related": {"type": "array", "items": {"type": "string"}},
+    "evidence_refs": {"type": "array", "items": {"type": "string"}, "description": "logical_path:line (artifact <id>) — every finding is traceable."},
+    "status": {"$ref": "event.schema.json#/properties/corroboration_state"},
+    "endpoint_corroboration": {"$ref": "event.schema.json#/properties/corroboration_state"},
+    "mitre_atlas": {"type": "string", "description": "Omitted when no valid technique exists."},
+    "mitre_attack": {"type": "string"},
+    "false_positive_notes": {"type": "string"}
+  }
+}

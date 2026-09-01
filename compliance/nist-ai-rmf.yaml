@@ -1,0 +1,37 @@
+# AgentDFIR capability mapping — NIST AI Risk Management Framework
+# (AI RMF 1.0) and the Generative AI Profile (NIST-AI-600-1).
+#
+# Identifies AgentDFIR capabilities that can supply supporting evidence
+# for RMF functions. Not a compliance claim.
+standard: NIST AI RMF 1.0 + Generative AI Profile
+version: 1
+disclaimer: >
+  AgentDFIR supports AI incident-response and traceability workflows. It
+  does not by itself satisfy any RMF outcome; organizational process and
+  governance are required.
+mappings:
+  - function: GOVERN
+    subcategory: "GOVERN 1.5 (monitoring / incident response)"
+    capabilities:
+      - deterministic detections over agent activity
+      - IR-ready reports (HTML/JSON/CSV/STIX/OTel)
+  - function: MAP
+    subcategory: "MAP 4 (impacts / third-party)"
+    capabilities:
+      - MCP server inventory and unexpected-server drift detection
+      - agent/subagent relationship graph with evidence-backed edges
+  - function: MEASURE
+    subcategory: "MEASURE 2.7 (security & resilience)"
+    capabilities:
+      - PERMISSION_BYPASS_ENABLED, POTENTIAL_SECRET_EXPOSURE detections
+      - evidence-vs-claims corroboration states
+  - function: MANAGE
+    subcategory: "MANAGE 4.1 (post-incident)"
+    capabilities:
+      - sealed, verifiable evidence packages and chain of custody
+      - timeline reconstruction across agents, tools, MCP and commands
+  - genai_profile:
+      risk: "Information Integrity / provenance"
+      capabilities:
+        - REPORTED vs OBSERVED vs CORROBORATED distinction
+        - every event and edge traceable to source artifact + offset + hash

@@ -1,0 +1,45 @@
+# AgentDFIR capability mapping — ISO/IEC 27037 (guidelines for
+# identification, collection, acquisition and preservation of digital
+# evidence).
+#
+# This file identifies which AgentDFIR capabilities can PROVIDE SUPPORTING
+# EVIDENCE for the referenced principles. It is NOT a certification and
+# does not assert compliance — those determinations depend on deployment,
+# jurisdiction and organizational process.
+standard: ISO/IEC 27037:2012
+version: 1
+disclaimer: >
+  AgentDFIR provides technical controls that support evidence handling and
+  chain-of-custody processes. It does not make any deployment ISO-certified
+  or render evidence court-admissible; those are legal/organizational
+  determinations.
+mappings:
+  - principle: Auditability
+    clause: "5.4"
+    capabilities:
+      - hash-chained collection.jsonl and chain-of-custody.jsonl
+      - append-only-by-design logs with tamper detection (agentdfir verify)
+  - principle: Repeatability / Reproducibility
+    clause: "5.5"
+    capabilities:
+      - deterministic parsing, normalization and detection (no LLM in core)
+      - content-addressed evidence storage (raw/<sha256>)
+  - principle: Integrity preservation
+    clause: "6.x"
+    capabilities:
+      - SHA-256 per artifact, hashed while copying (torn-read detection)
+      - SHA256SUMS sealing the evidence zone; optional ed25519 SEAL.sig
+  - principle: Chain of custody
+    clause: "7.1"
+    capabilities:
+      - operator identity (OS user + asserted), authorization reference
+      - acquisition start/end, collector version and binary hash recorded
+  - principle: Order of volatility
+    clause: "7.1.2"
+    capabilities:
+      - agentdfir collect --live acquires volatile evidence in RFC 3227 order
+  - principle: Handling without alteration
+    clause: "6.7"
+    capabilities:
+      - symlinks never followed; suspect binaries never executed
+      - original evidence never modified during analysis or redaction
