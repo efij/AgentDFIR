@@ -165,3 +165,58 @@ func trimSpace(s string) string {
 	}
 	return s
 }
+
+// SignFile writes a detached ed25519 signature for an arbitrary file
+// (used for knowledge/rule pack distribution, plan D5).
+func SignFile(dataPath, keyPath, sigPath string) error {
+	priv, err := readKey(keyPath, privBlock)
+	if err != nil {
+		return err
+	}
+	if len(priv) != ed25519.PrivateKeySize {
+		return errors.New("invalid private key size")
+	}
+	data, err := os.ReadFile(dataPath)
+	if err != nil {
+		return err
+	}
+	digest := sha256.Sum256(data)
+	sig := ed25519.Sign(ed25519.PrivateKey(priv), digest[:])
+	pub := ed25519.PrivateKey(priv).Public().(ed25519.PublicKey)
+	out := fmt.Sprintf("algorithm: ed25519\nfile_sha256: %s\nsignature: %s\npublic_key: %s\n",
+		hex.EncodeToString(digest[:]), hex.EncodeToString(sig), hex.EncodeToString(pub))
+	return os.WriteFile(sigPath, []byte(out), 0o644)
+}
+
+// VerifyFileSig verifies a detached signature against a trusted public
+// key PEM. Returns an error describing the failure; nil means valid.
+func VerifyFileSig(dataPath, sigPath, trustedPubPath string) error {
+	pub, err := readKey(trustedPubPath, pubBlock)
+	if err != nil {
+		return err
+	}
+	if len(pub) != ed25519.PublicKeySize {
+		return errors.New("invalid public key size")
+	}
+	sigData, err := os.ReadFile(sigPath)
+	if err != nil {
+		return err
+	}
+	fields := parseFields(string(sigData))
+	sig, err := hex.DecodeString(fields["signature"])
+	if err != nil {
+		return errors.New("malformed signature")
+	}
+	data, err := os.ReadFile(dataPath)
+	if err != nil {
+		return err
+	}
+	digest := sha256.Sum256(data)
+	if fields["public_key"] != hex.EncodeToString(pub) {
+		return errors.New("signature was not made by the trusted key")
+	}
+	if !ed25519.Verify(ed25519.PublicKey(pub), digest[:], sig) {
+		return errors.New("signature does not match file content")
+	}
+	return nil
+}

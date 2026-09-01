@@ -147,13 +147,24 @@ func cmdKeygen(args []string) int {
 	return 0
 }
 
-// cmdSign signs a package's SHA256SUMS.
+// cmdSign signs a package's SHA256SUMS, or (with --file) writes a
+// detached signature for an arbitrary file such as a knowledge pack.
 func cmdSign(args []string) int {
 	fs := flag.NewFlagSet("sign", flag.ContinueOnError)
 	key := fs.String("key", "", "private key path")
+	file := fs.Bool("file", false, "sign an arbitrary file (detached .sig) instead of a package")
 	if err := fs.Parse(args); err != nil || fs.NArg() != 1 || *key == "" {
-		fmt.Fprintln(os.Stderr, "usage: agentdfir sign --key <private-key> <package-dir>")
+		fmt.Fprintln(os.Stderr, "usage: agentdfir sign --key <private-key> [--file] <package-dir|file>")
 		return 2
+	}
+	if *file {
+		sig := fs.Arg(0) + ".sig"
+		if err := seal.SignFile(fs.Arg(0), *key, sig); err != nil {
+			fmt.Fprintln(os.Stderr, "error:", err)
+			return 1
+		}
+		fmt.Printf("Signed %s -> %s (ed25519 detached).\n", fs.Arg(0), sig)
+		return 0
 	}
 	if err := seal.Sign(fs.Arg(0), *key); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)

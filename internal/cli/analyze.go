@@ -7,10 +7,12 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/efij/AgentDFIR/internal/correlate"
 	"github.com/efij/AgentDFIR/internal/detect"
 	"github.com/efij/AgentDFIR/internal/normalize"
+	"github.com/efij/AgentDFIR/internal/rulepack"
 	"github.com/efij/AgentDFIR/internal/sanitize"
 	"github.com/efij/AgentDFIR/internal/schema"
 	"github.com/efij/AgentDFIR/internal/simulate"
@@ -99,6 +101,8 @@ func cmdTimeline(args []string) int {
 func cmdTriage(args []string) int {
 	fs := flag.NewFlagSet("triage", flag.ContinueOnError)
 	triageShellHistory := fs.String("shell-history", "", "correlate against a shell history file (endpoint evidence)")
+	rulesDir := fs.String("rules", "", "directory of declarative JSON rule packs")
+	honeyFile := fs.String("honeytokens", "", "file of planted canary markers (one per line)")
 	if err := fs.Parse(args); err != nil || fs.NArg() != 1 {
 		fmt.Fprintln(os.Stderr, "usage: agentdfir triage <package-dir> [--shell-history <path>]")
 		return 2
@@ -118,7 +122,31 @@ func cmdTriage(args []string) int {
 			fmt.Printf("Endpoint correlation: %d tool call(s) corroborated by shell history.\n", cres.Corroborated)
 		}
 	}
-	findings := detect.RunPackage(res, args[0])
+	var honey []string
+	if *honeyFile != "" {
+		if data, herr := os.ReadFile(*honeyFile); herr == nil {
+			honey = strings.Split(string(data), "\n")
+		} else {
+			fmt.Fprintln(os.Stderr, "honeytokens:", herr)
+		}
+	}
+	findings := detect.RunPackageWithOptions(res, args[0], honey)
+	if *rulesDir != "" {
+		packs, perr := rulepack.LoadDir(*rulesDir)
+		if perr != nil {
+			fmt.Fprintln(os.Stderr, "rule packs:", perr)
+			return 1
+		}
+		extra, perr := rulepack.Apply(packs, res, args[0])
+		if perr != nil {
+			fmt.Fprintln(os.Stderr, "rule packs:", perr)
+			return 1
+		}
+		if len(extra) > 0 {
+			fmt.Printf("Rule packs: %d pack(s) contributed %d finding(s).\n", len(packs), len(extra))
+			findings = append(findings, extra...)
+		}
+	}
 
 	dir := filepath.Join(args[0], "detections")
 	if err := os.MkdirAll(dir, 0o700); err != nil {

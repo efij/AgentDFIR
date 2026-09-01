@@ -212,3 +212,56 @@ func contains(list []string, s string) bool {
 	}
 	return false
 }
+
+// PacksDir returns the knowledge-pack override directory
+// ($AGENTDFIR_PACKS_DIR or ~/.agentdfir/packs).
+func PacksDir() string {
+	if v := os.Getenv("AGENTDFIR_PACKS_DIR"); v != "" {
+		return v
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".agentdfir", "packs")
+}
+
+// LoadOverride returns a signed collector-manifest override for a
+// product, if one is installed AND its detached signature verifies
+// against the trusted key in the packs dir. Invalid or unsigned packs
+// are never loaded (plan D5: signed, updatable knowledge packs).
+// The verify function is injected to avoid a dependency cycle.
+func LoadOverride(productID string, verify func(dataPath, sigPath, trustedPubPath string) error) (*CollectorManifest, string, error) {
+	dir := PacksDir()
+	if dir == "" {
+		return nil, "", nil
+	}
+	pack := filepath.Join(dir, productID+".json")
+	sig := pack + ".sig"
+	pub := filepath.Join(dir, "trusted.pub")
+	if _, err := os.Stat(pack); err != nil {
+		return nil, "", nil // no override installed
+	}
+	if err := verify(pack, sig, pub); err != nil {
+		return nil, pack, fmt.Errorf("pack override REJECTED (signature): %w", err)
+	}
+	data, err := os.ReadFile(pack)
+	if err != nil {
+		return nil, pack, err
+	}
+	var m CollectorManifest
+	if err := json.Unmarshal(data, &m); err != nil {
+		return nil, pack, fmt.Errorf("pack override REJECTED (invalid JSON): %w", err)
+	}
+	if m.Product != productID {
+		return nil, pack, fmt.Errorf("pack override REJECTED (product mismatch: %q)", m.Product)
+	}
+	var entries []ManifestEntry
+	for _, e := range m.Entries {
+		if len(e.Platforms) == 0 || contains(e.Platforms, runtime.GOOS) {
+			entries = append(entries, e)
+		}
+	}
+	m.Entries = entries
+	return &m, pack, nil
+}

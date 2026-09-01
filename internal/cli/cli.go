@@ -39,6 +39,11 @@ Usage:
   agentdfir inspect <pkg> [--reveal-sensitive]  artifact inventory + secret scan
   agentdfir encrypt <pkg>               encrypt a package (AGENTDFIR_PASSPHRASE)
   agentdfir decrypt <file.adfir.enc>    decrypt an encrypted package
+  agentdfir investigate <pkg>           interactive analyst explorer
+  agentdfir replay <pkg>                step through a session, states inline
+  agentdfir monitor [dirs...]           live watch of agent session activity
+  agentdfir explain <pkg>               deterministic case digest (no AI, no transmission)
+  agentdfir update-packs                install signed knowledge-pack overrides
   agentdfir version                     print version
 
 Collect flags:
@@ -93,6 +98,16 @@ func Main(args []string) int {
 		return cmdEncrypt(args[1:])
 	case "decrypt":
 		return cmdDecrypt(args[1:])
+	case "investigate":
+		return cmdInvestigate(args[1:])
+	case "replay":
+		return cmdReplay(args[1:])
+	case "monitor":
+		return cmdMonitor(args[1:])
+	case "explain":
+		return cmdExplain(args[1:])
+	case "update-packs":
+		return cmdUpdatePacks(args[1:])
 	case "version", "--version", "-v":
 		fmt.Printf("agentdfir %s (adfir format %s)\n", version.Version, version.ADFIRVersion)
 		return 0
@@ -178,6 +193,12 @@ func cmdCollect(args []string) int {
 	if man == nil {
 		fmt.Fprintf(os.Stderr, "no collector implemented yet for product %q\n", sanitize.Terminal(productID))
 		return 2
+	}
+	if override, packPath, oErr := products.LoadOverride(productID, seal.VerifyFileSig); oErr != nil {
+		fmt.Fprintln(os.Stderr, "warning:", oErr, "- using embedded manifest")
+	} else if override != nil {
+		man = override
+		fmt.Printf("Using signed knowledge-pack override: %s\n", packPath)
 	}
 	prodDef, err := products.ByID(productID)
 	if err != nil {

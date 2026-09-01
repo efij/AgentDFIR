@@ -16,13 +16,7 @@ import (
 
 // RunPackage evaluates event rules plus package-aware rules.
 func RunPackage(res *schema.Normalized, pkgDir string) []schema.Finding {
-	findings := Run(res)
-	man, err := readManifest(pkgDir)
-	if err == nil {
-		findings = append(findings, permissionBypass(man, pkgDir)...)
-		findings = append(findings, secretExposure(man, pkgDir)...)
-	}
-	return sortBySeverity(findings)
+	return RunPackageWithOptions(res, pkgDir, nil)
 }
 
 func readManifest(pkgDir string) (*casepkg.Manifest, error) {

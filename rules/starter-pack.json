@@ -1,0 +1,46 @@
+{
+  "pack": "agentdfir-starter",
+  "version": "1",
+  "rules": [
+    {
+      "id": "PASTE_SITE_DESTINATION",
+      "title": "Paste/Transfer Site Destination",
+      "description": "Agent-invoked command references a known paste or file-transfer site — a common staging destination.",
+      "severity": "HIGH",
+      "confidence": "medium",
+      "match": {"type": "command", "contains": ["pastebin.com", "transfer.sh", "0x0.st", "file.io", "paste.ee", "hastebin.com"]},
+      "false_positive_notes": "Developers legitimately share snippets; weigh against what data the same session touched.",
+      "mitre_attack": "T1567"
+    },
+    {
+      "id": "EVIDENCE_STAGING",
+      "title": "Archive Staging Before Network Activity",
+      "description": "Agent command aggregates local data into an archive — review for staging preceding a network send.",
+      "severity": "MEDIUM",
+      "confidence": "low",
+      "match": {"type": "command", "regex": "(tar\\s+-c|zip\\s+-r|7z\\s+a)\\b"},
+      "false_positive_notes": "Archiving is routine in builds and backups; only meaningful alongside unexpected destinations.",
+      "mitre_attack": "T1074"
+    },
+    {
+      "id": "CURL_PIPE_SHELL",
+      "title": "Remote Script Piped to Shell",
+      "description": "Command downloads remote content and pipes it directly into a shell interpreter.",
+      "severity": "HIGH",
+      "confidence": "high",
+      "match": {"type": "command", "regex": "(curl|wget)[^|;&]*\\|\\s*(ba|z|da)?sh"},
+      "false_positive_notes": "Common in legitimate installers (brew, rustup); verify the source domain.",
+      "mitre_attack": "T1059.004"
+    },
+    {
+      "id": "MCP_WILDCARD_PERMISSIONS",
+      "title": "Wildcard Tool Permissions Configured",
+      "description": "Configuration grants blanket tool permissions (e.g. Bash(*)), removing per-command review.",
+      "severity": "MEDIUM",
+      "confidence": "medium",
+      "match": {"type": "config", "contains": ["\"Bash(*)\"", "\"Bash(*:*)\""]},
+      "false_positive_notes": "Some teams intentionally allow blanket Bash on sandboxed CI hosts.",
+      "references": ["https://efij.github.io/AgentDFIR/"]
+    }
+  ]
+}
