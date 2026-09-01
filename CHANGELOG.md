@@ -7,6 +7,26 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.5.1] — 2026-09-02
+
+Streaming analysis pipeline. Closes the memory gap noted in 0.5.0: analysis
+memory is now bounded by session/agent/artifact count, not event count.
+
+### Changed
+- Parsers emit events through a sink instead of accumulating them; normalize
+  streams events straight to the overlay; `triage` detection re-reads the
+  overlay in two bounded passes (`detect.RunStream`).
+- Measured: full 24-rule triage of a 400k-event / 100 MB package went from
+  ~1.23 GB RSS to ~18 MB RSS (collection was already streaming). Wall time is
+  unchanged (~20 s) — it is rule-CPU-bound, not memory-bound, and multi-GB
+  packages no longer risk OOM.
+- A stream/in-memory equivalence test guarantees `RunStream` produces exactly
+  the same findings as the in-memory `RunAll`.
+
+### Notes
+- Optional `triage --shell-history` and `--rules` still load full events on
+  demand (they need them); the default path stays bounded.
+
 ## [0.5.0] — 2026-09-02
 
 Analysis hardening. Completes the plan §14 detection set, fixes a large-
@@ -202,7 +222,8 @@ and interoperability exports.
   on all evidence-derived output; bounded parsers; zip-slip defense on archive
   extraction; secrets never printed by default.
 
-[Unreleased]: https://github.com/efij/AgentDFIR/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/efij/AgentDFIR/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/efij/AgentDFIR/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/efij/AgentDFIR/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/efij/AgentDFIR/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/efij/AgentDFIR/compare/v0.2.0...v0.3.0

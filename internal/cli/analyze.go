@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bufio"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -110,19 +111,44 @@ func cmdTriage(args []string) int {
 		return 2
 	}
 	pkg := fs.Arg(0)
-	res, err := normalize.ParsePackage(pkg) // single parse (plan v0.5.0 perf)
+	// Streaming pipeline (v0.5.1): events are written to the overlay as
+	// they are parsed and never all held in memory; detection re-reads
+	// the overlay in bounded passes. Memory scales with sessions/agents,
+	// not event count.
+	dir := filepath.Join(pkg, "normalized")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		return 1
+	}
+	evFile, err := os.OpenFile(filepath.Join(dir, "events.jsonl"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
 	}
-	if rc := writeOverlay(pkg, res); rc != 0 {
-		return rc
+	enc := json.NewEncoder(evFile)
+	sr, err := normalize.ParseStream(pkg, func(ev schema.Event) error { return enc.Encode(ev) })
+	if err != nil {
+		evFile.Close()
+		fmt.Fprintln(os.Stderr, "error:", err)
+		return 1
 	}
-	args = []string{pkg}
+	evFile.Close()
+	if err := writeJSONL(filepath.Join(dir, "entities.jsonl"), len(sr.Entities), func(i int) any { return sr.Entities[i] }); err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		return 1
+	}
+	if err := writeJSONL(filepath.Join(dir, "relationships.jsonl"), len(sr.Relationships), func(i int) any { return sr.Relationships[i] }); err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		return 1
+	}
+	fmt.Printf("Normalized: %d events, %d entities, %d relationships -> %s\n",
+		sr.EventCount, len(sr.Entities), len(sr.Relationships), dir)
 	if *triageShellHistory != "" {
-		cres, cerr := correlate.Apply(res.Events, &correlate.ShellHistoryAdapter{Path: *triageShellHistory})
-		if cerr == nil && cres.Corroborated > 0 {
-			fmt.Printf("Endpoint correlation: %d tool call(s) corroborated by shell history.\n", cres.Corroborated)
+		if evs := loadEvents(dir); evs != nil {
+			cres, cerr := correlate.Apply(evs, &correlate.ShellHistoryAdapter{Path: *triageShellHistory})
+			if cerr == nil && cres.Corroborated > 0 {
+				fmt.Printf("Endpoint correlation: %d tool call(s) corroborated by shell history.\n", cres.Corroborated)
+			}
 		}
 	}
 	var honey []string
@@ -137,16 +163,20 @@ func cmdTriage(args []string) int {
 	if *knownDest != "" {
 		extraDest = strings.Split(*knownDest, ",")
 	}
-	findings := detect.RunAll(res, args[0], detect.Options{
+	findings, err := detect.RunStream(pkg, sr.Entities, detect.Options{
 		Honeytokens: honey, SpawnThreshold: *spawnTh, KnownDestinations: extraDest,
 	})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		return 1
+	}
 	if *rulesDir != "" {
 		packs, perr := rulepack.LoadDir(*rulesDir)
 		if perr != nil {
 			fmt.Fprintln(os.Stderr, "rule packs:", perr)
 			return 1
 		}
-		extra, perr := rulepack.Apply(packs, res, args[0])
+		extra, perr := rulepack.Apply(packs, &schema.Normalized{Events: loadEvents(dir)}, pkg)
 		if perr != nil {
 			fmt.Fprintln(os.Stderr, "rule packs:", perr)
 			return 1
@@ -157,13 +187,13 @@ func cmdTriage(args []string) int {
 		}
 	}
 
-	dir := filepath.Join(args[0], "detections")
-	if err := os.MkdirAll(dir, 0o700); err != nil {
+	detDir := filepath.Join(pkg, "detections")
+	if err := os.MkdirAll(detDir, 0o700); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
 	}
 	data, _ := json.MarshalIndent(findings, "", "  ")
-	if err := os.WriteFile(filepath.Join(dir, "findings.json"), append(data, '\n'), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(detDir, "findings.json"), append(data, '\n'), 0o600); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
 	}
@@ -195,7 +225,7 @@ func cmdTriage(args []string) int {
 		}
 		fmt.Printf("  MITRE ATLAS: %s\n", atlas)
 	}
-	fmt.Printf("\nfindings written to %s\n", filepath.Join(dir, "findings.json"))
+	fmt.Printf("\nfindings written to %s\n", filepath.Join(detDir, "findings.json"))
 	return 0
 }
 
@@ -220,6 +250,26 @@ func cmdSimulate(args []string) int {
 	fmt.Printf("Synthetic scenario %q written to %s\n", *scenario, *out)
 	fmt.Printf("Next: agentdfir collect --product claude --path %s\n", *out)
 	return 0
+}
+
+// loadEvents reads back the streamed events overlay (used only by the
+// optional --shell-history and --rules features, which need full events).
+func loadEvents(normalizedDir string) []schema.Event {
+	f, err := os.Open(filepath.Join(normalizedDir, "events.jsonl"))
+	if err != nil {
+		return nil
+	}
+	defer f.Close()
+	var out []schema.Event
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
+	for sc.Scan() {
+		var ev schema.Event
+		if json.Unmarshal(sc.Bytes(), &ev) == nil {
+			out = append(out, ev)
+		}
+	}
+	return out
 }
 
 // writeOverlay writes the normalized/ overlay from an already-parsed
