@@ -108,7 +108,7 @@ func cmdTriage(args []string) int {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
 	}
-	findings := detect.Run(res)
+	findings := detect.RunPackage(res, args[0])
 
 	dir := filepath.Join(args[0], "detections")
 	if err := os.MkdirAll(dir, 0o700); err != nil {

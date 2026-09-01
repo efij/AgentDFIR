@@ -28,6 +28,8 @@ Usage:
   agentdfir timeline <package-dir>      print the unified, evidence-linked timeline
   agentdfir triage <package-dir>        normalize + run detections, print findings
   agentdfir simulate [flags]            generate a synthetic incident scenario
+  agentdfir diff <pkg-a> <pkg-b>        configuration drift between two packages
+  agentdfir baseline create|check       org known-good profiles
   agentdfir version                     print version
 
 Collect flags:
@@ -64,6 +66,10 @@ func Main(args []string) int {
 		return cmdTriage(args[1:])
 	case "simulate":
 		return cmdSimulate(args[1:])
+	case "diff":
+		return cmdDiff(args[1:])
+	case "baseline":
+		return cmdBaseline(args[1:])
 	case "version", "--version", "-v":
 		fmt.Printf("agentdfir %s (adfir format %s)\n", version.Version, version.ADFIRVersion)
 		return 0
