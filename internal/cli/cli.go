@@ -15,6 +15,7 @@ import (
 	"github.com/efij/AgentDFIR/internal/collector"
 	"github.com/efij/AgentDFIR/internal/products"
 	"github.com/efij/AgentDFIR/internal/sanitize"
+	"github.com/efij/AgentDFIR/internal/seal"
 	"github.com/efij/AgentDFIR/internal/version"
 )
 
@@ -30,6 +31,10 @@ Usage:
   agentdfir simulate [flags]            generate a synthetic incident scenario
   agentdfir diff <pkg-a> <pkg-b>        configuration drift between two packages
   agentdfir baseline create|check       org known-good profiles
+  agentdfir report <package-dir>        HTML/JSON/CSV/STIX/OTel reports
+  agentdfir export --support <pkg>      derived, redacted support package
+  agentdfir keygen                      generate ed25519 signing keypair
+  agentdfir sign --key <k> <pkg>        sign a sealed package (SEAL.sig)
   agentdfir version                     print version
 
 Collect flags:
@@ -70,6 +75,14 @@ func Main(args []string) int {
 		return cmdDiff(args[1:])
 	case "baseline":
 		return cmdBaseline(args[1:])
+	case "report":
+		return cmdReport(args[1:])
+	case "export":
+		return cmdExport(args[1:])
+	case "keygen":
+		return cmdKeygen(args[1:])
+	case "sign":
+		return cmdSign(args[1:])
 	case "version", "--version", "-v":
 		fmt.Printf("agentdfir %s (adfir format %s)\n", version.Version, version.ADFIRVersion)
 		return 0
@@ -262,11 +275,14 @@ func cmdCollect(args []string) int {
 }
 
 func cmdVerify(args []string) int {
-	if len(args) != 1 {
-		fmt.Fprintln(os.Stderr, "usage: agentdfir verify <package-dir>")
+	fs := flag.NewFlagSet("verify", flag.ContinueOnError)
+	pubkey := fs.String("pubkey", "", "expected signer public key (hex) to pin")
+	if err := fs.Parse(args); err != nil || fs.NArg() != 1 {
+		fmt.Fprintln(os.Stderr, "usage: agentdfir verify <package-dir> [--pubkey <hex>]")
 		return 2
 	}
-	res, err := casepkg.Verify(args[0])
+	pkgArg := fs.Arg(0)
+	res, err := casepkg.Verify(pkgArg)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
@@ -275,6 +291,18 @@ func cmdVerify(args []string) int {
 	fmt.Printf("Artifacts OK:       %d (not acquired: %d)\n", res.ArtifactsOK, res.ArtifactsFailed)
 	fmt.Printf("Collection records: %d (hash chain)\n", res.CollectionRecs)
 	fmt.Printf("Custody records:    %d (hash chain)\n", res.CustodyRecs)
+	sigRes, sigErr := seal.Verify(pkgArg, *pubkey)
+	switch {
+	case sigErr != nil:
+		fmt.Printf("Signature:          error: %v\n", sigErr)
+	case !sigRes.Present:
+		fmt.Println("Signature:          none (package is unsigned)")
+	case sigRes.Valid:
+		fmt.Printf("Signature:          VALID (ed25519, key %.16s…)\n", sigRes.PublicKey)
+	default:
+		fmt.Printf("Signature:          INVALID — %s\n", sanitize.Terminal(sigRes.Reason))
+		res.Problems = append(res.Problems, "SEAL.sig: "+sigRes.Reason)
+	}
 	if len(res.Problems) == 0 {
 		fmt.Println("Result:             VERIFIED — no modifications detected")
 		return 0
