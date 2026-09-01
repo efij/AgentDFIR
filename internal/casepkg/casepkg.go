@@ -346,12 +346,12 @@ func (b *Builder) writeSums() error {
 
 // VerifyResult reports the outcome of package verification.
 type VerifyResult struct {
-	FilesChecked     int
-	CollectionRecs   int
-	CustodyRecs      int
-	ArtifactsOK      int
-	ArtifactsFailed  int
-	Problems         []string
+	FilesChecked    int
+	CollectionRecs  int
+	CustodyRecs     int
+	ArtifactsOK     int
+	ArtifactsFailed int
+	Problems        []string
 }
 
 // Verify checks a sealed package: SHA256SUMS coverage and correctness,

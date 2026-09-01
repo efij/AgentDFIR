@@ -10,7 +10,49 @@ Think KAPE / Velociraptor for the agentic-AI forensic layer. AgentDFIR lets an i
 
 ## Status
 
-Early development. Phase 1 in progress: sealed evidence packages (`.adfir`), product detection, and the Claude Code collector (`detect`, `collect`, `verify`).
+Early development. Working today: sealed evidence packages (`.adfir`), product detection, the Claude Code collector, and tamper-evident verification.
+
+## Quick start
+
+```sh
+go build -trimpath -o agentdfir ./cmd/agentdfir
+
+# Discover installed AI tooling (never executes suspect binaries)
+./agentdfir detect
+
+# Forensic acquisition of Claude Code artifacts for the current user
+./agentdfir collect --product claude --operator "Your Name"
+
+# Acquisition from an offline home directory / mounted image
+./agentdfir collect --product claude --path /mnt/image/Users/suspect \
+    --case-id CASE-2026-042 --authorization "IR-TICKET-123"
+
+# Verify package integrity — detects any modification of evidence,
+# manifests, or the hash-chained collection/custody logs
+./agentdfir verify CASE-2026-042.adfir
+```
+
+## Evidence package (`.adfir`)
+
+Every acquisition produces a sealed, self-describing package:
+
+```
+case.adfir/
+├── raw/<sha256>            content-addressed evidence bytes (deduped)
+├── manifest.json           per-artifact metadata incl. logical paths
+├── collection.jsonl        hash-chained collection log
+├── chain-of-custody.jsonl  hash-chained custody log
+├── case.json               case, operator, timezone/clock metadata
+└── SHA256SUMS              covers the sealed zone exactly
+```
+
+Acquisition guarantees:
+
+- **Lossless** — nothing is redacted or rewritten at collection time
+- **Hash-while-copy** — hashes describe exactly the bytes preserved, with torn-read detection for files being written by live agents
+- **Symlinks are never followed** — recorded as metadata (a planted symlink cannot pull outside files into evidence)
+- **Every failure recorded** — access denied, size bounds, irregular files
+- **Tamper-evident** — one flipped byte anywhere in the sealed zone fails `verify`; hash-chained logs detect record edits, deletions and insertions
 
 ## Core Principle
 
