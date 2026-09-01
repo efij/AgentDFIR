@@ -13,6 +13,7 @@ import (
 
 	"github.com/efij/AgentDFIR/internal/casepkg"
 	"github.com/efij/AgentDFIR/internal/collector"
+	"github.com/efij/AgentDFIR/internal/live"
 	"github.com/efij/AgentDFIR/internal/products"
 	"github.com/efij/AgentDFIR/internal/sanitize"
 	"github.com/efij/AgentDFIR/internal/seal"
@@ -35,6 +36,7 @@ Usage:
   agentdfir export --support <pkg>      derived, redacted support package
   agentdfir keygen                      generate ed25519 signing keypair
   agentdfir sign --key <k> <pkg>        sign a sealed package (SEAL.sig)
+  agentdfir inspect <pkg> [--reveal-sensitive]  artifact inventory + secret scan
   agentdfir version                     print version
 
 Collect flags:
@@ -83,6 +85,8 @@ func Main(args []string) int {
 		return cmdKeygen(args[1:])
 	case "sign":
 		return cmdSign(args[1:])
+	case "inspect":
+		return cmdInspect(args[1:])
 	case "version", "--version", "-v":
 		fmt.Printf("agentdfir %s (adfir format %s)\n", version.Version, version.ADFIRVersion)
 		return 0
@@ -139,6 +143,8 @@ func cmdCollect(args []string) int {
 	offlineRoot := fs.String("path", "", "offline profile root")
 	authz := fs.String("authorization", "", "authorization reference")
 	maxFileMB := fs.Int64("max-file-mb", 0, "per-artifact size bound (MiB)")
+	liveMode := fs.Bool("live", false, "collect volatile evidence first (RFC 3227 order)")
+	signKey := fs.String("sign", "", "sign the sealed package with this ed25519 private key")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -248,6 +254,15 @@ func cmdCollect(args []string) int {
 	_ = b.Log("collection_run_started", map[string]any{
 		"product": productID, "profile_root": profileRoot, "config_root": configRoot,
 	})
+	var liveStats *live.Stats
+	if *liveMode {
+		// Volatile evidence first (RFC 3227): clock, users, processes,
+		// network — before slower filesystem acquisition.
+		liveStats, err = live.Collect(b, host, osUser)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "live acquisition error (continuing):", err)
+		}
+	}
 	st, runErr := collector.Run(b, man, opts)
 	_ = b.Log("collection_run_finished", map[string]any{
 		"acquired": st.Acquired, "symlinks": st.Symlinks, "skipped": st.Skipped,
@@ -258,6 +273,12 @@ func cmdCollect(args []string) int {
 		fmt.Fprintln(os.Stderr, "seal error:", err)
 		return 1
 	}
+	if *signKey != "" {
+		if err := seal.Sign(dest, *signKey); err != nil {
+			fmt.Fprintln(os.Stderr, "sign error:", err)
+			return 1
+		}
+	}
 	if runErr != nil {
 		fmt.Fprintln(os.Stderr, "collection error (package sealed with partial evidence):", runErr)
 	}
@@ -267,6 +288,12 @@ func cmdCollect(args []string) int {
 	fmt.Printf("Acquired:  %d artifacts (%d bytes)\n", st.Acquired, st.TotalBytes)
 	fmt.Printf("Symlinks:  %d recorded (never followed)\n", st.Symlinks)
 	fmt.Printf("Skipped:   %d   Failed: %d\n", st.Skipped, st.Failed)
+	if liveStats != nil {
+		fmt.Printf("Volatile:  %d collected, %d failed (live mode)\n", liveStats.Collected, liveStats.Failed)
+	}
+	if *signKey != "" {
+		fmt.Println("Signed:    SEAL.sig written (ed25519).")
+	}
 	fmt.Println("Sealed:    SHA256SUMS written; run `agentdfir verify` to confirm integrity.")
 	if runErr != nil {
 		return 1
