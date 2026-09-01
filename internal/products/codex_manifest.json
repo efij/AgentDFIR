@@ -1,0 +1,13 @@
+{
+  "product": "codex-cli",
+  "entries": [
+    { "id": "codex.config", "paths": ["${CONFIG_ROOT}/config.toml", "${CONFIG_ROOT}/config.json"], "category": "product_config", "sensitivity": "high" },
+    { "id": "codex.sessions", "paths": ["${CONFIG_ROOT}/sessions/**"], "category": "agent_session", "sensitivity": "high" },
+    { "id": "codex.archived_sessions", "paths": ["${CONFIG_ROOT}/archived_sessions/**"], "category": "agent_session", "sensitivity": "high" },
+    { "id": "codex.history", "paths": ["${CONFIG_ROOT}/history.jsonl"], "category": "prompt_history", "sensitivity": "high" },
+    { "id": "codex.instructions", "paths": ["${CONFIG_ROOT}/AGENTS.md", "${CONFIG_ROOT}/instructions.md"], "category": "agent_instructions", "sensitivity": "medium" },
+    { "id": "codex.auth", "paths": ["${CONFIG_ROOT}/auth.json"], "category": "credentials", "sensitivity": "critical" },
+    { "id": "codex.logs", "paths": ["${CONFIG_ROOT}/log/**"], "category": "debug_logs", "sensitivity": "medium" },
+    { "id": "codex.prompts", "paths": ["${CONFIG_ROOT}/prompts/**"], "category": "agent_instructions", "sensitivity": "medium" }
+  ]
+}

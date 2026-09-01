@@ -126,7 +126,7 @@ Ships with wrappers for tools IR teams already run:
 | ✅ | Claude Code: detect, collect, normalize, timeline, triage |
 | ✅ | Detections: orphan agents, cross-agent messaging, destructive commands, trace gaps |
 | ✅ | `simulate` — synthetic incident generation (adversary emulation for AI agents) |
-| 🔜 | Codex CLI, Cursor, Gemini CLI, Copilot collectors + parsers |
+| 🟡 | Codex CLI: acquisition ✅, parser next · Cursor, Gemini CLI, Copilot to follow |
 | 🔜 | Endpoint correlation (process, DNS, EDR, MCP gateway logs) |
 | 🔜 | Interactive HTML reports (self-contained, network-silent), STIX 2.1, OTel export |
 | 🔜 | Live monitoring mode, session replay viewer |

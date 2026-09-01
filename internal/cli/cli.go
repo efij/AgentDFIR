@@ -125,8 +125,11 @@ func cmdCollect(args []string) int {
 	}
 
 	productID := *product
-	if productID == "claude" {
+	switch productID {
+	case "claude":
 		productID = "claude-code"
+	case "codex":
+		productID = "codex-cli"
 	}
 	man, err := products.Manifest(productID)
 	if err != nil {
@@ -136,6 +139,11 @@ func cmdCollect(args []string) int {
 	if man == nil {
 		fmt.Fprintf(os.Stderr, "no collector implemented yet for product %q\n", sanitize.Terminal(productID))
 		return 2
+	}
+	prodDef, err := products.ByID(productID)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		return 1
 	}
 
 	// Resolve roots.
@@ -152,10 +160,12 @@ func cmdCollect(args []string) int {
 		profileRoot = home
 		systemRoot = "/"
 	}
-	configRoot := filepath.Join(profileRoot, ".claude")
-	if *offlineRoot == "" {
-		if v := os.Getenv("CLAUDE_CONFIG_DIR"); v != "" {
+	configRoot := filepath.Join(profileRoot, prodDef.ConfigDirs[0])
+	var envOverride string
+	if *offlineRoot == "" && prodDef.ConfigEnv != "" {
+		if v := os.Getenv(prodDef.ConfigEnv); v != "" {
 			configRoot = v
+			envOverride = v
 		}
 	}
 
@@ -184,8 +194,8 @@ func cmdCollect(args []string) int {
 		info.Notes["offline_root"] = *offlineRoot
 	} else {
 		info.Notes["mode"] = "current-user"
-		if v := os.Getenv("CLAUDE_CONFIG_DIR"); v != "" {
-			info.Notes["claude_config_dir_override"] = v
+		if envOverride != "" {
+			info.Notes["config_dir_override"] = envOverride
 		}
 	}
 

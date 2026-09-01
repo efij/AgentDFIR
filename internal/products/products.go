@@ -10,6 +10,7 @@ import (
 	_ "embed"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -23,6 +24,9 @@ var productsJSON []byte
 
 //go:embed claude_manifest.json
 var claudeManifestJSON []byte
+
+//go:embed codex_manifest.json
+var codexManifestJSON []byte
 
 // Product describes how to detect one AI agent product.
 type Product struct {
@@ -63,11 +67,17 @@ func All() ([]Product, error) {
 // Manifest returns the collector manifest for a product ID, or nil if no
 // collector is implemented yet.
 func Manifest(productID string) (*CollectorManifest, error) {
-	if productID != "claude-code" {
+	var raw []byte
+	switch productID {
+	case "claude-code":
+		raw = claudeManifestJSON
+	case "codex-cli":
+		raw = codexManifestJSON
+	default:
 		return nil, nil
 	}
 	var m CollectorManifest
-	if err := json.Unmarshal(claudeManifestJSON, &m); err != nil {
+	if err := json.Unmarshal(raw, &m); err != nil {
 		return nil, err
 	}
 	var entries []ManifestEntry
@@ -78,6 +88,20 @@ func Manifest(productID string) (*CollectorManifest, error) {
 	}
 	m.Entries = entries
 	return &m, nil
+}
+
+// ByID returns one product definition by its ID.
+func ByID(id string) (*Product, error) {
+	prods, err := All()
+	if err != nil {
+		return nil, err
+	}
+	for i := range prods {
+		if prods[i].ID == id {
+			return &prods[i], nil
+		}
+	}
+	return nil, fmt.Errorf("unknown product %q", id)
 }
 
 // Detection is the result of detecting one product on a host.
