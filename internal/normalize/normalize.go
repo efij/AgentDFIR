@@ -7,6 +7,7 @@ package normalize
 import (
 	"github.com/efij/AgentDFIR/internal/parsers/claudejsonl"
 	"github.com/efij/AgentDFIR/internal/parsers/codexjsonl"
+	"github.com/efij/AgentDFIR/internal/parsers/genericchat"
 	"github.com/efij/AgentDFIR/internal/schema"
 )
 
@@ -14,6 +15,7 @@ import (
 var registry = []func(pkgDir string) (*schema.Normalized, error){
 	claudejsonl.ParsePackage,
 	codexjsonl.ParsePackage,
+	genericchat.ParsePackage,
 }
 
 // ParsePackage runs all parsers and merges results. Artifacts no parser
