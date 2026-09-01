@@ -1,0 +1,16 @@
+cff-version: 1.2.0
+message: "If you use AgentDFIR in your research or investigations, please cite it as below."
+title: "AgentDFIR: Digital Forensics and Incident Response for AI Agents"
+type: software
+authors:
+  - family-names: "Jeremiah"
+    given-names: "Efi"
+repository-code: "https://github.com/efij/AgentDFIR"
+url: "https://efij.github.io/AgentDFIR/"
+license: MIT
+keywords:
+  - digital-forensics
+  - incident-response
+  - ai-agents
+  - ai-security
+  - dfir

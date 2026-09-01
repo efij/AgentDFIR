@@ -1,71 +1,142 @@
-# AgentDFIR
+<div align="center">
+
+# 🔍 AgentDFIR
 
 **Open-source digital forensics and incident response for AI agents.**
 
-Collect, preserve, reconstruct and investigate activity from Claude Code, Codex, Cursor, Gemini, Copilot, OpenClaw and other AI agents.
+*Collect, preserve, reconstruct and investigate activity from Claude Code, Codex CLI, Cursor, Gemini CLI, Copilot and other AI agents.*
 
-Think KAPE / Velociraptor for the agentic-AI forensic layer. AgentDFIR lets an incident responder answer:
+[![CI](https://github.com/efij/AgentDFIR/actions/workflows/ci.yml/badge.svg)](https://github.com/efij/AgentDFIR/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Go](https://img.shields.io/badge/Go-%E2%89%A51.22-00ADD8?logo=go&logoColor=white)](go.mod)
+[![Zero deps](https://img.shields.io/badge/runtime%20deps-zero-brightgreen)](go.mod)
 
-> Who instructed which AI agent/subagent to perform what action, through which tool/MCP/identity, against which resource, what actually happened on the endpoint, and what evidence proves it?
+[Website](https://efij.github.io/AgentDFIR/) · [Quick start](#-quick-start) · [Evidence format](#-the-adfir-evidence-package) · [Contributing](CONTRIBUTING.md)
 
-## Status
+</div>
 
-Early development. Working today: sealed evidence packages (`.adfir`), product detection, the Claude Code collector, and tamper-evident verification.
+---
 
-## Quick start
+AI coding agents execute shell commands, edit files, spawn subagents, call MCP servers and push code. When something goes wrong — a prompt injection, a poisoned MCP tool, a rogue subagent, quiet data exfiltration — the transcripts and configs they leave on the endpoint are **primary forensic evidence**. Almost no tooling exists to acquire and analyze them properly.
+
+**AgentDFIR is that tooling.** Think KAPE / Velociraptor for the agentic-AI layer. It lets an incident responder answer:
+
+> *Who instructed which AI agent/subagent to perform what action, through which tool/MCP/identity, against which resource — and what evidence proves it?*
+
+## ⚖️ Evidence vs. claims — the core principle
+
+AI-generated text is **never** automatically treated as proof of execution. Every action gets a corroboration state:
+
+| State | Meaning |
+|---|---|
+| `REQUESTED` | a human asked for it |
+| `REPORTED` | the model *said* it happened — narrative, not proof |
+| `OBSERVED` | a tool-call record exists in the transcript |
+| `CORROBORATED` | independent endpoint/network evidence confirms it |
+| `CONTRADICTED` | endpoint evidence shows it did **not** occur |
+| `UNKNOWN` | insufficient evidence |
+
+An agent claiming *"I executed curl example.com"* with no matching tool call stays `REPORTED` — and AgentDFIR shows you exactly that.
+
+## ⚡ Quick start
 
 ```sh
 go build -trimpath -o agentdfir ./cmd/agentdfir
 
-# Discover installed AI tooling (never executes suspect binaries)
+# Discover installed AI tooling — never executes suspect binaries
 ./agentdfir detect
 
-# Forensic acquisition of Claude Code artifacts for the current user
+# Forensic acquisition (lossless, sealed, hash-chained)
 ./agentdfir collect --product claude --operator "Your Name"
 
-# Acquisition from an offline home directory / mounted image
+# From an offline image / copied home directory
 ./agentdfir collect --product claude --path /mnt/image/Users/suspect \
     --case-id CASE-2026-042 --authorization "IR-TICKET-123"
 
-# Verify package integrity — detects any modification of evidence,
-# manifests, or the hash-chained collection/custody logs
+# Tamper-evident verification — one flipped byte anywhere fails
 ./agentdfir verify CASE-2026-042.adfir
+
+# Investigate
+./agentdfir timeline CASE-2026-042.adfir     # unified, evidence-linked timeline
+./agentdfir triage   CASE-2026-042.adfir     # detections + IR-ready findings
+
+# Train / test / demo with synthetic incidents
+./agentdfir simulate --scenario orphan-agent --out demo-profile
 ```
 
-## Evidence package (`.adfir`)
+Example finding:
 
-Every acquisition produces a sealed, self-describing package:
+```
+HIGH — Unexpected Agent Activity [ORPHAN_AGENT]
+  Session: 9b2d7e3a-…
+  Agent:   adad4e2c    Parent: UNKNOWN
+  Finding: Agent appeared without a verified parent invocation.
+  Related: SendMessage/resume interaction with agent a7c3f19b
+  Evidence: .claude/projects/…/agent-adad4e2c.jsonl:1 (artifact 6443bed58e63)
+  Status: OBSERVED    Endpoint corroboration: UNKNOWN
+```
+
+No auto-escalation to "compromise" or "exfiltration" — findings state exactly what the evidence shows, with clickable references to the raw artifact behind every claim.
+
+## 📦 The `.adfir` evidence package
+
+Every acquisition produces a sealed, self-describing, independently parseable package:
 
 ```
 case.adfir/
 ├── raw/<sha256>            content-addressed evidence bytes (deduped)
-├── manifest.json           per-artifact metadata incl. logical paths
+├── manifest.json           per-artifact metadata + logical paths
 ├── collection.jsonl        hash-chained collection log
 ├── chain-of-custody.jsonl  hash-chained custody log
 ├── case.json               case, operator, timezone/clock metadata
-└── SHA256SUMS              covers the sealed zone exactly
+├── SHA256SUMS              covers the sealed zone exactly
+├── normalized/             events / entities / relationships (regenerable)
+└── detections/             findings.json
 ```
 
-Acquisition guarantees:
+**Acquisition guarantees:**
 
-- **Lossless** — nothing is redacted or rewritten at collection time
-- **Hash-while-copy** — hashes describe exactly the bytes preserved, with torn-read detection for files being written by live agents
-- **Symlinks are never followed** — recorded as metadata (a planted symlink cannot pull outside files into evidence)
-- **Every failure recorded** — access denied, size bounds, irregular files
-- **Tamper-evident** — one flipped byte anywhere in the sealed zone fails `verify`; hash-chained logs detect record edits, deletions and insertions
+- 🔒 **Lossless** — nothing redacted or rewritten at collection time
+- #️⃣ **Hash-while-copy** — hashes describe exactly the preserved bytes; torn-read detection for files a live agent is still writing
+- 🔗 **Symlinks never followed** — a planted symlink can't pull `~/.ssh` into evidence
+- 📝 **Every failure recorded** — access denied, size bounds, irregular files
+- 🧾 **Tamper-evident** — hash-chained logs detect edits, deletions and forged appends; `verify` catches a single flipped byte
 
-## Core Principle
+## 🛡️ Built for hostile evidence
 
-AgentDFIR always distinguishes:
+AI incident evidence may *intentionally* contain prompt injection and anti-analysis payloads. Therefore:
 
-1. what the **human requested**
-2. what the **model said**
-3. what the **agent/tool attempted**
-4. what the **endpoint actually executed**
-5. what **independent evidence corroborates**
+- Suspect binaries are **never executed** — not even for `--version`
+- Transcript parsers are size-bounded; malformed regions become `TRACE_GAP` findings, never silent skips
+- ANSI escapes and invisible Unicode (bidi overrides, zero-width, tag smuggling) are neutralized in **all** evidence-derived output — your terminal is part of the attack surface
+- Model text is data, never instructions
 
-AI-generated text is never automatically treated as factual evidence of execution.
+## 🚀 Deploy with your existing stack
 
-## License
+Ships with wrappers for tools IR teams already run:
 
-Apache-2.0
+- **KAPE** — [`deploy/kape/`](deploy/kape): Target (raw files) + Module (sealed `.adfir` package)
+- **Velociraptor** — [`deploy/velociraptor/`](deploy/velociraptor): client artifact invoking `agentdfir collect`
+
+## 🗺️ Roadmap
+
+| Status | Capability |
+|---|---|
+| ✅ | Sealed `.adfir` packages, hash-chained custody, `verify` |
+| ✅ | Claude Code: detect, collect, normalize, timeline, triage |
+| ✅ | Detections: orphan agents, cross-agent messaging, destructive commands, trace gaps |
+| ✅ | `simulate` — synthetic incident generation (adversary emulation for AI agents) |
+| 🔜 | Codex CLI, Cursor, Gemini CLI, Copilot collectors + parsers |
+| 🔜 | Endpoint correlation (process, DNS, EDR, MCP gateway logs) |
+| 🔜 | Interactive HTML reports (self-contained, network-silent), STIX 2.1, OTel export |
+| 🔜 | Live monitoring mode, session replay viewer |
+
+## 🤝 Contributing
+
+Adding a new AI agent product = one PR: detection entry + collector manifest + synthetic fixtures + a docs page. No core changes needed. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+Zero third-party runtime dependencies in the collector core, by policy — a forensic tool should be auditable in an afternoon.
+
+## 📄 License
+
+[MIT](LICENSE) — free forever. Use it, embed it, build on it.

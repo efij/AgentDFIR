@@ -8,6 +8,12 @@ Status: early development. Evidence-package foundation and the Claude Code colle
 
 - [Overview](https://efij.github.io/AgentDFIR/): what AI agent forensics is and what AgentDFIR does
 
+## Facts
+
+- License: MIT (free, open source)
+- Language: Go, single static binary, zero third-party runtime dependencies in the collector core
+- Evidence package format: .adfir (sealed, content-addressed, hash-chained custody, independently parseable)
+
 ## Optional
 
 - [Repository](https://github.com/efij/AgentDFIR): source, issues, releases

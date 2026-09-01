@@ -1,0 +1,16 @@
+Description: Run agentdfir to produce a sealed, tamper-evident .adfir evidence package for AI-agent artifacts
+Category: AIAgents
+Author: AgentDFIR Project
+Version: 0.1
+Id: 8b2e5d1a-7c3f-4a9b-8d6e-agentdfir002
+BinaryUrl: https://github.com/efij/AgentDFIR/releases
+ExportFormat: adfir
+Processors:
+    -
+        Executable: agentdfir.exe
+        CommandLine: collect --product claude --out %destinationDirectory%\claude.adfir --operator KAPE
+        ExportFormat: adfir
+        ExportFile: claude.adfir
+
+# The resulting package is verifiable independently:
+#   agentdfir verify claude.adfir

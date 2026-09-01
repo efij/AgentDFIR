@@ -1,0 +1,76 @@
+Description: Claude Code AI-agent forensic artifacts (sessions, subagents, MCP config, hooks, skills, permissions)
+Author: AgentDFIR Project
+Version: 0.1
+Id: 3f7a1c2e-9d4b-4e8a-b6c5-agentdfir001
+RecreateDirectories: true
+Targets:
+    -
+        Name: Claude Code global config
+        Category: AIAgents
+        Path: C:\Users\%user%\
+        FileMask: .claude.json
+    -
+        Name: Claude Code config backup
+        Category: AIAgents
+        Path: C:\Users\%user%\
+        FileMask: .claude.json.backup
+    -
+        Name: Claude Code session transcripts and subagents
+        Category: AIAgents
+        Path: C:\Users\%user%\.claude\projects\
+        Recursive: true
+    -
+        Name: Claude Code prompt history
+        Category: AIAgents
+        Path: C:\Users\%user%\.claude\
+        FileMask: history.jsonl
+    -
+        Name: Claude Code settings
+        Category: AIAgents
+        Path: C:\Users\%user%\.claude\
+        FileMask: settings*.json
+    -
+        Name: Claude Code agent definitions, hooks, skills, plugins, commands
+        Category: AIAgents
+        Path: C:\Users\%user%\.claude\agents\
+        Recursive: true
+    -
+        Name: Claude Code hooks
+        Category: AIAgents
+        Path: C:\Users\%user%\.claude\hooks\
+        Recursive: true
+    -
+        Name: Claude Code skills
+        Category: AIAgents
+        Path: C:\Users\%user%\.claude\skills\
+        Recursive: true
+    -
+        Name: Claude Code plugins
+        Category: AIAgents
+        Path: C:\Users\%user%\.claude\plugins\
+        Recursive: true
+    -
+        Name: Claude Code task and todo state
+        Category: AIAgents
+        Path: C:\Users\%user%\.claude\todos\
+        Recursive: true
+    -
+        Name: Claude Code file history / checkpoints
+        Category: AIAgents
+        Path: C:\Users\%user%\.claude\file-history\
+        Recursive: true
+    -
+        Name: Claude Code shell snapshots
+        Category: AIAgents
+        Path: C:\Users\%user%\.claude\shell-snapshots\
+        Recursive: true
+    -
+        Name: Claude Code debug logs
+        Category: AIAgents
+        Path: C:\Users\%user%\.claude\logs\
+        Recursive: true
+
+# Notes:
+# Prefer `agentdfir collect` (sealed, hash-chained .adfir package) when the
+# binary can run on the host; use the AgentDFIR_Collect module. This target
+# is the raw-file fallback for KAPE-only workflows.

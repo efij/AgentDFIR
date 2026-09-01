@@ -1,0 +1,43 @@
+name: Custom.AgentDFIR.ClaudeCode.Collect
+description: |
+  Acquire Claude Code AI-agent forensic artifacts using agentdfir,
+  producing a sealed, hash-chained .adfir evidence package.
+
+  The agentdfir binary must be served as a tool. The package it
+  produces is independently verifiable (`agentdfir verify`), carries a
+  hash-chained chain of custody, and never follows symlinks or
+  executes suspect binaries.
+
+  Project: https://github.com/efij/AgentDFIR
+
+type: CLIENT
+
+tools:
+  - name: AgentDFIR
+    # Serve the agentdfir binary for the target platform via the
+    # Velociraptor tool manager.
+
+parameters:
+  - name: Operator
+    default: velociraptor
+    description: Asserted operator name recorded in the chain of custody.
+  - name: CaseId
+    default: ""
+    description: Case identifier (generated when empty).
+
+sources:
+  - query: |
+      LET tool <= SELECT OSPath FROM Artifact.Generic.Utils.FetchBinary(ToolName="AgentDFIR")
+
+      LET out_dir <= tempdir(remove_last=true)
+
+      LET args <= if(condition=CaseId = "",
+            then=("collect", "--product", "claude",
+                  "--operator", Operator,
+                  "--out", out_dir + "/claude.adfir"),
+            else=("collect", "--product", "claude",
+                  "--operator", Operator,
+                  "--case-id", CaseId,
+                  "--out", out_dir + "/claude.adfir"))
+
+      SELECT * FROM execve(argv=array(a1=tool.OSPath[0], a2=args), length=1048576)

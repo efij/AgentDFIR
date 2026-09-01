@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AgentDFIR — Digital Forensics &amp; Incident Response for AI Agents</title>
+<meta name="description" content="Open-source DFIR for AI agents. Collect, preserve, and investigate forensic evidence from Claude Code, Codex CLI, Cursor, Gemini CLI and Copilot — sealed evidence packages, hash-chained custody, tamper-evident verification.">
+<link rel="canonical" href="https://efij.github.io/AgentDFIR/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="AgentDFIR — Digital Forensics for AI Agents">
+<meta property="og:description" content="Open-source DFIR for AI agents: sealed .adfir evidence packages, hash-chained chain of custody, orphan-agent detection, evidence-vs-claims analysis.">
+<meta property="og:url" content="https://efij.github.io/AgentDFIR/">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="AgentDFIR — Digital Forensics for AI Agents">
+<meta name="twitter:description" content="Collect, preserve, reconstruct and investigate AI-agent activity. Open source, single binary, tamper-evident.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔍</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "AgentDFIR",
+  "applicationCategory": "SecurityApplication",
+  "operatingSystem": "macOS, Windows, Linux",
+  "description": "Open-source digital forensics and incident response framework for AI agents. Collects, preserves, reconstructs and investigates activity from Claude Code, Codex CLI, Cursor, Gemini CLI, Copilot and other agentic AI tools.",
+  "url": "https://efij.github.io/AgentDFIR/",
+  "downloadUrl": "https://github.com/efij/AgentDFIR",
+  "license": "https://opensource.org/licenses/MIT",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {"@type": "Question", "name": "What is AI agent forensics?",
+     "acceptedAnswer": {"@type": "Answer", "text": "AI agent forensics is the discipline of collecting, preserving and analyzing the evidence left on endpoints by agentic AI tools such as Claude Code, Codex CLI, Cursor, Gemini CLI and Copilot — session transcripts, subagent records, MCP configurations, hooks and tool-call logs — so an incident responder can reconstruct who instructed which agent to perform what action, and what evidence proves it."}},
+    {"@type": "Question", "name": "Where does Claude Code store session logs?",
+     "acceptedAnswer": {"@type": "Answer", "text": "Claude Code stores session transcripts as JSONL files under ~/.claude/projects/<project-dir>/<session-id>.jsonl, alongside prompt history (~/.claude/history.jsonl), settings, hooks, skills, plugins, task state and file-history checkpoints in ~/.claude/, plus global configuration in ~/.claude.json. AgentDFIR acquires all of these into a sealed, hash-verified evidence package."}},
+    {"@type": "Question", "name": "Is AI-generated text forensic evidence of execution?",
+     "acceptedAnswer": {"@type": "Answer", "text": "No. A model saying 'I executed curl example.com' is a claim (REPORTED), not proof. AgentDFIR classifies every action: REPORTED for model narrative, OBSERVED when a tool-call record exists in the transcript, CORROBORATED only when independent endpoint or network evidence confirms it, and CONTRADICTED when evidence shows it did not occur."}}
+  ]
+}
+</script>
+<style>
+:root{
+  --bg:#0B1120; --bg-2:#0F172A; --surface:#151F35; --surface-2:#1E293B;
+  --border:#2B3A55; --border-hi:#3B4D6E;
+  --text:#F1F5F9; --text-2:#94A3B8; --text-3:#64748B;
+  --accent:#22C55E; --accent-dim:#16A34A; --accent-glow:rgba(34,197,94,.14);
+  --red:#EF4444; --amber:#F59E0B; --blue:#38BDF8;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --sans:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --radius:10px; --maxw:1080px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation:none!important;transition:none!important}}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:16px;line-height:1.65;-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
+code,pre{font-family:var(--mono)}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+/* nav */
+nav{position:sticky;top:0;z-index:50;background:rgba(11,17,32,.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-in{display:flex;align-items:center;justify-content:space-between;height:60px}
+.logo{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-weight:600;font-size:17px;color:var(--text)}
+.logo:hover{text-decoration:none}
+.logo svg{flex:none}
+.nav-links{display:flex;gap:26px;align-items:center;font-size:14.5px}
+.nav-links a{color:var(--text-2)}
+.nav-links a:hover{color:var(--text);text-decoration:none}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:8px;font-weight:600;font-size:15px;cursor:pointer;transition:background .2s,transform .15s,box-shadow .2s;border:1px solid transparent}
+.btn:hover{text-decoration:none;transform:translateY(-1px)}
+.btn-primary{background:var(--accent);color:#04120A}
+.btn-primary:hover{background:#2EE06C;box-shadow:0 0 24px var(--accent-glow)}
+.btn-ghost{border-color:var(--border-hi);color:var(--text)}
+.btn-ghost:hover{border-color:var(--accent);background:var(--surface)}
+.btn-sm{padding:7px 14px;font-size:13.5px}
+/* hero */
+.hero{padding:88px 0 64px;background:
+ radial-gradient(ellipse 60% 40% at 50% -10%,rgba(34,197,94,.09),transparent),
+ radial-gradient(ellipse 40% 30% at 85% 10%,rgba(56,189,248,.06),transparent)}
+.hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center}
+.kicker{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);border:1px solid rgba(34,197,94,.35);background:var(--accent-glow);padding:5px 12px;border-radius:999px;margin-bottom:22px}
+h1{font-size:clamp(34px,4.6vw,52px);line-height:1.12;font-weight:700;letter-spacing:-.02em}
+h1 .hl{color:var(--accent);text-shadow:0 0 18px var(--accent-glow)}
+.sub{margin:20px 0 30px;font-size:18.5px;color:var(--text-2);max-width:34em}
+.cta-row{display:flex;gap:14px;flex-wrap:wrap}
+.trust{margin-top:26px;font-size:13.5px;color:var(--text-3);font-family:var(--mono)}
+/* terminal */
+.term{background:#0A0F1D;border:1px solid var(--border);border-radius:12px;box-shadow:0 24px 60px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.02) inset;overflow:hidden;font-size:13px}
+.term-bar{display:flex;align-items:center;gap:7px;padding:11px 14px;background:var(--surface);border-bottom:1px solid var(--border)}
+.dot{width:11px;height:11px;border-radius:50%}
+.term-title{margin-left:8px;font-family:var(--mono);font-size:12px;color:var(--text-3)}
+.term pre{padding:18px;overflow-x:auto;line-height:1.75;color:var(--text-2)}
+.t-p{color:var(--accent)} .t-c{color:var(--text)} .t-hi{color:var(--red);font-weight:600}
+.t-ok{color:var(--accent)} .t-dim{color:var(--text-3)} .t-w{color:var(--amber)} .t-b{color:var(--blue)}
+/* sections */
+section{padding:76px 0}
+.sec-alt{background:var(--bg-2);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.sec-head{max-width:44em;margin-bottom:44px}
+.sec-kicker{font-family:var(--mono);font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:12px}
+h2{font-size:clamp(26px,3.2vw,34px);font-weight:700;letter-spacing:-.015em;line-height:1.2}
+.sec-sub{margin-top:14px;color:var(--text-2);font-size:16.5px}
+/* states table */
+.states{width:100%;border-collapse:collapse;font-size:15px;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.states th,.states td{padding:13px 18px;text-align:left;border-bottom:1px solid var(--border)}
+.states th{background:var(--surface);font-family:var(--mono);font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3)}
+.states tr:last-child td{border-bottom:none}
+.states td:first-child{font-family:var(--mono);font-weight:600;white-space:nowrap}
+.st-req{color:var(--blue)} .st-rep{color:var(--amber)} .st-obs{color:#A3E635}
+.st-cor{color:var(--accent)} .st-con{color:var(--red)} .st-unk{color:var(--text-3)}
+.states td:last-child{color:var(--text-2)}
+/* features */
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:26px;transition:border-color .2s,transform .2s}
+.card:hover{border-color:var(--border-hi);transform:translateY(-2px)}
+.card .icon{width:40px;height:40px;border-radius:9px;background:var(--accent-glow);border:1px solid rgba(34,197,94,.3);display:flex;align-items:center;justify-content:center;margin-bottom:16px}
+.card .icon svg{stroke:var(--accent)}
+.card h3{font-size:16.5px;font-weight:600;margin-bottom:8px}
+.card p{font-size:14.5px;color:var(--text-2)}
+/* package tree + two-col */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:44px;align-items:start}
+.tree{background:#0A0F1D;border:1px solid var(--border);border-radius:12px;padding:20px;font-family:var(--mono);font-size:13px;line-height:1.9;color:var(--text-2);overflow-x:auto}
+.tree .d{color:var(--blue)} .tree .f{color:var(--text)} .tree .c{color:var(--text-3)}
+.checks{list-style:none;display:flex;flex-direction:column;gap:16px}
+.checks li{display:flex;gap:13px;font-size:15.5px;color:var(--text-2)}
+.checks li svg{flex:none;margin-top:3px;stroke:var(--accent)}
+.checks li strong{color:var(--text)}
+/* quickstart */
+.qs{background:#0A0F1D;border:1px solid var(--border);border-radius:12px;padding:24px;overflow-x:auto;font-size:13.5px;line-height:2}
+.qs .cm{color:var(--text-3)} .qs .cmd{color:var(--text)}
+/* faq */
+.faq{display:flex;flex-direction:column;gap:28px;max-width:52em}
+.faq h3{font-size:18px;font-weight:600;margin-bottom:8px}
+.faq p{color:var(--text-2);font-size:15.5px}
+.faq code{background:var(--surface-2);border:1px solid var(--border);border-radius:5px;padding:1px 7px;font-size:13px;color:var(--text)}
+/* footer */
+footer{border-top:1px solid var(--border);padding:44px 0;font-size:14px;color:var(--text-3)}
+.foot-in{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;align-items:center}
+.foot-links{display:flex;gap:22px}
+.foot-links a{color:var(--text-2)}
+/* responsive */
+@media (max-width:900px){
+  .hero-grid{grid-template-columns:1fr;gap:40px}
+  .grid{grid-template-columns:1fr 1fr}
+  .two-col{grid-template-columns:1fr}
+  .nav-links a:not(.btn){display:none}
+}
+@media (max-width:600px){
+  .grid{grid-template-columns:1fr}
+  section{padding:56px 0}
+  .hero{padding:60px 0 44px}
+  .states th,.states td{padding:11px 12px;font-size:13.5px}
+}
+</style>
+</head>
+<body>
+
+<nav aria-label="Main">
+  <div class="wrap nav-in">
+    <a class="logo" href="#" aria-label="AgentDFIR home">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/><path d="M11 8v3l2 2"/></svg>
+      AgentDFIR
+    </a>
+    <div class="nav-links">
+      <a href="#evidence">Evidence model</a>
+      <a href="#features">Features</a>
+      <a href="#package">Package format</a>
+      <a href="#quickstart">Quick start</a>
+      <a class="btn btn-ghost btn-sm" href="https://github.com/efij/AgentDFIR">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55v-2.17c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.75 2.69 1.25 3.35.95.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.79 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.12 3.05.74.81 1.18 1.83 1.18 3.09 0 4.41-2.69 5.38-5.25 5.66.41.35.77 1.05.77 2.12v3.15c0 .3.21.66.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></svg>
+        GitHub
+      </a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="kicker">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Open source · MIT · Single Go binary
+      </span>
+      <h1>Digital forensics for <span class="hl">AI agents</span></h1>
+      <p class="sub">AI coding agents run shell commands, spawn subagents, call MCP servers and push code. When one goes rogue, the evidence is on the endpoint. AgentDFIR collects it, seals it, and shows you what <em>actually</em> happened — Claude Code, Codex CLI, Cursor, Gemini CLI, Copilot.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="https://github.com/efij/AgentDFIR">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+          Get AgentDFIR
+        </a>
+        <a class="btn btn-ghost" href="#quickstart">Quick start</a>
+      </div>
+      <p class="trust">Zero runtime dependencies · Never executes suspect binaries · Never follows symlinks</p>
+    </div>
+    <div class="term" role="img" aria-label="Terminal showing an agentdfir triage finding: HIGH severity, unexpected agent activity, agent with unknown parent, evidence references, status OBSERVED">
+      <div class="term-bar">
+        <span class="dot" style="background:#F87171"></span><span class="dot" style="background:#FBBF24"></span><span class="dot" style="background:#34D399"></span>
+        <span class="term-title">agentdfir — triage</span>
+      </div>
+<pre><span class="t-p">$</span> <span class="t-c">agentdfir triage CASE-2026-042.adfir</span>
+
+<span class="t-hi">HIGH — Unexpected Agent Activity</span> <span class="t-dim">[ORPHAN_AGENT]</span>
+  Agent:   <span class="t-c">adad4e2c</span>    Parent: <span class="t-w">UNKNOWN</span>
+  Finding: Agent appeared without a verified
+           parent invocation.
+  Related: SendMessage/resume interaction
+           with agent <span class="t-c">a7c3f19b</span>
+  Evidence: <span class="t-b">…/agent-adad4e2c.jsonl:1</span>
+  Status: <span class="t-ok">OBSERVED</span>   Endpoint: <span class="t-dim">UNKNOWN</span>
+
+<span class="t-p">$</span> <span class="t-c">agentdfir verify CASE-2026-042.adfir</span>
+Result: <span class="t-ok">VERIFIED — no modifications detected</span></pre>
+    </div>
+  </div>
+</header>
+
+<section id="evidence" class="sec-alt">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="sec-kicker">Evidence vs. claims</p>
+      <h2>A model saying “I ran it” is not proof it ran</h2>
+      <p class="sec-sub">AI-generated text is never automatically treated as evidence of execution. Every action in every timeline carries an explicit corroboration state — so model narrative can never masquerade as confirmed host activity.</p>
+    </div>
+    <table class="states">
+      <thead><tr><th scope="col">State</th><th scope="col">Meaning</th></tr></thead>
+      <tbody>
+        <tr><td class="st-req">REQUESTED</td><td>A human asked for it</td></tr>
+        <tr><td class="st-rep">REPORTED</td><td>The model <em>said</em> it happened — narrative, not proof</td></tr>
+        <tr><td class="st-obs">OBSERVED</td><td>A tool-call record exists in the transcript</td></tr>
+        <tr><td class="st-cor">CORROBORATED</td><td>Independent endpoint or network evidence confirms it</td></tr>
+        <tr><td class="st-con">CONTRADICTED</td><td>Endpoint evidence shows it did <em>not</em> occur</td></tr>
+        <tr><td class="st-unk">UNKNOWN</td><td>Insufficient evidence — stated honestly</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="features">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="sec-kicker">Built for hostile hosts</p>
+      <h2>Forensically sound by construction</h2>
+      <p class="sec-sub">Every design decision assumes the host is compromised and the evidence is adversarial.</p>
+    </div>
+    <div class="grid">
+      <div class="card">
+        <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+        <h3>Sealed evidence packages</h3>
+        <p>Every acquisition produces a sealed <code>.adfir</code> package: content-addressed storage, SHA-256 manifest, and a seal covering the entire evidence zone.</p>
+      </div>
+      <div class="card">
+        <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>
+        <h3>Hash-chained custody</h3>
+        <p>Collection and chain-of-custody logs are hash-chained — editing, deleting or forging a single record breaks the chain for everything after it.</p>
+      </div>
+      <div class="card">
+        <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></div>
+        <h3>Tamper-evident verification</h3>
+        <p>One flipped byte anywhere in the sealed zone fails <code>verify</code> — and it names the exact artifact that was modified.</p>
+      </div>
+      <div class="card">
+        <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.7 3.86a2 2 0 0 0-3.4 0z"/></svg></div>
+        <h3>Hostile-evidence hardened</h3>
+        <p>Suspect binaries are never executed. Symlinks are never followed. ANSI escapes and invisible Unicode are neutralized — your terminal is part of the attack surface.</p>
+      </div>
+      <div class="card">
+        <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg></div>
+        <h3>Agent graph &amp; timeline</h3>
+        <p>Sessions, agents, subagents, tool calls and MCP servers reconstructed into one evidence-linked timeline. Every entry traces to a file, line and hash.</p>
+      </div>
+      <div class="card">
+        <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div>
+        <h3>Adversary emulation</h3>
+        <p><code>agentdfir simulate</code> generates synthetic rogue-agent incidents — orphan agents, cross-session messaging — to validate detections and train responders.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="package" class="sec-alt">
+  <div class="wrap two-col">
+    <div>
+      <p class="sec-kicker">Open format</p>
+      <h2>The <code style="font-size:.85em">.adfir</code> evidence package</h2>
+      <p class="sec-sub" style="margin-bottom:28px">Self-describing and independently parseable — any forensic tool can read it without AgentDFIR. Raw evidence is sealed once and never touched; analysis output is a regenerable overlay.</p>
+      <ul class="checks">
+        <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span><strong>Lossless.</strong> Nothing redacted or rewritten at collection time.</span></li>
+        <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span><strong>Hash-while-copy.</strong> Hashes describe exactly the preserved bytes, with torn-read detection for files a live agent is still writing.</span></li>
+        <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span><strong>Every failure recorded.</strong> Access denied, size bounds, irregular files — nothing silently dropped.</span></li>
+        <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span><strong>Deploys with your stack.</strong> KAPE Target/Module and Velociraptor artifact ship in-repo.</span></li>
+      </ul>
+    </div>
+    <div class="tree" role="img" aria-label="Directory tree of an .adfir evidence package">
+<span class="d">case.adfir/</span>
+├── <span class="d">raw/</span><span class="f">&lt;sha256&gt;</span>          <span class="c"># content-addressed evidence</span>
+├── <span class="f">manifest.json</span>         <span class="c"># artifact metadata</span>
+├── <span class="f">collection.jsonl</span>      <span class="c"># hash-chained log</span>
+├── <span class="f">chain-of-custody.jsonl</span><span class="c"># hash-chained custody</span>
+├── <span class="f">case.json</span>             <span class="c"># operator, clock, timezone</span>
+├── <span class="f">SHA256SUMS</span>            <span class="c"># seals the evidence zone</span>
+├── <span class="d">normalized/</span>           <span class="c"># events · entities · graph</span>
+└── <span class="d">detections/</span>           <span class="c"># findings.json</span>
+    </div>
+  </div>
+</section>
+
+<section id="quickstart">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="sec-kicker">Quick start</p>
+      <h2>From suspect host to sealed findings in five commands</h2>
+    </div>
+    <div class="qs">
+<pre><span class="cm"># Discover installed AI tooling — never executes suspect binaries</span>
+<span class="cmd">agentdfir detect</span>
+
+<span class="cm"># Forensic acquisition: lossless, sealed, hash-chained</span>
+<span class="cmd">agentdfir collect --product claude --operator "Your Name" --case-id CASE-2026-042</span>
+
+<span class="cm"># Tamper-evident verification</span>
+<span class="cmd">agentdfir verify CASE-2026-042.adfir</span>
+
+<span class="cm"># Unified, evidence-linked timeline + rule-based detections</span>
+<span class="cmd">agentdfir timeline CASE-2026-042.adfir</span>
+<span class="cmd">agentdfir triage   CASE-2026-042.adfir</span></pre>
+    </div>
+  </div>
+</section>
+
+<section class="sec-alt" id="faq">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="sec-kicker">Reference</p>
+      <h2>AI agent forensics, answered</h2>
+    </div>
+    <div class="faq">
+      <div>
+        <h3>What is AI agent forensics?</h3>
+        <p>AI agent forensics is the discipline of collecting, preserving and analyzing the evidence agentic AI tools leave on endpoints — session transcripts, subagent records, MCP configurations, hooks and tool-call logs — so an incident responder can reconstruct who instructed which agent to perform what action, through which tool and identity, and what evidence proves it.</p>
+      </div>
+      <div>
+        <h3>Where does Claude Code store session logs?</h3>
+        <p>Claude Code stores session transcripts as JSONL under <code>~/.claude/projects/&lt;project&gt;/&lt;session-id&gt;.jsonl</code>, with prompt history in <code>~/.claude/history.jsonl</code>, settings, hooks, skills, plugins, task state and file-history checkpoints under <code>~/.claude/</code>, and global configuration (including MCP servers) in <code>~/.claude.json</code>. AgentDFIR acquires all of them into one sealed package — including subagent and orphan-agent transcripts.</p>
+      </div>
+      <div>
+        <h3>Is a model's own account of its actions evidence?</h3>
+        <p>No. "I executed curl example.com" in model output is a claim — AgentDFIR marks it <code>REPORTED</code>. Only a tool-call record in the transcript upgrades it to <code>OBSERVED</code>, and only independent endpoint or network evidence makes it <code>CORROBORATED</code>. That distinction is the foundation of trustworthy AI-agent forensics.</p>
+      </div>
+      <div>
+        <h3>What does AgentDFIR detect today?</h3>
+        <p>Orphan agents (transcripts with no verified parent invocation), cross-agent messaging and unexpected resume interactions, destructive shell commands, shell-execution inventory, and transcript integrity gaps (truncated or malformed regions that reduce confidence in surrounding evidence). Detections are deterministic rules — no LLM in the analysis path.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap" style="text-align:center">
+    <h2 style="margin-bottom:14px">Free. Open. Auditable in an afternoon.</h2>
+    <p class="sec-sub" style="max-width:38em;margin:0 auto 30px">MIT-licensed, zero runtime dependencies, single static binary. Built in the open for the DFIR community.</p>
+    <div class="cta-row" style="justify-content:center">
+      <a class="btn btn-primary" href="https://github.com/efij/AgentDFIR">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55v-2.17c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.75 2.69 1.25 3.35.95.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.79 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.12 3.05.74.81 1.18 1.83 1.18 3.09 0 4.41-2.69 5.38-5.25 5.66.41.35.77 1.05.77 2.12v3.15c0 .3.21.66.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></svg>
+        Star on GitHub
+      </a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot-in">
+    <span>AgentDFIR · MIT License · Open-source digital forensics and incident response for AI agents</span>
+    <div class="foot-links">
+      <a href="https://github.com/efij/AgentDFIR">GitHub</a>
+      <a href="https://github.com/efij/AgentDFIR/blob/main/CONTRIBUTING.md">Contributing</a>
+      <a href="https://github.com/efij/AgentDFIR/blob/main/SECURITY.md">Security</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

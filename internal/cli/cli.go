@@ -24,6 +24,10 @@ Usage:
   agentdfir detect                      discover installed AI tooling
   agentdfir collect [flags]             forensic acquisition into an .adfir package
   agentdfir verify <package-dir>        verify a sealed evidence package
+  agentdfir normalize <package-dir>     parse raw evidence into normalized events
+  agentdfir timeline <package-dir>      print the unified, evidence-linked timeline
+  agentdfir triage <package-dir>        normalize + run detections, print findings
+  agentdfir simulate [flags]            generate a synthetic incident scenario
   agentdfir version                     print version
 
 Collect flags:
@@ -52,6 +56,14 @@ func Main(args []string) int {
 		return cmdCollect(args[1:])
 	case "verify":
 		return cmdVerify(args[1:])
+	case "normalize":
+		return cmdNormalize(args[1:])
+	case "timeline":
+		return cmdTimeline(args[1:])
+	case "triage":
+		return cmdTriage(args[1:])
+	case "simulate":
+		return cmdSimulate(args[1:])
 	case "version", "--version", "-v":
 		fmt.Printf("agentdfir %s (adfir format %s)\n", version.Version, version.ADFIRVersion)
 		return 0

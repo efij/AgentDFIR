@@ -18,7 +18,7 @@ func Terminal(s string) string {
 	b.Grow(len(s))
 	for _, r := range s {
 		switch {
-		case r == '\t':
+		case r == '\t' || r == '\n' || r == '\r':
 			b.WriteRune(' ')
 		case r < 0x20 || (r >= 0x7f && r <= 0x9f):
 			b.WriteRune('�') // C0/C1 controls incl. ESC — kills ANSI sequences
