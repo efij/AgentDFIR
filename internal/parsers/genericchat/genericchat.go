@@ -46,6 +46,10 @@ var productTable = []productCfg{
 	{"cline.", "cline", "cline"},
 	{"roo.", "roo-code", "roo"},
 	{"openclaw.", "openclaw", "openclaw"},
+	{"opencode.", "opencode", "sst"},
+	{"copilotchat.", "copilot-chat-vscode", "github"},
+	{"aider.", "aider", "aider"},
+	{"warp.", "warp", "warp"},
 }
 
 // sessionCategories are the artifact types this parser consumes.
@@ -115,6 +119,12 @@ func (p *parser) parseArtifact(pkgDir string, art casepkg.ArtifactRecord, cfg *p
 	sessionID := sessionIDFor(art.LogicalPath)
 
 	switch {
+	case strings.HasPrefix(art.CollectorRule, "copilotchat."):
+		return p.parseVSCodeChat(data, art, cfg, sessionID)
+	case art.CollectorRule == "aider.chat_history":
+		return p.parseAiderMarkdown(data, art, cfg)
+	case art.CollectorRule == "aider.input_history":
+		return p.parseAiderInput(data, art, cfg)
 	case strings.HasSuffix(base, ".db") || isBinary(data):
 		// Cursor store.db and friends: forensic string-carving.
 		msgs := CarveMessages(data)
@@ -142,6 +152,15 @@ func (p *parser) parseArtifact(pkgDir string, art casepkg.ArtifactRecord, cfg *p
 func (p *parser) parseJSONDoc(data []byte, art casepkg.ArtifactRecord, cfg *productCfg, sessionID string) error {
 	msgs, ok := extractMessageArray(data)
 	if !ok {
+		// A single message object (OpenCode stores one message per file).
+		var probe struct {
+			Role string `json:"role"`
+			Type string `json:"type"`
+		}
+		if err := json.Unmarshal(data, &probe); err == nil && (probe.Role != "" || probe.Type != "") {
+			p.emitMessage(json.RawMessage(data), art, cfg, sessionID, 0, 1, "")
+			return nil
+		}
 		p.gap(art, cfg, 0, 1, "unrecognized session JSON shape; preserved unparsed")
 		return nil
 	}
@@ -241,6 +260,12 @@ type message struct {
 	Text      string           `json:"text"`
 	Timestamp string           `json:"timestamp"`
 	ToolCalls []openaiToolCall `json:"tool_calls"` // openai
+	SessionID string           `json:"sessionID"`  // opencode message files
+	Type      string           `json:"type"`       // opencode part files
+	Tool      string           `json:"tool"`       // opencode tool part
+	State     *struct {
+		Input json.RawMessage `json:"input"`
+	} `json:"state"`
 }
 
 type part struct {
@@ -276,8 +301,45 @@ func (p *parser) emitMessage(raw json.RawMessage, art casepkg.ArtifactRecord, cf
 	sessionID string, offset int64, line int, method string) {
 
 	var m message
-	if err := json.Unmarshal(raw, &m); err != nil || (m.Role == "" && m.Text == "" && len(m.Parts) == 0) {
+	if err := json.Unmarshal(raw, &m); err != nil ||
+		(m.Role == "" && m.Text == "" && len(m.Parts) == 0 && m.Type == "") {
 		p.gap(art, cfg, offset, line, "unrecognized message shape")
+		return
+	}
+	if m.SessionID != "" {
+		sessionID = m.SessionID
+	}
+	// Role-less part objects (OpenCode stores parts as separate files).
+	if m.Role == "" && m.Type != "" {
+		ev := p.base(art, cfg, sessionID)
+		ev.Timestamp = m.Timestamp
+		ev.Result = strings.TrimSpace(method + " part:" + trim(m.Type, 30))
+		switch m.Type {
+		case "tool":
+			ev.EventType = schema.EventToolCall
+			ev.ActorType = schema.ActorAgent
+			ev.Tool = m.Tool
+			ev.Corroboration = schema.StateObserved
+			if m.State != nil {
+				if cmd := commandArg(m.State.Input); cmd != "" {
+					ev.Command = trim(cmd, 300)
+					ev.Action = "shell_execution"
+				}
+			}
+			p.emit(ev, art, offset, line)
+			p.linkTool(ev)
+		case "text":
+			ev.EventType = schema.EventSessionMeta
+			ev.ActorType = schema.ActorSystem
+			ev.Summary = trim(m.Text, 200)
+			ev.Corroboration = schema.StateObserved
+			p.emit(ev, art, offset, line)
+		default:
+			ev.EventType = schema.EventSessionMeta
+			ev.ActorType = schema.ActorSystem
+			ev.Corroboration = schema.StateObserved
+			p.emit(ev, art, offset, line)
+		}
 		return
 	}
 	isModel := m.Role == "model" || m.Role == "assistant"

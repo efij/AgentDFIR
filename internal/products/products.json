@@ -93,6 +93,56 @@
       ],
       "config_files": [],
       "binaries": []
+    },
+    {
+      "id": "opencode",
+      "name": "OpenCode",
+      "config_dirs": [
+        ".config/opencode",
+        ".local/share/opencode"
+      ],
+      "config_files": [],
+      "binaries": [
+        "opencode"
+      ]
+    },
+    {
+      "id": "copilot-chat-vscode",
+      "name": "Copilot Chat (VS Code)",
+      "config_dirs": [
+        "Library/Application Support/Code/User/workspaceStorage",
+        ".config/Code/User/workspaceStorage",
+        "AppData/Roaming/Code/User/workspaceStorage"
+      ],
+      "config_files": [],
+      "binaries": []
+    },
+    {
+      "id": "aider",
+      "name": "Aider",
+      "config_dirs": [
+        ".aider"
+      ],
+      "config_files": [
+        ".aider.conf.yml",
+        ".aider.chat.history.md"
+      ],
+      "binaries": [
+        "aider"
+      ]
+    },
+    {
+      "id": "warp",
+      "name": "Warp AI",
+      "config_dirs": [
+        "Library/Application Support/dev.warp.Warp-Stable",
+        ".local/state/warp-terminal",
+        "AppData/Local/warp/Warp/data"
+      ],
+      "config_files": [],
+      "binaries": [
+        "warp-terminal"
+      ]
     }
   ]
 }

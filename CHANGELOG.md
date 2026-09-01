@@ -7,6 +7,34 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-09-01
+
+Broadens product coverage to twelve AI agents. Adds OpenCode, VS Code
+Copilot Chat, Aider and Warp — full detect/collect/normalize/detection
+support.
+
+### Added
+- **OpenCode** (SST): storage/session, storage/message and storage/part
+  files (per-message and per-part JSON); tool parts extract shell
+  commands; auth.json collected as critical.
+- **Copilot Chat (VS Code)**: workspaceStorage `chatSessions` /
+  `chatEditingSessions` — the `requests[]` request/response format; the
+  important Copilot surface beyond the CLI we already covered.
+- **Aider**: repo-local evidence — `.aider.chat.history.md` (markdown
+  chat log: `#### ` user turns vs assistant narrative) and
+  `.aider.input.history` (timestamped prompts). Collect with
+  `--path <repo>`.
+- **Warp**: `warp.sqlite` AI blocks via JSON-fragment carving.
+- Collector now globs directories mid-pattern (e.g.
+  `workspaceStorage/*/chatSessions/**`), enabling per-workspace VS Code
+  layouts.
+
+### Notes
+- OpenCode/Copilot-Chat parse structured JSON; Warp uses carving
+  (content presence, not DB ordering). Same evidence-vs-claims discipline
+  throughout: REPORTED narrative, OBSERVED tool records, TRACE_GAP for
+  unparseable input.
+
 ## [0.3.0] — 2026-09-01
 
 Every supported product now has a full parsing pipeline — detect,
@@ -134,7 +162,8 @@ and interoperability exports.
   on all evidence-derived output; bounded parsers; zip-slip defense on archive
   extraction; secrets never printed by default.
 
-[Unreleased]: https://github.com/efij/AgentDFIR/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/efij/AgentDFIR/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/efij/AgentDFIR/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/efij/AgentDFIR/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/efij/AgentDFIR/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/efij/AgentDFIR/releases/tag/v0.1.0
