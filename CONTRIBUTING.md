@@ -26,6 +26,17 @@ One PR should contain:
 
 No changes to the acquisition core should be required — if they are, open an issue first.
 
+## Branching & releases
+
+- `main` is always releasable and protected; all work lands via pull request.
+- Feature branches: `feat/<slug>`; fixes: `fix/<slug>`; docs: `docs/<slug>`.
+- Conventional-style commit subjects; every PR must pass CI (build, `gofmt`,
+  `go vet`, `go test -race`) on Linux, macOS and Windows.
+- Releases are tagged `vX.Y.Z` (SemVer). Pushing a tag triggers the release
+  workflow, which cross-compiles static binaries for linux/darwin/windows
+  (amd64+arm64), publishes checksummed archives, and attaches release notes.
+  Update `CHANGELOG.md` before tagging.
+
 ## Development
 
 ```
