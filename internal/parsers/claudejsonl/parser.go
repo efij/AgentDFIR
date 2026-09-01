@@ -12,15 +12,16 @@
 package claudejsonl
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/efij/AgentDFIR/internal/casepkg"
+	"github.com/efij/AgentDFIR/internal/parsers/linereader"
 	"github.com/efij/AgentDFIR/internal/schema"
 	"github.com/efij/AgentDFIR/internal/version"
 )
@@ -106,35 +107,38 @@ func (p *parser) parseTranscript(blobPath string, art casepkg.ArtifactRecord) er
 	}
 	defer f.Close()
 
-	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 0, 64*1024), MaxLineBytes)
-
-	var offset int64
-	lineNo := 0
-	for sc.Scan() {
-		raw := sc.Bytes()
-		lineNo++
-		lineStart := offset
-		offset += int64(len(raw)) + 1
-
+	lr := linereader.New(f, MaxLineBytes)
+	for {
+		ln, err := lr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			p.emit(schema.Event{
+				EventType: schema.EventTraceGap, ActorType: schema.ActorSystem,
+				Result: "read_aborted", Summary: "transcript read aborted: " + err.Error(),
+			}, art, ln.Offset, ln.Number)
+			break
+		}
+		if ln.Overflow {
+			// Oversized line: record a bounded gap, keep parsing the rest.
+			p.emit(schema.Event{
+				EventType: schema.EventTraceGap, ActorType: schema.ActorSystem,
+				Result:  "oversized_line",
+				Summary: fmt.Sprintf("transcript line exceeded %d-byte bound (%d bytes); skipped", MaxLineBytes, ln.OverBytes),
+			}, art, ln.Offset, ln.Number)
+			continue
+		}
 		var tl transcriptLine
-		if err := json.Unmarshal(raw, &tl); err != nil {
+		if err := json.Unmarshal(ln.Bytes, &tl); err != nil {
 			p.emit(schema.Event{
 				EventType: schema.EventTraceGap, ActorType: schema.ActorSystem,
 				Result:  "malformed_line",
-				Summary: fmt.Sprintf("unparseable transcript line (%d bytes): %v", len(raw), err),
-			}, art, lineStart, lineNo)
+				Summary: fmt.Sprintf("unparseable transcript line (%d bytes): %v", len(ln.Bytes), err),
+			}, art, ln.Offset, ln.Number)
 			continue
 		}
-		p.handleLine(tl, art, lineStart, lineNo)
-	}
-	if err := sc.Err(); err != nil {
-		// Oversized or truncated tail is evidence, not a parser crash.
-		p.emit(schema.Event{
-			EventType: schema.EventTraceGap, ActorType: schema.ActorSystem,
-			Result:  "read_aborted",
-			Summary: "transcript read aborted: " + err.Error(),
-		}, art, offset, lineNo+1)
+		p.handleLine(tl, art, ln.Offset, ln.Number)
 	}
 	return nil
 }

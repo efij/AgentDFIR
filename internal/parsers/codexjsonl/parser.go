@@ -16,14 +16,15 @@
 package codexjsonl
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/efij/AgentDFIR/internal/casepkg"
+	"github.com/efij/AgentDFIR/internal/parsers/linereader"
 	"github.com/efij/AgentDFIR/internal/schema"
 	"github.com/efij/AgentDFIR/internal/version"
 )
@@ -106,32 +107,37 @@ func (p *parser) parseTranscript(blobPath string, art casepkg.ArtifactRecord) er
 	p.session = strings.TrimSuffix(base, ".jsonl")
 	p.version = ""
 
-	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 0, 64*1024), MaxLineBytes)
-	var offset int64
-	lineNo := 0
-	for sc.Scan() {
-		raw := sc.Bytes()
-		lineNo++
-		start := offset
-		offset += int64(len(raw)) + 1
-
+	lr := linereader.New(f, MaxLineBytes)
+	for {
+		ln, err := lr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			p.emit(schema.Event{
+				EventType: schema.EventTraceGap, ActorType: schema.ActorSystem,
+				Result: "read_aborted", Summary: "transcript read aborted: " + err.Error(),
+			}, art, ln.Offset, ln.Number)
+			break
+		}
+		if ln.Overflow {
+			p.emit(schema.Event{
+				EventType: schema.EventTraceGap, ActorType: schema.ActorSystem,
+				Result:  "oversized_line",
+				Summary: fmt.Sprintf("rollout line exceeded %d-byte bound (%d bytes); skipped", MaxLineBytes, ln.OverBytes),
+			}, art, ln.Offset, ln.Number)
+			continue
+		}
 		var rl rolloutLine
-		if err := json.Unmarshal(raw, &rl); err != nil {
+		if err := json.Unmarshal(ln.Bytes, &rl); err != nil {
 			p.emit(schema.Event{
 				EventType: schema.EventTraceGap, ActorType: schema.ActorSystem,
 				Result:  "malformed_line",
-				Summary: fmt.Sprintf("unparseable rollout line (%d bytes): %v", len(raw), err),
-			}, art, start, lineNo)
+				Summary: fmt.Sprintf("unparseable rollout line (%d bytes): %v", len(ln.Bytes), err),
+			}, art, ln.Offset, ln.Number)
 			continue
 		}
-		p.handleLine(rl, art, start, lineNo)
-	}
-	if err := sc.Err(); err != nil {
-		p.emit(schema.Event{
-			EventType: schema.EventTraceGap, ActorType: schema.ActorSystem,
-			Result: "read_aborted", Summary: "transcript read aborted: " + err.Error(),
-		}, art, offset, lineNo+1)
+		p.handleLine(rl, art, ln.Offset, ln.Number)
 	}
 	return nil
 }
