@@ -184,6 +184,8 @@ func cmdCollect(args []string) int {
 		productID = "copilot-cli"
 	case "roo":
 		productID = "roo-code"
+	case "copilot-chat":
+		productID = "copilot-chat-vscode"
 	}
 	man, err := products.Manifest(productID)
 	if err != nil {

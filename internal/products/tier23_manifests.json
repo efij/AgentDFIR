@@ -3,55 +3,472 @@
     {
       "product": "cursor-cli",
       "entries": [
-        { "id": "cursor.config", "paths": ["${CONFIG_ROOT}/cli-config.json"], "category": "product_config", "sensitivity": "medium" },
-        { "id": "cursor.chats", "paths": ["${CONFIG_ROOT}/chats/**"], "category": "agent_session", "sensitivity": "high" },
-        { "id": "cursor.rules", "paths": ["${CONFIG_ROOT}/rules/**"], "category": "agent_instructions", "sensitivity": "medium" },
-        { "id": "cursor.mcp", "paths": ["${CONFIG_ROOT}/mcp.json"], "category": "product_config", "sensitivity": "high" },
-        { "id": "cursor.logs", "paths": ["${CONFIG_ROOT}/logs/**"], "category": "debug_logs", "sensitivity": "medium" }
+        {
+          "id": "cursor.config",
+          "paths": [
+            "${CONFIG_ROOT}/cli-config.json"
+          ],
+          "category": "product_config",
+          "sensitivity": "medium"
+        },
+        {
+          "id": "cursor.chats",
+          "paths": [
+            "${CONFIG_ROOT}/chats/**"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        },
+        {
+          "id": "cursor.rules",
+          "paths": [
+            "${CONFIG_ROOT}/rules/**"
+          ],
+          "category": "agent_instructions",
+          "sensitivity": "medium"
+        },
+        {
+          "id": "cursor.mcp",
+          "paths": [
+            "${CONFIG_ROOT}/mcp.json"
+          ],
+          "category": "product_config",
+          "sensitivity": "high"
+        },
+        {
+          "id": "cursor.logs",
+          "paths": [
+            "${CONFIG_ROOT}/logs/**"
+          ],
+          "category": "debug_logs",
+          "sensitivity": "medium"
+        }
       ]
     },
     {
       "product": "gemini-cli",
       "entries": [
-        { "id": "gemini.settings", "paths": ["${CONFIG_ROOT}/settings.json"], "category": "product_config", "sensitivity": "medium" },
-        { "id": "gemini.memory", "paths": ["${CONFIG_ROOT}/GEMINI.md"], "category": "agent_instructions", "sensitivity": "medium" },
-        { "id": "gemini.sessions", "paths": ["${CONFIG_ROOT}/tmp/**"], "category": "agent_session", "sensitivity": "high" },
-        { "id": "gemini.oauth", "paths": ["${CONFIG_ROOT}/oauth_creds.json"], "category": "credentials", "sensitivity": "critical" },
-        { "id": "gemini.extensions", "paths": ["${CONFIG_ROOT}/extensions/**"], "category": "agent_definitions", "sensitivity": "high" }
+        {
+          "id": "gemini.settings",
+          "paths": [
+            "${CONFIG_ROOT}/settings.json"
+          ],
+          "category": "product_config",
+          "sensitivity": "medium"
+        },
+        {
+          "id": "gemini.memory",
+          "paths": [
+            "${CONFIG_ROOT}/GEMINI.md"
+          ],
+          "category": "agent_instructions",
+          "sensitivity": "medium"
+        },
+        {
+          "id": "gemini.sessions",
+          "paths": [
+            "${CONFIG_ROOT}/tmp/**"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        },
+        {
+          "id": "gemini.oauth",
+          "paths": [
+            "${CONFIG_ROOT}/oauth_creds.json"
+          ],
+          "category": "credentials",
+          "sensitivity": "critical"
+        },
+        {
+          "id": "gemini.extensions",
+          "paths": [
+            "${CONFIG_ROOT}/extensions/**"
+          ],
+          "category": "agent_definitions",
+          "sensitivity": "high"
+        }
       ]
     },
     {
       "product": "copilot-cli",
       "entries": [
-        { "id": "copilot.config", "paths": ["${CONFIG_ROOT}/config.json"], "category": "product_config", "sensitivity": "medium" },
-        { "id": "copilot.mcp", "paths": ["${CONFIG_ROOT}/mcp-config.json"], "category": "product_config", "sensitivity": "high" },
-        { "id": "copilot.sessions", "paths": ["${CONFIG_ROOT}/history-session-state/**"], "category": "agent_session", "sensitivity": "high" },
-        { "id": "copilot.logs", "paths": ["${CONFIG_ROOT}/logs/**"], "category": "debug_logs", "sensitivity": "medium" }
+        {
+          "id": "copilot.config",
+          "paths": [
+            "${CONFIG_ROOT}/config.json"
+          ],
+          "category": "product_config",
+          "sensitivity": "medium"
+        },
+        {
+          "id": "copilot.mcp",
+          "paths": [
+            "${CONFIG_ROOT}/mcp-config.json"
+          ],
+          "category": "product_config",
+          "sensitivity": "high"
+        },
+        {
+          "id": "copilot.sessions",
+          "paths": [
+            "${CONFIG_ROOT}/history-session-state/**"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        },
+        {
+          "id": "copilot.logs",
+          "paths": [
+            "${CONFIG_ROOT}/logs/**"
+          ],
+          "category": "debug_logs",
+          "sensitivity": "medium"
+        }
       ]
     },
     {
       "product": "cline",
       "entries": [
-        { "id": "cline.tasks_macos", "platforms": ["darwin"], "paths": ["${PROFILE_ROOT}/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/**"], "category": "agent_session", "sensitivity": "high" },
-        { "id": "cline.tasks_linux", "platforms": ["linux"], "paths": ["${PROFILE_ROOT}/.config/Code/User/globalStorage/saoudrizwan.claude-dev/**"], "category": "agent_session", "sensitivity": "high" },
-        { "id": "cline.tasks_windows", "platforms": ["windows"], "paths": ["${PROFILE_ROOT}/AppData/Roaming/Code/User/globalStorage/saoudrizwan.claude-dev/**"], "category": "agent_session", "sensitivity": "high" }
+        {
+          "id": "cline.tasks_macos",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/**"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        },
+        {
+          "id": "cline.tasks_linux",
+          "platforms": [
+            "linux"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/.config/Code/User/globalStorage/saoudrizwan.claude-dev/**"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        },
+        {
+          "id": "cline.tasks_windows",
+          "platforms": [
+            "windows"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/AppData/Roaming/Code/User/globalStorage/saoudrizwan.claude-dev/**"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        }
       ]
     },
     {
       "product": "roo-code",
       "entries": [
-        { "id": "roo.tasks_macos", "platforms": ["darwin"], "paths": ["${PROFILE_ROOT}/Library/Application Support/Code/User/globalStorage/rooveterinaryinc.roo-cline/**"], "category": "agent_session", "sensitivity": "high" },
-        { "id": "roo.tasks_linux", "platforms": ["linux"], "paths": ["${PROFILE_ROOT}/.config/Code/User/globalStorage/rooveterinaryinc.roo-cline/**"], "category": "agent_session", "sensitivity": "high" },
-        { "id": "roo.tasks_windows", "platforms": ["windows"], "paths": ["${PROFILE_ROOT}/AppData/Roaming/Code/User/globalStorage/rooveterinaryinc.roo-cline/**"], "category": "agent_session", "sensitivity": "high" }
+        {
+          "id": "roo.tasks_macos",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/Code/User/globalStorage/rooveterinaryinc.roo-cline/**"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        },
+        {
+          "id": "roo.tasks_linux",
+          "platforms": [
+            "linux"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/.config/Code/User/globalStorage/rooveterinaryinc.roo-cline/**"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        },
+        {
+          "id": "roo.tasks_windows",
+          "platforms": [
+            "windows"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/AppData/Roaming/Code/User/globalStorage/rooveterinaryinc.roo-cline/**"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        }
       ]
     },
     {
       "product": "openclaw",
       "entries": [
-        { "id": "openclaw.config", "paths": ["${CONFIG_ROOT}/openclaw.json", "${CONFIG_ROOT}/config.json"], "category": "product_config", "sensitivity": "high" },
-        { "id": "openclaw.sessions", "paths": ["${CONFIG_ROOT}/agents/**", "${CONFIG_ROOT}/sessions/**"], "category": "agent_session", "sensitivity": "high" },
-        { "id": "openclaw.credentials", "paths": ["${CONFIG_ROOT}/credentials/**"], "category": "credentials", "sensitivity": "critical" },
-        { "id": "openclaw.workspace", "paths": ["${CONFIG_ROOT}/workspace/**"], "category": "agent_instructions", "sensitivity": "medium" }
+        {
+          "id": "openclaw.config",
+          "paths": [
+            "${CONFIG_ROOT}/openclaw.json",
+            "${CONFIG_ROOT}/config.json"
+          ],
+          "category": "product_config",
+          "sensitivity": "high"
+        },
+        {
+          "id": "openclaw.sessions",
+          "paths": [
+            "${CONFIG_ROOT}/agents/**",
+            "${CONFIG_ROOT}/sessions/**"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        },
+        {
+          "id": "openclaw.credentials",
+          "paths": [
+            "${CONFIG_ROOT}/credentials/**"
+          ],
+          "category": "credentials",
+          "sensitivity": "critical"
+        },
+        {
+          "id": "openclaw.workspace",
+          "paths": [
+            "${CONFIG_ROOT}/workspace/**"
+          ],
+          "category": "agent_instructions",
+          "sensitivity": "medium"
+        }
+      ]
+    },
+    {
+      "product": "opencode",
+      "entries": [
+        {
+          "id": "opencode.config",
+          "paths": [
+            "${PROFILE_ROOT}/.config/opencode/**"
+          ],
+          "category": "product_config",
+          "sensitivity": "high"
+        },
+        {
+          "id": "opencode.sessions",
+          "paths": [
+            "${PROFILE_ROOT}/.local/share/opencode/storage/session/**"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        },
+        {
+          "id": "opencode.messages",
+          "paths": [
+            "${PROFILE_ROOT}/.local/share/opencode/storage/message/**"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        },
+        {
+          "id": "opencode.parts",
+          "paths": [
+            "${PROFILE_ROOT}/.local/share/opencode/storage/part/**"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        },
+        {
+          "id": "opencode.auth",
+          "paths": [
+            "${PROFILE_ROOT}/.local/share/opencode/auth.json"
+          ],
+          "category": "credentials",
+          "sensitivity": "critical"
+        },
+        {
+          "id": "opencode.logs",
+          "paths": [
+            "${PROFILE_ROOT}/.local/share/opencode/log/**"
+          ],
+          "category": "debug_logs",
+          "sensitivity": "medium"
+        }
+      ]
+    },
+    {
+      "product": "copilot-chat-vscode",
+      "entries": [
+        {
+          "id": "copilotchat.sessions_macos",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/Code/User/workspaceStorage/*/chatSessions/**"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        },
+        {
+          "id": "copilotchat.editing_macos",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/Code/User/workspaceStorage/*/chatEditingSessions/**"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        },
+        {
+          "id": "copilotchat.sessions_linux",
+          "platforms": [
+            "linux"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/.config/Code/User/workspaceStorage/*/chatSessions/**"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        },
+        {
+          "id": "copilotchat.editing_linux",
+          "platforms": [
+            "linux"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/.config/Code/User/workspaceStorage/*/chatEditingSessions/**"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        },
+        {
+          "id": "copilotchat.sessions_windows",
+          "platforms": [
+            "windows"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/AppData/Roaming/Code/User/workspaceStorage/*/chatSessions/**"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        },
+        {
+          "id": "copilotchat.editing_windows",
+          "platforms": [
+            "windows"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/AppData/Roaming/Code/User/workspaceStorage/*/chatEditingSessions/**"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        }
+      ]
+    },
+    {
+      "product": "aider",
+      "entries": [
+        {
+          "id": "aider.config",
+          "paths": [
+            "${PROFILE_ROOT}/.aider.conf.yml"
+          ],
+          "category": "product_config",
+          "sensitivity": "high"
+        },
+        {
+          "id": "aider.home",
+          "paths": [
+            "${PROFILE_ROOT}/.aider/**"
+          ],
+          "category": "product_state",
+          "sensitivity": "medium"
+        },
+        {
+          "id": "aider.chat_history",
+          "paths": [
+            "${PROFILE_ROOT}/.aider.chat.history.md"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        },
+        {
+          "id": "aider.input_history",
+          "paths": [
+            "${PROFILE_ROOT}/.aider.input.history"
+          ],
+          "category": "prompt_history",
+          "sensitivity": "high"
+        },
+        {
+          "id": "aider.llm_history",
+          "paths": [
+            "${PROFILE_ROOT}/.aider.llm.history"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        }
+      ]
+    },
+    {
+      "product": "warp",
+      "entries": [
+        {
+          "id": "warp.db_macos",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/dev.warp.Warp-Stable/warp.sqlite"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        },
+        {
+          "id": "warp.db_linux",
+          "platforms": [
+            "linux"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/.local/state/warp-terminal/warp.sqlite"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        },
+        {
+          "id": "warp.db_windows",
+          "platforms": [
+            "windows"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/AppData/Local/warp/Warp/data/warp.sqlite"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        },
+        {
+          "id": "warp.logs_macos",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/dev.warp.Warp-Stable/logs/**"
+          ],
+          "category": "debug_logs",
+          "sensitivity": "medium"
+        },
+        {
+          "id": "warp.logs_linux",
+          "platforms": [
+            "linux"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/.local/share/warp-terminal/**"
+          ],
+          "category": "debug_logs",
+          "sensitivity": "medium"
+        }
       ]
     }
   ]

@@ -87,6 +87,19 @@ func collectPattern(b *casepkg.Builder, entry products.ManifestEntry, pattern st
 	case strings.HasSuffix(pattern, string(filepath.Separator)+"**") || strings.HasSuffix(pattern, "/**"):
 		base := strings.TrimSuffix(strings.TrimSuffix(pattern, "**"), string(filepath.Separator))
 		base = strings.TrimSuffix(base, "/")
+		if strings.ContainsAny(base, "*?[") {
+			// Glob directories mid-pattern (e.g. workspaceStorage/*/chatSessions/**).
+			matches, err := filepath.Glob(base)
+			if err != nil {
+				return fmt.Errorf("glob %s: %w", base, err)
+			}
+			for _, m := range matches {
+				if err := walkTree(b, entry, m, opts, st); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
 		return walkTree(b, entry, base, opts, st)
 	case strings.ContainsAny(pattern, "*?["):
 		matches, err := filepath.Glob(pattern)
