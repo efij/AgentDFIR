@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/efij/AgentDFIR/internal/correlate"
 	"github.com/efij/AgentDFIR/internal/detect"
 	"github.com/efij/AgentDFIR/internal/normalize"
 	"github.com/efij/AgentDFIR/internal/sanitize"
@@ -96,10 +97,13 @@ func cmdTimeline(args []string) int {
 
 // cmdTriage runs normalize + detections and prints IR-ready findings.
 func cmdTriage(args []string) int {
-	if len(args) != 1 {
-		fmt.Fprintln(os.Stderr, "usage: agentdfir triage <package-dir>")
+	fs := flag.NewFlagSet("triage", flag.ContinueOnError)
+	triageShellHistory := fs.String("shell-history", "", "correlate against a shell history file (endpoint evidence)")
+	if err := fs.Parse(args); err != nil || fs.NArg() != 1 {
+		fmt.Fprintln(os.Stderr, "usage: agentdfir triage <package-dir> [--shell-history <path>]")
 		return 2
 	}
+	args = []string{fs.Arg(0)}
 	if rc := cmdNormalize(args); rc != 0 {
 		return rc
 	}
@@ -107,6 +111,12 @@ func cmdTriage(args []string) int {
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
+	}
+	if *triageShellHistory != "" {
+		cres, cerr := correlate.Apply(res.Events, &correlate.ShellHistoryAdapter{Path: *triageShellHistory})
+		if cerr == nil && cres.Corroborated > 0 {
+			fmt.Printf("Endpoint correlation: %d tool call(s) corroborated by shell history.\n", cres.Corroborated)
+		}
 	}
 	findings := detect.RunPackage(res, args[0])
 
