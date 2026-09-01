@@ -29,11 +29,7 @@ import (
 const MaxLineBytes = 8 << 20 // 8 MiB
 
 // Result is the normalized output for one package.
-type Result struct {
-	Events        []schema.Event
-	Entities      []schema.Entity
-	Relationships []schema.Relationship
-}
+type Result = schema.Normalized
 
 // transcriptLine is the (tolerant) shape of one Claude Code JSONL line.
 type transcriptLine struct {
@@ -346,18 +342,6 @@ func (p *parser) finish() {
 	for _, k := range keys {
 		p.res.Entities = append(p.res.Entities, p.entities[k])
 	}
-}
-
-// SpawnEvidence returns the spawn event id for an agent, if any Task
-// spawn/result was observed linking to it.
-func (r *Result) SpawnEvidence() map[string]string {
-	out := map[string]string{}
-	for _, ev := range r.Events {
-		if ev.EventType == schema.EventAgentSpawn && ev.TaskID != "" {
-			out[ev.TaskID] = ev.EventID
-		}
-	}
-	return out
 }
 
 func (p *parser) addEntity(e schema.Entity) {

@@ -28,6 +28,9 @@ var claudeManifestJSON []byte
 //go:embed codex_manifest.json
 var codexManifestJSON []byte
 
+//go:embed tier23_manifests.json
+var tier23ManifestsJSON []byte
+
 // Product describes how to detect one AI agent product.
 type Product struct {
 	ID          string   `json:"id"`
@@ -67,18 +70,31 @@ func All() ([]Product, error) {
 // Manifest returns the collector manifest for a product ID, or nil if no
 // collector is implemented yet.
 func Manifest(productID string) (*CollectorManifest, error) {
-	var raw []byte
+	var m CollectorManifest
 	switch productID {
 	case "claude-code":
-		raw = claudeManifestJSON
+		if err := json.Unmarshal(claudeManifestJSON, &m); err != nil {
+			return nil, err
+		}
 	case "codex-cli":
-		raw = codexManifestJSON
+		if err := json.Unmarshal(codexManifestJSON, &m); err != nil {
+			return nil, err
+		}
 	default:
-		return nil, nil
-	}
-	var m CollectorManifest
-	if err := json.Unmarshal(raw, &m); err != nil {
-		return nil, err
+		var wrap struct {
+			Manifests []CollectorManifest `json:"manifests"`
+		}
+		if err := json.Unmarshal(tier23ManifestsJSON, &wrap); err != nil {
+			return nil, err
+		}
+		for _, cand := range wrap.Manifests {
+			if cand.Product == productID {
+				m = cand
+			}
+		}
+		if m.Product == "" {
+			return nil, nil
+		}
 	}
 	var entries []ManifestEntry
 	for _, e := range m.Entries {

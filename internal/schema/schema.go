@@ -110,3 +110,22 @@ type Finding struct {
 	MitreATTACK   string   `json:"mitre_attack,omitempty"`
 	FalsePositive string   `json:"false_positive_notes,omitempty"`
 }
+
+// Normalized is the merged output of all parsers for one package.
+type Normalized struct {
+	Events        []Event
+	Entities      []Entity
+	Relationships []Relationship
+}
+
+// SpawnEvidence maps agent IDs to the event that evidences their spawn
+// (a Task spawn event or a spawn-linking tool result).
+func (n *Normalized) SpawnEvidence() map[string]string {
+	out := map[string]string{}
+	for _, ev := range n.Events {
+		if ev.EventType == EventAgentSpawn && ev.TaskID != "" {
+			out[ev.TaskID] = ev.EventID
+		}
+	}
+	return out
+}

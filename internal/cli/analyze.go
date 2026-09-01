@@ -9,7 +9,7 @@ import (
 	"sort"
 
 	"github.com/efij/AgentDFIR/internal/detect"
-	"github.com/efij/AgentDFIR/internal/parsers/claudejsonl"
+	"github.com/efij/AgentDFIR/internal/normalize"
 	"github.com/efij/AgentDFIR/internal/sanitize"
 	"github.com/efij/AgentDFIR/internal/schema"
 	"github.com/efij/AgentDFIR/internal/simulate"
@@ -23,7 +23,7 @@ func cmdNormalize(args []string) int {
 		fmt.Fprintln(os.Stderr, "usage: agentdfir normalize <package-dir>")
 		return 2
 	}
-	res, err := claudejsonl.ParsePackage(args[0])
+	res, err := normalize.ParsePackage(args[0])
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
@@ -57,7 +57,7 @@ func cmdTimeline(args []string) int {
 		fmt.Fprintln(os.Stderr, "usage: agentdfir timeline <package-dir>")
 		return 2
 	}
-	res, err := claudejsonl.ParsePackage(args[0])
+	res, err := normalize.ParsePackage(args[0])
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
@@ -103,7 +103,7 @@ func cmdTriage(args []string) int {
 	if rc := cmdNormalize(args); rc != 0 {
 		return rc
 	}
-	res, err := claudejsonl.ParsePackage(args[0])
+	res, err := normalize.ParsePackage(args[0])
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1

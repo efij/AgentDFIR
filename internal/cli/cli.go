@@ -130,6 +130,14 @@ func cmdCollect(args []string) int {
 		productID = "claude-code"
 	case "codex":
 		productID = "codex-cli"
+	case "cursor":
+		productID = "cursor-cli"
+	case "gemini":
+		productID = "gemini-cli"
+	case "copilot":
+		productID = "copilot-cli"
+	case "roo":
+		productID = "roo-code"
 	}
 	man, err := products.Manifest(productID)
 	if err != nil {

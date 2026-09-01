@@ -11,12 +11,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/efij/AgentDFIR/internal/parsers/claudejsonl"
 	"github.com/efij/AgentDFIR/internal/schema"
 )
 
 // Run evaluates all rules and returns findings ordered by severity.
-func Run(res *claudejsonl.Result) []schema.Finding {
+func Run(res *schema.Normalized) []schema.Finding {
 	var findings []schema.Finding
 	findings = append(findings, orphanAgents(res)...)
 	findings = append(findings, crossAgentMessages(res)...)
@@ -40,7 +39,7 @@ func short(id string) string {
 
 // ORPHAN_AGENT — a subagent transcript exists but no observed spawn
 // (Task tool call/result) links any parent to it.
-func orphanAgents(res *claudejsonl.Result) []schema.Finding {
+func orphanAgents(res *schema.Normalized) []schema.Finding {
 	spawned := res.SpawnEvidence()
 	// Any Task tool_result that references an agent also counts as
 	// spawn evidence (captured by the parser into SpawnEvidence).
@@ -82,7 +81,7 @@ func orphanAgents(res *claudejsonl.Result) []schema.Finding {
 
 // CROSS_SESSION_MESSAGE / UNEXPECTED_AGENT_RESUME — inter-agent
 // communication targeting an agent outside the sender's session.
-func crossAgentMessages(res *claudejsonl.Result) []schema.Finding {
+func crossAgentMessages(res *schema.Normalized) []schema.Finding {
 	// Map agents to their sessions.
 	agentSession := map[string]string{}
 	for _, ev := range res.Events {
@@ -133,7 +132,7 @@ func crossAgentMessages(res *claudejsonl.Result) []schema.Finding {
 // Path context matters (plan §14 FP hygiene): recursive deletion inside
 // a temp dir is noise; this rule reports the command and lets the
 // analyst judge — it never auto-labels intent.
-func destructiveCommands(res *claudejsonl.Result) []schema.Finding {
+func destructiveCommands(res *schema.Normalized) []schema.Finding {
 	patterns := []string{"rm -rf ", "rm -fr ", "mkfs", "dd if=", ":(){", "git push --force", "git push -f"}
 	var out []schema.Finding
 	for _, ev := range res.Events {
@@ -165,7 +164,7 @@ func destructiveCommands(res *claudejsonl.Result) []schema.Finding {
 
 // SHELL_EXECUTION — informational by default (fires on nearly every
 // CLI-agent session; plan §14).
-func shellExecution(res *claudejsonl.Result) []schema.Finding {
+func shellExecution(res *schema.Normalized) []schema.Finding {
 	count := 0
 	var first schema.Event
 	for _, ev := range res.Events {
@@ -193,7 +192,7 @@ func shellExecution(res *claudejsonl.Result) []schema.Finding {
 
 // TRACE_GAP — malformed/truncated transcript regions. These downgrade
 // trust in OBSERVED events from the affected artifact (plan §12).
-func traceGaps(res *claudejsonl.Result) []schema.Finding {
+func traceGaps(res *schema.Normalized) []schema.Finding {
 	var out []schema.Finding
 	for _, ev := range res.Events {
 		if ev.EventType != schema.EventTraceGap {
