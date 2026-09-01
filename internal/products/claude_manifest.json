@@ -1,0 +1,25 @@
+{
+  "product": "claude-code",
+  "entries": [
+    { "id": "claude.config", "paths": ["${PROFILE_ROOT}/.claude.json", "${PROFILE_ROOT}/.claude.json.backup"], "category": "product_config", "sensitivity": "high" },
+    { "id": "claude.sessions", "paths": ["${CONFIG_ROOT}/projects/**"], "category": "agent_session", "sensitivity": "high" },
+    { "id": "claude.history", "paths": ["${CONFIG_ROOT}/history.jsonl"], "category": "prompt_history", "sensitivity": "high" },
+    { "id": "claude.settings", "paths": ["${CONFIG_ROOT}/settings.json", "${CONFIG_ROOT}/settings.local.json"], "category": "product_config", "sensitivity": "medium" },
+    { "id": "claude.memory", "paths": ["${CONFIG_ROOT}/CLAUDE.md"], "category": "agent_instructions", "sensitivity": "medium" },
+    { "id": "claude.agents", "paths": ["${CONFIG_ROOT}/agents/**"], "category": "agent_definitions", "sensitivity": "medium" },
+    { "id": "claude.commands", "paths": ["${CONFIG_ROOT}/commands/**"], "category": "agent_definitions", "sensitivity": "medium" },
+    { "id": "claude.skills", "paths": ["${CONFIG_ROOT}/skills/**"], "category": "agent_definitions", "sensitivity": "medium" },
+    { "id": "claude.hooks", "paths": ["${CONFIG_ROOT}/hooks/**"], "category": "agent_definitions", "sensitivity": "high" },
+    { "id": "claude.plugins", "paths": ["${CONFIG_ROOT}/plugins/**"], "category": "agent_definitions", "sensitivity": "high" },
+    { "id": "claude.todos", "paths": ["${CONFIG_ROOT}/todos/**"], "category": "task_state", "sensitivity": "medium" },
+    { "id": "claude.tasks", "paths": ["${CONFIG_ROOT}/tasks/**"], "category": "task_state", "sensitivity": "medium" },
+    { "id": "claude.plans", "paths": ["${CONFIG_ROOT}/plans/**"], "category": "task_state", "sensitivity": "medium" },
+    { "id": "claude.file_history", "paths": ["${CONFIG_ROOT}/file-history/**"], "category": "file_checkpoints", "sensitivity": "high" },
+    { "id": "claude.shell_snapshots", "paths": ["${CONFIG_ROOT}/shell-snapshots/**"], "category": "shell_state", "sensitivity": "high" },
+    { "id": "claude.logs", "paths": ["${CONFIG_ROOT}/logs/**"], "category": "debug_logs", "sensitivity": "medium" },
+    { "id": "claude.ide", "paths": ["${CONFIG_ROOT}/ide/**"], "category": "product_state", "sensitivity": "low" },
+    { "id": "claude.stats", "paths": ["${CONFIG_ROOT}/statsig/**"], "category": "product_state", "sensitivity": "low" },
+    { "id": "claude.managed_settings_macos", "platforms": ["darwin"], "paths": ["${SYSTEM_ROOT}/Library/Application Support/ClaudeCode/**"], "category": "managed_config", "sensitivity": "medium" },
+    { "id": "claude.managed_settings_linux", "platforms": ["linux"], "paths": ["${SYSTEM_ROOT}/etc/claude-code/**"], "category": "managed_config", "sensitivity": "medium" }
+  ]
+}

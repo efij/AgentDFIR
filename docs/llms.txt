@@ -1,0 +1,13 @@
+# AgentDFIR
+
+> Open-source digital forensics and incident response (DFIR) framework for AI agents. Collects, preserves, reconstructs and investigates activity from Claude Code, OpenAI Codex CLI, Cursor, Gemini CLI, GitHub Copilot CLI and other agentic AI tools. Core principle: AI-generated text is never automatically treated as factual evidence of execution — every action is classified REQUESTED / REPORTED / OBSERVED / CORROBORATED / CONTRADICTED / UNKNOWN.
+
+Status: early development. Evidence-package foundation and the Claude Code collector are in progress; further collectors ship per the roadmap.
+
+## Docs
+
+- [Overview](https://efij.github.io/AgentDFIR/): what AI agent forensics is and what AgentDFIR does
+
+## Optional
+
+- [Repository](https://github.com/efij/AgentDFIR): source, issues, releases

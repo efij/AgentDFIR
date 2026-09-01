@@ -1,0 +1,48 @@
+{
+  "products": [
+    {
+      "id": "claude-code",
+      "name": "Claude Code",
+      "config_dirs": [".claude"],
+      "config_files": [".claude.json"],
+      "config_env": "CLAUDE_CONFIG_DIR",
+      "binaries": ["claude"]
+    },
+    {
+      "id": "codex-cli",
+      "name": "Codex CLI",
+      "config_dirs": [".codex"],
+      "config_files": [],
+      "config_env": "CODEX_HOME",
+      "binaries": ["codex"]
+    },
+    {
+      "id": "cursor-cli",
+      "name": "Cursor CLI",
+      "config_dirs": [".cursor"],
+      "config_files": [],
+      "binaries": ["cursor-agent", "cursor"]
+    },
+    {
+      "id": "gemini-cli",
+      "name": "Gemini CLI",
+      "config_dirs": [".gemini"],
+      "config_files": [],
+      "binaries": ["gemini"]
+    },
+    {
+      "id": "copilot-cli",
+      "name": "Copilot CLI",
+      "config_dirs": [".copilot"],
+      "config_files": [],
+      "binaries": ["copilot", "github-copilot-cli"]
+    },
+    {
+      "id": "openclaw",
+      "name": "OpenClaw",
+      "config_dirs": [".openclaw"],
+      "config_files": [],
+      "binaries": ["openclaw"]
+    }
+  ]
+}

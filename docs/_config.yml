@@ -1,0 +1,7 @@
+title: AgentDFIR
+description: Open-source digital forensics and incident response for AI agents. Collect, preserve, reconstruct and investigate activity from Claude Code, Codex, Cursor, Gemini, Copilot and other AI agents.
+theme: jekyll-theme-cayman
+lang: en
+plugins:
+  - jekyll-sitemap
+  - jekyll-seo-tag
