@@ -60,7 +60,16 @@ type payload struct {
 }
 
 // ParsePackage parses every codex session artifact in a sealed package.
-func ParsePackage(pkgDir string) (*Result, error) {
+func ParsePackage(pkgDir string) (*Result, error) { return parseWith(pkgDir, nil) }
+
+// StreamPackage parses and emits every event to sink instead of
+// accumulating them, returning only entities/relationships. Bounds memory
+// by entity count rather than event count.
+func StreamPackage(pkgDir string, sink func(schema.Event)) (*Result, error) {
+	return parseWith(pkgDir, sink)
+}
+
+func parseWith(pkgDir string, sink func(schema.Event)) (*Result, error) {
 	data, err := os.ReadFile(filepath.Join(pkgDir, "manifest.json"))
 	if err != nil {
 		return nil, fmt.Errorf("read manifest: %w", err)
@@ -86,6 +95,7 @@ func ParsePackage(pkgDir string) (*Result, error) {
 }
 
 type parser struct {
+	sink     func(schema.Event)
 	res      *Result
 	caseID   string
 	host     string
@@ -284,7 +294,11 @@ func (p *parser) emit(ev schema.Event, art casepkg.ArtifactRecord, off int64, li
 		ev.Corroboration = schema.StateUnknown
 	}
 	p.seq++
-	p.res.Events = append(p.res.Events, ev)
+	if p.sink != nil {
+		p.sink(ev)
+	} else {
+		p.res.Events = append(p.res.Events, ev)
+	}
 }
 
 func (p *parser) touchSession(sessionID, agentID string) {

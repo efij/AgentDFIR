@@ -64,7 +64,16 @@ type contentItem struct {
 }
 
 // ParsePackage parses every claude.sessions artifact in a sealed package.
-func ParsePackage(pkgDir string) (*Result, error) {
+func ParsePackage(pkgDir string) (*Result, error) { return parseWith(pkgDir, nil) }
+
+// StreamPackage parses and emits every event to sink instead of
+// accumulating them, returning only entities/relationships. Bounds memory
+// by entity count rather than event count.
+func StreamPackage(pkgDir string, sink func(schema.Event)) (*Result, error) {
+	return parseWith(pkgDir, sink)
+}
+
+func parseWith(pkgDir string, sink func(schema.Event)) (*Result, error) {
 	data, err := os.ReadFile(filepath.Join(pkgDir, "manifest.json"))
 	if err != nil {
 		return nil, fmt.Errorf("read manifest: %w", err)
@@ -74,7 +83,7 @@ func ParsePackage(pkgDir string) (*Result, error) {
 		return nil, fmt.Errorf("parse manifest: %w", err)
 	}
 	res := &Result{}
-	p := &parser{res: res, caseID: man.CaseID, host: man.Host,
+	p := &parser{res: res, sink: sink, caseID: man.CaseID, host: man.Host,
 		entities: map[string]schema.Entity{}, spawned: map[string]string{}}
 	for _, a := range man.Artifacts {
 		if a.Status != casepkg.StatusOK || a.CollectorRule != "claude.sessions" ||
@@ -91,6 +100,7 @@ func ParsePackage(pkgDir string) (*Result, error) {
 }
 
 type parser struct {
+	sink     func(schema.Event)
 	res      *Result
 	caseID   string
 	host     string
@@ -344,7 +354,11 @@ func (p *parser) emit(ev schema.Event, art casepkg.ArtifactRecord, off int64, li
 		ev.Corroboration = schema.StateUnknown
 	}
 	p.seq++
-	p.res.Events = append(p.res.Events, ev)
+	if p.sink != nil {
+		p.sink(ev)
+	} else {
+		p.res.Events = append(p.res.Events, ev)
+	}
 
 	// Evidence-backed relationships for notable events.
 	switch ev.EventType {

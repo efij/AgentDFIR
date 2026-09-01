@@ -56,7 +56,15 @@ var productTable = []productCfg{
 var sessionCategories = map[string]bool{"agent_session": true, "prompt_history": true}
 
 // ParsePackage parses every matching session artifact in a sealed package.
-func ParsePackage(pkgDir string) (*schema.Normalized, error) {
+func ParsePackage(pkgDir string) (*schema.Normalized, error) { return parseWith(pkgDir, nil) }
+
+// StreamPackage parses and emits every event to sink instead of
+// accumulating them, returning only entities/relationships.
+func StreamPackage(pkgDir string, sink func(schema.Event)) (*schema.Normalized, error) {
+	return parseWith(pkgDir, sink)
+}
+
+func parseWith(pkgDir string, sink func(schema.Event)) (*schema.Normalized, error) {
 	data, err := os.ReadFile(filepath.Join(pkgDir, "manifest.json"))
 	if err != nil {
 		return nil, fmt.Errorf("read manifest: %w", err)
@@ -65,7 +73,7 @@ func ParsePackage(pkgDir string) (*schema.Normalized, error) {
 	if err := json.Unmarshal(data, &man); err != nil {
 		return nil, fmt.Errorf("parse manifest: %w", err)
 	}
-	p := &parser{res: &schema.Normalized{}, caseID: man.CaseID, host: man.Host,
+	p := &parser{res: &schema.Normalized{}, sink: sink, caseID: man.CaseID, host: man.Host,
 		entities: map[string]schema.Entity{}}
 	for _, a := range man.Artifacts {
 		if a.Status != casepkg.StatusOK || !sessionCategories[a.ArtifactType] {
@@ -93,6 +101,7 @@ func productFor(rule string) *productCfg {
 }
 
 type parser struct {
+	sink     func(schema.Event)
 	res      *schema.Normalized
 	caseID   string
 	host     string
@@ -518,7 +527,11 @@ func (p *parser) emit(ev schema.Event, art casepkg.ArtifactRecord, off int64, li
 		ev.Corroboration = schema.StateUnknown
 	}
 	p.seq++
-	p.res.Events = append(p.res.Events, ev)
+	if p.sink != nil {
+		p.sink(ev)
+	} else {
+		p.res.Events = append(p.res.Events, ev)
+	}
 }
 
 func (p *parser) gap(art casepkg.ArtifactRecord, cfg *productCfg, off int64, line int, why string) {

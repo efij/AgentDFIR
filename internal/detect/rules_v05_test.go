@@ -166,3 +166,29 @@ func itoa(n int) string {
 	}
 	return string(b)
 }
+
+func collectClaude(t *testing.T, files map[string]string) string {
+	t.Helper()
+	root := t.TempDir()
+	for rel, content := range files {
+		p := filepath.Join(root, rel)
+		os.MkdirAll(filepath.Dir(p), 0o755)
+		os.WriteFile(p, []byte(content), 0o644)
+	}
+	pkg := filepath.Join(t.TempDir(), "c.adfir")
+	b, err := casepkg.New(pkg, "S", casepkg.CaseInfo{OperatorOSUser: "t"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	man, _ := products.Manifest("claude-code")
+	if _, err := collector.Run(b, man, collector.Options{
+		ProfileRoot: root, ConfigRoot: filepath.Join(root, ".claude"),
+		SystemRoot: root, Product: "claude-code",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := b.Seal(); err != nil {
+		t.Fatal(err)
+	}
+	return pkg
+}
