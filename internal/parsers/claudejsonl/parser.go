@@ -107,6 +107,15 @@ func (p *parser) parseTranscript(blobPath string, art casepkg.ArtifactRecord) er
 	}
 	defer f.Close()
 
+	uuids := map[string]bool{}
+	type parentRef struct {
+		parent string
+		off    int64
+		line   int
+		sess   string
+	}
+	var parents []parentRef
+
 	lr := linereader.New(f, MaxLineBytes)
 	for {
 		ln, err := lr.Next()
@@ -138,7 +147,26 @@ func (p *parser) parseTranscript(blobPath string, art casepkg.ArtifactRecord) er
 			}, art, ln.Offset, ln.Number)
 			continue
 		}
+		if tl.UUID != "" {
+			uuids[tl.UUID] = true
+		}
+		if tl.ParentUUID != "" {
+			parents = append(parents, parentRef{tl.ParentUUID, ln.Offset, ln.Number, tl.SessionID})
+		}
 		p.handleLine(tl, art, ln.Offset, ln.Number)
+	}
+	// Dangling parentUuid references = broken conversation DAG (splicing,
+	// deletion, or fabrication). Emitted as evidence for SESSION_TAMPERING.
+	for _, pr := range parents {
+		if !uuids[pr.parent] {
+			p.emit(schema.Event{
+				EventType: schema.EventSessionMeta, ActorType: schema.ActorSystem,
+				SessionID: pr.sess, AgentID: "main:" + pr.sess,
+				Result:        "chain_break",
+				Summary:       fmt.Sprintf("parentUuid %.8s… references a record not present in this transcript", pr.parent),
+				Corroboration: schema.StateObserved,
+			}, art, pr.off, pr.line)
+		}
 	}
 	return nil
 }

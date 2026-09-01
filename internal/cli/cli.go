@@ -44,6 +44,7 @@ Usage:
   agentdfir monitor [dirs...]           live watch of agent session activity
   agentdfir explain <pkg>               deterministic case digest (no AI, no transmission)
   agentdfir update-packs                install signed knowledge-pack overrides
+  agentdfir rules validate <dir>        validate declarative rule packs
   agentdfir version                     print version
 
 Collect flags:
@@ -108,6 +109,8 @@ func Main(args []string) int {
 		return cmdExplain(args[1:])
 	case "update-packs":
 		return cmdUpdatePacks(args[1:])
+	case "rules":
+		return cmdRules(args[1:])
 	case "version", "--version", "-v":
 		fmt.Printf("agentdfir %s (adfir format %s)\n", version.Version, version.ADFIRVersion)
 		return 0

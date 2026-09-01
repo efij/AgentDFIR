@@ -7,6 +7,46 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-09-02
+
+Analysis hardening. Completes the plan §14 detection set, fixes a large-
+evidence scanning blind spot, and deepens MITRE mapping.
+
+### Added
+- 17 detection rules completing §14: UNEXPECTED_AGENT_RESUME, UNEXPECTED_TASK,
+  AGENT_IDENTITY_MISMATCH, AGENT_CONTEXT_POISONING, TOOL_POISONING_INDICATOR,
+  MCP_TOOL_POISONING, PERMISSION_ESCALATION, SENSITIVE_FILE_READ,
+  UNEXPECTED_NETWORK_DESTINATION, POTENTIAL_DATA_EXFILTRATION (sequence-aware),
+  AGENT_GENERATED_COMMIT, AGENT_GENERATED_PUSH, AGENT_SPAWN_EXPLOSION,
+  LOG_DELETION, SESSION_TAMPERING, AGENT_SELF_MODIFICATION, TIMESTOMP_INDICATOR.
+  Full §14 coverage: 36/36.
+- `internal/netdest`: network-destination extraction from agent commands;
+  normalize enriches events with `network_destination`; cloud-metadata
+  endpoint detection.
+- `agentdfir rules validate <dir>` — loader-based rule-pack validation.
+- Community rule pack (12 mapped rules: reverse shells, curl|sh, base64|sh,
+  cloud metadata, ssh key writes, cron/persistence, history clearing, chmod
+  777, firewall disable, package publish, disk wipe, env exfil).
+- `triage --spawn-threshold` and `--known-destinations`.
+
+### Changed
+- Content scans (secrets, injection, invisible-Unicode, honeytokens,
+  poisoning) now STREAM in bounded memory — previously any artifact over
+  16 MiB was silently skipped. Verified against a 20 MB transcript with a
+  tail-end secret.
+- `triage` parses the package once (was twice).
+- HTML reports cap timeline/inventory rows (default 2000) with a pointer to
+  the full JSONL/CSV — large cases no longer produce unusable reports.
+- MITRE depth: added AML.T0053 (plugin/tool compromise), AML.T0057 (LLM data
+  leakage), and precise ATT&CK IDs (T1041, T1070.x, T1552.x, T1562.x, T1565,
+  T1071). Mappings only where a valid technique exists.
+
+### Performance
+- Collection remains streaming (100 MB in ~1.2 s, ~7 MB RSS). Full 24-rule
+  triage of a 400k-event / 100 MB package is a batch operation (~20 s,
+  ~1.1 GB RSS); the SQLite analysis cache (design D6) remains the documented
+  path for multi-GB packages.
+
 ## [0.4.0] — 2026-09-01
 
 Broadens product coverage to twelve AI agents. Adds OpenCode, VS Code
@@ -162,7 +202,8 @@ and interoperability exports.
   on all evidence-derived output; bounded parsers; zip-slip defense on archive
   extraction; secrets never printed by default.
 
-[Unreleased]: https://github.com/efij/AgentDFIR/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/efij/AgentDFIR/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/efij/AgentDFIR/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/efij/AgentDFIR/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/efij/AgentDFIR/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/efij/AgentDFIR/compare/v0.1.0...v0.2.0

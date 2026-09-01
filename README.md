@@ -132,7 +132,7 @@ Ships with wrappers for tools IR teams already run:
 |---|---|
 | ✅ | Sealed `.adfir` packages, hash-chained custody, `verify` |
 | ✅ | Claude Code: detect, collect, normalize, timeline, triage |
-| ✅ | Detections: orphan agents, cross-agent messaging, destructive commands, trace gaps |
+| ✅ | 36 deterministic detections (full plan set): rogue/orphan agents, exfiltration, context/tool/MCP poisoning, secret & sensitive-file access, self-modification, log deletion, timestomping, session tampering… with MITRE ATLAS/ATT&CK mapping |
 | ✅ | `simulate` — synthetic incident generation (adversary emulation for AI agents) |
 | ✅ | Full parsers for 12 products: Claude Code, Codex, Gemini CLI, Cursor, Copilot CLI, Copilot Chat (VS Code), Cline, Roo, OpenClaw, OpenCode, Aider, Warp |
 | ✅ | Endpoint correlation (pluggable adapters; shell-history reference adapter) |

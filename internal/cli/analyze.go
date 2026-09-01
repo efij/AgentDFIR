@@ -103,19 +103,22 @@ func cmdTriage(args []string) int {
 	triageShellHistory := fs.String("shell-history", "", "correlate against a shell history file (endpoint evidence)")
 	rulesDir := fs.String("rules", "", "directory of declarative JSON rule packs")
 	honeyFile := fs.String("honeytokens", "", "file of planted canary markers (one per line)")
+	spawnTh := fs.Int("spawn-threshold", 10, "AGENT_SPAWN_EXPLOSION per-session threshold")
+	knownDest := fs.String("known-destinations", "", "comma-separated extra allowlisted network destinations")
 	if err := fs.Parse(args); err != nil || fs.NArg() != 1 {
 		fmt.Fprintln(os.Stderr, "usage: agentdfir triage <package-dir> [--shell-history <path>]")
 		return 2
 	}
-	args = []string{fs.Arg(0)}
-	if rc := cmdNormalize(args); rc != 0 {
-		return rc
-	}
-	res, err := normalize.ParsePackage(args[0])
+	pkg := fs.Arg(0)
+	res, err := normalize.ParsePackage(pkg) // single parse (plan v0.5.0 perf)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
 	}
+	if rc := writeOverlay(pkg, res); rc != 0 {
+		return rc
+	}
+	args = []string{pkg}
 	if *triageShellHistory != "" {
 		cres, cerr := correlate.Apply(res.Events, &correlate.ShellHistoryAdapter{Path: *triageShellHistory})
 		if cerr == nil && cres.Corroborated > 0 {
@@ -130,7 +133,13 @@ func cmdTriage(args []string) int {
 			fmt.Fprintln(os.Stderr, "honeytokens:", herr)
 		}
 	}
-	findings := detect.RunPackageWithOptions(res, args[0], honey)
+	var extraDest []string
+	if *knownDest != "" {
+		extraDest = strings.Split(*knownDest, ",")
+	}
+	findings := detect.RunAll(res, args[0], detect.Options{
+		Honeytokens: honey, SpawnThreshold: *spawnTh, KnownDestinations: extraDest,
+	})
 	if *rulesDir != "" {
 		packs, perr := rulepack.LoadDir(*rulesDir)
 		if perr != nil {
@@ -210,6 +219,31 @@ func cmdSimulate(args []string) int {
 	}
 	fmt.Printf("Synthetic scenario %q written to %s\n", *scenario, *out)
 	fmt.Printf("Next: agentdfir collect --product claude --path %s\n", *out)
+	return 0
+}
+
+// writeOverlay writes the normalized/ overlay from an already-parsed
+// result, avoiding a second parse.
+func writeOverlay(pkg string, res *schema.Normalized) int {
+	dir := filepath.Join(pkg, "normalized")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		return 1
+	}
+	if err := writeJSONL(filepath.Join(dir, "events.jsonl"), len(res.Events), func(i int) any { return res.Events[i] }); err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		return 1
+	}
+	if err := writeJSONL(filepath.Join(dir, "entities.jsonl"), len(res.Entities), func(i int) any { return res.Entities[i] }); err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		return 1
+	}
+	if err := writeJSONL(filepath.Join(dir, "relationships.jsonl"), len(res.Relationships), func(i int) any { return res.Relationships[i] }); err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		return 1
+	}
+	fmt.Printf("Normalized: %d events, %d entities, %d relationships -> %s\n",
+		len(res.Events), len(res.Entities), len(res.Relationships), dir)
 	return 0
 }
 
