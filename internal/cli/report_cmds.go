@@ -21,20 +21,20 @@ import (
 // cmdReport renders HTML/JSON/CSV/STIX/OTel outputs for a package.
 func cmdReport(args []string) int {
 	fs := flag.NewFlagSet("report", flag.ContinueOnError)
-	format := fs.String("format", "html", "html|json|csv|stix|otel|ocsf|sarif|timesketch|l2tcsv|all")
+	format := fs.String("format", "html", "html|pdf|json|csv|stix|otel|ocsf|sarif|timesketch|l2tcsv|all")
 	outDir := fs.String("out", "", "output directory (default: <package>/reports)")
 	// Accept the package either first or last: `report pkg --format x` is how
 	// people type it; `report --format x pkg` is how flag parsing wants it.
 	pkg, rest := splitPositional(args)
 	if err := fs.Parse(rest); err != nil || (pkg == "" && fs.NArg() != 1) || (pkg != "" && fs.NArg() != 0) {
-		fmt.Fprintln(os.Stderr, "usage: agentdfir report <package-dir> [--format html|json|csv|stix|otel|ocsf|sarif|timesketch|l2tcsv|all] [--out dir]")
+		fmt.Fprintln(os.Stderr, "usage: agentdfir report <package-dir> [--format html|pdf|json|csv|stix|otel|ocsf|sarif|timesketch|l2tcsv|all] [--out dir]")
 		return 2
 	}
 	if pkg == "" {
 		pkg = fs.Arg(0)
 	}
 	switch *format {
-	case "html", "json", "csv", "stix", "otel", "ocsf", "sarif", "timesketch", "l2tcsv", "all":
+	case "html", "pdf", "json", "csv", "stix", "otel", "ocsf", "sarif", "timesketch", "l2tcsv", "all":
 	default:
 		fmt.Fprintf(os.Stderr, "unknown report format %q\n", sanitize.Terminal(*format))
 		return 2
@@ -83,6 +83,24 @@ func cmdReport(args []string) int {
 	undated := 0
 	if want("html") {
 		ok = do("report.html", func() error { return report.WriteHTML(c, filepath.Join(dir, "report.html")) }) && ok
+	}
+	if want("pdf") {
+		ok = do("report.pdf", func() error {
+			custody, _ := report.ReadCustody(pkg)
+			sigState := "none (package is unsigned)"
+			if sr, err := seal.Verify(pkg, ""); err != nil {
+				sigState = "error: " + err.Error()
+			} else if sr.Present && sr.Valid {
+				sigState = "VALID (ed25519, key " + sr.PublicKey + ")"
+			} else if sr.Present {
+				sigState = "INVALID — " + sr.Reason
+			}
+			replaced, err := report.WritePDF(c, custody, sigState, filepath.Join(dir, "report.pdf"), report.PDFOptions{})
+			if replaced > 0 {
+				fmt.Printf("Note: %d character(s) outside the PDF core-font set rendered as '?' (evidence unaffected).\n", replaced)
+			}
+			return err
+		}) && ok
 	}
 	if want("json") {
 		ok = do("report.json", func() error { return report.WriteJSON(c, filepath.Join(dir, "report.json")) }) && ok

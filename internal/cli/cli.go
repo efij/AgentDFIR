@@ -32,7 +32,7 @@ Usage:
   agentdfir simulate [flags]            generate a synthetic incident scenario
   agentdfir diff <pkg-a> <pkg-b>        configuration drift between two packages
   agentdfir baseline create|check       org known-good profiles
-  agentdfir report <package-dir>        HTML/JSON/CSV/STIX/OTel/OCSF/SARIF/Timesketch/l2tcsv
+  agentdfir report <package-dir>        HTML/PDF/JSON/CSV/STIX/OTel/OCSF/SARIF/Timesketch/l2tcsv
   agentdfir export --support <pkg>      derived, redacted support package
   agentdfir keygen                      generate ed25519 signing keypair
   agentdfir sign --key <k> <pkg>        sign a sealed package (SEAL.sig)
