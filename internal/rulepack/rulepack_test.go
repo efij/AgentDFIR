@@ -72,3 +72,47 @@ func TestRejectsInvalidPacks(t *testing.T) {
 		}
 	}
 }
+
+// TestShippedPacksLoadAndAreUnique guards the packs shipped in rules/:
+// they must load with the real loader, rule IDs must be unique across
+// packs, and none may shadow a built-in detect rule ID.
+func TestShippedPacksLoadAndAreUnique(t *testing.T) {
+	packs, err := LoadDir("../../rules")
+	if err != nil {
+		t.Fatalf("shipped packs failed to load: %v", err)
+	}
+	builtin := map[string]bool{
+		"ORPHAN_AGENT": true, "MCP_TOOL_POISONING": true, "PERMISSION_BYPASS_ENABLED": true,
+		"PERMISSION_ESCALATION": true, "SECRET_ACCESS": true, "SENSITIVE_FILE_READ": true,
+		"SHELL_EXECUTION": true, "UNEXPECTED_AGENT_RESUME": true, "UNEXPECTED_TASK": true,
+		"DESTRUCTIVE_COMMAND": true, "CROSS_SESSION_MESSAGE": true, "TRACE_GAP": true,
+		"INVISIBLE_UNICODE_INSTRUCTION": true, "POTENTIAL_SECRET_EXPOSURE": true,
+		"AGENT_GENERATED_COMMIT": true, "AGENT_GENERATED_PUSH": true, "AGENT_IDENTITY_MISMATCH": true,
+		"AGENT_SELF_MODIFICATION": true, "AGENT_SPAWN_EXPLOSION": true, "LOG_DELETION": true,
+		"POTENTIAL_DATA_EXFILTRATION": true, "SESSION_TAMPERING": true, "TIMESTOMP_INDICATOR": true,
+		"UNEXPECTED_NETWORK_DESTINATION": true, "PROMPT_INJECTION_INDICATOR": true,
+		"AGENT_CONTEXT_POISONING": true, "TOOL_POISONING_INDICATOR": true,
+	}
+	seen := map[string]string{}
+	total := 0
+	for _, p := range packs {
+		for _, r := range p.Rules {
+			total++
+			if builtin[r.ID] {
+				t.Errorf("pack %s: rule %s shadows a built-in detect rule", p.Pack, r.ID)
+			}
+			// CURL_PIPE_SHELL is intentionally present in both the starter
+			// (format example) and community packs; anything else must be unique.
+			if prev, ok := seen[r.ID]; ok && r.ID != "CURL_PIPE_SHELL" {
+				t.Errorf("rule %s duplicated across packs %s and %s", r.ID, prev, p.Pack)
+			}
+			seen[r.ID] = p.Pack
+			if r.Confidence != "low" && r.Confidence != "medium" && r.Confidence != "high" {
+				t.Errorf("pack %s: rule %s has invalid confidence %q", p.Pack, r.ID, r.Confidence)
+			}
+		}
+	}
+	if total < 40 {
+		t.Fatalf("expected >= 40 shipped rules, got %d", total)
+	}
+}
