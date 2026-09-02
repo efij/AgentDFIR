@@ -8,6 +8,7 @@ Status: released (v0.5+). 12 supported products (Claude Code, Codex CLI, Gemini 
 
 - [Overview](https://efij.github.io/AgentDFIR/): what AI agent forensics is and what AgentDFIR does
 - [Claude Code Forensic Artifacts](https://efij.github.io/AgentDFIR/claude-code-forensic-artifacts): artifact locations, JSONL schema, collection
+- [Install](https://github.com/efij/AgentDFIR/blob/main/docs/install.md): portable raw binaries (air-gap/USB), install.sh, Homebrew tap, go install; SHA256 + Sigstore verification; why macOS Gatekeeper / Windows SmartScreen prompt on unsigned downloads and the one-step fix
 - [Case Explorer](https://github.com/efij/AgentDFIR/blob/main/docs/serve.md): agentdfir serve — local browser UI (agent tree, timeline scrubber, raw evidence, findings, topology), loopback only
 - [Container / CI Collection](https://github.com/efij/AgentDFIR/blob/main/docs/container-ci-collection.md): collect --docker and --archive — containers, CI artifacts, support bundles, vendor exports
 - [Instruction Provenance](https://github.com/efij/AgentDFIR/blob/main/docs/provenance.md): who wrote each line of CLAUDE.md / rules / settings and whether it came from a tool result

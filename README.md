@@ -11,7 +11,7 @@
 [![Go](https://img.shields.io/badge/Go-%E2%89%A51.22-00ADD8?logo=go&logoColor=white)](go.mod)
 [![Zero deps](https://img.shields.io/badge/runtime%20deps-zero-brightgreen)](go.mod)
 
-[Website](https://efij.github.io/AgentDFIR/) · [Quick start](#-quick-start) · [Evidence format](#-the-adfir-evidence-package) · [Contributing](CONTRIBUTING.md)
+[Website](https://efij.github.io/AgentDFIR/) · [Install](docs/install.md) · [Quick start](#-quick-start) · [Evidence format](#-the-adfir-evidence-package) · [Contributing](CONTRIBUTING.md)
 
 </div>
 
@@ -40,9 +40,29 @@ An agent claiming *"I executed curl example.com"* with no matching tool call sta
 
 ## ⚡ Quick start
 
-```sh
-go build -trimpath -o agentdfir ./cmd/agentdfir
+**Install** — one static binary, zero runtime dependencies. Full guide with air-gap,
+checksum and Sigstore verification steps: [docs/install.md](docs/install.md).
 
+```sh
+# Portable, air-gap friendly: grab the raw binary for your OS from the releases page
+#   https://github.com/efij/AgentDFIR/releases/latest
+# macOS: browser downloads are quarantined; unsigned binaries need this once per file
+xattr -d com.apple.quarantine agentdfir-v*-darwin-arm64 && chmod +x agentdfir-v*-darwin-arm64
+
+# Online macOS / Linux, no dialogs (verifies SHA256, installs to ~/.local/bin)
+curl -fsSL https://raw.githubusercontent.com/efij/AgentDFIR/main/install.sh | sh
+
+# Homebrew
+brew install efij/agentdfir/agentdfir
+
+# Go toolchain
+go install github.com/efij/AgentDFIR/cmd/agentdfir@latest
+
+# From source
+go build -trimpath -o agentdfir ./cmd/agentdfir
+```
+
+```sh
 # Discover installed AI tooling — never executes suspect binaries
 ./agentdfir detect
 

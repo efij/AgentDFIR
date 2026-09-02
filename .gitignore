@@ -6,6 +6,8 @@ DESIGN.md
 /bin/
 /dist/
 /build/
+# local install.sh test target (CI release-smoke, scripts/release-build.sh)
+/ibin/
 
 # Evidence packages — never commit real evidence
 *.adfir
