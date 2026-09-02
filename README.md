@@ -71,6 +71,9 @@ go build -trimpath -o agentdfir ./cmd/agentdfir
 # Train / test / demo with synthetic incidents
 ./agentdfir simulate --scenario orphan-agent --out demo-profile
 
+# Browser case explorer — agent tree, timeline scrubber, raw evidence, findings (127.0.0.1 only)
+./agentdfir serve CASE-2026-042.adfir --open
+
 # Live watch — or a real-time sensor: detections pushed to your SOC within one poll interval
 ./agentdfir monitor
 ./agentdfir monitor --detect --alert https://soc.example/hook --honeytokens canaries.txt
@@ -163,6 +166,7 @@ Ships with wrappers for tools IR teams already run:
 | ✅ | Full parsers for 12 products: Claude Code, Codex, Gemini CLI, Cursor, Copilot CLI, Copilot Chat (VS Code), Cline, Roo, OpenClaw, OpenCode, Aider, Warp |
 | ✅ | [Endpoint corroboration](docs/endpoint-corroboration.md) — auditd, Sysmon XML, Velociraptor/osquery/eslogger/EDR exports: tool calls → CORROBORATED / CONTRADICTED, unlogged agent processes and connections surfaced |
 | ✅ | Reports: network-silent HTML, self-contained PDF (stdlib writer, no renderer deps), JSON, CSV, STIX 2.1, OTel · [OCSF 1.3, SARIF 2.1, Sigma export](docs/siem-interop.md) for SIEM/SOC pipelines |
+| ✅ | [`serve`](docs/serve.md) — local browser case explorer: agent tree, density-scrubber timeline, raw evidence pane, findings, topology; loopback-only, zero external resources |
 | ✅ | `monitor` live watch · [`--detect --alert`](docs/realtime-detection.md) real-time sensor (webhook / syslog / file) · `replay` session step-through · `investigate` explorer |
 | ✅ | Declarative rule packs ([agentdfir-rules](https://github.com/efij/agentdfir-rules)) + signed knowledge packs |
 | ✅ | Package signing (ed25519), full-package encryption (AES-256-GCM) |

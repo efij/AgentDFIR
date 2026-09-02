@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'self'; base-uri 'none'; form-action 'none'">
+<title>AgentDFIR — case explorer</title>
+<style>
+:root{
+  --bg:#0f1318;--panel:#151b23;--panel-2:#1b2330;--border:#2a3441;--text:#e6edf3;--muted:#9fb0c3;--accent:#5cc8ff;--accent-2:#8ab4f8;
+  --ok:#3fb950;--warn:#d29922;--bad:#f85149;--crit:#ff7b72;--info:#8b949e;--focus:#ffd866;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--sans:system-ui,-apple-system,"Segoe UI",Roboto,Inter,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font:14px/1.5 var(--sans)}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+a{color:var(--accent)}
+.app{display:grid;grid-template-rows:auto auto 1fr;height:100%}
+header{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--border)}
+header h1{font-size:16px;margin:0;display:flex;gap:10px;align-items:center}
+header h1 svg{width:22px;height:22px}
+.kv{display:flex;gap:6px;align-items:center;color:var(--muted);font-size:13px}
+.kv b{color:var(--text);font-weight:600}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:999px;border:1px solid var(--border);font-size:12px;line-height:20px;white-space:nowrap}
+.pill.ok{border-color:var(--ok);color:var(--ok)} .pill.bad{border-color:var(--bad);color:var(--bad)} .pill.warn{border-color:var(--warn);color:var(--warn)}
+nav.tabs{display:flex;gap:4px;padding:6px 12px 0;background:var(--panel);border-bottom:1px solid var(--border)}
+nav.tabs button{min-height:44px;padding:0 16px;background:none;border:0;border-bottom:3px solid transparent;color:var(--muted);cursor:pointer;border-radius:6px 6px 0 0}
+nav.tabs button[aria-selected=true]{color:var(--text);border-bottom-color:var(--accent)}
+nav.tabs button:hover{color:var(--text);background:var(--panel-2)}
+main{min-height:0;overflow:hidden}
+.view{display:none;height:100%;min-height:0}
+.view.active{display:grid}
+#timeline.active{grid-template-columns:280px 1fr 460px}
+.col{min-height:0;overflow:auto;border-right:1px solid var(--border);background:var(--bg)}
+.col:last-child{border-right:0}
+.col h2{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0;padding:12px 14px 6px;position:sticky;top:0;background:var(--bg);z-index:1}
+.tree button{display:flex;width:100%;text-align:left;gap:8px;align-items:center;min-height:44px;padding:6px 14px;background:none;border:0;border-left:3px solid transparent;color:var(--text);cursor:pointer;font-family:var(--mono);font-size:12.5px}
+.tree button:hover{background:var(--panel-2)} .tree button[aria-pressed=true]{background:var(--panel-2);border-left-color:var(--accent)}
+.tree .agent{padding-left:30px}
+.badge{font-family:var(--sans);font-size:10.5px;padding:1px 6px;border-radius:4px;border:1px solid var(--border);color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.badge.orphan{border-color:var(--bad);color:var(--bad)} .badge.sub{border-color:var(--accent-2);color:var(--accent-2)}
+.count{margin-left:auto;color:var(--muted);font-size:11.5px}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;padding:10px 14px;position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--border);z-index:2;align-items:center}
+.toolbar input,.toolbar select{min-height:38px;padding:6px 10px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text)}
+.toolbar input{flex:1;min-width:180px}
+.toolbar .total{color:var(--muted);font-size:12.5px;margin-left:auto}
+.btn{min-height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:6px;color:var(--text);cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.scrub{height:56px;padding:6px 14px 0;position:relative}
+.scrub svg{width:100%;height:44px;display:block}
+.scrub rect.bar{fill:var(--accent-2);opacity:.55} .scrub rect.bar:hover{opacity:1}
+.scrub .range{fill:var(--accent);opacity:.12}
+table.ev{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12.5px}
+table.ev th{position:sticky;top:110px;background:var(--panel);text-align:left;font-weight:600;color:var(--muted);padding:6px 10px;border-bottom:1px solid var(--border);font-family:var(--sans);font-size:12px;z-index:1}
+table.ev td{padding:0;border-bottom:1px solid #1d2632;vertical-align:top}
+table.ev tr.row{cursor:pointer}
+table.ev tr.row:hover td{background:var(--panel-2)}
+table.ev tr.row[aria-selected=true] td{background:#1f2c3d}
+table.ev td>div{padding:9px 10px;min-height:44px;display:flex;align-items:center}
+.ts{white-space:nowrap;color:var(--muted)}
+.what{white-space:pre-wrap;word-break:break-word;font-family:var(--mono)}
+.state{font-family:var(--sans);font-size:11px;font-weight:600;letter-spacing:.04em;padding:2px 7px;border-radius:4px;white-space:nowrap}
+.state.OBSERVED{background:#1c2f45;color:#8ab4f8} .state.REPORTED{background:#3a2e12;color:#e3b341} .state.CORROBORATED{background:#12331c;color:#56d364}
+.state.CONTRADICTED{background:#44181a;color:#ff7b72} .state.PARTIALLY_CORROBORATED{background:#1d3324;color:#7ee787} .state.UNKNOWN,.state.REQUESTED{background:#262c34;color:#9fb0c3}
+.type{font-family:var(--sans);font-size:12px;color:var(--muted)}
+.pager{display:flex;gap:8px;padding:12px 14px;justify-content:center;align-items:center;color:var(--muted)}
+.detail{padding:14px}
+.detail h3{margin:0 0 8px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.detail dl{display:grid;grid-template-columns:130px 1fr;gap:4px 10px;margin:0 0 14px;font-size:13px}
+.detail dt{color:var(--muted)} .detail dd{margin:0;font-family:var(--mono);word-break:break-all}
+pre.raw{margin:0;padding:12px;background:var(--panel);border:1px solid var(--border);border-radius:8px;font:12px/1.45 var(--mono);white-space:pre-wrap;word-break:break-word;max-height:48vh;overflow:auto}
+.empty{color:var(--muted);padding:40px 14px;text-align:center}
+.hint{color:var(--muted);font-size:12px;padding:0 14px 10px}
+kbd{font-family:var(--mono);font-size:11px;padding:1px 5px;border:1px solid var(--border);border-bottom-width:2px;border-radius:4px;background:var(--panel)}
+/* findings */
+#findings.active{grid-template-columns:1fr 480px}
+.flist{padding:8px 14px}
+.finding{display:block;width:100%;text-align:left;background:var(--panel);border:1px solid var(--border);border-left-width:5px;border-radius:8px;padding:12px 14px;margin:8px 0;color:var(--text);cursor:pointer}
+.finding:hover{border-color:var(--accent);border-left-color:inherit}
+.finding[aria-pressed=true]{background:var(--panel-2)}
+.finding .head{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.finding .rule{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.finding .title{font-weight:600}
+.sev{font-size:11px;font-weight:700;letter-spacing:.05em;padding:2px 8px;border-radius:4px}
+.sev.CRITICAL{background:#5a1a1f;color:#ffb3ad} .sev.HIGH{background:#4a1b1e;color:#ff9b93} .sev.MEDIUM{background:#4a3a10;color:#f2cc60} .sev.LOW{background:#1b3a5a;color:#9cd1ff} .sev.INFO{background:#262c34;color:#b6c2d0}
+.finding.CRITICAL{border-left-color:var(--crit)} .finding.HIGH{border-left-color:var(--bad)} .finding.MEDIUM{border-left-color:var(--warn)} .finding.LOW{border-left-color:var(--accent)} .finding.INFO{border-left-color:var(--info)}
+.finding p{margin:6px 0 0;color:var(--muted);font-size:13px}
+/* topology */
+#topology.active{grid-template-columns:1fr}
+.topo{padding:14px;overflow:auto}
+.topo svg{background:var(--panel);border:1px solid var(--border);border-radius:8px}
+.topo text{font:12px var(--mono);fill:var(--text)}
+.topo .node rect{fill:var(--panel-2);stroke:var(--border);rx:6}
+.topo .node.orphan rect{stroke:var(--bad);stroke-width:2} .topo .node.session rect{fill:#1c2f45;stroke:#2f4a6d} .topo .node.sub rect{stroke:var(--accent-2)}
+.topo line{stroke:#3b4a5c;stroke-width:1.5} .topo line.spawned{stroke:var(--accent-2)}
+.legend{display:flex;gap:16px;color:var(--muted);font-size:12px;padding:0 0 10px}
+/* extras */
+#extras.active{grid-template-columns:1fr}
+.extras{padding:14px;display:grid;gap:16px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px}
+.card h3{margin:0 0 8px;font-size:14px}
+.card table{width:100%;border-collapse:collapse;font-size:12.5px;font-family:var(--mono)}
+.card td,.card th{padding:6px 8px;border-bottom:1px solid #1d2632;text-align:left;vertical-align:top;word-break:break-word}
+.card th{font-family:var(--sans);color:var(--muted);font-weight:600}
+@media (max-width:1100px){#timeline.active{grid-template-columns:220px 1fr} #timeline .col:last-child{grid-column:1/-1;border-top:1px solid var(--border)} #findings.active{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:no-preference){.finding,.btn,.tree button{transition:background .15s,border-color .15s}}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <h1><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.2 8.2-8 9-4.8-.8-8-4.5-8-9V6l8-3z"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg>AgentDFIR <span id="caseid" class="kv"></span></h1>
+  <span class="kv">host <b id="host"></b></span>
+  <span class="kv">events <b id="nEvents"></b></span>
+  <span class="kv">sessions <b id="nSessions"></b> · agents <b id="nAgents"></b> · artifacts <b id="nArtifacts"></b></span>
+  <span id="integrity" class="pill"></span>
+  <span id="signature" class="pill"></span>
+  <span class="kv" id="sevsum"></span>
+  <span class="kv" style="margin-left:auto">127.0.0.1 only · read-only · <span id="ver"></span></span>
+</header>
+<nav class="tabs" role="tablist" aria-label="Views">
+  <button role="tab" aria-selected="true" data-view="timeline">Timeline</button>
+  <button role="tab" aria-selected="false" data-view="findings">Findings <span id="fcount" class="badge"></span></button>
+  <button role="tab" aria-selected="false" data-view="topology">Topology</button>
+  <button role="tab" aria-selected="false" data-view="extras">MCP · Provenance · Corroboration</button>
+</nav>
+<main>
+  <section id="timeline" class="view active" role="tabpanel">
+    <aside class="col">
+      <h2>Sessions &amp; agents</h2>
+      <div class="tree" id="tree"></div>
+    </aside>
+    <div class="col" id="tlcol">
+      <div class="toolbar">
+        <input id="q" type="search" placeholder="Filter: command, summary, tool, file, destination…" aria-label="Text filter">
+        <select id="ftype" aria-label="Event type"><option value="">All types</option></select>
+        <select id="fstate" aria-label="Corroboration state"><option value="">All states</option></select>
+        <button class="btn" id="clear">Clear</button>
+        <span class="total" id="total"></span>
+      </div>
+      <div class="scrub" id="scrub" aria-label="Event density per minute; click a bar to zoom"></div>
+      <div class="hint">Click a row for evidence · <kbd>j</kbd>/<kbd>k</kbd> move · <kbd>Enter</kbd> open raw line · <kbd>Esc</kbd> clear selection</div>
+      <table class="ev" aria-label="Timeline"><thead><tr><th>Time (UTC)</th><th>Type</th><th>Agent</th><th>Tool</th><th>What</th><th>State</th></tr></thead><tbody id="rows"></tbody></table>
+      <div class="pager"><button class="btn" id="prev">‹ Prev</button><span id="pageinfo"></span><button class="btn" id="next">Next ›</button></div>
+    </div>
+    <aside class="col" id="detail"><div class="empty">Select an event to see its fields and the raw transcript line behind it.</div></aside>
+  </section>
+  <section id="findings" class="view" role="tabpanel">
+    <div class="col flist" id="flist"></div>
+    <aside class="col" id="fdetail"><div class="empty">Select a finding.</div></aside>
+  </section>
+  <section id="topology" class="view" role="tabpanel"><div class="col topo" id="topo"></div></section>
+  <section id="extras" class="view" role="tabpanel"><div class="col extras" id="extrasbox"></div></section>
+</main>
+</div>
+<script>
+(function(){
+'use strict';
+const $=s=>document.querySelector(s); const el=(t,c,txt)=>{const e=document.createElement(t); if(c) e.className=c; if(txt!=null) e.textContent=txt; return e;};
+const api=p=>fetch(p,{credentials:'omit'}).then(r=>{if(!r.ok) throw new Error(p+': '+r.status); return r.json();});
+const state={session:'',agent:'',type:'',state:'',q:'',from:'',to:'',offset:0,limit:200,total:0,rows:[],sel:-1,findings:[],graph:null};
+const fmtTs=t=>t?t.replace('T',' ').replace(/\.\d+Z$/,'Z'):'—';
+
+// ---- header
+api('/api/case').then(c=>{
+  $('#caseid').textContent=c.manifest.case_id||c.package; $('#host').textContent=c.manifest.host||'—';
+  $('#nEvents').textContent=c.events.toLocaleString()+(c.truncated?' (truncated)':''); $('#nSessions').textContent=c.sessions; $('#nAgents').textContent=c.agents; $('#nArtifacts').textContent=c.artifacts;
+  const ok=c.verify&&(!c.verify.Problems||c.verify.Problems.length===0);
+  const ip=$('#integrity'); ip.textContent=ok?'VERIFIED — no modifications':'INTEGRITY FAILED'; ip.classList.add(ok?'ok':'bad');
+  const sp=$('#signature'); sp.textContent='seal: '+c.signature; sp.classList.add(c.signature.startsWith('VALID')?'ok':(c.signature.startsWith('INVALID')?'bad':'warn'));
+  const s=c.severity||{}; $('#sevsum').textContent=['CRITICAL','HIGH','MEDIUM','LOW','INFO'].filter(k=>s[k]).map(k=>k+' '+s[k]).join(' · ');
+  $('#ver').textContent='agentdfir '+c.version; $('#fcount').textContent=c.findings;
+  const ft=$('#ftype'); Object.keys(c.types).sort().forEach(t=>{const o=el('option','',t+' ('+c.types[t]+')'); o.value=t; ft.appendChild(o);});
+  const fs=$('#fstate'); ['CORROBORATED','CONTRADICTED','OBSERVED','REPORTED','PARTIALLY_CORROBORATED','UNKNOWN'].forEach(t=>{ if(!c.states[t]) return; const o=el('option','',t+' ('+c.states[t]+')'); o.value=t; fs.appendChild(o);});
+}).catch(err=>{$('#detail').innerHTML=''; $('#detail').appendChild(el('div','empty','Failed to load case: '+err.message));});
+
+// ---- tree
+api('/api/graph').then(g=>{
+  state.graph=g; const tree=$('#tree'); tree.innerHTML='';
+  const sessions=g.nodes.filter(n=>n.Kind==='session'); const agents=g.nodes.filter(n=>n.Kind==='agent');
+  const all=el('button','',''); all.setAttribute('aria-pressed','true'); all.appendChild(el('span','', 'All sessions')); all.appendChild(el('span','count',sessions.length+' sessions')); all.onclick=()=>{state.session='';state.agent='';press(all);load();}; tree.appendChild(all);
+  sessions.forEach(s=>{
+    const b=el('button','session'); b.appendChild(el('span','',s.Label.slice(0,18))); const p=el('span','badge',s.Product||''); b.appendChild(p); b.appendChild(el('span','count',s.Events)); b.onclick=()=>{state.session=s.Session;state.agent='';press(b);load();}; tree.appendChild(b);
+    agents.filter(a=>a.Session===s.Session).forEach(a=>{
+      const ab=el('button','agent'); ab.appendChild(el('span','',a.Label.length>22?a.Label.slice(0,22)+'…':a.Label));
+      if(a.Orphan) ab.appendChild(el('span','badge orphan','orphan')); else if(a.Subagent) ab.appendChild(el('span','badge sub','subagent'));
+      ab.appendChild(el('span','count',a.Events)); ab.onclick=()=>{state.session=s.Session;state.agent=a.Label;press(ab);load();}; tree.appendChild(ab);
+    });
+  });
+  function press(b){tree.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed','false')); b.setAttribute('aria-pressed','true');}
+  drawTopology(g);
+});
+
+// ---- scrubber
+api('/api/buckets').then(b=>{
+  const box=$('#scrub'); box.innerHTML=''; if(!b.length){return;}
+  const W=Math.max(300,box.clientWidth-28), H=44, max=Math.max(...b.map(x=>x.n)); const bw=Math.max(2,Math.floor(W/b.length));
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg'); svg.setAttribute('viewBox','0 0 '+W+' '+H); svg.setAttribute('role','img'); svg.setAttribute('aria-label','Event density');
+  b.forEach((x,i)=>{const r=document.createElementNS('http://www.w3.org/2000/svg','rect'); r.setAttribute('class','bar'); r.setAttribute('x',i*(W/b.length)); r.setAttribute('width',Math.max(1,bw-1)); const h=Math.max(1,Math.round(x.n/max*(H-4))); r.setAttribute('y',H-h); r.setAttribute('height',h);
+    const t=document.createElementNS('http://www.w3.org/2000/svg','title'); t.textContent=x.t.replace('T',' ')+' UTC — '+x.n+' events (click to zoom to this minute)'; r.appendChild(t);
+    r.style.cursor='pointer'; r.addEventListener('click',()=>{state.from=x.t+':00Z'; state.to=x.t+':59.999Z'; state.offset=0; load();}); svg.appendChild(r);});
+  box.appendChild(svg);
+});
+
+// ---- timeline
+function params(){const p=new URLSearchParams(); ['session','agent','type','state','q','from','to'].forEach(k=>{if(state[k]) p.set(k,state[k]);}); p.set('offset',state.offset); p.set('limit',state.limit); return p.toString();}
+function load(){
+  api('/api/events?'+params()).then(d=>{
+    state.total=d.total; state.rows=d.items; state.sel=-1; const tb=$('#rows'); tb.innerHTML='';
+    d.items.forEach((r,i)=>{
+      const tr=el('tr','row'); tr.tabIndex=0; tr.dataset.i=i; tr.setAttribute('aria-selected','false');
+      tr.appendChild(cell(fmtTs(r.ts),'ts')); tr.appendChild(cell(r.type,'type')); tr.appendChild(cell(r.agent||'—','type')); tr.appendChild(cell(r.tool||(r.mcp?'mcp:'+r.mcp:'')||'—','type'));
+      tr.appendChild(cell(r.what||'','what')); const st=el('td'); const d2=el('div'); d2.appendChild(el('span','state '+r.state,r.state)); st.appendChild(d2); tr.appendChild(st);
+      tr.addEventListener('click',()=>select(i)); tr.addEventListener('keydown',e=>{if(e.key==='Enter'){select(i);}}); tb.appendChild(tr);
+    });
+    $('#total').textContent=d.total.toLocaleString()+' event'+(d.total===1?'':'s')+(state.from?' · zoomed to '+state.from.slice(0,16)+'Z':'');
+    $('#pageinfo').textContent=d.total?((state.offset+1)+'–'+Math.min(state.offset+state.limit,d.total)+' of '+d.total.toLocaleString()):'no events match';
+    $('#prev').disabled=state.offset===0; $('#next').disabled=state.offset+state.limit>=d.total;
+    if(!d.items.length){const tr=el('tr'); const td=el('td'); td.colSpan=6; td.appendChild(el('div','empty','No events match the current filters.')); tr.appendChild(td); tb.appendChild(tr);}
+  });
+}
+function cell(txt,cls){const td=el('td'); const d=el('div',cls,txt); td.appendChild(d); return td;}
+function select(i){
+  state.sel=i; document.querySelectorAll('tr.row').forEach(tr=>tr.setAttribute('aria-selected',tr.dataset.i==i?'true':'false'));
+  const r=state.rows[i]; if(!r) return; const tr=document.querySelector('tr.row[data-i="'+i+'"]'); if(tr) tr.focus({preventScroll:false});
+  showEvent(r.id);
+}
+function showEvent(id,target){
+  const box=$(target||'#detail'); box.innerHTML=''; const d=el('div','detail');
+  api('/api/event/'+encodeURIComponent(id)).then(e=>{
+    d.appendChild(el('h3','','Event'));
+    const dl=el('dl'); const add=(k,v)=>{if(v===undefined||v===null||v===''||v===0&&k!=='sequence') return; dl.appendChild(el('dt','',k)); dl.appendChild(el('dd','',String(v)));};
+    add('time',e.timestamp); add('type',e.event_type); add('actor',e.actor_type); add('state',e.corroboration_state); add('product',e.product); add('session',e.session_id); add('agent',e.agent_id); add('parent',e.parent_agent_id); add('task',e.task_id);
+    add('tool',e.tool); add('tool call id',e.tool_call_id); add('mcp server',e.mcp_server); add('mcp tool',e.mcp_tool); add('action',e.action); add('command',e.command); add('file',e.file); add('destination',e.network_destination); add('result',e.result); add('summary',e.summary);
+    add('evidence',(e.source_logical_path||'')+':'+e.source_line+'  (artifact '+String(e.source_artifact||'').slice(0,12)+', offset '+e.source_offset+')');
+    d.appendChild(dl);
+    const h=el('h3','','Raw transcript line (evidence)'); d.appendChild(h);
+    const pre=el('pre','raw','loading…'); d.appendChild(pre); box.appendChild(d);
+    if(e.source_artifact&&e.source_artifact!=='live'){
+      api('/api/raw?artifact='+encodeURIComponent(e.source_artifact)+'&offset='+e.source_offset).then(r=>{pre.textContent=r.pretty||r.raw||'(empty)';}).catch(()=>{pre.textContent='(raw line unavailable)';});
+    } else pre.textContent='(no sealed artifact for this event)';
+    const rel=state.findings.filter(f=>f.event_id===id);
+    if(rel.length){d.appendChild(el('h3','','Findings on this event')); rel.forEach(f=>{const b=el('button','finding '+f.severity); const hd=el('div','head'); hd.appendChild(el('span','sev '+f.severity,f.severity)); hd.appendChild(el('span','title',f.title)); b.appendChild(hd); b.onclick=()=>{switchTab('findings'); showFinding(f);}; d.appendChild(b);});}
+  }).catch(err=>{box.innerHTML=''; box.appendChild(el('div','empty','Event not available: '+err.message));});
+}
+$('#q').addEventListener('input',debounce(()=>{state.q=$('#q').value; state.offset=0; load();},250));
+$('#ftype').addEventListener('change',()=>{state.type=$('#ftype').value; state.offset=0; load();});
+$('#fstate').addEventListener('change',()=>{state.state=$('#fstate').value; state.offset=0; load();});
+$('#clear').addEventListener('click',()=>{state.q='';state.type='';state.state='';state.from='';state.to='';state.offset=0; $('#q').value=''; $('#ftype').value=''; $('#fstate').value=''; load();});
+$('#prev').addEventListener('click',()=>{state.offset=Math.max(0,state.offset-state.limit); load();});
+$('#next').addEventListener('click',()=>{state.offset+=state.limit; load();});
+document.addEventListener('keydown',e=>{
+  if(e.target.matches('input,select,textarea')) return;
+  if(!$('#timeline').classList.contains('active')) return;
+  if(e.key==='j'){e.preventDefault(); if(state.sel<state.rows.length-1) select(state.sel+1);}
+  else if(e.key==='k'){e.preventDefault(); if(state.sel>0) select(state.sel-1);}
+  else if(e.key==='Escape'){state.sel=-1; document.querySelectorAll('tr.row').forEach(tr=>tr.setAttribute('aria-selected','false'));}
+});
+function debounce(fn,ms){let t; return()=>{clearTimeout(t); t=setTimeout(fn,ms);};}
+
+// ---- findings
+api('/api/findings').then(fs=>{
+  state.findings=fs; const list=$('#flist'); list.innerHTML='';
+  if(!fs.length){list.appendChild(el('div','empty','No findings. Evidence states still tell the story — check the timeline.')); return;}
+  fs.forEach(f=>{
+    const b=el('button','finding '+f.severity); b.setAttribute('aria-pressed','false');
+    const hd=el('div','head'); hd.appendChild(el('span','sev '+f.severity,f.severity)); hd.appendChild(el('span','title',f.title)); hd.appendChild(el('span','rule',f.rule_id));
+    if(f.mitre_attack) hd.appendChild(el('span','badge','ATT&CK '+f.mitre_attack)); if(f.mitre_atlas) hd.appendChild(el('span','badge','ATLAS '+f.mitre_atlas));
+    b.appendChild(hd); b.appendChild(el('p','',f.description));
+    const meta=el('p','','Status '+f.status+' · endpoint '+f.endpoint+(f.agent?' · agent '+f.agent:'')+(f.session?' · session '+f.session.slice(0,12):''));
+    b.appendChild(meta); b.onclick=()=>{list.querySelectorAll('.finding').forEach(x=>x.setAttribute('aria-pressed','false')); b.setAttribute('aria-pressed','true'); showFinding(f);}; list.appendChild(b);
+  });
+});
+function showFinding(f){
+  const box=$('#fdetail'); box.innerHTML=''; const d=el('div','detail');
+  const hd=el('div','head'); hd.appendChild(el('span','sev '+f.severity,f.severity)); hd.appendChild(el('span','title',' '+f.title)); d.appendChild(hd);
+  d.appendChild(el('p','',f.description));
+  const dl=el('dl'); const add=(k,v)=>{if(!v) return; dl.appendChild(el('dt','',k)); dl.appendChild(el('dd','',v));};
+  add('rule',f.rule_id); add('status',f.status); add('endpoint corroboration',f.endpoint); add('session',f.session); add('agent',f.agent); add('parent',f.parent); add('MITRE ATT&CK',f.mitre_attack); add('MITRE ATLAS',f.mitre_atlas);
+  d.appendChild(dl);
+  if(f.related&&f.related.length){d.appendChild(el('h3','','Related')); f.related.forEach(r=>d.appendChild(el('div','what',r)));}
+  d.appendChild(el('h3','','Evidence')); (f.evidence||[]).forEach(r=>d.appendChild(el('div','what',r)));
+  if(f.false_positive){d.appendChild(el('h3','','False-positive notes')); d.appendChild(el('p','',f.false_positive));}
+  if(f.event_id){const btn=el('button','btn','Open evidence event in timeline'); btn.style.marginTop='12px'; btn.onclick=()=>{switchTab('timeline'); showEvent(f.event_id);}; d.appendChild(btn);}
+  box.appendChild(d);
+}
+
+// ---- topology (simple layered tree: sessions → agents, spawn edges)
+function drawTopology(g){
+  const box=$('#topo'); box.innerHTML='';
+  const lg=el('div','legend'); ['session','agent','subagent','orphan (no verified parent)'].forEach(t=>lg.appendChild(el('span','',t))); box.appendChild(lg);
+  const sessions=g.nodes.filter(n=>n.Kind==='session'); if(!sessions.length){box.appendChild(el('div','empty','No sessions.')); return;}
+  const colW=260,rowH=56,pad=20; const pos={}; let y=pad;
+  sessions.forEach(s=>{ pos[s.ID]={x:pad,y}; const kids=g.nodes.filter(n=>n.Kind==='agent'&&n.Session===s.Session);
+    const mains=kids.filter(k=>!k.Subagent), subs=kids.filter(k=>k.Subagent);
+    let y2=y; mains.forEach(m=>{pos[m.ID]={x:pad+colW,y:y2}; y2+=rowH;}); let y3=y; subs.forEach(su=>{pos[su.ID]={x:pad+colW*2,y:y3}; y3+=rowH;});
+    y=Math.max(y+rowH,y2,y3)+rowH*0.5; });
+  const W=pad*2+colW*3, H=y+pad; const NS='http://www.w3.org/2000/svg'; const svg=document.createElementNS(NS,'svg'); svg.setAttribute('width',W); svg.setAttribute('height',H); svg.setAttribute('role','img'); svg.setAttribute('aria-label','Agent topology');
+  g.edges.forEach(e=>{const a=pos[e.from],b=pos[e.to]; if(!a||!b) return; const l=document.createElementNS(NS,'line'); l.setAttribute('x1',a.x+220); l.setAttribute('y1',a.y+18); l.setAttribute('x2',b.x); l.setAttribute('y2',b.y+18); if(e.type==='spawned') l.setAttribute('class','spawned'); svg.appendChild(l);});
+  g.nodes.forEach(n=>{const p=pos[n.ID]; if(!p) return; const gr=document.createElementNS(NS,'g'); gr.setAttribute('class','node '+n.Kind+(n.Orphan?' orphan':'')+(n.Subagent?' sub':'')); gr.setAttribute('transform','translate('+p.x+','+p.y+')');
+    const r=document.createElementNS(NS,'rect'); r.setAttribute('width',220); r.setAttribute('height',36); gr.appendChild(r);
+    const t=document.createElementNS(NS,'text'); t.setAttribute('x',10); t.setAttribute('y',22); t.textContent=(n.Kind==='session'?'session ':'')+n.Label.slice(0,20)+(n.Orphan?'  ⚠ orphan':'')+'  ('+n.Events+')'; gr.appendChild(t);
+    const title=document.createElementNS(NS,'title'); title.textContent=n.ID+' — '+n.Events+' events'; gr.appendChild(title);
+    gr.style.cursor='pointer'; gr.addEventListener('click',()=>{switchTab('timeline'); if(n.Kind==='session'){state.session=n.Session;state.agent='';} else {state.session=n.Session;state.agent=n.Label;} state.offset=0; load();}); svg.appendChild(gr);});
+  box.appendChild(svg);
+}
+
+// ---- extras
+api('/api/extras').then(x=>{
+  const box=$('#extrasbox'); box.innerHTML='';
+  if(!Object.keys(x).length){box.appendChild(el('div','empty','No MCP audit, endpoint corroboration or provenance results in this package yet. Run `agentdfir mcp audit`, `agentdfir correlate` or `agentdfir provenance` on it and reload.')); return;}
+  if(x.mcp){const c=card('MCP supply-chain audit'); const inv=x.mcp.inventory||{}; c.appendChild(el('p','',(inv.servers||[]).length+' server(s) across '+(inv.configs_seen||[]).length+' config file(s)'));
+    const t=table(['host','server','scope','transport','pinned','identity']); (inv.servers||[]).forEach(s=>row(t,[s.host,s.name,s.scope,s.transport,s.command?(s.pinned?'yes':'NO'):'-',s.package?s.package_manager+' '+s.package:(s.url||s.command||'')])); c.appendChild(t);
+    findingsTable(c,x.mcp.findings||[]); if(x.mcp.gateway){const g=x.mcp.gateway; c.appendChild(el('p','','Gateway: '+g.records+' records · '+g.matched_with_transcript+' matched · '+g.gateway_only+' gateway-only · '+g.transcript_only+' transcript-only · '+g.denied+' denied · '+g.errors+' errors · p95 '+g.p95_latency_ms+' ms'));} box.appendChild(c);}
+  if(x.corroboration){const c=card('Endpoint corroboration'); const s=x.corroboration.summary||{}; c.appendChild(el('p','',(s.tool_calls_checked||0)+' tool calls checked — '+(s.corroborated||0)+' CORROBORATED, '+(s.contradicted||0)+' CONTRADICTED, '+(s.outside_coverage||0)+' outside coverage; '+(s.agent_lineage_processes||0)+' agent-lineage records, '+(s.unlogged_agent_records||0)+' unlogged.'));
+    if(s.coverage_start) c.appendChild(el('p','','Telemetry coverage '+s.coverage_start+' → '+s.coverage_end)); findingsTable(c,x.corroboration.findings||[]); box.appendChild(c);}
+  if(x.provenance){const c=card('Instruction & memory provenance'); (x.provenance.files||[]).forEach(f=>{c.appendChild(el('h3','',f.logical_path+' — '+f.attributed_lines+' attributed / '+f.unattributed_lines+' unattributed lines, '+f.writes_seen+' writes'));
+      const t=table(['line','text','written by','tool','time','trigger']); (f.lines||[]).filter(l=>l.attributed).forEach(l=>row(t,[l.line,l.text,l.agent_id,l.tool,fmtTs(l.timestamp),l.trigger+(l.trigger_detail&&l.trigger==='tool_result'?' ('+l.trigger_detail+')':'')])); c.appendChild(t);});
+    if((x.provenance.writes_to_instruction_paths||[]).length){c.appendChild(el('h3','','Writes to instruction-like paths not collected')); const t=table(['path','agent','tool','time','trigger','snippet']); x.provenance.writes_to_instruction_paths.forEach(w=>row(t,[w.path,w.event.agent_id,w.event.tool,fmtTs(w.event.timestamp),w.trigger,w.snippet])); c.appendChild(t);}
+    findingsTable(c,x.provenance.findings||[]); box.appendChild(c);}
+  function card(title){const c=el('div','card'); c.appendChild(el('h3','',title)); return c;}
+  function table(cols){const t=el('table'); const tr=el('tr'); cols.forEach(cn=>tr.appendChild(el('th','',cn))); t.appendChild(tr); return t;}
+  function row(t,vals){const tr=el('tr'); vals.forEach(v=>tr.appendChild(el('td','',v==null?'':String(v)))); t.appendChild(tr);}
+  function findingsTable(c,fs){ if(!fs.length) return; c.appendChild(el('h3','',fs.length+' finding(s)')); const t=table(['severity','rule','title','evidence']); fs.forEach(f=>{const tr=el('tr'); const td=el('td'); td.appendChild(el('span','sev '+f.severity,f.severity)); tr.appendChild(td); tr.appendChild(el('td','',f.rule_id)); tr.appendChild(el('td','',f.title+' — '+f.description)); tr.appendChild(el('td','',(f.evidence_refs||[]).join('\n'))); t.appendChild(tr);}); c.appendChild(t);}
+});
+
+// ---- tabs
+function switchTab(name){document.querySelectorAll('nav.tabs button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.view===name))); document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===name));}
+document.querySelectorAll('nav.tabs button').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.view)));
+load();
+})();
+</script>
+</body>
+</html>

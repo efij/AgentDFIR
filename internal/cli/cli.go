@@ -42,6 +42,7 @@ Usage:
   agentdfir encrypt <pkg>               encrypt a package (AGENTDFIR_PASSPHRASE)
   agentdfir decrypt <file.adfir.enc>    decrypt an encrypted package
   agentdfir investigate <pkg>           interactive analyst explorer
+  agentdfir serve <pkg> [--port N]      local case explorer in the browser (127.0.0.1 only, read-only)
   agentdfir replay <pkg>                step through a session, states inline
   agentdfir monitor [dirs...] [--detect --alert <url|file>]   live tail; with --detect a real-time sensor
   agentdfir explain <pkg>               deterministic case digest (no AI, no transmission)
@@ -84,6 +85,8 @@ func Main(args []string) int {
 		return cmdCorrelate(args[1:])
 	case "provenance":
 		return cmdProvenance(args[1:])
+	case "serve":
+		return cmdServe(args[1:])
 	case "detect":
 		return cmdDetect()
 	case "collect":
