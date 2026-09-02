@@ -75,6 +75,10 @@ go build -trimpath -o agentdfir ./cmd/agentdfir
 # Org rule packs + honeytokens
 ./agentdfir triage --rules ./rules --honeytokens canaries.txt CASE-2026-042.adfir
 
+# MCP supply-chain audit: every server, every agent, read-only — plus gateway-log correlation
+./agentdfir mcp audit
+./agentdfir mcp audit CASE-2026-042.adfir --gateway-log gw.jsonl --gateway-server gateway
+
 # Add a brand-new AI agent product with one signed JSON file — no Go
 ./agentdfir packs init foo-agent --config-dir .foo && ./agentdfir packs add foo-agent.product.json
 ```
@@ -150,6 +154,7 @@ Ships with wrappers for tools IR teams already run:
 | ✅ | Declarative rule packs ([agentdfir-rules](https://github.com/efij/agentdfir-rules)) + signed knowledge packs |
 | ✅ | Package signing (ed25519), full-package encryption (AES-256-GCM) |
 | ✅ | Injection-surface detections: prompt-injection indicators, invisible-Unicode smuggling, honeytokens |
+| ✅ | [MCP supply-chain audit](docs/mcp-audit.md) — inventory of every MCP server across 9 hosts (JSON/JSONC/TOML), unpinned packages, plaintext transports, auto-approve, tool-description poisoning, baseline drift, gateway-log corroboration |
 | ✅ | [Product packs](docs/product-packs.md) — add any new AI agent with one signed JSON file (detect + collect + parse), no Go |
 | 🔜 | Raw-NTFS/VSS locked-file fallback, EDR/DNS adapters, fleet integrations |
 

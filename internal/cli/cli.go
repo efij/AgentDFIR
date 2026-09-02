@@ -46,6 +46,7 @@ Usage:
   agentdfir update-packs                install signed knowledge-pack overrides
   agentdfir rules validate|export       validate rule packs · export to Sigma YAML
   agentdfir packs list|validate|add|remove|init   declarative product packs (new agents, no Go)
+  agentdfir mcp audit [<pkg>|--profile <root>]    MCP server inventory + supply-chain findings (read-only)
   agentdfir version                     print version
 
 Collect flags:
@@ -73,6 +74,8 @@ func Main(args []string) int {
 	switch args[0] {
 	case "packs":
 		return cmdPacks(args[1:])
+	case "mcp":
+		return cmdMCP(args[1:])
 	case "detect":
 		return cmdDetect()
 	case "collect":
