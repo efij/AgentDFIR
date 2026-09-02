@@ -162,7 +162,8 @@ jobs:
 
           Write-Host "== mark-of-the-web (what a browser download carries)"
           Expand-Archive $zip -DestinationPath x
-          foreach ($p in @("x\agentdfir.exe", $exe)) {
+          # ".\" prefix: PowerShell does not run a bare filename from the working directory.
+          foreach ($p in @(".\x\agentdfir.exe", ".\$exe")) {
             Set-Content -Path $p -Stream Zone.Identifier -Value "[ZoneTransfer]`r`nZoneId=3"
             $out = & $p version
             if ($LASTEXITCODE -ne 0) { throw "$p exited $LASTEXITCODE" }
