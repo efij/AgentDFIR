@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/efij/AgentDFIR/internal/analysis"
 	"os"
 	"path/filepath"
 	"sort"
@@ -28,12 +29,12 @@ func cmdInvestigate(args []string) int {
 		fmt.Fprintln(os.Stderr, "usage: agentdfir investigate <package-dir>")
 		return 2
 	}
-	res, err := normalize.ParsePackage(args[0])
-	if err != nil {
+	if _, err := analysis.Ensure(args[0], os.Stdout); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
 	}
-	findings := detect.RunPackage(res, args[0])
+	res := &schema.Normalized{Events: analysis.LoadEvents(args[0])}
+	findings := analysis.LoadFindings(args[0])
 	fmt.Printf("Loaded %d events, %d entities, %d findings. Type `help`.\n",
 		len(res.Events), len(res.Entities), len(findings))
 

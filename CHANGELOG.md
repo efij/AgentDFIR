@@ -7,6 +7,27 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+- **`agentdfir analyze <pkg>`** — one command runs every analysis stage in the
+  right order: normalize (only when the overlay is missing or the package is
+  newer), endpoint correlation (`--endpoint`, `--shell-history`), detections,
+  rule packs, MCP audit (+ `--gateway-log`), instruction provenance; writes one
+  consistent `detections/` set plus `analysis.json`. `triage` is the same command.
+  `serve`, `investigate` and `report` now run this analysis automatically when
+  results are missing or stale and render the SAME run — no more "run X and
+  reload", no recomputation with different states. Single-stage commands
+  (`correlate`, `mcp audit`, `provenance`, `normalize`) remain for scripting.
+
+### Changed
+- Help text reorganized by workflow step (detect → collect → analyze → look →
+  export; before-an-incident; trust & keys) in plain language.
+- Findings file is de-duplicated and severity-sorted across all stages.
+
+### Fixed
+- Re-running analysis without endpoint logs no longer discards earlier
+  CORROBORATED/CONTRADICTED states or correlation findings; a re-parse
+  (`--renormalize`, or a package sealed after the overlay) invalidates them
+  explicitly instead of silently.
 ## [0.12.1] — 2026-09-02
 
 Distribution-only release. No runtime code changes.

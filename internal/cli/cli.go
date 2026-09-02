@@ -20,53 +20,54 @@ import (
 	"github.com/efij/AgentDFIR/internal/version"
 )
 
-const usage = `agentdfir — open-source DFIR for AI agents
+const usage = `agentdfir — open-source DFIR for AI agents. Evidence in, verdicts out. Nothing leaves your machine.
 
-Usage:
-  agentdfir detect                      discover installed AI tooling
-  agentdfir collect [flags]             forensic acquisition into an .adfir package
-  agentdfir verify <package-dir>        verify a sealed evidence package
-  agentdfir normalize <package-dir>     parse raw evidence into normalized events
-  agentdfir timeline <package-dir>      print the unified, evidence-linked timeline
-  agentdfir triage <package-dir>        normalize + run detections, print findings
-  agentdfir correlate <pkg> <os-log>... second witness: auditd / Sysmon XML / JSONL-CSV exports
-  agentdfir provenance <pkg> [file]     who wrote each line of CLAUDE.md / rules / settings, and why
-  agentdfir simulate [flags]            generate a synthetic incident scenario
-  agentdfir diff <pkg-a> <pkg-b>        configuration drift between two packages
-  agentdfir baseline create|check       org known-good profiles
-  agentdfir report <package-dir>        HTML/PDF/JSON/CSV/STIX/OTel/OCSF/SARIF/Timesketch/l2tcsv
-  agentdfir export --support <pkg>      derived, redacted support package
-  agentdfir keygen                      generate ed25519 signing keypair
-  agentdfir sign --key <k> <pkg>        sign a sealed package (SEAL.sig)
-  agentdfir inspect <pkg> [--reveal-sensitive]  artifact inventory + secret scan
-  agentdfir encrypt <pkg>               encrypt a package (AGENTDFIR_PASSPHRASE)
-  agentdfir decrypt <file.adfir.enc>    decrypt an encrypted package
-  agentdfir investigate <pkg>           interactive analyst explorer
-  agentdfir serve <pkg> [--port N]      local case explorer in the browser (127.0.0.1 only, read-only)
-  agentdfir replay <pkg>                step through a session, states inline
-  agentdfir monitor [dirs...] [--detect --alert <url|file>]   live tail; with --detect a real-time sensor
-  agentdfir explain <pkg>               deterministic case digest (no AI, no transmission)
-  agentdfir update-packs                install signed knowledge-pack overrides
-  agentdfir rules validate|export       validate rule packs · export to Sigma YAML
-  agentdfir packs list|validate|add|remove|init   declarative product packs (new agents, no Go)
-  agentdfir mcp audit [<pkg>|--profile <root>]    MCP server inventory + supply-chain findings (read-only)
-  agentdfir version                     print version
+THE 4-STEP WORKFLOW
+  1. See what's installed      agentdfir detect
+  2. Collect evidence          agentdfir collect --product claude            (sealed .adfir package)
+  3. Analyze everything        agentdfir analyze <pkg>                        (detections, MCP audit, provenance…)
+  4. Look at the results       agentdfir serve <pkg>                          (browser, 127.0.0.1 only)
 
-Collect flags:
-  --product <id>       product to collect (default: claude)
-  --out <dir>          output package directory (default: ./<case-id>.adfir)
-  --case-id <id>       case identifier (default: generated)
-  --operator <name>    asserted operator name for chain of custody
-  --path <root>        offline profile root (mounted image / copied home)
-  --import <tree>      KAPE / Velociraptor / CyLR output tree or image: discover every
-                       user profile, collect ALL products for ALL users into one package
-  --docker <ctr|tar>   container (docker export, read-only; AGENTDFIR_DOCKER=podman) or saved export
-  --archive <file>     zip / tar / tar.gz: CI artifact, support bundle, vendor data export
-  --authorization <r>  authorization reference (ticket / legal basis)
-  --max-file-mb <n>    per-artifact size bound in MiB (default 512)
+COLLECT — where the evidence is
+  agentdfir collect --product <claude|codex|cursor|gemini|copilot|…> [--live]     this machine, this user
+  agentdfir collect --product claude --path /mnt/image/Users/x                  a copied home / mounted image
+  agentdfir collect --import <kape-or-velociraptor-tree>                        every user, every agent, one package
+  agentdfir collect --docker <container|export.tar>                            a container (read-only export)
+  agentdfir collect --archive <zip|tar|tgz>                                    CI artifact, support bundle, vendor export
+  agentdfir verify <pkg>                                                       prove the package was not modified
 
-Detection never executes discovered binaries. Collection is always
-lossless; nothing is redacted at acquisition time.
+ANALYZE — one command runs every stage, in order
+  agentdfir analyze <pkg>                                    detections + MCP audit + provenance
+      --endpoint <auditd.log|sysmon.xml|export.jsonl>        add OS telemetry: which tool calls the OS confirms or contradicts
+      --gateway-log <gw.jsonl>                               add your MCP gateway log: which MCP calls it confirms
+      --rules <dir>  --honeytokens <file>                    extra rule packs, planted canaries
+  (triage = same as analyze. Single stages, for scripts: correlate · mcp audit · provenance · normalize)
+
+LOOK — same results, different views
+  agentdfir serve <pkg> [--open]          browser: agent tree, timeline, raw evidence, findings
+  agentdfir timeline <pkg>                the unified timeline in your terminal
+  agentdfir investigate <pkg>             interactive terminal explorer
+  agentdfir replay <pkg>                  step through one session
+  agentdfir explain <pkg>                 plain-language case digest (no AI, nothing sent anywhere)
+
+EXPORT — hand results to other tools
+  agentdfir report <pkg> --format pdf|html|json|csv|stix|otel|ocsf|sarif|timesketch|l2tcsv|all
+  agentdfir export --support <pkg>        redacted package for vendor support
+  agentdfir rules export --sigma <dir>    detection rules as Sigma for your SIEM
+
+BEFORE AN INCIDENT
+  agentdfir monitor --detect --alert <url|file>      live sensor: findings pushed as they happen
+  agentdfir mcp audit                                MCP servers on this machine: unpinned, plaintext, poisoned
+  agentdfir baseline create|check · agentdfir diff <a> <b>     known-good configs and drift
+  agentdfir simulate --scenario orphan-agent         synthetic incident to train and test
+
+TRUST & KEYS
+  agentdfir keygen · sign --key <k> <pkg> · encrypt <pkg> · decrypt <file> · inspect <pkg>
+  agentdfir packs list|add|validate|init             add a new AI agent product with one signed JSON file
+  agentdfir rules validate <dir> · update-packs · version
+
+Collect flags: --out <dir>  --case-id <id>  --operator <name>  --authorization <ticket>  --max-file-mb <n>  --sign <key>
+Nothing is executed on the suspect host, no agent is touched, nothing is transmitted. Help for one command: agentdfir <command> --help
 `
 
 // Main dispatches and returns the process exit code.
@@ -97,8 +98,8 @@ func Main(args []string) int {
 		return cmdNormalize(args[1:])
 	case "timeline":
 		return cmdTimeline(args[1:])
-	case "triage":
-		return cmdTriage(args[1:])
+	case "analyze", "triage":
+		return cmdAnalyze(args[1:])
 	case "simulate":
 		return cmdSimulate(args[1:])
 	case "diff":

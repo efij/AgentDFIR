@@ -38,7 +38,7 @@ AI-generated text is **never** automatically treated as proof of execution. Ever
 
 An agent claiming *"I executed curl example.com"* with no matching tool call stays `REPORTED` — and AgentDFIR shows you exactly that.
 
-## ⚡ Quick start
+## ⚡ Quick start — four steps
 
 **Install** — one static binary, zero runtime dependencies. Full guide with air-gap,
 checksum and Sigstore verification steps: [docs/install.md](docs/install.md).
@@ -62,61 +62,24 @@ go install github.com/efij/AgentDFIR/cmd/agentdfir@latest
 go build -trimpath -o agentdfir ./cmd/agentdfir
 ```
 
+
 ```sh
-# Discover installed AI tooling — never executes suspect binaries
-./agentdfir detect
-
-# Forensic acquisition (lossless, sealed, hash-chained)
-./agentdfir collect --product claude --operator "Your Name"
-
-# From an offline image / copied home directory
-./agentdfir collect --product claude --path /mnt/image/Users/suspect \
-    --case-id CASE-2026-042 --authorization "IR-TICKET-123"
-
-# From a KAPE / Velociraptor / CyLR tree: every product, every user, one package
-./agentdfir collect --import /cases/host42/kape-output --case-id CASE-2026-042
-
-# From a container (read-only docker export) or a CI artifact / support bundle / vendor export
-./agentdfir collect --docker devcontainer-3a1f
-./agentdfir collect --archive copilot-run-9921.zip
-
-# Tamper-evident verification — one flipped byte anywhere fails
-./agentdfir verify CASE-2026-042.adfir
-
-# Investigate
-./agentdfir timeline CASE-2026-042.adfir     # unified, evidence-linked timeline
-./agentdfir triage   CASE-2026-042.adfir     # detections + IR-ready findings
-./agentdfir report   CASE-2026-042.adfir --format pdf   # one-file PDF: findings, timeline, custody, integrity
-
-# Train / test / demo with synthetic incidents
-./agentdfir simulate --scenario orphan-agent --out demo-profile
-
-# Browser case explorer — agent tree, timeline scrubber, raw evidence, findings (127.0.0.1 only)
-./agentdfir serve CASE-2026-042.adfir --open
-
-# Live watch — or a real-time sensor: detections pushed to your SOC within one poll interval
-./agentdfir monitor
-./agentdfir monitor --detect --alert https://soc.example/hook --honeytokens canaries.txt
-./agentdfir investigate CASE-2026-042.adfir
-./agentdfir replay --session 9b2d CASE-2026-042.adfir
-
-# Org rule packs + honeytokens
-./agentdfir triage --rules ./rules --honeytokens canaries.txt CASE-2026-042.adfir
-
-# Second witness: corroborate the transcript against OS telemetry (auditd / Sysmon / EDR exports)
-./agentdfir correlate CASE-2026-042.adfir /var/log/audit/audit.log
-./agentdfir triage    CASE-2026-042.adfir --endpoint sysmon.xml
-
-# Who wrote each line of CLAUDE.md / .cursorrules — and did it come from a tool result?
-./agentdfir provenance CASE-2026-042.adfir CLAUDE.md
-
-# MCP supply-chain audit: every server, every agent, read-only — plus gateway-log correlation
-./agentdfir mcp audit
-./agentdfir mcp audit CASE-2026-042.adfir --gateway-log gw.jsonl --gateway-server gateway
-
-# Add a brand-new AI agent product with one signed JSON file — no Go
-./agentdfir packs init foo-agent --config-dir .foo && ./agentdfir packs add foo-agent.product.json
+./agentdfir detect                                   # 1. what AI agents are on this machine (never runs them)
+./agentdfir collect --product claude                 # 2. sealed, hash-chained evidence package
+./agentdfir analyze CASE-2026-042.adfir              # 3. every analysis stage, one command
+./agentdfir serve   CASE-2026-042.adfir --open       # 4. browse: agent tree, timeline, raw evidence, findings
 ```
+
+Add a second witness and the same commands upgrade every finding from *the agent says* to *the OS confirms*:
+
+```sh
+./agentdfir analyze CASE-2026-042.adfir --endpoint /var/log/audit/audit.log   # auditd / Sysmon XML / EDR exports
+./agentdfir analyze CASE-2026-042.adfir --gateway-log mcp-gateway.jsonl        # your MCP gateway's own log
+```
+
+Other ways in: `collect --path <copied home>`, `--import <KAPE/Velociraptor tree>`, `--docker <container>`, `--archive <zip|tar>`.
+Other ways out: `report --format pdf|html|ocsf|sarif|timesketch|…`, `rules export --sigma`. Before an incident: `monitor --detect --alert <url>`, `mcp audit`.
+Every command is listed by workflow step in `agentdfir help`.
 
 Example finding:
 

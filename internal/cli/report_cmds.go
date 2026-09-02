@@ -3,15 +3,15 @@ package cli
 import (
 	"flag"
 	"fmt"
+	"github.com/efij/AgentDFIR/internal/analysis"
+	"github.com/efij/AgentDFIR/internal/schema"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/efij/AgentDFIR/internal/casepkg"
-	"github.com/efij/AgentDFIR/internal/detect"
 	"github.com/efij/AgentDFIR/internal/encrypt"
 	"github.com/efij/AgentDFIR/internal/export"
-	"github.com/efij/AgentDFIR/internal/normalize"
 	"github.com/efij/AgentDFIR/internal/report"
 	"github.com/efij/AgentDFIR/internal/sanitize"
 	"github.com/efij/AgentDFIR/internal/seal"
@@ -47,12 +47,13 @@ func cmdReport(args []string) int {
 	}
 	ci, _ := report.ReadCaseInfo(pkg)
 	vres, _ := casepkg.Verify(pkg)
-	res, err := normalize.ParsePackage(pkg)
-	if err != nil {
+	// Reports render the SAME analysis run the analyst saw (states included).
+	if _, err := analysis.Ensure(pkg, os.Stdout); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
 	}
-	findings := detect.RunPackage(res, pkg)
+	res := &schema.Normalized{Events: analysis.LoadEvents(pkg), Entities: analysis.LoadEntities(pkg)}
+	findings := analysis.LoadFindings(pkg)
 
 	c := &report.Case{
 		Manifest: man, CaseInfo: ci, Verify: vres,

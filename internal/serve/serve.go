@@ -26,9 +26,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/efij/AgentDFIR/internal/analysis"
 	"github.com/efij/AgentDFIR/internal/casepkg"
-	"github.com/efij/AgentDFIR/internal/detect"
-	"github.com/efij/AgentDFIR/internal/normalize"
 	"github.com/efij/AgentDFIR/internal/report"
 	"github.com/efij/AgentDFIR/internal/sanitize"
 	"github.com/efij/AgentDFIR/internal/schema"
@@ -83,21 +82,13 @@ func Load(pkg string, opts Options) (*Server, error) {
 		s.sig = "INVALID — " + sr.Reason
 	}
 
-	evPath := filepath.Join(pkg, "normalized", "events.jsonl")
-	if _, err := os.Stat(evPath); err != nil {
-		// Normalize into the overlay so later commands share the same data.
-		res, err := normalize.ParsePackage(pkg)
-		if err != nil {
-			return nil, err
-		}
-		if err := writeOverlay(pkg, res); err != nil {
-			return nil, err
-		}
-		s.entities, s.rels = res.Entities, res.Relationships
-	} else {
-		s.entities = readJSONL[schema.Entity](filepath.Join(pkg, "normalized", "entities.jsonl"))
-		s.rels = readJSONL[schema.Relationship](filepath.Join(pkg, "normalized", "relationships.jsonl"))
+	// Analysis is never "not run yet": compute it when missing or stale.
+	if _, err := analysis.Ensure(pkg, os.Stdout); err != nil {
+		return nil, err
 	}
+	evPath := filepath.Join(pkg, "normalized", "events.jsonl")
+	s.entities = readJSONL[schema.Entity](filepath.Join(pkg, "normalized", "entities.jsonl"))
+	s.rels = readJSONL[schema.Relationship](filepath.Join(pkg, "normalized", "relationships.jsonl"))
 	f, err := os.Open(evPath)
 	if err != nil {
 		return nil, err
@@ -116,14 +107,7 @@ func Load(pkg string, opts Options) (*Server, error) {
 			s.events = append(s.events, ev)
 		}
 	}
-	// Findings: reuse triage output when present, else compute.
-	fPath := filepath.Join(pkg, "detections", "findings.json")
-	if data, err := os.ReadFile(fPath); err == nil {
-		_ = json.Unmarshal(data, &s.findings)
-	}
-	if len(s.findings) == 0 {
-		s.findings = detect.RunPackage(&schema.Normalized{Events: s.events, Entities: s.entities, Relationships: s.rels}, pkg)
-	}
+	s.findings = analysis.LoadFindings(pkg)
 	return s, nil
 }
 
@@ -611,34 +595,6 @@ func readJSONL[T any](path string) []T {
 		}
 	}
 	return out
-}
-
-func writeOverlay(pkg string, res *schema.Normalized) error {
-	dir := filepath.Join(pkg, "normalized")
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return err
-	}
-	write := func(name string, n int, get func(int) any) error {
-		f, err := os.OpenFile(filepath.Join(dir, name), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
-		if err != nil {
-			return err
-		}
-		enc := json.NewEncoder(f)
-		for i := 0; i < n; i++ {
-			if err := enc.Encode(get(i)); err != nil {
-				f.Close()
-				return err
-			}
-		}
-		return f.Close()
-	}
-	if err := write("events.jsonl", len(res.Events), func(i int) any { return res.Events[i] }); err != nil {
-		return err
-	}
-	if err := write("entities.jsonl", len(res.Entities), func(i int) any { return res.Entities[i] }); err != nil {
-		return err
-	}
-	return write("relationships.jsonl", len(res.Relationships), func(i int) any { return res.Relationships[i] })
 }
 
 // Serve runs the HTTP server on ln until it stops; idle timeouts keep a
