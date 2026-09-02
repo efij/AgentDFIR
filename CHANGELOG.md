@@ -8,6 +8,17 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ### Added
+- **Product packs** (`agentdfir packs list|validate|add|remove|init`): add a new AI
+  agent product with one signed JSON file — detection entry, collector manifest and
+  parser binding — no Go change. Optional `field_map` (dot-paths) normalizes custom
+  transcript shapes through the tolerant `genericchat` engine; roles map to the
+  REPORTED/OBSERVED split, tool calls yield the command every rule inspects,
+  epoch timestamps are converted. Packs load only when their detached ed25519
+  signature verifies against `trusted.pub`; `AGENTDFIR_ALLOW_UNSIGNED_PACKS=1`
+  permits unsigned packs for development, and `case.json` records the pack path,
+  SHA-256 and signed state. Unknown keys, `..`/absolute paths, unrooted paths and
+  built-in ID shadowing are rejected with author-facing messages.
+  Docs: `docs/product-packs.md`.
 - Community rule pack v2: 37 rules (was 12), 26 HIGH/CRITICAL, 14 high-confidence.
   New coverage: bind shells, sudoers NOPASSWD, account creation, EDR/audit
   disable, OS-log tampering, LD_PRELOAD injection, cloud/kube/git/browser/shadow/

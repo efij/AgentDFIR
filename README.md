@@ -70,6 +70,9 @@ go build -trimpath -o agentdfir ./cmd/agentdfir
 
 # Org rule packs + honeytokens
 ./agentdfir triage --rules ./rules --honeytokens canaries.txt CASE-2026-042.adfir
+
+# Add a brand-new AI agent product with one signed JSON file — no Go
+./agentdfir packs init foo-agent --config-dir .foo && ./agentdfir packs add foo-agent.product.json
 ```
 
 Example finding:
@@ -141,11 +144,12 @@ Ships with wrappers for tools IR teams already run:
 | ✅ | Declarative rule packs ([agentdfir-rules](https://github.com/efij/agentdfir-rules)) + signed knowledge packs |
 | ✅ | Package signing (ed25519), full-package encryption (AES-256-GCM) |
 | ✅ | Injection-surface detections: prompt-injection indicators, invisible-Unicode smuggling, honeytokens |
+| ✅ | [Product packs](docs/product-packs.md) — add any new AI agent with one signed JSON file (detect + collect + parse), no Go |
 | 🔜 | Raw-NTFS/VSS locked-file fallback, EDR/DNS adapters, fleet integrations |
 
 ## 🤝 Contributing
 
-Adding a new AI agent product = one PR: detection entry + collector manifest + synthetic fixtures + a docs page. No core changes needed. See [CONTRIBUTING.md](CONTRIBUTING.md).
+Adding a new AI agent product = one [product pack](docs/product-packs.md) (JSON: detection + collector manifest + parser binding) plus a synthetic fixture. No core changes needed. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 Zero third-party runtime dependencies in the collector core, by policy — a forensic tool should be auditable in an afternoon.
 

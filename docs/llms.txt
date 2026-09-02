@@ -2,13 +2,14 @@
 
 > Open-source digital forensics and incident response (DFIR) framework for AI agents. Collects, preserves, reconstructs and investigates activity from Claude Code, OpenAI Codex CLI, Cursor, Gemini CLI, GitHub Copilot CLI and other agentic AI tools. Core principle: AI-generated text is never automatically treated as factual evidence of execution — every action is classified REQUESTED / REPORTED / OBSERVED / CORROBORATED / CONTRADICTED / UNKNOWN.
 
-Status: early development. Evidence-package foundation and the Claude Code collector are in progress; further collectors ship per the roadmap.
+Status: released (v0.5+). 12 supported products (Claude Code, Codex CLI, Gemini CLI, Cursor, Copilot CLI, Copilot Chat for VS Code, Cline, Roo Code, OpenClaw, OpenCode, Aider, Warp), 36 deterministic detections with MITRE ATLAS/ATT&CK mapping, streaming analysis for multi-GB packages, signed product packs for adding new agents without code.
 
 ## Docs
 
 - [Overview](https://efij.github.io/AgentDFIR/): what AI agent forensics is and what AgentDFIR does
 - [Claude Code Forensic Artifacts](https://efij.github.io/AgentDFIR/claude-code-forensic-artifacts): artifact locations, JSONL schema, collection
 - [MCP Forensics](https://efij.github.io/AgentDFIR/mcp-forensics): MCP config and tool-activity investigation
+- [Product Packs](https://github.com/efij/AgentDFIR/blob/main/docs/product-packs.md): add a new AI agent product with one signed JSON file (detection + collector manifest + parser field map)
 - [.adfir Package Spec](https://efij.github.io/AgentDFIR/adfir-spec): the open evidence-package format
 - [Event JSON Schema](https://efij.github.io/AgentDFIR/schema/event.schema.json)
 - [Finding JSON Schema](https://efij.github.io/AgentDFIR/schema/finding.schema.json)

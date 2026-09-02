@@ -56,7 +56,50 @@ type CollectorManifest struct {
 	Entries []ManifestEntry `json:"entries"`
 }
 
-// All returns the embedded product list.
+// extra holds products registered at runtime from installed product
+// packs (see internal/productpack). Registration is process-local and
+// happens once at CLI start-up, before any lookup.
+var (
+	extraProducts  []Product
+	extraManifests = map[string]CollectorManifest{}
+)
+
+// Register adds a product and its collector manifest from a product pack.
+// A pack may not shadow an embedded product ID.
+func Register(p Product, m CollectorManifest) error {
+	embedded, err := All()
+	if err != nil {
+		return err
+	}
+	for _, e := range embedded {
+		if e.ID == p.ID {
+			return fmt.Errorf("product pack %q shadows an embedded product", p.ID)
+		}
+	}
+	if m.Product != p.ID {
+		return fmt.Errorf("manifest product %q does not match pack product %q", m.Product, p.ID)
+	}
+	// Replace an earlier registration of the same ID (idempotent activation).
+	for i := range extraProducts {
+		if extraProducts[i].ID == p.ID {
+			extraProducts[i] = p
+			extraManifests[p.ID] = m
+			return nil
+		}
+	}
+	extraProducts = append(extraProducts, p)
+	extraManifests[p.ID] = m
+	return nil
+}
+
+// ResetRegistered clears runtime registrations (tests).
+func ResetRegistered() {
+	extraProducts = nil
+	extraManifests = map[string]CollectorManifest{}
+}
+
+// All returns the embedded product list followed by pack-registered
+// products.
 func All() ([]Product, error) {
 	var wrap struct {
 		Products []Product `json:"products"`
@@ -64,12 +107,15 @@ func All() ([]Product, error) {
 	if err := json.Unmarshal(productsJSON, &wrap); err != nil {
 		return nil, err
 	}
-	return wrap.Products, nil
+	return append(wrap.Products, extraProducts...), nil
 }
 
 // Manifest returns the collector manifest for a product ID, or nil if no
 // collector is implemented yet.
 func Manifest(productID string) (*CollectorManifest, error) {
+	if m, ok := extraManifests[productID]; ok {
+		return filterPlatform(m), nil
+	}
 	var m CollectorManifest
 	switch productID {
 	case "claude-code":
@@ -96,6 +142,11 @@ func Manifest(productID string) (*CollectorManifest, error) {
 			return nil, nil
 		}
 	}
+	return filterPlatform(m), nil
+}
+
+// filterPlatform drops entries not applicable to the running OS.
+func filterPlatform(m CollectorManifest) *CollectorManifest {
 	var entries []ManifestEntry
 	for _, e := range m.Entries {
 		if len(e.Platforms) == 0 || contains(e.Platforms, runtime.GOOS) {
@@ -103,7 +154,7 @@ func Manifest(productID string) (*CollectorManifest, error) {
 		}
 	}
 	m.Entries = entries
-	return &m, nil
+	return &m
 }
 
 // ByID returns one product definition by its ID.

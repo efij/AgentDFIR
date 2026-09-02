@@ -45,6 +45,7 @@ Usage:
   agentdfir explain <pkg>               deterministic case digest (no AI, no transmission)
   agentdfir update-packs                install signed knowledge-pack overrides
   agentdfir rules validate <dir>        validate declarative rule packs
+  agentdfir packs list|validate|add|remove|init   declarative product packs (new agents, no Go)
   agentdfir version                     print version
 
 Collect flags:
@@ -66,7 +67,10 @@ func Main(args []string) int {
 		fmt.Fprint(os.Stderr, usage)
 		return 2
 	}
+	activatePacks()
 	switch args[0] {
+	case "packs":
+		return cmdPacks(args[1:])
 	case "detect":
 		return cmdDetect()
 	case "collect":
@@ -210,6 +214,7 @@ func cmdCollect(args []string) int {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
 	}
+	packNotes := packProvenance(productID)
 
 	// Resolve roots.
 	var profileRoot, systemRoot string
@@ -253,6 +258,9 @@ func cmdCollect(args []string) int {
 		Authorization:    *authz,
 		CollectionArgs:   args,
 		Notes:            map[string]string{},
+	}
+	for k, v := range packNotes {
+		info.Notes[k] = v
 	}
 	if *offlineRoot != "" {
 		info.Notes["mode"] = "offline-path"
