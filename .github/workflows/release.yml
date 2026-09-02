@@ -4,14 +4,24 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to re-verify (e.g. v0.12.1). Skips build."
+        required: true
+        type: string
 
 permissions:
   contents: write
   id-token: write # Sigstore keyless signing (cosign)
 
+env:
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+
 jobs:
   # ------------------------------------------------------------------ build
   build:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,7 +33,7 @@ jobs:
         run: go test -race ./...
 
       - name: Build release assets
-        run: scripts/release-build.sh "${GITHUB_REF_NAME}" dist
+        run: scripts/release-build.sh "${RELEASE_TAG}" dist
 
       - name: Install cosign
         uses: sigstore/cosign-installer@v3
@@ -40,14 +50,26 @@ jobs:
           ls -la
 
       - name: Publish release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            dist/agentdfir-*
-            dist/SHA256SUMS.txt
-            dist/*.sigstore.json
-          generate_release_notes: true
-          body_path: /dev/null
+        # gh CLI instead of a marketplace action: idempotent (re-runs replace
+        # assets), sequential uploads, and the asset count is asserted before
+        # the draft is published.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "release $RELEASE_TAG exists; replacing assets"
+          else
+            gh release create "$RELEASE_TAG" -R "$GITHUB_REPOSITORY" --draft --generate-notes --title "$RELEASE_TAG"
+          fi
+          for f in dist/*; do
+            gh release upload "$RELEASE_TAG" -R "$GITHUB_REPOSITORY" --clobber "$f"
+          done
+          want=$(ls dist | wc -l | tr -d ' ')   # binaries + archives + SHA256SUMS + one bundle each
+          have=$(gh release view "$RELEASE_TAG" -R "$GITHUB_REPOSITORY" --json assets --jq '.assets|length')
+          echo "assets: have=$have want=$want"
+          [ "$have" -eq "$want" ] || { echo "asset count mismatch"; exit 1; }
+          gh release edit "$RELEASE_TAG" -R "$GITHUB_REPOSITORY" --draft=false
 
   # ----------------------------------------------------------------- verify
   # Downloads the *published* assets the way a user would and runs the exact
@@ -55,6 +77,9 @@ jobs:
   # not that a curl in a shell worked.
   verify:
     needs: build
+    # Runs after a successful build (tag push) or standalone via
+    # workflow_dispatch against an already-published tag (build skipped).
+    if: ${{ !cancelled() && (needs.build.result == 'success' || needs.build.result == 'skipped') }}
     strategy:
       fail-fast: false
       matrix:
@@ -74,7 +99,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          V="$GITHUB_REF_NAME"
+          V="$RELEASE_TAG"
           case "$RUNNER_OS" in macOS) os=darwin ;; Linux) os=linux ;; esac
           case "$(uname -m)" in x86_64) arch=amd64 ;; arm64|aarch64) arch=arm64 ;; esac
           A="agentdfir-$V-$os-$arch"
@@ -102,22 +127,22 @@ jobs:
       - name: macOS browser-download path (quarantine → xattr -d → runs)
         if: runner.os == 'macOS'
         shell: bash
-        run: bash scripts/gatekeeper-check.sh "rel/agentdfir-$GITHUB_REF_NAME-darwin-$(uname -m | sed 's/x86_64/amd64/')" "agentdfir $GITHUB_REF_NAME"
+        run: bash scripts/gatekeeper-check.sh "rel/agentdfir-$RELEASE_TAG-darwin-$(uname -m | sed 's/x86_64/amd64/')" "agentdfir $RELEASE_TAG"
 
       - name: install.sh path (macOS / Linux)
         if: runner.os != 'Windows'
         shell: bash
         run: |
           set -euo pipefail
-          AGENTDFIR_VERSION="$GITHUB_REF_NAME" AGENTDFIR_INSTALL_DIR="$PWD/ibin" sh install.sh
-          ./ibin/agentdfir version | grep -F "agentdfir $GITHUB_REF_NAME"
+          AGENTDFIR_VERSION="$RELEASE_TAG" AGENTDFIR_INSTALL_DIR="$PWD/ibin" sh install.sh
+          ./ibin/agentdfir version | grep -F "agentdfir $RELEASE_TAG"
 
       - name: Windows zip + raw exe path (mark-of-the-web applied)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          $V = $env:GITHUB_REF_NAME
+          $V = $env:RELEASE_TAG
           $zip = "agentdfir-$V-windows-amd64.zip"
           $exe = "agentdfir-$V-windows-amd64.exe"
           New-Item -ItemType Directory rel | Out-Null
@@ -151,7 +176,7 @@ jobs:
   homebrew:
     needs: verify
     runs-on: ubuntu-latest
-    if: ${{ !contains(github.ref_name, '-') }}
+    if: ${{ github.event_name == 'push' && needs.verify.result == 'success' && !contains(github.ref_name, '-') }}
     steps:
       - uses: actions/checkout@v4
       - name: Update tap formula
@@ -160,7 +185,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${TAP_TOKEN:-}" ]; then
-            echo "HOMEBREW_TAP_TOKEN not set. Run locally: scripts/update-tap.sh $GITHUB_REF_NAME"
+            echo "HOMEBREW_TAP_TOKEN not set. Run locally: scripts/update-tap.sh $RELEASE_TAG"
             exit 0
           fi
-          scripts/update-tap.sh "$GITHUB_REF_NAME"
+          scripts/update-tap.sh "$RELEASE_TAG"

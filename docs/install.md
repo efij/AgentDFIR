@@ -182,4 +182,6 @@ Every tag runs `.github/workflows/release.yml`: build, sign, publish, then a
 separate `verify` job on macOS, Linux and Windows downloads the *published*
 assets and performs the exact steps on this page, including stamping the
 quarantine flag on macOS and the mark-of-the-web on Windows, before the
-release is considered good.
+release is considered good. The same `verify` job can be re-run at any time
+against an already-published tag from the Actions tab (*Run workflow* →
+enter the tag), which skips the build and checks only what users download.
