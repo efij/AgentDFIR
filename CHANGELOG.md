@@ -7,6 +7,8 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-09-02
+
 ### Added
 - **Endpoint corroboration** (`agentdfir correlate <pkg> <os-log>...`, `triage --endpoint`):
   OS telemetry as the second witness. Adapters: auditd (SYSCALL/EXECVE/CWD/PATH/
@@ -323,7 +325,8 @@ and interoperability exports.
   on all evidence-derived output; bounded parsers; zip-slip defense on archive
   extraction; secrets never printed by default.
 
-[Unreleased]: https://github.com/efij/AgentDFIR/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/efij/AgentDFIR/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/efij/AgentDFIR/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/efij/AgentDFIR/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/efij/AgentDFIR/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/efij/AgentDFIR/compare/v0.5.0...v0.5.1
