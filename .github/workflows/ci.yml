@@ -29,3 +29,34 @@ jobs:
         run: go build -trimpath ./...
       - name: test
         run: go test -race ./...
+
+  # Builds the release asset layout and runs the documented install paths
+  # against it, so a broken install.sh or a renamed asset fails the PR, not the
+  # release. Mirrors the `verify` job in release.yml minus the download.
+  release-smoke:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+      - name: build release assets
+        run: scripts/release-build.sh v0.0.0-ci dist
+      - name: install.sh against local assets
+        run: |
+          set -euo pipefail
+          AGENTDFIR_VERSION=v0.0.0-ci AGENTDFIR_BASE_URL="file://$PWD/dist" \
+            AGENTDFIR_INSTALL_DIR="$PWD/ibin" sh install.sh
+          ./ibin/agentdfir version | grep -F "agentdfir v0.0.0-ci"
+      - name: checksum file verifies
+        run: |
+          set -euo pipefail
+          cd dist
+          if command -v sha256sum >/dev/null; then sha256sum -c SHA256SUMS.txt; else shasum -a 256 -c SHA256SUMS.txt; fi
+      - name: macOS browser-download path (quarantine → xattr -d → runs)
+        if: runner.os == 'macOS'
+        run: bash scripts/gatekeeper-check.sh "dist/agentdfir-v0.0.0-ci-darwin-$(uname -m | sed 's/x86_64/amd64/')" "agentdfir v0.0.0-ci"

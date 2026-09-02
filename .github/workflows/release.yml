@@ -7,9 +7,11 @@ on:
 
 permissions:
   contents: write
+  id-token: write # Sigstore keyless signing (cosign)
 
 jobs:
-  release:
+  # ------------------------------------------------------------------ build
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,31 +22,145 @@ jobs:
       - name: Test
         run: go test -race ./...
 
-      - name: Cross-compile
-        env:
-          VERSION: ${{ github.ref_name }}
+      - name: Build release assets
+        run: scripts/release-build.sh "${GITHUB_REF_NAME}" dist
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign assets (Sigstore keyless, GitHub OIDC)
+        # One .sigstore.json bundle per asset. Bundles embed the certificate and
+        # the Rekor transparency-log entry, so they verify offline (air-gap).
         run: |
           set -euo pipefail
-          mkdir -p dist
-          LDFLAGS="-s -w -X github.com/efij/AgentDFIR/internal/version.Version=${VERSION}"
-          targets="linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64"
-          for t in $targets; do
-            os="${t%/*}"; arch="${t#*/}"
-            out="agentdfir-${VERSION}-${os}-${arch}"
-            bin="agentdfir"
-            [ "$os" = "windows" ] && bin="agentdfir.exe"
-            echo "building $out"
-            CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" \
-              go build -trimpath -ldflags "$LDFLAGS" -o "dist/$bin" ./cmd/agentdfir
-            ( cd dist && tar -czf "${out}.tar.gz" "$bin" && rm -f "$bin" )
+          cd dist
+          for f in agentdfir-* SHA256SUMS.txt; do
+            cosign sign-blob --yes --bundle "${f}.sigstore.json" "$f"
           done
-          ( cd dist && sha256sum *.tar.gz > SHA256SUMS.txt )
+          ls -la
 
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/*.tar.gz
+            dist/agentdfir-*
             dist/SHA256SUMS.txt
+            dist/*.sigstore.json
           generate_release_notes: true
           body_path: /dev/null
+
+  # ----------------------------------------------------------------- verify
+  # Downloads the *published* assets the way a user would and runs the exact
+  # steps documented in docs/install.md. "Verified" means the user path works,
+  # not that a curl in a shell worked.
+  verify:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cosign
+        if: runner.os != 'Windows'
+        uses: sigstore/cosign-installer@v3
+
+      - name: Portable binary path (macOS / Linux)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          V="$GITHUB_REF_NAME"
+          case "$RUNNER_OS" in macOS) os=darwin ;; Linux) os=linux ;; esac
+          case "$(uname -m)" in x86_64) arch=amd64 ;; arm64|aarch64) arch=arm64 ;; esac
+          A="agentdfir-$V-$os-$arch"
+          mkdir rel && cd rel
+          gh release download "$V" -R "$GITHUB_REPOSITORY" -p "$A" -p "$A.sigstore.json" -p SHA256SUMS.txt -p SHA256SUMS.txt.sigstore.json
+
+          echo "== checksum"
+          grep -E "[[:space:]]\*?$A\$" SHA256SUMS.txt > sum.txt
+          if command -v sha256sum >/dev/null; then sha256sum -c sum.txt; else shasum -a 256 -c sum.txt; fi
+
+          echo "== provenance (cosign, offline bundle)"
+          ID="https://github.com/$GITHUB_REPOSITORY/.github/workflows/release.yml@refs/tags/$V"
+          for f in "$A" SHA256SUMS.txt; do
+            cosign verify-blob --bundle "$f.sigstore.json" \
+              --certificate-identity "$ID" \
+              --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+              --offline "$f"
+          done
+
+          echo "== run"
+          chmod +x "$A"
+          ./"$A" version | tee out.txt
+          grep -F "agentdfir $V" out.txt
+
+      - name: macOS browser-download path (quarantine → xattr -d → runs)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: bash scripts/gatekeeper-check.sh "rel/agentdfir-$GITHUB_REF_NAME-darwin-$(uname -m | sed 's/x86_64/amd64/')" "agentdfir $GITHUB_REF_NAME"
+
+      - name: install.sh path (macOS / Linux)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          AGENTDFIR_VERSION="$GITHUB_REF_NAME" AGENTDFIR_INSTALL_DIR="$PWD/ibin" sh install.sh
+          ./ibin/agentdfir version | grep -F "agentdfir $GITHUB_REF_NAME"
+
+      - name: Windows zip + raw exe path (mark-of-the-web applied)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $V = $env:GITHUB_REF_NAME
+          $zip = "agentdfir-$V-windows-amd64.zip"
+          $exe = "agentdfir-$V-windows-amd64.exe"
+          New-Item -ItemType Directory rel | Out-Null
+          Set-Location rel
+          gh release download $V -R $env:GITHUB_REPOSITORY -p $zip -p $exe -p SHA256SUMS.txt
+          if ($LASTEXITCODE -ne 0) { throw "download failed" }
+
+          Write-Host "== checksums"
+          foreach ($f in @($zip, $exe)) {
+            $actual = (Get-FileHash $f -Algorithm SHA256).Hash.ToLower()
+            $line = Select-String -Path SHA256SUMS.txt -Pattern ("\s\*?" + [regex]::Escape($f) + "$") | Select-Object -First 1
+            if (-not $line) { throw "$f not in SHA256SUMS.txt" }
+            $expected = ($line.Line -split '\s+')[0].ToLower()
+            if ($actual -ne $expected) { throw "checksum mismatch for $f" }
+            Write-Host "ok $f $actual"
+          }
+
+          Write-Host "== mark-of-the-web (what a browser download carries)"
+          Expand-Archive $zip -DestinationPath x
+          foreach ($p in @("x\agentdfir.exe", $exe)) {
+            Set-Content -Path $p -Stream Zone.Identifier -Value "[ZoneTransfer]`r`nZoneId=3"
+            $out = & $p version
+            if ($LASTEXITCODE -ne 0) { throw "$p exited $LASTEXITCODE" }
+            if ($out -notmatch [regex]::Escape("agentdfir $V")) { throw "unexpected output: $out" }
+            Write-Host "ok $p -> $out"
+          }
+
+  # --------------------------------------------------------------- homebrew
+  # Refreshes efij/homebrew-agentdfir. Needs HOMEBREW_TAP_TOKEN (contents:write
+  # on the tap repo). Without it the step prints the manual command and passes.
+  homebrew:
+    needs: verify
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.ref_name, '-') }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update tap formula
+        env:
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${TAP_TOKEN:-}" ]; then
+            echo "HOMEBREW_TAP_TOKEN not set. Run locally: scripts/update-tap.sh $GITHUB_REF_NAME"
+            exit 0
+          fi
+          scripts/update-tap.sh "$GITHUB_REF_NAME"

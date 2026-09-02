@@ -7,6 +7,38 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.11.1] — 2026-09-02
+
+Distribution-only release. No runtime code changes.
+
+### Added
+- **Portable raw binaries** as release assets (`agentdfir-vX.Y.Z-<os>-<arch>[.exe]`),
+  uncompressed, for USB / air-gap use. Archives are still published; Windows now
+  ships as `.zip` instead of `.tar.gz`.
+- **Sigstore provenance**: every asset and `SHA256SUMS.txt` is signed keylessly by
+  the release workflow (GitHub OIDC) with an offline-verifiable `.sigstore.json`
+  bundle. `cosign verify-blob --offline` works on an air-gapped machine.
+- **`install.sh`** (`curl -fsSL …/install.sh | sh`): OS/arch detection, SHA256
+  verification, installs to `~/.local/bin`. No macOS Gatekeeper dialog because
+  curl never sets the quarantine flag.
+- **Homebrew tap**: `brew install efij/agentdfir/agentdfir`
+  ([efij/homebrew-agentdfir](https://github.com/efij/homebrew-agentdfir)),
+  refreshed by the release workflow via `scripts/update-tap.sh`.
+- **`docs/install.md`**: every install path, air-gap first, with an honest
+  explanation of the macOS Gatekeeper ("Apple could not verify…") and Windows
+  SmartScreen prompts on unsigned browser downloads and the one-step fix for each.
+
+### Changed
+- **Release verification now exercises the user path.** A `verify` job on
+  macOS, Linux and Windows downloads the *published* assets, checks SHA256 and
+  cosign bundles, stamps the macOS quarantine flag / Windows mark-of-the-web,
+  and runs the documented steps. CI gained a `release-smoke` job that builds the
+  asset layout and runs `install.sh` and the Gatekeeper path on every PR.
+  Previously the release was validated with `curl` only, which never triggers
+  either OS gate.
+- Release build logic moved to `scripts/release-build.sh`, shared by the
+  release workflow, CI and local testing.
+
 ## [0.11.0] — 2026-09-02
 
 ### Added
