@@ -19,6 +19,8 @@ type importOpts struct {
 	tree, out, caseID, operator, authz, signKey string
 	maxFileMB                                   int64
 	args                                        []string
+	notes                                       map[string]string // extra case notes (docker/archive provenance)
+	fallback                                    bool              // archive mode: ingest loose session files when no profile is found
 }
 
 // collectImport acquires from a KAPE / Velociraptor / CyLR / image tree:
@@ -42,7 +44,7 @@ func collectImport(o importOpts) int {
 		return 1
 	}
 	profiles := collector.DiscoverProfiles(root, prods, 12)
-	if len(profiles) == 0 {
+	if len(profiles) == 0 && !o.fallback {
 		fmt.Fprintln(os.Stderr, "no user profiles with known AI agent products found under", sanitize.Terminal(root))
 		return 1
 	}
@@ -67,6 +69,9 @@ func collectImport(o importOpts) int {
 			"import_root": root,
 			"profiles":    fmt.Sprint(len(profiles)),
 		},
+	}
+	for k, v := range o.notes {
+		info.Notes[k] = v
 	}
 	b, err := casepkg.New(dest, id, info)
 	if err != nil {
@@ -119,6 +124,20 @@ func collectImport(o importOpts) int {
 				firstErr = runErr
 			}
 		}
+	}
+	if len(profiles) == 0 && o.fallback {
+		// Archive without a recognizable profile layout (CI artifact, support
+		// bundle, vendor export): every JSON/JSONL file is preserved as an
+		// archive.sessions artifact so the tolerant parser still yields events.
+		st, err := collector.IngestLooseSessions(b, root, collector.Options{ProfileRoot: root, ConfigRoot: root, SystemRoot: root, Host: host, Product: "ci-archive"})
+		if err != nil && firstErr == nil {
+			firstErr = err
+		}
+		total.Acquired += st.Acquired
+		total.Skipped += st.Skipped
+		total.Failed += st.Failed
+		total.TotalBytes += st.TotalBytes
+		fmt.Printf("  no profile layout found — preserved %d loose JSON/JSONL file(s) as archive.sessions\n", st.Acquired)
 	}
 	_ = b.Log("import_finished", map[string]any{"duration_ms": time.Since(start).Milliseconds()})
 	if err := b.Seal(); err != nil {

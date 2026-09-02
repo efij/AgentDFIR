@@ -7,6 +7,19 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+- **Container / CI / cloud-agent collection**: `collect --docker <container|export.tar>`
+  snapshots a container via `docker export` (read-only, nothing runs inside;
+  `AGENTDFIR_DOCKER=podman` supported) and keeps only agent homes/config/repo
+  agent files while streaming; `collect --archive <zip|tar|tar.gz>` unpacks CI
+  artifacts, support bundles and vendor exports with traversal refusal, symlink/
+  device skipping and size bounds. Both feed the import-tree collector; archives
+  without a profile layout preserve every JSON/JSONL as `archive.sessions`
+  (product `ci-archive`). Vendor `conversations.json` exports (Claude.ai and
+  ChatGPT shapes) parse into human_prompt/model_response events (REPORTED).
+  case.json records mode, source reference and SHA-256. Docs:
+  `docs/container-ci-collection.md`.
+
 ## [0.10.0] — 2026-09-02
 
 ### Added

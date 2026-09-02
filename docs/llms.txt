@@ -8,6 +8,7 @@ Status: released (v0.5+). 12 supported products (Claude Code, Codex CLI, Gemini 
 
 - [Overview](https://efij.github.io/AgentDFIR/): what AI agent forensics is and what AgentDFIR does
 - [Claude Code Forensic Artifacts](https://efij.github.io/AgentDFIR/claude-code-forensic-artifacts): artifact locations, JSONL schema, collection
+- [Container / CI Collection](https://github.com/efij/AgentDFIR/blob/main/docs/container-ci-collection.md): collect --docker and --archive — containers, CI artifacts, support bundles, vendor exports
 - [Instruction Provenance](https://github.com/efij/AgentDFIR/blob/main/docs/provenance.md): who wrote each line of CLAUDE.md / rules / settings and whether it came from a tool result
 - [Real-time Detection](https://github.com/efij/AgentDFIR/blob/main/docs/realtime-detection.md): monitor --detect --alert — live sensor pushing findings to webhook/syslog/file
 - [Endpoint Corroboration](https://github.com/efij/AgentDFIR/blob/main/docs/endpoint-corroboration.md): auditd / Sysmon / EDR exports as a second witness — CORROBORATED vs CONTRADICTED tool calls, unlogged agent activity

@@ -229,3 +229,29 @@ func logicalPath(path string, opts Options) string {
 	}
 	return filepath.ToSlash(path)
 }
+
+// IngestLooseSessions preserves every *.json / *.jsonl file under root as
+// an "archive.sessions" agent_session artifact. Used for archives (CI
+// artifacts, support bundles, vendor exports) that carry agent transcripts
+// without a recognizable user-profile layout.
+func IngestLooseSessions(b *casepkg.Builder, root string, opts Options) (*Stats, error) {
+	if opts.MaxFileBytes == 0 {
+		opts.MaxFileBytes = DefaultMaxFileBytes
+	}
+	if opts.MaxTotalBytes == 0 {
+		opts.MaxTotalBytes = DefaultMaxTotalBytes
+	}
+	st := &Stats{}
+	entry := products.ManifestEntry{ID: "archive.sessions", Category: "agent_session", Sensitivity: "high"}
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		low := strings.ToLower(path)
+		if !strings.HasSuffix(low, ".json") && !strings.HasSuffix(low, ".jsonl") {
+			return nil
+		}
+		return ingestPath(b, entry, path, opts, st)
+	})
+	return st, err
+}

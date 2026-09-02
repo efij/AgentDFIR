@@ -59,6 +59,8 @@ Collect flags:
   --path <root>        offline profile root (mounted image / copied home)
   --import <tree>      KAPE / Velociraptor / CyLR output tree or image: discover every
                        user profile, collect ALL products for ALL users into one package
+  --docker <ctr|tar>   container (docker export, read-only; AGENTDFIR_DOCKER=podman) or saved export
+  --archive <file>     zip / tar / tar.gz: CI artifact, support bundle, vendor data export
   --authorization <r>  authorization reference (ticket / legal basis)
   --max-file-mb <n>    per-artifact size bound in MiB (default 512)
 
@@ -185,12 +187,20 @@ func cmdCollect(args []string) int {
 	liveMode := fs.Bool("live", false, "collect volatile evidence first (RFC 3227 order)")
 	signKey := fs.String("sign", "", "sign the sealed package with this ed25519 private key")
 	importTree := fs.String("import", "", "KAPE/Velociraptor/CyLR/image tree: collect every product for every user profile found")
+	dockerRef := fs.String("docker", "", "container id/name (docker export, read-only) or a saved export .tar")
+	archive := fs.String("archive", "", "zip / tar / tar.gz: GitHub Actions artifact, support bundle, vendor data export")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
-	if *importTree != "" {
-		return collectImport(importOpts{tree: *importTree, out: *out, caseID: *caseID, operator: *operator,
-			authz: *authz, signKey: *signKey, maxFileMB: *maxFileMB, args: args})
+	base := importOpts{out: *out, caseID: *caseID, operator: *operator, authz: *authz, signKey: *signKey, maxFileMB: *maxFileMB, args: args}
+	switch {
+	case *importTree != "":
+		base.tree = *importTree
+		return collectImport(base)
+	case *dockerRef != "":
+		return collectDocker(*dockerRef, base)
+	case *archive != "":
+		return collectArchive(*archive, base)
 	}
 
 	productID := *product
