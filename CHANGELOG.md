@@ -35,6 +35,15 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
   Timesketch, Plaso workflows, Autopsy and Magnet; undated events are counted, not
   dropped silently. `report` rejects unknown formats instead of writing nothing.
   Docs: `docs/dfir-interop.md`.
+- **PDF report** (`report --format pdf`): self-contained `report.pdf` from a
+  standard-library PDF 1.4 writer (core fonts, no embedding, no dependencies).
+  Sections: case summary, package integrity (verify result + seal signature state),
+  findings sorted by severity with MITRE IDs, corroboration status and evidence
+  references, timeline excerpt, artifact inventory, chain-of-custody records.
+  Evidence strings are sanitized then PDF-escaped; runes outside the core-font set
+  are shown as `?` and counted in the report and on the console, never dropped
+  silently. Structure verified by re-parsing the xref table in tests and by
+  `qpdf --check`.
 - Community rule pack v2: 37 rules (was 12), 26 HIGH/CRITICAL, 14 high-confidence.
   New coverage: bind shells, sudoers NOPASSWD, account creation, EDR/audit
   disable, OS-log tampering, LD_PRELOAD injection, cloud/kube/git/browser/shadow/
