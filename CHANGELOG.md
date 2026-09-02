@@ -7,12 +7,6 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-### Fixed
-- Release workflow publishes with the `gh` CLI instead of a marketplace action:
-  idempotent on re-run, sequential uploads, asserts the asset count before the
-  draft is published (v0.12.1's first run left a draft with a missing bundle).
-  `verify` can now be dispatched manually against an existing tag.
-
 ## [0.12.1] — 2026-09-02
 
 Distribution-only release. No runtime code changes.
@@ -44,6 +38,10 @@ Distribution-only release. No runtime code changes.
   either OS gate.
 - Release build logic moved to `scripts/release-build.sh`, shared by the
   release workflow, CI and local testing.
+- Release publishing uses the `gh` CLI instead of a marketplace action:
+  idempotent on re-run, sequential uploads, and the published asset count is
+  asserted before the draft goes live. `verify` can be dispatched manually
+  against an existing tag.
 
 ## [0.12.0] — 2026-09-02
 
