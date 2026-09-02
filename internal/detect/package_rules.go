@@ -164,6 +164,18 @@ var secretPatterns = []struct {
 	{"JWT", regexp.MustCompile(`\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b`)},
 }
 
+// SecretKind classifies a value against the well-known credential formats
+// and returns the category name (never the value). Used by the MCP audit
+// for inline env/header values in server configs.
+func SecretKind(value string) (string, bool) {
+	for _, p := range secretPatterns {
+		if p.re.MatchString(value) {
+			return p.name, true
+		}
+	}
+	return "", false
+}
+
 // POTENTIAL_SECRET_EXPOSURE — credential material inside agent
 // conversations (it passed through the model provider).
 func secretExposure(man *casepkg.Manifest, pkgDir string) []schema.Finding {

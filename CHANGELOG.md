@@ -7,6 +7,29 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+- **MCP supply-chain audit** (`agentdfir mcp audit [<pkg>|--profile <root>]`):
+  read-only inventory of every MCP server configured for Claude Code, Claude
+  Desktop, Cursor, VS Code/Copilot Chat, Copilot CLI, Cline, Roo Code, Gemini CLI,
+  OpenCode and Codex (JSON, JSONC and a TOML subset), normalized to transport,
+  command/URL, package reference + pinning, resolved binary hash (live mode),
+  env/header key names (values never recorded), auto-approve lists and declared
+  tools. Structural findings: UNPINNED_MCP_PACKAGE, INSECURE_MCP_TRANSPORT,
+  MCP_AUTO_APPROVE, MCP_SECRET_IN_CONFIG, MCP_REMOTE_FETCH_COMMAND,
+  MCP_NAME_COLLISION, MCP_PROJECT_SCOPED_SERVER, MCP_TOOL_DESCRIPTION_POISONING
+  (declared and cached tool manifests), MCP_ALL_PROJECT_SERVERS_TRUSTED,
+  MCP_WILDCARD_TOOL_PERMISSION. `--write-baseline` / `--baseline` add
+  MCP_SERVER_ADDED / REMOVED / CHANGED. Package mode writes
+  `detections/mcp-audit.json`; exit code 3 when non-INFO findings exist.
+- **MCP gateway correlation** (`--gateway-log <jsonl> [--gateway-map] [--gateway-server]`):
+  the gateway's own log becomes a second witness — calls matched by id or tool+time
+  (±2 s) are CORROBORATED; MCP_GATEWAY_UNLOGGED_CALL, MCP_GATEWAY_CONTRADICTED_CALL
+  (status CONTRADICTED), MCP_GATEWAY_DENIED_CALL, MCP_GATEWAY_BACKEND_ERRORS; summary
+  with backends seen and p95 latency. Any vendor export fits via a field map.
+- `detect.InjectionPhrase` and `detect.SecretKind` exported so the audit shares the
+  same conservative vocabularies as transcript detections.
+  Docs: `docs/mcp-audit.md`.
+
 ## [0.6.0] — 2026-09-02
 
 ### Added

@@ -10,6 +10,7 @@ package detect
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/efij/AgentDFIR/internal/casepkg"
 	"github.com/efij/AgentDFIR/internal/schema"
@@ -32,6 +33,19 @@ var injectionPhrases = []string{
 	"<!-- ai:",
 	"[system]",
 	"important: before responding",
+}
+
+// InjectionPhrase reports the first instruction-override phrase found in
+// text (case-insensitive). Shared with the MCP audit so tool descriptions
+// are judged by the same conservative vocabulary as transcripts.
+func InjectionPhrase(text string) (string, bool) {
+	low := strings.ToLower(text)
+	for _, ph := range injectionPhrases {
+		if strings.Contains(low, ph) {
+			return ph, true
+		}
+	}
+	return "", false
 }
 
 // surfaceRule maps an artifact category to the rule it triggers. The
