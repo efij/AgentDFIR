@@ -32,7 +32,7 @@ Usage:
   agentdfir simulate [flags]            generate a synthetic incident scenario
   agentdfir diff <pkg-a> <pkg-b>        configuration drift between two packages
   agentdfir baseline create|check       org known-good profiles
-  agentdfir report <package-dir>        HTML/JSON/CSV/STIX/OTel reports
+  agentdfir report <package-dir>        HTML/JSON/CSV/STIX/OTel/OCSF/SARIF reports
   agentdfir export --support <pkg>      derived, redacted support package
   agentdfir keygen                      generate ed25519 signing keypair
   agentdfir sign --key <k> <pkg>        sign a sealed package (SEAL.sig)
@@ -44,7 +44,7 @@ Usage:
   agentdfir monitor [dirs...]           live watch of agent session activity
   agentdfir explain <pkg>               deterministic case digest (no AI, no transmission)
   agentdfir update-packs                install signed knowledge-pack overrides
-  agentdfir rules validate <dir>        validate declarative rule packs
+  agentdfir rules validate|export       validate rule packs · export to Sigma YAML
   agentdfir packs list|validate|add|remove|init   declarative product packs (new agents, no Go)
   agentdfir version                     print version
 
