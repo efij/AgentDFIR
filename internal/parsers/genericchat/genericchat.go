@@ -37,19 +37,63 @@ type productCfg struct {
 	rulePrefix string
 	product    string
 	vendor     string
+	fieldMap   *FieldMap // nil = auto-detect known shapes
+}
+
+// FieldMap remaps a product-specific JSON message shape onto the
+// canonical message understood by this engine, using dot-paths
+// ("meta.author.role", "calls[0].name"). Declarative product packs use
+// it so a new agent's transcript format needs no Go change.
+type FieldMap struct {
+	MessagesKey string   `json:"messages_key,omitempty"` // wrapper key holding the message array
+	Role        string   `json:"role,omitempty"`
+	Text        string   `json:"text,omitempty"`
+	Timestamp   string   `json:"timestamp,omitempty"`
+	SessionID   string   `json:"session_id,omitempty"`
+	ToolName    string   `json:"tool_name,omitempty"`
+	ToolArgs    string   `json:"tool_args,omitempty"`
+	ModelRoles  []string `json:"model_roles,omitempty"` // roles treated as model narrative (REPORTED)
+	HumanRoles  []string `json:"human_roles,omitempty"` // roles treated as human input (OBSERVED)
+}
+
+// ProductConfig is the exported registration shape for product packs.
+type ProductConfig struct {
+	RulePrefix string
+	Product    string
+	Vendor     string
+	FieldMap   *FieldMap
+}
+
+// Register binds a collector-rule prefix to a product so its session
+// artifacts are parsed by this engine. Called by productpack activation.
+func Register(c ProductConfig) error {
+	if c.RulePrefix == "" || c.Product == "" {
+		return fmt.Errorf("genericchat: rule prefix and product are required")
+	}
+	for i := range productTable {
+		if productTable[i].rulePrefix == c.RulePrefix {
+			if productTable[i].product != c.Product {
+				return fmt.Errorf("genericchat: rule prefix %q already bound to %s", c.RulePrefix, productTable[i].product)
+			}
+			productTable[i].fieldMap = c.FieldMap
+			return nil
+		}
+	}
+	productTable = append(productTable, productCfg{c.RulePrefix, c.Product, c.Vendor, c.FieldMap})
+	return nil
 }
 
 var productTable = []productCfg{
-	{"gemini.", "gemini-cli", "google"},
-	{"cursor.", "cursor-cli", "anysphere"},
-	{"copilot.", "copilot-cli", "github"},
-	{"cline.", "cline", "cline"},
-	{"roo.", "roo-code", "roo"},
-	{"openclaw.", "openclaw", "openclaw"},
-	{"opencode.", "opencode", "sst"},
-	{"copilotchat.", "copilot-chat-vscode", "github"},
-	{"aider.", "aider", "aider"},
-	{"warp.", "warp", "warp"},
+	{rulePrefix: "gemini.", product: "gemini-cli", vendor: "google"},
+	{rulePrefix: "cursor.", product: "cursor-cli", vendor: "anysphere"},
+	{rulePrefix: "copilot.", product: "copilot-cli", vendor: "github"},
+	{rulePrefix: "cline.", product: "cline", vendor: "cline"},
+	{rulePrefix: "roo.", product: "roo-code", vendor: "roo"},
+	{rulePrefix: "openclaw.", product: "openclaw", vendor: "openclaw"},
+	{rulePrefix: "opencode.", product: "opencode", vendor: "sst"},
+	{rulePrefix: "copilotchat.", product: "copilot-chat-vscode", vendor: "github"},
+	{rulePrefix: "aider.", product: "aider", vendor: "aider"},
+	{rulePrefix: "warp.", product: "warp", vendor: "warp"},
 }
 
 // sessionCategories are the artifact types this parser consumes.
@@ -159,7 +203,11 @@ func (p *parser) parseArtifact(pkgDir string, art casepkg.ArtifactRecord, cfg *p
 // parseJSONDoc handles a JSON document that is an array of messages or
 // an object wrapping one ({"messages":[…]}, {"history":[…]}, …).
 func (p *parser) parseJSONDoc(data []byte, art casepkg.ArtifactRecord, cfg *productCfg, sessionID string) error {
-	msgs, ok := extractMessageArray(data)
+	var extraKeys []string
+	if cfg.fieldMap != nil && cfg.fieldMap.MessagesKey != "" {
+		extraKeys = []string{cfg.fieldMap.MessagesKey}
+	}
+	msgs, ok := extractMessageArray(data, extraKeys...)
 	if !ok {
 		// A single message object (OpenCode stores one message per file).
 		var probe struct {
@@ -309,6 +357,14 @@ type anthropicItem struct {
 func (p *parser) emitMessage(raw json.RawMessage, art casepkg.ArtifactRecord, cfg *productCfg,
 	sessionID string, offset int64, line int, method string) {
 
+	if cfg.fieldMap != nil {
+		mapped, ok := cfg.fieldMap.canonicalize(raw)
+		if !ok {
+			p.gap(art, cfg, offset, line, "message did not match the product pack field map")
+			return
+		}
+		raw = mapped
+	}
 	var m message
 	if err := json.Unmarshal(raw, &m); err != nil ||
 		(m.Role == "" && m.Text == "" && len(m.Parts) == 0 && m.Type == "") {
@@ -592,7 +648,7 @@ func (p *parser) finishEntities() {
 }
 
 // extractMessageArray accepts a bare array or common wrapper keys.
-func extractMessageArray(data []byte) ([]json.RawMessage, bool) {
+func extractMessageArray(data []byte, extraKeys ...string) ([]json.RawMessage, bool) {
 	var arr []json.RawMessage
 	if err := json.Unmarshal(data, &arr); err == nil {
 		return arr, true
@@ -601,7 +657,8 @@ func extractMessageArray(data []byte) ([]json.RawMessage, bool) {
 	if err := json.Unmarshal(data, &wrap); err != nil {
 		return nil, false
 	}
-	for _, key := range []string{"messages", "chatMessages", "history", "conversation", "events"} {
+	keys := append(extraKeys, "messages", "chatMessages", "history", "conversation", "events")
+	for _, key := range keys {
 		if raw, ok := wrap[key]; ok {
 			if err := json.Unmarshal(raw, &arr); err == nil {
 				return arr, true
