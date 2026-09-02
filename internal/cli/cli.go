@@ -30,6 +30,7 @@ Usage:
   agentdfir timeline <package-dir>      print the unified, evidence-linked timeline
   agentdfir triage <package-dir>        normalize + run detections, print findings
   agentdfir correlate <pkg> <os-log>... second witness: auditd / Sysmon XML / JSONL-CSV exports
+  agentdfir provenance <pkg> [file]     who wrote each line of CLAUDE.md / rules / settings, and why
   agentdfir simulate [flags]            generate a synthetic incident scenario
   agentdfir diff <pkg-a> <pkg-b>        configuration drift between two packages
   agentdfir baseline create|check       org known-good profiles
@@ -79,6 +80,8 @@ func Main(args []string) int {
 		return cmdMCP(args[1:])
 	case "correlate":
 		return cmdCorrelate(args[1:])
+	case "provenance":
+		return cmdProvenance(args[1:])
 	case "detect":
 		return cmdDetect()
 	case "collect":

@@ -295,9 +295,17 @@ func (p *parser) decorateToolCall(ev *schema.Event, it contentItem) {
 	case it.Name == "Bash":
 		ev.Command = trim(inputField(it.Input, "command"), 300)
 		ev.Action = "shell_execution"
-	case it.Name == "Read" || it.Name == "Write" || it.Name == "Edit":
+	case it.Name == "Read" || it.Name == "Write" || it.Name == "Edit" || it.Name == "MultiEdit" || it.Name == "NotebookEdit":
 		ev.File = inputField(it.Input, "file_path")
-		ev.Action = strings.ToLower(it.Name) + "_file"
+		if ev.File == "" {
+			ev.File = inputField(it.Input, "notebook_path")
+		}
+		switch it.Name {
+		case "MultiEdit", "NotebookEdit":
+			ev.Action = "edit_file"
+		default:
+			ev.Action = strings.ToLower(it.Name) + "_file"
+		}
 	case it.Name == "SendMessage":
 		ev.Action = "inter_agent_message"
 		ev.Summary = "to=" + trim(inputField(it.Input, "to"), 80)

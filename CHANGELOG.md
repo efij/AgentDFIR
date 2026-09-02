@@ -7,6 +7,22 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+- **Instruction & memory provenance** (`agentdfir provenance <pkg> [file] [--json] [--all-lines]`):
+  per-line attribution of instruction/memory/config files (CLAUDE.md, AGENTS.md,
+  .cursorrules, .clinerules, GEMINI.md, settings, hooks, memory) to the write that
+  produced each line — session, agent, tool, time, evidence ref — and its TRIGGER:
+  human prompt vs tool result (web/file/MCP content → the injection → persistence
+  path); nearest human prompt kept as context. Content is re-read from the sealed
+  transcript line: Claude Write/Edit/MultiEdit/NotebookEdit, Codex apply_patch,
+  Cline/Roo write_to_file/replace_in_file, generic path+content tool inputs
+  (incl. stringified OpenAI arguments), shell redirects and heredocs. Writes to
+  instruction-like paths whose file was not collected are listed with snippets.
+  Findings: INSTRUCTION_FROM_TOOL_RESULT, INSTRUCTION_INJECTION_PHRASE,
+  INSTRUCTION_WRITTEN_BY_SUBAGENT, INSTRUCTION_FILE_WRITTEN_BY_AGENT.
+  Output: console, `--json`, `detections/provenance.json`. Docs: `docs/provenance.md`.
+- Claude parser: MultiEdit and NotebookEdit recognized as file edits.
+
 ## [0.9.0] — 2026-09-02
 
 ### Added

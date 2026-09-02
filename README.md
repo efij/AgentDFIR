@@ -80,6 +80,9 @@ go build -trimpath -o agentdfir ./cmd/agentdfir
 ./agentdfir correlate CASE-2026-042.adfir /var/log/audit/audit.log
 ./agentdfir triage    CASE-2026-042.adfir --endpoint sysmon.xml
 
+# Who wrote each line of CLAUDE.md / .cursorrules — and did it come from a tool result?
+./agentdfir provenance CASE-2026-042.adfir CLAUDE.md
+
 # MCP supply-chain audit: every server, every agent, read-only — plus gateway-log correlation
 ./agentdfir mcp audit
 ./agentdfir mcp audit CASE-2026-042.adfir --gateway-log gw.jsonl --gateway-server gateway
@@ -159,6 +162,7 @@ Ships with wrappers for tools IR teams already run:
 | ✅ | Declarative rule packs ([agentdfir-rules](https://github.com/efij/agentdfir-rules)) + signed knowledge packs |
 | ✅ | Package signing (ed25519), full-package encryption (AES-256-GCM) |
 | ✅ | Injection-surface detections: prompt-injection indicators, invisible-Unicode smuggling, honeytokens |
+| ✅ | [Instruction provenance](docs/provenance.md) — per-line attribution of CLAUDE.md / AGENTS.md / rules / settings to the session, agent, tool and trigger (human prompt vs tool output) that wrote it |
 | ✅ | [MCP supply-chain audit](docs/mcp-audit.md) — inventory of every MCP server across 9 hosts (JSON/JSONC/TOML), unpinned packages, plaintext transports, auto-approve, tool-description poisoning, baseline drift, gateway-log corroboration |
 | ✅ | [Product packs](docs/product-packs.md) — add any new AI agent with one signed JSON file (detect + collect + parse), no Go |
 | 🔜 | Raw-NTFS/VSS locked-file fallback, EDR/DNS adapters, fleet integrations |
