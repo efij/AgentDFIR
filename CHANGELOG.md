@@ -38,6 +38,10 @@ Distribution-only release. No runtime code changes.
   either OS gate.
 - Release build logic moved to `scripts/release-build.sh`, shared by the
   release workflow, CI and local testing.
+- Release publishing uses the `gh` CLI instead of a marketplace action:
+  idempotent on re-run, sequential uploads, and the published asset count is
+  asserted before the draft goes live. `verify` can be dispatched manually
+  against an existing tag.
 
 ## [0.12.0] — 2026-09-02
 
