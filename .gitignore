@@ -24,3 +24,6 @@ Thumbs.db
 # Local env
 .env
 .env.*
+
+# Local Claude Code worktrees/session data
+.claude/
