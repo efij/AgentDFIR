@@ -7,6 +7,8 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.12.0] — 2026-09-02
+
 ### Added
 - **Case explorer** (`agentdfir serve <pkg> [--port N] [--open]`): local browser UI
   from the single binary — sessions/agents tree with orphan and subagent badges,
@@ -386,7 +388,8 @@ and interoperability exports.
   on all evidence-derived output; bounded parsers; zip-slip defense on archive
   extraction; secrets never printed by default.
 
-[Unreleased]: https://github.com/efij/AgentDFIR/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/efij/AgentDFIR/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/efij/AgentDFIR/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/efij/AgentDFIR/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/efij/AgentDFIR/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/efij/AgentDFIR/compare/v0.8.0...v0.9.0
