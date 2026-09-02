@@ -757,3 +757,39 @@ func trim(s string, n int) string {
 	}
 	return s[:cut] + "…"
 }
+
+// Live parses individual JSONL message lines as they are tailed
+// (real-time) for any product this engine handles, including pack products.
+type Live struct {
+	p   *parser
+	cfg *productCfg
+}
+
+// NewLive creates a line parser bound to a product ID; unknown products
+// are still parsed with a generic identity so nothing is dropped.
+func NewLive(productID, host string, sink func(schema.Event)) *Live {
+	var cfg *productCfg
+	for i := range productTable {
+		if productTable[i].product == productID {
+			cfg = &productTable[i]
+		}
+	}
+	if cfg == nil {
+		cfg = &productCfg{rulePrefix: "live.", product: productID, vendor: "unknown"}
+	}
+	return &Live{p: &parser{res: &schema.Normalized{}, sink: sink, caseID: "live", host: host, entities: map[string]schema.Entity{}}, cfg: cfg}
+}
+
+// Line feeds one raw JSONL line.
+func (l *Live) Line(path string, raw []byte, off int64, line int) {
+	art := casepkg.ArtifactRecord{ArtifactID: "live", LogicalPath: path, CollectorRule: l.cfg.rulePrefix + "sessions", ArtifactType: "agent_session"}
+	trimmed := strings.TrimSpace(string(raw))
+	if trimmed == "" {
+		return
+	}
+	if !json.Valid([]byte(trimmed)) {
+		l.p.gap(art, l.cfg, off, line, "malformed transcript line")
+		return
+	}
+	l.p.emitMessage(json.RawMessage(trimmed), art, l.cfg, sessionIDFor(path), off, line, "")
+}

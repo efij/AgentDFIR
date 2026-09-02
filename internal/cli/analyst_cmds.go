@@ -14,6 +14,7 @@ import (
 	"github.com/efij/AgentDFIR/internal/detect"
 	"github.com/efij/AgentDFIR/internal/normalize"
 	"github.com/efij/AgentDFIR/internal/products"
+	"github.com/efij/AgentDFIR/internal/realtime"
 	"github.com/efij/AgentDFIR/internal/sanitize"
 	"github.com/efij/AgentDFIR/internal/schema"
 	"github.com/efij/AgentDFIR/internal/seal"
@@ -142,10 +143,30 @@ func cmdMonitor(args []string) int {
 	fs := flag.NewFlagSet("monitor", flag.ContinueOnError)
 	interval := fs.Duration("interval", 2*time.Second, "poll interval")
 	cycles := fs.Int("cycles", 0, "number of poll cycles (0 = run until interrupted)")
-	if err := fs.Parse(args); err != nil {
+	detectLive := fs.Bool("detect", false, "run detection rules on new activity and raise findings in real time")
+	var alerts multiFlag
+	fs.Var(&alerts, "alert", "where findings go: https://url (webhook) | syslog://host:514 | /path.jsonl | - (stdout JSON); repeatable")
+	minSev := fs.String("min-severity", "LOW", "lowest severity to alert on (INFO|LOW|MEDIUM|HIGH|CRITICAL)")
+	honeyFile := fs.String("honeytokens", "", "file of planted canary markers (one per line)")
+	knownDest := fs.String("known-destinations", "", "comma-separated extra allowlisted network destinations")
+	quiet := fs.Bool("quiet", false, "print findings only, not every transcript line")
+	// Directories may come first or after the flags.
+	var positional []string
+	rest := args
+	for len(rest) > 0 && !strings.HasPrefix(rest[0], "-") {
+		positional = append(positional, rest[0])
+		rest = rest[1:]
+	}
+	if err := fs.Parse(rest); err != nil {
+		fmt.Fprintln(os.Stderr, "usage: agentdfir monitor [dirs...] [--detect] [--alert <target>]... [--honeytokens f] [--min-severity S] [--quiet]")
 		return 2
 	}
-	paths := fs.Args()
+	paths := append(positional, fs.Args()...)
+	if len(alerts) > 0 && !*detectLive {
+		*detectLive = true // --alert implies --detect
+	}
+
+	var roots []realtime.Root
 	if len(paths) == 0 {
 		// Default: watch every detected product's session directories.
 		home, err := os.UserHomeDir()
@@ -159,19 +180,65 @@ func cmdMonitor(args []string) int {
 			return 1
 		}
 		for _, d := range dets {
-			paths = append(paths, d.ConfigPaths...)
+			for _, cp := range d.ConfigPaths {
+				if fi, err := os.Stat(cp); err == nil && fi.IsDir() {
+					paths = append(paths, cp)
+					roots = append(roots, realtime.Root{Path: cp, Product: d.Product.ID})
+				}
+			}
 		}
 		if len(paths) == 0 {
 			fmt.Fprintln(os.Stderr, "no AI tooling detected; pass directories to watch explicitly")
 			return 1
 		}
+	} else {
+		for _, p := range paths {
+			roots = append(roots, realtime.Root{Path: p})
+		}
 	}
-	fmt.Printf("monitoring %d path(s) every %s (read-only; agents are never touched). Ctrl+C to stop.\n",
-		len(paths), interval)
-	w := &watch.Watcher{Paths: paths, Interval: *interval, Out: os.Stdout}
+
+	w := &watch.Watcher{Paths: paths, Interval: *interval, Out: os.Stdout, Quiet: *quiet}
+	var eng *realtime.Engine
+	if *detectLive {
+		opts := detect.Options{SpawnThreshold: 10}
+		if *honeyFile != "" {
+			data, err := os.ReadFile(*honeyFile)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, "honeytokens:", err)
+				return 1
+			}
+			opts.Honeytokens = strings.Split(string(data), "\n")
+		}
+		if *knownDest != "" {
+			opts.KnownDestinations = strings.Split(*knownDest, ",")
+		}
+		host, _ := os.Hostname()
+		eng = realtime.New(host, roots, opts)
+		eng.MinSeverity = *minSev
+		for _, a := range alerts {
+			sink, err := realtime.ParseSink(a, host)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, "alert:", err)
+				return 2
+			}
+			eng.Sinks = append(eng.Sinks, sink)
+		}
+		defer eng.Close()
+		w.OnLine = eng.OnLine
+	}
+	mode := "tail"
+	if *detectLive {
+		mode = fmt.Sprintf("tail + live detection (min %s, %d alert sink(s))", strings.ToUpper(*minSev), len(alerts))
+	}
+	fmt.Printf("monitoring %d path(s) every %s — %s. Read-only; agents are never touched. Ctrl+C to stop.\n",
+		len(paths), interval, mode)
 	if err := w.Run(*cycles); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
+	}
+	if eng != nil {
+		st := eng.Snapshot()
+		fmt.Printf("live detection: %d lines, %d events, %d findings, %d alerts delivered, %d dropped\n", st.Lines, st.Events, st.Findings, st.Alerts, st.Dropped)
 	}
 	return 0
 }
