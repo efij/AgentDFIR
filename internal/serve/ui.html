@@ -309,7 +309,10 @@ function drawTopology(g){
 // ---- extras
 api('/api/extras').then(x=>{
   const box=$('#extrasbox'); box.innerHTML='';
-  if(!Object.keys(x).length){box.appendChild(el('div','empty','No MCP audit, endpoint corroboration or provenance results in this package yet. Run `agentdfir mcp audit`, `agentdfir correlate` or `agentdfir provenance` on it and reload.')); return;}
+  // Drop sections that ran but found nothing, so only real content shows.
+  if(x.mcp&&!((x.mcp.inventory||{}).servers||[]).length&&!(x.mcp.findings||[]).length) delete x.mcp;
+  if(x.provenance&&!(x.provenance.files||[]).length&&!(x.provenance.writes_to_instruction_paths||[]).length) delete x.provenance;
+  if(!Object.keys(x).length){box.appendChild(el('div','empty','Nothing to show here: this package has no MCP server configuration, no instruction/memory files written by an agent, and no OS telemetry was supplied. To add the second witness, re-run: agentdfir analyze <pkg> --endpoint <auditd.log|sysmon.xml|export.jsonl>')); return;}
   if(x.mcp){const c=card('MCP supply-chain audit'); const inv=x.mcp.inventory||{}; c.appendChild(el('p','',(inv.servers||[]).length+' server(s) across '+(inv.configs_seen||[]).length+' config file(s)'));
     const t=table(['host','server','scope','transport','pinned','identity']); (inv.servers||[]).forEach(s=>row(t,[s.host,s.name,s.scope,s.transport,s.command?(s.pinned?'yes':'NO'):'-',s.package?s.package_manager+' '+s.package:(s.url||s.command||'')])); c.appendChild(t);
     findingsTable(c,x.mcp.findings||[]); if(x.mcp.gateway){const g=x.mcp.gateway; c.appendChild(el('p','','Gateway: '+g.records+' records · '+g.matched_with_transcript+' matched · '+g.gateway_only+' gateway-only · '+g.transcript_only+' transcript-only · '+g.denied+' denied · '+g.errors+' errors · p95 '+g.p95_latency_ms+' ms'));} box.appendChild(c);}

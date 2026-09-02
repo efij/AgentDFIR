@@ -16,7 +16,7 @@ An agent's transcript is witness #1: the agent's own diary. It can be wrong (the
 agentdfir correlate CASE-42.adfir /var/log/audit/audit.log            # Linux auditd
 agentdfir correlate CASE-42.adfir sysmon.xml                           # Windows Sysmon (XML export)
 agentdfir correlate CASE-42.adfir procs.jsonl netconns.csv             # Velociraptor / osquery / eslogger / EDR exports
-agentdfir triage    CASE-42.adfir --endpoint audit.log                 # same, inside triage
+agentdfir analyze   CASE-42.adfir --endpoint audit.log                 # same, inside the one-shot analysis
 ```
 
 Format is sniffed per file (`--format auditd|sysmon-xml|jsonl|csv` to override). `--window 3s` sets the match window. Results are written back to `normalized/events.jsonl` (states + an evidence note naming the corroborating record) and to `detections/corroboration.json`; `triage` merges the findings so every downstream report, OCSF/SARIF export and PDF carries the upgraded states.

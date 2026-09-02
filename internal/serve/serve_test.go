@@ -182,10 +182,15 @@ func TestServeAPI(t *testing.T) {
 	if len(bk) < 3 {
 		t.Fatalf("buckets: %v", bk)
 	}
-	// extras empty until analyses run
+	// analysis ran on load: MCP audit and provenance results exist (empty for this fixture).
 	_, body = get(t, srv, "/api/extras", "")
-	if strings.TrimSpace(string(body)) != "{}" {
-		t.Fatalf("extras: %s", body)
+	var extras map[string]any
+	_ = json.Unmarshal(body, &extras)
+	if _, ok := extras["mcp"]; !ok {
+		t.Fatalf("extras missing mcp audit: %s", body)
+	}
+	if _, ok := extras["provenance"]; !ok {
+		t.Fatalf("extras missing provenance: %s", body)
 	}
 	// Loopback listener only.
 	ln, url, err := s.Listen(0)
