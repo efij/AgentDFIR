@@ -12,6 +12,7 @@ import (
 
 	"github.com/efij/AgentDFIR/internal/correlate"
 	"github.com/efij/AgentDFIR/internal/detect"
+	"github.com/efij/AgentDFIR/internal/endpoint"
 	"github.com/efij/AgentDFIR/internal/normalize"
 	"github.com/efij/AgentDFIR/internal/rulepack"
 	"github.com/efij/AgentDFIR/internal/sanitize"
@@ -102,15 +103,21 @@ func cmdTimeline(args []string) int {
 func cmdTriage(args []string) int {
 	fs := flag.NewFlagSet("triage", flag.ContinueOnError)
 	triageShellHistory := fs.String("shell-history", "", "correlate against a shell history file (endpoint evidence)")
+	var endpointLogs multiFlag
+	fs.Var(&endpointLogs, "endpoint", "OS telemetry log to corroborate against (auditd, Sysmon XML, JSONL/CSV export); repeatable")
 	rulesDir := fs.String("rules", "", "directory of declarative JSON rule packs")
 	honeyFile := fs.String("honeytokens", "", "file of planted canary markers (one per line)")
 	spawnTh := fs.Int("spawn-threshold", 10, "AGENT_SPAWN_EXPLOSION per-session threshold")
 	knownDest := fs.String("known-destinations", "", "comma-separated extra allowlisted network destinations")
-	if err := fs.Parse(args); err != nil || fs.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: agentdfir triage <package-dir> [--shell-history <path>]")
+	// Package may come first or last (`triage pkg --endpoint x` is how people type it).
+	pkg, rest := splitPositional(args)
+	if err := fs.Parse(rest); err != nil || (pkg == "" && fs.NArg() != 1) || (pkg != "" && fs.NArg() != 0) {
+		fmt.Fprintln(os.Stderr, "usage: agentdfir triage <package-dir> [--endpoint <log>]... [--shell-history <path>] [--rules <dir>]")
 		return 2
 	}
-	pkg := fs.Arg(0)
+	if pkg == "" {
+		pkg = fs.Arg(0)
+	}
 	// Streaming pipeline (v0.5.1): events are written to the overlay as
 	// they are parsed and never all held in memory; detection re-reads
 	// the overlay in bounded passes. Memory scales with sessions/agents,
@@ -143,12 +150,34 @@ func cmdTriage(args []string) int {
 	}
 	fmt.Printf("Normalized: %d events, %d entities, %d relationships -> %s\n",
 		sr.EventCount, len(sr.Entities), len(sr.Relationships), dir)
-	if *triageShellHistory != "" {
-		if evs := loadEvents(dir); evs != nil {
+	var extraDest []string
+	if *knownDest != "" {
+		extraDest = strings.Split(*knownDest, ",")
+	}
+	// Second-witness correlation runs BEFORE detection so findings carry
+	// the upgraded/downgraded corroboration states; results are persisted
+	// to the overlay (shell-history states used to be lost here).
+	var corrFindings []schema.Finding
+	if *triageShellHistory != "" || len(endpointLogs) > 0 {
+		evs := loadEvents(dir)
+		if *triageShellHistory != "" {
 			cres, cerr := correlate.Apply(evs, &correlate.ShellHistoryAdapter{Path: *triageShellHistory})
 			if cerr == nil && cres.Corroborated > 0 {
 				fmt.Printf("Endpoint correlation: %d tool call(s) corroborated by shell history.\n", cres.Corroborated)
 			}
+			if len(endpointLogs) == 0 {
+				if err := writeJSONL(filepath.Join(dir, "events.jsonl"), len(evs), func(i int) any { return evs[i] }); err != nil {
+					fmt.Fprintln(os.Stderr, "error:", err)
+					return 1
+				}
+			}
+		}
+		if len(endpointLogs) > 0 {
+			f, _, rc := runEndpointCorrelation(pkg, endpointLogs, endpoint.FormatAuto, correlate.EndpointOptions{KnownDests: extraDest}, evs)
+			if rc != 0 {
+				return rc
+			}
+			corrFindings = f
 		}
 	}
 	var honey []string
@@ -158,10 +187,6 @@ func cmdTriage(args []string) int {
 		} else {
 			fmt.Fprintln(os.Stderr, "honeytokens:", herr)
 		}
-	}
-	var extraDest []string
-	if *knownDest != "" {
-		extraDest = strings.Split(*knownDest, ",")
 	}
 	findings, err := detect.RunStream(pkg, sr.Entities, detect.Options{
 		Honeytokens: honey, SpawnThreshold: *spawnTh, KnownDestinations: extraDest,
@@ -187,6 +212,9 @@ func cmdTriage(args []string) int {
 		}
 	}
 
+	if len(corrFindings) > 0 {
+		findings = append(findings, corrFindings...)
+	}
 	detDir := filepath.Join(pkg, "detections")
 	if err := os.MkdirAll(detDir, 0o700); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)

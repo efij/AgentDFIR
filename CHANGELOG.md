@@ -7,6 +7,32 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+- **Endpoint corroboration** (`agentdfir correlate <pkg> <os-log>...`, `triage --endpoint`):
+  OS telemetry as the second witness. Adapters: auditd (SYSCALL/EXECVE/CWD/PATH/
+  SOCKADDR grouped by msg id, hex args, AF_INET/6), Sysmon XML export (events 1/3/
+  11/23/2), generic JSONL/CSV exports (Velociraptor, osquery, evtx_dump JSON, macOS
+  eslogger — nested JSON flattened, field aliases). Format sniffed per file.
+  Tool calls matched to process/file/network records within ±3 s (equality,
+  shell-wrapper containment, program + token overlap, compound segments) →
+  CORROBORATED with an evidence note; unmatched commands inside process-telemetry
+  coverage → CONTRADICTED + ENDPOINT_CONTRADICTED_COMMAND; agent-lineage records
+  (parent image or pid-tree ancestor is an agent binary) with no transcript
+  counterpart → UNLOGGED_AGENT_ACTIVITY (grouped per program) and
+  UNLOGGED_AGENT_NETWORK (non-allowlisted destinations). Outside coverage → UNKNOWN,
+  never contradicted. States persisted to `normalized/events.jsonl`; summary +
+  findings in `detections/corroboration.json`; `triage` merges them.
+  Docs: `docs/endpoint-corroboration.md`.
+
+### Changed
+- Findings now carry `endpoint_corroboration` = the event's state when correlation
+  raised or contradicted it (was always UNKNOWN).
+- `triage` accepts the package before or after flags.
+
+### Fixed
+- `triage --shell-history` corroboration states were computed but never written
+  back to the overlay; they are now persisted.
+
 ## [0.7.0] — 2026-09-02
 
 ### Added

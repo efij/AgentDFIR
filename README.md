@@ -75,6 +75,10 @@ go build -trimpath -o agentdfir ./cmd/agentdfir
 # Org rule packs + honeytokens
 ./agentdfir triage --rules ./rules --honeytokens canaries.txt CASE-2026-042.adfir
 
+# Second witness: corroborate the transcript against OS telemetry (auditd / Sysmon / EDR exports)
+./agentdfir correlate CASE-2026-042.adfir /var/log/audit/audit.log
+./agentdfir triage    CASE-2026-042.adfir --endpoint sysmon.xml
+
 # MCP supply-chain audit: every server, every agent, read-only — plus gateway-log correlation
 ./agentdfir mcp audit
 ./agentdfir mcp audit CASE-2026-042.adfir --gateway-log gw.jsonl --gateway-server gateway
@@ -148,7 +152,7 @@ Ships with wrappers for tools IR teams already run:
 | ✅ | 36 deterministic detections (full plan set): rogue/orphan agents, exfiltration, context/tool/MCP poisoning, secret & sensitive-file access, self-modification, log deletion, timestomping, session tampering… with MITRE ATLAS/ATT&CK mapping |
 | ✅ | `simulate` — synthetic incident generation (adversary emulation for AI agents) |
 | ✅ | Full parsers for 12 products: Claude Code, Codex, Gemini CLI, Cursor, Copilot CLI, Copilot Chat (VS Code), Cline, Roo, OpenClaw, OpenCode, Aider, Warp |
-| ✅ | Endpoint correlation (pluggable adapters; shell-history reference adapter) |
+| ✅ | [Endpoint corroboration](docs/endpoint-corroboration.md) — auditd, Sysmon XML, Velociraptor/osquery/eslogger/EDR exports: tool calls → CORROBORATED / CONTRADICTED, unlogged agent processes and connections surfaced |
 | ✅ | Reports: network-silent HTML, self-contained PDF (stdlib writer, no renderer deps), JSON, CSV, STIX 2.1, OTel · [OCSF 1.3, SARIF 2.1, Sigma export](docs/siem-interop.md) for SIEM/SOC pipelines |
 | ✅ | `monitor` live watch · `replay` session step-through · `investigate` explorer |
 | ✅ | Declarative rule packs ([agentdfir-rules](https://github.com/efij/agentdfir-rules)) + signed knowledge packs |
