@@ -94,6 +94,7 @@ var productTable = []productCfg{
 	{rulePrefix: "copilotchat.", product: "copilot-chat-vscode", vendor: "github"},
 	{rulePrefix: "aider.", product: "aider", vendor: "aider"},
 	{rulePrefix: "warp.", product: "warp", vendor: "warp"},
+	{rulePrefix: "archive.", product: "ci-archive", vendor: "unknown"},
 }
 
 // sessionCategories are the artifact types this parser consumes.
@@ -193,6 +194,8 @@ func (p *parser) parseArtifact(pkgDir string, art casepkg.ArtifactRecord, cfg *p
 		return p.parseJSONL(data, art, cfg, sessionID)
 	case base == "logs.json":
 		return p.parseGeminiLogs(data, art, cfg)
+	case base == "conversations.json":
+		return p.parseExportConversations(data, art, cfg)
 	case base == "ui_messages.json":
 		return p.parseClineUI(data, art, cfg, sessionID)
 	default: // *.json

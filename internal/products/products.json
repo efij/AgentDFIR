@@ -143,6 +143,13 @@
       "binaries": [
         "warp-terminal"
       ]
+    },
+    {
+      "id": "ci-archive",
+      "name": "CI / archive agent logs",
+      "config_dirs": [],
+      "config_files": [],
+      "binaries": []
     }
   ]
 }
