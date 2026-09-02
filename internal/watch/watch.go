@@ -31,8 +31,14 @@ type Watcher struct {
 	Paths    []string // directory roots to watch (recursive, *.jsonl)
 	Interval time.Duration
 	Out      io.Writer
+	// OnLine, when set, receives every new transcript line with its
+	// absolute byte offset and 1-based line number (real-time detection).
+	OnLine func(path string, raw []byte, off int64, line int)
+	// Quiet suppresses the per-line console rendering.
+	Quiet bool
 
 	offsets map[string]int64
+	lines   map[string]int
 }
 
 // Run polls for the given number of cycles (<=0 = until error/forever).
@@ -42,8 +48,9 @@ func (w *Watcher) Run(cycles int) error {
 	}
 	if w.offsets == nil {
 		w.offsets = map[string]int64{}
+		w.lines = map[string]int{}
 		// Baseline pass: existing content is history, not live activity.
-		w.scan(func(path string, size int64) { w.offsets[path] = size })
+		w.scan(func(path string, size int64) { w.offsets[path] = size; w.lines[path] = countLines(path) })
 	}
 	for i := 0; cycles <= 0 || i < cycles; i++ {
 		if i > 0 || cycles <= 0 {
@@ -101,12 +108,18 @@ func (w *Watcher) emitNew(path string, from, to int64) {
 		if err != nil {
 			return
 		}
+		w.lines[path]++
 		if ln.Overflow {
 			fmt.Fprintf(w.Out, "%s OVERSIZED  %s: line > bound\n",
 				time.Now().UTC().Format(time.RFC3339), sanitize.Terminal(path))
 			continue
 		}
-		w.emitLine(path, ln.Bytes)
+		if w.OnLine != nil {
+			w.OnLine(path, ln.Bytes, from+ln.Offset, w.lines[path])
+		}
+		if !w.Quiet {
+			w.emitLine(path, ln.Bytes)
+		}
 	}
 }
 
@@ -168,4 +181,27 @@ func trim(s string, n int) string {
 		cut--
 	}
 	return s[:cut] + "…"
+}
+
+// countLines counts newline-terminated lines in an existing file so live
+// line numbers continue the file's real numbering.
+func countLines(path string) int {
+	f, err := os.Open(path)
+	if err != nil {
+		return 0
+	}
+	defer f.Close()
+	buf := make([]byte, 256<<10)
+	n := 0
+	for {
+		k, err := f.Read(buf)
+		for i := 0; i < k; i++ {
+			if buf[i] == '\n' {
+				n++
+			}
+		}
+		if err != nil {
+			return n
+		}
+	}
 }

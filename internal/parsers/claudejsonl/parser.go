@@ -486,3 +486,26 @@ func trim(s string, n int) string {
 }
 
 func isRuneStart(b byte) bool { return b&0xC0 != 0x80 }
+
+// Live parses individual transcript lines as they are tailed from a
+// running session (real-time detection). Events are delivered to sink;
+// entity/relationship bookkeeping is kept but not returned.
+type Live struct{ p *parser }
+
+// NewLive creates a line parser for live tailing.
+func NewLive(host string, sink func(schema.Event)) *Live {
+	return &Live{p: &parser{res: &Result{}, sink: sink, caseID: "live", host: host,
+		entities: map[string]schema.Entity{}, spawned: map[string]string{}}}
+}
+
+// Line feeds one raw JSONL line; malformed lines become trace_gap events.
+func (l *Live) Line(path string, raw []byte, off int64, line int) {
+	art := casepkg.ArtifactRecord{ArtifactID: "live", LogicalPath: path, CollectorRule: "claude.sessions", ArtifactType: "agent_session"}
+	var tl transcriptLine
+	if err := json.Unmarshal(raw, &tl); err != nil {
+		l.p.emit(schema.Event{EventType: schema.EventTraceGap, ActorType: schema.ActorSystem, Result: "unparsed",
+			Summary: "malformed transcript line", Corroboration: schema.StateObserved}, art, off, line)
+		return
+	}
+	l.p.handleLine(tl, art, off, line)
+}

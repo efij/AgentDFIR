@@ -446,3 +446,21 @@ func trim(s string, n int) string {
 	}
 	return s[:cut] + "…"
 }
+
+// Live parses individual rollout lines as they are tailed (real-time).
+type Live struct{ p *parser }
+
+// NewLive creates a line parser for live tailing.
+func NewLive(host string, sink func(schema.Event)) *Live {
+	return &Live{p: &parser{res: &Result{}, sink: sink, caseID: "live", host: host, entities: map[string]schema.Entity{}}}
+}
+
+// Line feeds one raw JSONL line.
+func (l *Live) Line(path string, raw []byte, off int64, line int) {
+	art := casepkg.ArtifactRecord{ArtifactID: "live", LogicalPath: path, CollectorRule: "codex.sessions", ArtifactType: "agent_session"}
+	var rl rolloutLine
+	if err := json.Unmarshal(raw, &rl); err != nil {
+		return
+	}
+	l.p.handleLine(rl, art, off, line)
+}

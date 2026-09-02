@@ -67,8 +67,9 @@ go build -trimpath -o agentdfir ./cmd/agentdfir
 # Train / test / demo with synthetic incidents
 ./agentdfir simulate --scenario orphan-agent --out demo-profile
 
-# Live watch, interactive exploration, session replay
+# Live watch — or a real-time sensor: detections pushed to your SOC within one poll interval
 ./agentdfir monitor
+./agentdfir monitor --detect --alert https://soc.example/hook --honeytokens canaries.txt
 ./agentdfir investigate CASE-2026-042.adfir
 ./agentdfir replay --session 9b2d CASE-2026-042.adfir
 
@@ -154,7 +155,7 @@ Ships with wrappers for tools IR teams already run:
 | ✅ | Full parsers for 12 products: Claude Code, Codex, Gemini CLI, Cursor, Copilot CLI, Copilot Chat (VS Code), Cline, Roo, OpenClaw, OpenCode, Aider, Warp |
 | ✅ | [Endpoint corroboration](docs/endpoint-corroboration.md) — auditd, Sysmon XML, Velociraptor/osquery/eslogger/EDR exports: tool calls → CORROBORATED / CONTRADICTED, unlogged agent processes and connections surfaced |
 | ✅ | Reports: network-silent HTML, self-contained PDF (stdlib writer, no renderer deps), JSON, CSV, STIX 2.1, OTel · [OCSF 1.3, SARIF 2.1, Sigma export](docs/siem-interop.md) for SIEM/SOC pipelines |
-| ✅ | `monitor` live watch · `replay` session step-through · `investigate` explorer |
+| ✅ | `monitor` live watch · [`--detect --alert`](docs/realtime-detection.md) real-time sensor (webhook / syslog / file) · `replay` session step-through · `investigate` explorer |
 | ✅ | Declarative rule packs ([agentdfir-rules](https://github.com/efij/agentdfir-rules)) + signed knowledge packs |
 | ✅ | Package signing (ed25519), full-package encryption (AES-256-GCM) |
 | ✅ | Injection-surface detections: prompt-injection indicators, invisible-Unicode smuggling, honeytokens |

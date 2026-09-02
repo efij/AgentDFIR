@@ -42,7 +42,7 @@ Usage:
   agentdfir decrypt <file.adfir.enc>    decrypt an encrypted package
   agentdfir investigate <pkg>           interactive analyst explorer
   agentdfir replay <pkg>                step through a session, states inline
-  agentdfir monitor [dirs...]           live watch of agent session activity
+  agentdfir monitor [dirs...] [--detect --alert <url|file>]   live tail; with --detect a real-time sensor
   agentdfir explain <pkg>               deterministic case digest (no AI, no transmission)
   agentdfir update-packs                install signed knowledge-pack overrides
   agentdfir rules validate|export       validate rule packs · export to Sigma YAML

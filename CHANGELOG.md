@@ -7,6 +7,21 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+- **Real-time detection** (`monitor --detect [--alert <target>]...`): the read-only
+  transcript tail now normalizes each new line (Claude Code, Codex, genericchat/
+  pack JSONL products; product inferred from root, path or line shape) and runs
+  the streaming per-event and sequence rules live — sensitive reads, exfil
+  sequences, destructive commands, network destinations, self-modification, log
+  deletion, MCP result poisoning, cross-session messaging, spawn explosion,
+  trace gaps — plus honeytokens and injection phrases in live content. Findings
+  are pushed within one poll interval to webhook (JSON POST, 5 s timeout, retry,
+  bounded queue), syslog (RFC 5424 UDP/TCP), JSONL file or stdout; repeatable
+  `--alert`, `--min-severity`, `--honeytokens`, `--known-destinations`, `--quiet`.
+  Existing content never alerts; evidence refs carry real line numbers.
+  `detect.NewLive` / `Live.Eval` expose the single-pass evaluator; parsers gain
+  `NewLive(...).Line(...)`. Docs: `docs/realtime-detection.md`.
+
 ## [0.8.0] — 2026-09-02
 
 ### Added
