@@ -19,6 +19,14 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
   SHA-256 and signed state. Unknown keys, `..`/absolute paths, unrooted paths and
   built-in ID shadowing are rejected with author-facing messages.
   Docs: `docs/product-packs.md`.
+- **SIEM/SOC interop**: `report --format ocsf` writes OCSF 1.3 JSON lines
+  (Process Activity / File System Activity / API Activity for events, Detection
+  Finding for findings, forensic fields under `unmapped.agentdfir.*`);
+  `report --format sarif` writes SARIF 2.1.0 with per-rule MITRE properties and
+  evidence path/line locations; `rules export --sigma <dir>` converts declarative
+  rule packs to Sigma YAML (command rules → `process_creation`/`CommandLine`,
+  portable to EDR telemetry). `report` now accepts the package before or after
+  flags. Docs: `docs/siem-interop.md`.
 - Community rule pack v2: 37 rules (was 12), 26 HIGH/CRITICAL, 14 high-confidence.
   New coverage: bind shells, sudoers NOPASSWD, account creation, EDR/audit
   disable, OS-log tampering, LD_PRELOAD injection, cloud/kube/git/browser/shadow/

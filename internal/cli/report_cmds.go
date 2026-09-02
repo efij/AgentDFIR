@@ -20,13 +20,18 @@ import (
 // cmdReport renders HTML/JSON/CSV/STIX/OTel outputs for a package.
 func cmdReport(args []string) int {
 	fs := flag.NewFlagSet("report", flag.ContinueOnError)
-	format := fs.String("format", "html", "html|json|csv|stix|otel|all")
+	format := fs.String("format", "html", "html|json|csv|stix|otel|ocsf|sarif|all")
 	outDir := fs.String("out", "", "output directory (default: <package>/reports)")
-	if err := fs.Parse(args); err != nil || fs.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: agentdfir report <package-dir> [--format html|json|csv|stix|otel|all] [--out dir]")
+	// Accept the package either first or last: `report pkg --format x` is how
+	// people type it; `report --format x pkg` is how flag parsing wants it.
+	pkg, rest := splitPositional(args)
+	if err := fs.Parse(rest); err != nil || (pkg == "" && fs.NArg() != 1) || (pkg != "" && fs.NArg() != 0) {
+		fmt.Fprintln(os.Stderr, "usage: agentdfir report <package-dir> [--format html|json|csv|stix|otel|ocsf|sarif|all] [--out dir]")
 		return 2
 	}
-	pkg := fs.Arg(0)
+	if pkg == "" {
+		pkg = fs.Arg(0)
+	}
 
 	man, err := report.ReadManifest(pkg)
 	if err != nil {
@@ -83,6 +88,17 @@ func cmdReport(args []string) int {
 	}
 	if want("otel") {
 		ok = do("events.otel.json", func() error { return export.WriteOTel(res.Events, filepath.Join(dir, "events.otel.json")) }) && ok
+	}
+	if want("ocsf") {
+		ok = do("events.ocsf.jsonl", func() error { return export.WriteOCSFEvents(res.Events, filepath.Join(dir, "events.ocsf.jsonl")) }) && ok
+		ok = do("findings.ocsf.jsonl", func() error {
+			return export.WriteOCSFFindings(findings, man.CaseID, filepath.Join(dir, "findings.ocsf.jsonl"))
+		}) && ok
+	}
+	if want("sarif") {
+		ok = do("findings.sarif.json", func() error {
+			return export.WriteSARIF(findings, man.CaseID, filepath.Join(dir, "findings.sarif.json"))
+		}) && ok
 	}
 
 	fmt.Printf("Report(s) written for case %s:\n", man.CaseID)

@@ -139,7 +139,7 @@ Ships with wrappers for tools IR teams already run:
 | ✅ | `simulate` — synthetic incident generation (adversary emulation for AI agents) |
 | ✅ | Full parsers for 12 products: Claude Code, Codex, Gemini CLI, Cursor, Copilot CLI, Copilot Chat (VS Code), Cline, Roo, OpenClaw, OpenCode, Aider, Warp |
 | ✅ | Endpoint correlation (pluggable adapters; shell-history reference adapter) |
-| ✅ | Reports: network-silent HTML, JSON, CSV, STIX 2.1, OTel export |
+| ✅ | Reports: network-silent HTML, JSON, CSV, STIX 2.1, OTel · [OCSF 1.3, SARIF 2.1, Sigma export](docs/siem-interop.md) for SIEM/SOC pipelines |
 | ✅ | `monitor` live watch · `replay` session step-through · `investigate` explorer |
 | ✅ | Declarative rule packs ([agentdfir-rules](https://github.com/efij/agentdfir-rules)) + signed knowledge packs |
 | ✅ | Package signing (ed25519), full-package encryption (AES-256-GCM) |

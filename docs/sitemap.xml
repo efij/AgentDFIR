@@ -25,6 +25,12 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://efij.github.io/AgentDFIR/siem-interop</loc>
+    <lastmod>2026-09-02</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://efij.github.io/AgentDFIR/product-packs</loc>
     <lastmod>2026-09-02</lastmod>
     <changefreq>weekly</changefreq>
