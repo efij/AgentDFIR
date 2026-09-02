@@ -215,6 +215,17 @@ func traceGaps(res *schema.Normalized) []schema.Finding {
 var sevRank = map[string]int{"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "INFO": 4}
 
 func sortBySeverity(f []schema.Finding) []schema.Finding {
+	// A finding's endpoint corroboration follows its events: when endpoint
+	// correlation already raised (or contradicted) the underlying tool call,
+	// the finding must say so instead of the static UNKNOWN.
+	for i := range f {
+		switch f[i].Status {
+		case schema.StateCorroborated, schema.StatePartial, schema.StateContradicted:
+			if f[i].Endpoint == "" || f[i].Endpoint == schema.StateUnknown {
+				f[i].Endpoint = f[i].Status
+			}
+		}
+	}
 	// Stable insertion sort by severity rank (small n).
 	for i := 1; i < len(f); i++ {
 		for j := i; j > 0 && sevRank[f[j].Severity] < sevRank[f[j-1].Severity]; j-- {
