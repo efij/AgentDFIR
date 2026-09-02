@@ -185,3 +185,12 @@ quarantine flag on macOS and the mark-of-the-web on Windows, before the
 release is considered good. The same `verify` job can be re-run at any time
 against an already-published tag from the Actions tab (*Run workflow* →
 enter the tag), which skips the build and checks only what users download.
+
+
+## Release checklist (maintainers)
+
+A tag push builds, signs and publishes assets, then updates the Homebrew tap. The tap step **fails the release**
+if the `HOMEBREW_TAP_TOKEN` repository secret is missing (fine-grained PAT, `contents: write` on
+`efij/homebrew-agentdfir`) and verifies the formula now serves the tag. Manual fallback: `scripts/update-tap.sh vX.Y.Z`.
+After every release check all four paths report the new version: `brew upgrade agentdfir`, `install.sh`,
+`go install github.com/efij/AgentDFIR/cmd/agentdfir@latest`, raw binary from the releases page.

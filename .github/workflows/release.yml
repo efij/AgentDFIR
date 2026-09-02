@@ -173,7 +173,8 @@ jobs:
 
   # --------------------------------------------------------------- homebrew
   # Refreshes efij/homebrew-agentdfir. Needs HOMEBREW_TAP_TOKEN (contents:write
-  # on the tap repo). Without it the step prints the manual command and passes.
+  # on the tap repo). Without it the release FAILS visibly: a green release with
+  # a stale `brew upgrade` is worse than a red one.
   homebrew:
     needs: verify
     runs-on: ubuntu-latest
@@ -186,7 +187,17 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${TAP_TOKEN:-}" ]; then
-            echo "HOMEBREW_TAP_TOKEN not set. Run locally: scripts/update-tap.sh $RELEASE_TAG"
-            exit 0
+            echo "::error::HOMEBREW_TAP_TOKEN secret is not set — Homebrew users would stay on the previous version."
+            echo "Fix: add a fine-grained PAT with contents:write on efij/homebrew-agentdfir as repo secret HOMEBREW_TAP_TOKEN,"
+            echo "then re-run this job, or publish by hand: scripts/update-tap.sh $RELEASE_TAG"
+            exit 1
           fi
           scripts/update-tap.sh "$RELEASE_TAG"
+      - name: Verify tap serves this version
+        run: |
+          set -euo pipefail
+          got=$(curl -fsSL "https://raw.githubusercontent.com/efij/homebrew-agentdfir/main/Formula/agentdfir.rb" | grep -o 'tags/v[0-9][0-9.]*' | head -1 | sed 's#tags/##')
+          if [ "$got" != "$RELEASE_TAG" ]; then
+            echo "::error::tap formula points at ${got:-nothing}, expected $RELEASE_TAG"; exit 1
+          fi
+          echo "tap formula at $RELEASE_TAG"
