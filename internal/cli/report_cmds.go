@@ -13,6 +13,7 @@ import (
 	"github.com/efij/AgentDFIR/internal/export"
 	"github.com/efij/AgentDFIR/internal/normalize"
 	"github.com/efij/AgentDFIR/internal/report"
+	"github.com/efij/AgentDFIR/internal/sanitize"
 	"github.com/efij/AgentDFIR/internal/seal"
 	"github.com/efij/AgentDFIR/internal/supportpkg"
 )
@@ -20,17 +21,23 @@ import (
 // cmdReport renders HTML/JSON/CSV/STIX/OTel outputs for a package.
 func cmdReport(args []string) int {
 	fs := flag.NewFlagSet("report", flag.ContinueOnError)
-	format := fs.String("format", "html", "html|json|csv|stix|otel|ocsf|sarif|all")
+	format := fs.String("format", "html", "html|json|csv|stix|otel|ocsf|sarif|timesketch|l2tcsv|all")
 	outDir := fs.String("out", "", "output directory (default: <package>/reports)")
 	// Accept the package either first or last: `report pkg --format x` is how
 	// people type it; `report --format x pkg` is how flag parsing wants it.
 	pkg, rest := splitPositional(args)
 	if err := fs.Parse(rest); err != nil || (pkg == "" && fs.NArg() != 1) || (pkg != "" && fs.NArg() != 0) {
-		fmt.Fprintln(os.Stderr, "usage: agentdfir report <package-dir> [--format html|json|csv|stix|otel|ocsf|sarif|all] [--out dir]")
+		fmt.Fprintln(os.Stderr, "usage: agentdfir report <package-dir> [--format html|json|csv|stix|otel|ocsf|sarif|timesketch|l2tcsv|all] [--out dir]")
 		return 2
 	}
 	if pkg == "" {
 		pkg = fs.Arg(0)
+	}
+	switch *format {
+	case "html", "json", "csv", "stix", "otel", "ocsf", "sarif", "timesketch", "l2tcsv", "all":
+	default:
+		fmt.Fprintf(os.Stderr, "unknown report format %q\n", sanitize.Terminal(*format))
+		return 2
 	}
 
 	man, err := report.ReadManifest(pkg)
@@ -73,6 +80,7 @@ func cmdReport(args []string) int {
 	want := func(f string) bool { return *format == "all" || *format == f }
 
 	ok := true
+	undated := 0
 	if want("html") {
 		ok = do("report.html", func() error { return report.WriteHTML(c, filepath.Join(dir, "report.html")) }) && ok
 	}
@@ -100,10 +108,26 @@ func cmdReport(args []string) int {
 			return export.WriteSARIF(findings, man.CaseID, filepath.Join(dir, "findings.sarif.json"))
 		}) && ok
 	}
+	if want("timesketch") {
+		ok = do("timeline.timesketch.jsonl", func() error {
+			st, err := report.WriteTimesketchJSONL(c, filepath.Join(dir, "timeline.timesketch.jsonl"))
+			undated = st.Undated
+			return err
+		}) && ok
+	}
+	if want("l2tcsv") {
+		ok = do("timeline.l2tcsv", func() error {
+			_, err := report.WriteL2TCSV(c, filepath.Join(dir, "timeline.l2tcsv"))
+			return err
+		}) && ok
+	}
 
 	fmt.Printf("Report(s) written for case %s:\n", man.CaseID)
 	for _, w := range written {
 		fmt.Printf("  %s\n", w)
+	}
+	if undated > 0 {
+		fmt.Printf("Note: %d event(s) without a timestamp were omitted from the Timesketch export (present in timeline.l2tcsv / timeline.csv).\n", undated)
 	}
 	if !ok {
 		return 1

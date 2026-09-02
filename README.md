@@ -53,6 +53,9 @@ go build -trimpath -o agentdfir ./cmd/agentdfir
 ./agentdfir collect --product claude --path /mnt/image/Users/suspect \
     --case-id CASE-2026-042 --authorization "IR-TICKET-123"
 
+# From a KAPE / Velociraptor / CyLR tree: every product, every user, one package
+./agentdfir collect --import /cases/host42/kape-output --case-id CASE-2026-042
+
 # Tamper-evident verification — one flipped byte anywhere fails
 ./agentdfir verify CASE-2026-042.adfir
 
@@ -128,6 +131,8 @@ Ships with wrappers for tools IR teams already run:
 
 - **KAPE** — [`deploy/kape/`](deploy/kape): Target (raw files) + Module (sealed `.adfir` package)
 - **Velociraptor** — [`deploy/velociraptor/`](deploy/velociraptor): client artifact invoking `agentdfir collect`
+- **Triage-tree import** — `collect --import <tree>` turns any KAPE/Velociraptor/CyLR output or mounted image into one sealed package (all products, all users)
+- **Timesketch / Plaso** — `report --format timesketch|l2tcsv` puts the agent timeline next to your host timeline ([docs](docs/dfir-interop.md))
 
 ## 🗺️ Roadmap
 

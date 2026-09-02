@@ -27,6 +27,14 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
   rule packs to Sigma YAML (command rules → `process_creation`/`CommandLine`,
   portable to EDR telemetry). `report` now accepts the package before or after
   flags. Docs: `docs/siem-interop.md`.
+- **DFIR-tool interop**: `collect --import <tree>` discovers every user profile in a
+  KAPE / Velociraptor / CyLR / image tree and collects all products for all users
+  into one sealed package (all-platform manifests, per-profile user attribution,
+  `mode=import-tree`). `report --format timesketch` (Timesketch JSONL) and
+  `--format l2tcsv` (17-column log2timeline CSV) export the unified timeline for
+  Timesketch, Plaso workflows, Autopsy and Magnet; undated events are counted, not
+  dropped silently. `report` rejects unknown formats instead of writing nothing.
+  Docs: `docs/dfir-interop.md`.
 - Community rule pack v2: 37 rules (was 12), 26 HIGH/CRITICAL, 14 high-confidence.
   New coverage: bind shells, sudoers NOPASSWD, account creation, EDR/audit
   disable, OS-log tampering, LD_PRELOAD injection, cloud/kube/git/browser/shadow/
