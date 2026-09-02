@@ -7,6 +7,18 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+- Community rule pack v2: 37 rules (was 12), 26 HIGH/CRITICAL, 14 high-confidence.
+  New coverage: bind shells, sudoers NOPASSWD, account creation, EDR/audit
+  disable, OS-log tampering, LD_PRELOAD injection, cloud/kube/git/browser/shadow/
+  lsass credential access, credential-dir archiving, webhook/collaborator and
+  DNS-tunnel exfil, Tor/proxychains, port scanning, Terraform state, clipboard,
+  insecure MCP transport, MCP auto-approve, remote-fetching config hooks,
+  unpinned MCP packages. Every rule carries MITRE ATT&CK where a valid technique
+  exists and OWASP LLM/Agentic references; none shadow built-in detect rules.
+- Regression test: shipped packs must load, have unique IDs, and never collide
+  with built-in rule IDs.
+
 ## [0.5.1] — 2026-09-02
 
 Streaming analysis pipeline. Closes the memory gap noted in 0.5.0: analysis

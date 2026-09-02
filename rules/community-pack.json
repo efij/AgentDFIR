@@ -1,18 +1,570 @@
 {
   "pack": "agentdfir-community",
-  "version": "1",
+  "version": "2",
   "rules": [
-    {"id":"CURL_PIPE_SHELL","title":"Remote Script Piped to Shell","description":"Command downloads remote content and pipes it into a shell.","severity":"HIGH","confidence":"high","match":{"type":"command","regex":"(curl|wget)[^|;&]*\\|\\s*(ba|z|da)?sh"},"false_positive_notes":"Common in legit installers (brew, rustup); verify the domain.","mitre_attack":"T1059.004"},
-    {"id":"BASE64_PIPE_SHELL","title":"Base64 Decoded Into Shell","description":"Base64-encoded payload decoded and executed.","severity":"HIGH","confidence":"high","match":{"type":"command","regex":"base64\\s+(-d|--decode)[^|;&]*\\|\\s*(ba|z|da)?sh"},"false_positive_notes":"Rare in legitimate interactive use.","mitre_attack":"T1140"},
-    {"id":"REVERSE_SHELL","title":"Reverse Shell Pattern","description":"Command matches a common reverse-shell construction.","severity":"CRITICAL","confidence":"high","match":{"type":"command","regex":"(bash\\s+-i\\s+>&\\s*/dev/tcp/|nc\\s+-e\\s|mkfifo[^;]*nc\\s|python[0-9]?\\s+-c\\s+.import\\s+socket)"},"false_positive_notes":"Almost never legitimate from an AI agent.","mitre_attack":"T1059"},
-    {"id":"CLOUD_METADATA_ACCESS","title":"Cloud Metadata Endpoint","description":"Command targets the instance metadata service.","severity":"HIGH","confidence":"high","match":{"type":"command","contains":["169.254.169.254","metadata.google.internal"]},"false_positive_notes":"Cloud tooling queries metadata legitimately on cloud hosts.","mitre_attack":"T1552.005"},
-    {"id":"SSH_KEY_WRITE","title":"Write to authorized_keys","description":"Command appends to an SSH authorized_keys file — persistence.","severity":"HIGH","confidence":"medium","match":{"type":"command","regex":"authorized_keys"},"false_positive_notes":"Provisioning scripts legitimately manage keys.","mitre_attack":"T1098.004"},
-    {"id":"CRON_PERSISTENCE","title":"Scheduled-Task Persistence","description":"Command installs a cron job or launchd/systemd unit.","severity":"MEDIUM","confidence":"medium","match":{"type":"command","regex":"(crontab\\s+-|/etc/cron|launchctl\\s+load|systemctl\\s+enable)"},"false_positive_notes":"Deployment scripts legitimately schedule tasks.","mitre_attack":"T1053"},
-    {"id":"HISTORY_CLEARING","title":"Shell History Cleared","description":"Command clears or disables shell history.","severity":"HIGH","confidence":"high","match":{"type":"command","regex":"(history\\s+-c|unset\\s+HISTFILE|rm\\s+[^;]*\\.(bash|zsh)_history)"},"false_positive_notes":"Rare legitimate use; strong anti-forensic signal.","mitre_attack":"T1070.003"},
-    {"id":"CHMOD_WORLD_WRITABLE","title":"World-Writable/Exec Permission","description":"Command sets 777 or a+rwx permissions.","severity":"MEDIUM","confidence":"medium","match":{"type":"command","regex":"chmod\\s+(-R\\s+)?(777|a\\+rwx|o\\+w)"},"false_positive_notes":"Sloppy but common in dev; context matters.","mitre_attack":"T1222"},
-    {"id":"FIREWALL_DISABLE","title":"Host Firewall Disabled","description":"Command disables the host firewall.","severity":"HIGH","confidence":"medium","match":{"type":"command","regex":"(ufw\\s+disable|iptables\\s+-F|pfctl\\s+-d|systemctl\\s+stop\\s+firewalld)"},"false_positive_notes":"Occasionally legitimate during network debugging.","mitre_attack":"T1562.004"},
-    {"id":"PACKAGE_PUBLISH","title":"Package Published to Registry","description":"Command publishes a package (npm/pip/cargo/gem).","severity":"MEDIUM","confidence":"medium","match":{"type":"command","regex":"(npm\\s+publish|twine\\s+upload|cargo\\s+publish|gem\\s+push)"},"false_positive_notes":"Routine in release workflows; supply-chain relevance.","mitre_attack":"T1195"},
-    {"id":"DISK_WIPE","title":"Destructive Disk Operation","description":"Command performs a raw disk write or filesystem format.","severity":"CRITICAL","confidence":"high","match":{"type":"command","regex":"(dd\\s+if=[^;]*of=/dev/|mkfs\\.|>\\s*/dev/sd)"},"false_positive_notes":"Legit during imaging; catastrophic otherwise.","mitre_attack":"T1561"},
-    {"id":"ENV_DUMP_TO_NETWORK","title":"Environment Dumped Over Network","description":"Command sends the full environment over the network.","severity":"HIGH","confidence":"medium","match":{"type":"command","regex":"(env|printenv|set)\\s*[|;][^|;]*(curl|wget|nc)\\s"},"false_positive_notes":"Debug workflows occasionally do this; check destination.","mitre_attack":"T1041"}
+    {
+      "id": "CURL_PIPE_SHELL",
+      "title": "Remote Script Piped to Shell",
+      "description": "Command downloads remote content and pipes it directly into a shell interpreter.",
+      "severity": "HIGH",
+      "confidence": "high",
+      "match": {
+        "type": "command",
+        "regex": "(curl|wget)[^|;&]*\\|\\s*(ba|z|da)?sh"
+      },
+      "false_positive_notes": "Common in legitimate installers (brew, rustup); verify the source domain.",
+      "references": [
+        "https://genai.owasp.org/llm-top-10/"
+      ],
+      "mitre_attack": "T1059.004"
+    },
+    {
+      "id": "BASE64_PIPE_SHELL",
+      "title": "Base64 Decoded Into Shell",
+      "description": "Base64-encoded payload decoded and executed via a shell.",
+      "severity": "HIGH",
+      "confidence": "high",
+      "match": {
+        "type": "command",
+        "regex": "base64\\s+(-d|--decode)[^|;&]*\\|\\s*(ba|z|da)?sh"
+      },
+      "false_positive_notes": "Rare in legitimate interactive use; strong obfuscation signal.",
+      "mitre_attack": "T1140"
+    },
+    {
+      "id": "REVERSE_SHELL",
+      "title": "Reverse Shell Pattern",
+      "description": "Command matches a common reverse-shell construction.",
+      "severity": "CRITICAL",
+      "confidence": "high",
+      "match": {
+        "type": "command",
+        "regex": "(bash\\s+-i\\s+>&\\s*/dev/tcp/|nc\\s+-e\\s|mkfifo[^;]*nc\\s|python[0-9]?\\s+-c\\s+.import\\s+socket)"
+      },
+      "false_positive_notes": "Almost never legitimate from an AI agent.",
+      "references": [
+        "https://genai.owasp.org/resource/agentic-ai-threats-and-mitigations/"
+      ],
+      "mitre_attack": "T1059"
+    },
+    {
+      "id": "CLOUD_METADATA_ACCESS",
+      "title": "Cloud Metadata Endpoint",
+      "description": "Command targets the instance metadata service \u2014 a common cloud credential-theft path.",
+      "severity": "HIGH",
+      "confidence": "high",
+      "match": {
+        "type": "command",
+        "contains": [
+          "169.254.169.254",
+          "metadata.google.internal"
+        ]
+      },
+      "false_positive_notes": "Cloud tooling queries metadata legitimately on cloud hosts; weigh host context.",
+      "references": [
+        "https://genai.owasp.org/llm-top-10/"
+      ],
+      "mitre_attack": "T1552.005"
+    },
+    {
+      "id": "SSH_KEY_WRITE",
+      "title": "Write to authorized_keys",
+      "description": "Command appends to an SSH authorized_keys file \u2014 a persistence mechanism.",
+      "severity": "HIGH",
+      "confidence": "medium",
+      "match": {
+        "type": "command",
+        "regex": "authorized_keys"
+      },
+      "false_positive_notes": "Provisioning scripts legitimately manage keys.",
+      "mitre_attack": "T1098.004"
+    },
+    {
+      "id": "CRON_PERSISTENCE",
+      "title": "Scheduled-Task Persistence",
+      "description": "Command installs a cron job or launchd/systemd unit for persistence.",
+      "severity": "MEDIUM",
+      "confidence": "medium",
+      "match": {
+        "type": "command",
+        "regex": "(crontab\\s+-|/etc/cron|launchctl\\s+load|systemctl\\s+enable)"
+      },
+      "false_positive_notes": "Deployment scripts legitimately schedule tasks.",
+      "mitre_attack": "T1053"
+    },
+    {
+      "id": "HISTORY_CLEARING",
+      "title": "Shell History Cleared",
+      "description": "Command clears or disables shell history \u2014 an anti-forensic action.",
+      "severity": "HIGH",
+      "confidence": "high",
+      "match": {
+        "type": "command",
+        "regex": "(history\\s+-c|unset\\s+HISTFILE|rm\\s+[^;]*\\.(bash|zsh)_history)"
+      },
+      "false_positive_notes": "Rare legitimate use; strong anti-forensic signal.",
+      "mitre_attack": "T1070.003"
+    },
+    {
+      "id": "CHMOD_WORLD_WRITABLE",
+      "title": "World-Writable/Exec Permission",
+      "description": "Command sets 777 or a+rwx permissions, weakening access controls.",
+      "severity": "MEDIUM",
+      "confidence": "medium",
+      "match": {
+        "type": "command",
+        "regex": "chmod\\s+(-R\\s+)?(777|a\\+rwx|o\\+w)"
+      },
+      "false_positive_notes": "Sloppy but common in dev; context matters.",
+      "mitre_attack": "T1222"
+    },
+    {
+      "id": "FIREWALL_DISABLE",
+      "title": "Host Firewall Disabled",
+      "description": "Command disables the host firewall.",
+      "severity": "HIGH",
+      "confidence": "medium",
+      "match": {
+        "type": "command",
+        "regex": "(ufw\\s+disable|iptables\\s+-F|pfctl\\s+-d|systemctl\\s+stop\\s+firewalld)"
+      },
+      "false_positive_notes": "Occasionally legitimate during network debugging.",
+      "mitre_attack": "T1562.004"
+    },
+    {
+      "id": "PACKAGE_PUBLISH",
+      "title": "Package Published to Registry",
+      "description": "Command publishes a package (npm/pip/cargo/gem) \u2014 supply-chain relevance.",
+      "severity": "MEDIUM",
+      "confidence": "medium",
+      "match": {
+        "type": "command",
+        "regex": "(npm\\s+publish|twine\\s+upload|cargo\\s+publish|gem\\s+push)"
+      },
+      "false_positive_notes": "Routine in release workflows; weigh against what the session touched.",
+      "references": [
+        "https://genai.owasp.org/llm-top-10/"
+      ],
+      "mitre_attack": "T1195"
+    },
+    {
+      "id": "DISK_WIPE",
+      "title": "Destructive Disk Operation",
+      "description": "Command performs a raw disk write or filesystem format.",
+      "severity": "CRITICAL",
+      "confidence": "high",
+      "match": {
+        "type": "command",
+        "regex": "(dd\\s+if=[^;]*of=/dev/|mkfs\\.|>\\s*/dev/sd)"
+      },
+      "false_positive_notes": "Legitimate during imaging; catastrophic otherwise.",
+      "mitre_attack": "T1561"
+    },
+    {
+      "id": "ENV_DUMP_TO_NETWORK",
+      "title": "Environment Dumped Over Network",
+      "description": "Command sends the full process environment over the network.",
+      "severity": "HIGH",
+      "confidence": "medium",
+      "match": {
+        "type": "command",
+        "regex": "(env|printenv|set)\\s*[|;][^|;]*(curl|wget|nc)\\s"
+      },
+      "false_positive_notes": "Debug workflows occasionally do this; check the destination.",
+      "references": [
+        "https://genai.owasp.org/llm-top-10/"
+      ],
+      "mitre_attack": "T1041"
+    },
+    {
+      "id": "BIND_SHELL_LISTENER",
+      "title": "Bind Shell / Listener Opened",
+      "description": "Command opens a network listener that spawns a shell (bind shell) \u2014 inbound remote access.",
+      "severity": "HIGH",
+      "confidence": "high",
+      "match": {
+        "type": "command",
+        "regex": "(?i)(\\b(nc|ncat|netcat)\\b\\s+(-\\w+\\s+)*-l|socat\\b[^\\n]*exec:|python[0-9]?\\s+-c\\s+[^\\n]*(bind|listen)\\()"
+      },
+      "false_positive_notes": "Netcat listeners appear in local network testing; from an autonomous agent they are rarely legitimate.",
+      "references": [
+        "https://genai.owasp.org/resource/agentic-ai-threats-and-mitigations/"
+      ],
+      "mitre_attack": "T1059"
+    },
+    {
+      "id": "SUDOERS_NOPASSWD_PERSIST",
+      "title": "Passwordless Sudo Granted",
+      "description": "Command grants passwordless sudo or writes to the sudoers configuration \u2014 privilege persistence.",
+      "severity": "HIGH",
+      "confidence": "high",
+      "match": {
+        "type": "command",
+        "regex": "(?i)(NOPASSWD\\s*:|>>?\\s*/etc/sudoers|/etc/sudoers\\.d/|tee\\s+[^|;&]*sudoers)"
+      },
+      "false_positive_notes": "Some provisioning tooling configures NOPASSWD; scope and actor matter.",
+      "mitre_attack": "T1548.003"
+    },
+    {
+      "id": "NEW_ACCOUNT_CREATED",
+      "title": "Local Account Created",
+      "description": "Command creates a new local user account \u2014 a common persistence/backdoor step.",
+      "severity": "HIGH",
+      "confidence": "medium",
+      "match": {
+        "type": "command",
+        "regex": "(?i)\\b(useradd|adduser|dscl\\s+\\.\\s+-create\\s+/Users|net\\s+user\\s+\\S+\\s+\\S+\\s+/add)\\b"
+      },
+      "false_positive_notes": "Legitimate during host provisioning; unusual for an interactive coding agent.",
+      "mitre_attack": "T1136.001"
+    },
+    {
+      "id": "DISABLE_SECURITY_TOOL",
+      "title": "Security Tooling Disabled",
+      "description": "Command stops or kills endpoint security, auditing, or MAC enforcement.",
+      "severity": "HIGH",
+      "confidence": "high",
+      "match": {
+        "type": "command",
+        "regex": "(?i)(setenforce\\s+0|systemctl\\s+(stop|disable)\\s+(auditd|apparmor)|pkill\\s+-?\\d?\\s*(falcon|crowdstrike|osqueryd|auditd|carbonblack|sentinel)|spctl\\s+--master-disable|Set-MpPreference[^\\n]*DisableRealtimeMonitoring)"
+      },
+      "false_positive_notes": "Rarely legitimate; defenders may toggle these during maintenance windows.",
+      "references": [
+        "https://genai.owasp.org/resource/agentic-ai-threats-and-mitigations/"
+      ],
+      "mitre_attack": "T1562.001"
+    },
+    {
+      "id": "OS_LOG_TAMPER",
+      "title": "System Log Tampering",
+      "description": "Command truncates, clears, or vacuums operating-system logs (distinct from agent-transcript deletion).",
+      "severity": "HIGH",
+      "confidence": "medium",
+      "match": {
+        "type": "command",
+        "regex": "(?i)(auditctl\\s+-[De]\\b|journalctl\\s+--vacuum|truncate\\s+-s\\s*0\\s+/var/log|>\\s*/var/log/|rm\\s+-\\w*\\s*/var/log|wevtutil\\s+cl|Clear-EventLog)"
+      },
+      "false_positive_notes": "Log rotation and cleanup are routine on some hosts; correlate with other activity.",
+      "mitre_attack": "T1070.002"
+    },
+    {
+      "id": "LD_PRELOAD_INJECT",
+      "title": "Library / Process Injection",
+      "description": "Command uses LD_PRELOAD, DYLD injection, or debugger attach to inject into a running process.",
+      "severity": "HIGH",
+      "confidence": "medium",
+      "match": {
+        "type": "command",
+        "regex": "(?i)(LD_PRELOAD=\\S|DYLD_INSERT_LIBRARIES=\\S|gdb\\s+(-\\w+\\s+)*-p\\s+\\d+|\\.so\\s+into\\s+)"
+      },
+      "false_positive_notes": "LD_PRELOAD is used legitimately for sanitizers and profiling; check the library.",
+      "mitre_attack": "T1574.006"
+    },
+    {
+      "id": "CLOUD_CREDENTIAL_EXPORT",
+      "title": "Cloud Credentials Exported",
+      "description": "Command prints or mints long-lived cloud credentials or access tokens.",
+      "severity": "HIGH",
+      "confidence": "high",
+      "match": {
+        "type": "command",
+        "regex": "(?i)(aws\\s+sts\\s+get-session-token|aws\\s+configure\\s+get\\s+aws_secret|aws\\s+iam\\s+create-access-key|gcloud\\s+auth\\s+(print-access-token|print-identity-token|application-default\\s+print-access-token)|az\\s+account\\s+get-access-token)"
+      },
+      "false_positive_notes": "Automation legitimately mints short-lived tokens; secret-key export is higher signal.",
+      "references": [
+        "https://genai.owasp.org/llm-top-10/"
+      ],
+      "mitre_attack": "T1552.005"
+    },
+    {
+      "id": "GIT_CREDENTIAL_EXPOSURE",
+      "title": "Git Credential Store Exposed",
+      "description": "Command reads the plaintext git credential store or configures plaintext credential caching.",
+      "severity": "HIGH",
+      "confidence": "medium",
+      "match": {
+        "type": "command",
+        "regex": "(?i)(git\\s+config\\s+(--global\\s+)?credential\\.helper\\s+store|\\.git-credentials\\b|cat\\s+[^|;&]*\\.git-credentials)"
+      },
+      "false_positive_notes": "Some CI configures the store helper deliberately; weigh against exfil activity.",
+      "references": [
+        "https://genai.owasp.org/llm-top-10/"
+      ],
+      "mitre_attack": "T1552.001"
+    },
+    {
+      "id": "KUBE_SECRET_DUMP",
+      "title": "Kubernetes Secrets Dumped",
+      "description": "Command reads Kubernetes Secret objects in decodable form.",
+      "severity": "HIGH",
+      "confidence": "medium",
+      "match": {
+        "type": "command",
+        "regex": "(?i)kubectl\\s+get\\s+secrets?\\b[^|;&]*(-o\\s*(yaml|json)|--all-namespaces|\\s-A\\b)"
+      },
+      "false_positive_notes": "Operators inspect secrets during debugging; bulk or all-namespace reads are higher signal.",
+      "references": [
+        "https://genai.owasp.org/llm-top-10/"
+      ],
+      "mitre_attack": "T1552.007"
+    },
+    {
+      "id": "CONTAINER_ESCAPE_MOUNT",
+      "title": "Container Escape Configuration",
+      "description": "Command launches a container with host-privilege flags enabling escape to the host.",
+      "severity": "HIGH",
+      "confidence": "medium",
+      "match": {
+        "type": "command",
+        "regex": "(?i)docker\\s+run[^|;&]*(--privileged|-v\\s*/var/run/docker\\.sock|--pid=host|--cap-add=SYS_ADMIN|-v\\s*/:/host)"
+      },
+      "false_positive_notes": "Some debugging/CI images legitimately use privileged mode; scrutinize on shared hosts.",
+      "references": [
+        "https://genai.owasp.org/resource/agentic-ai-threats-and-mitigations/"
+      ],
+      "mitre_attack": "T1611"
+    },
+    {
+      "id": "CREDENTIAL_DIR_ARCHIVE",
+      "title": "Credential Directory Archived",
+      "description": "Command archives a directory of secrets (.ssh, .aws, .gnupg, .kube) \u2014 staging for exfiltration.",
+      "severity": "HIGH",
+      "confidence": "high",
+      "match": {
+        "type": "command",
+        "regex": "(?i)(tar\\s+[^|;&]*|zip\\s+-r[^|;&]*|7z\\s+a[^|;&]*)\\s(\\.?ssh\\b|\\.aws\\b|\\.gnupg\\b|\\.kube\\b|\\.docker\\b|id_rsa|\\.env\\b)"
+      },
+      "false_positive_notes": "Backups occasionally include dotfiles; archiving credential stores specifically is rarely benign.",
+      "references": [
+        "https://genai.owasp.org/llm-top-10/"
+      ],
+      "mitre_attack": "T1560.001"
+    },
+    {
+      "id": "WEBHOOK_C2_EXFIL",
+      "title": "Webhook / Collaborator Exfil Destination",
+      "description": "Command references a webhook, tunneling, or out-of-band collaborator service commonly used for exfiltration and C2.",
+      "severity": "HIGH",
+      "confidence": "medium",
+      "match": {
+        "type": "command",
+        "contains": [
+          "webhook.site",
+          "requestbin",
+          "pipedream.net",
+          "ngrok.io",
+          "ngrok-free.app",
+          "discord.com/api/webhooks",
+          "hooks.slack.com",
+          "api.telegram.org/bot",
+          "burpcollaborator",
+          "interact.sh",
+          "oast.fun",
+          "oastify.com",
+          "dnslog.cn",
+          "canarytokens.com"
+        ]
+      },
+      "false_positive_notes": "Teams do use webhooks and ngrok for legitimate integrations; weigh against what data was touched.",
+      "references": [
+        "https://genai.owasp.org/llm-top-10/"
+      ],
+      "mitre_attack": "T1567.002"
+    },
+    {
+      "id": "DNS_TUNNEL_TOOL",
+      "title": "DNS Tunneling Tool",
+      "description": "Command invokes a known DNS-tunneling utility \u2014 covert channel / exfiltration.",
+      "severity": "HIGH",
+      "confidence": "high",
+      "match": {
+        "type": "command",
+        "regex": "(?i)\\b(dnscat2?|iodine|dns2tcp)\\b"
+      },
+      "false_positive_notes": "These tools have essentially no benign use in an agent session.",
+      "references": [
+        "https://genai.owasp.org/llm-top-10/"
+      ],
+      "mitre_attack": "T1048"
+    },
+    {
+      "id": "ANON_PROXY_ROUTING",
+      "title": "Traffic Routed Through Anonymizer",
+      "description": "Command routes traffic through Tor or a proxy chain, or contacts a .onion address.",
+      "severity": "MEDIUM",
+      "confidence": "medium",
+      "match": {
+        "type": "command",
+        "regex": "(?i)\\b(torsocks|proxychains|tor2web)\\b|\\.onion\\b"
+      },
+      "false_positive_notes": "Privacy tooling is legitimate in some contexts; unusual for automated dev work.",
+      "mitre_attack": "T1090.003"
+    },
+    {
+      "id": "NETWORK_PORT_SCAN",
+      "title": "Network Port Scan",
+      "description": "Command runs a network/port scanner \u2014 reconnaissance.",
+      "severity": "MEDIUM",
+      "confidence": "medium",
+      "match": {
+        "type": "command",
+        "regex": "(?i)\\b(nmap|masscan|zmap)\\b"
+      },
+      "false_positive_notes": "Security engineers scan legitimately; unusual from a coding agent against internal ranges.",
+      "mitre_attack": "T1046"
+    },
+    {
+      "id": "BROWSER_CREDENTIAL_ACCESS",
+      "title": "Browser Credential Store Accessed",
+      "description": "Command reads browser-saved credentials, cookies, or the OS keychain.",
+      "severity": "HIGH",
+      "confidence": "medium",
+      "match": {
+        "type": "command",
+        "regex": "(?i)(security\\s+find-(generic|internet)-password|Login\\s+Data|Cookies\\.sqlite|logins\\.json|keychain\\s+dump|Local\\s+State[^\\n]*os_crypt)"
+      },
+      "false_positive_notes": "Rarely legitimate for an agent; some password-manager tooling touches these paths.",
+      "references": [
+        "https://genai.owasp.org/llm-top-10/"
+      ],
+      "mitre_attack": "T1555.003"
+    },
+    {
+      "id": "SHADOW_FILE_ACCESS",
+      "title": "Password Hash File Accessed",
+      "description": "Command reads the system password-hash database (/etc/shadow) or unshadows it.",
+      "severity": "HIGH",
+      "confidence": "high",
+      "match": {
+        "type": "command",
+        "regex": "(?i)(/etc/(g?shadow)\\b|getent\\s+shadow|\\bunshadow\\b)"
+      },
+      "false_positive_notes": "Almost never legitimate; strong credential-dumping signal.",
+      "mitre_attack": "T1003.008"
+    },
+    {
+      "id": "MEMORY_CREDENTIAL_DUMP",
+      "title": "In-Memory Credential Dump",
+      "description": "Command dumps process memory of a credential-bearing process (lsass, mimikatz, gcore).",
+      "severity": "HIGH",
+      "confidence": "high",
+      "match": {
+        "type": "command",
+        "regex": "(?i)(mimikatz|procdump[^\\n]*lsass|\\blsass\\b[^\\n]*dump|gcore\\s+-\\S|/proc/\\d+/mem\\b)"
+      },
+      "false_positive_notes": "Rarely legitimate; strong credential-access signal.",
+      "mitre_attack": "T1003.001"
+    },
+    {
+      "id": "TERRAFORM_STATE_ACCESS",
+      "title": "Terraform State / Output Read",
+      "description": "Command reads Terraform state or JSON outputs, which frequently embed plaintext secrets.",
+      "severity": "MEDIUM",
+      "confidence": "medium",
+      "match": {
+        "type": "command",
+        "regex": "(?i)(terraform\\.tfstate\\b|terraform\\s+state\\s+pull\\b|terraform\\s+output\\s+-json\\b)"
+      },
+      "false_positive_notes": "Routine in IaC workflows; meaningful when followed by network activity.",
+      "references": [
+        "https://genai.owasp.org/llm-top-10/"
+      ],
+      "mitre_attack": "T1552.001"
+    },
+    {
+      "id": "CLIPBOARD_CAPTURE",
+      "title": "Clipboard Contents Read",
+      "description": "Command reads the system clipboard, which may hold secrets or tokens.",
+      "severity": "LOW",
+      "confidence": "medium",
+      "match": {
+        "type": "command",
+        "regex": "(?i)(\\bpbpaste\\b|xclip\\s+-o\\b|xsel\\s+-o\\b|Get-Clipboard\\b)"
+      },
+      "false_positive_notes": "Clipboard use is common; only notable alongside sensitive data or exfil.",
+      "mitre_attack": "T1115"
+    },
+    {
+      "id": "KEY_MATERIAL_GENERATION",
+      "title": "Attacker Key Material Generated",
+      "description": "Command generates a new SSH key or certificate non-interactively into a standard path \u2014 often precedes authorized_keys persistence.",
+      "severity": "MEDIUM",
+      "confidence": "low",
+      "match": {
+        "type": "command",
+        "regex": "(?i)ssh-keygen\\s+[^|;&]*-N\\s*(\\\"\\\"|'')"
+      },
+      "false_positive_notes": "Automation legitimately generates keys; correlate with authorized_keys writes.",
+      "mitre_attack": "T1098.004"
+    },
+    {
+      "id": "MCP_INSECURE_TRANSPORT",
+      "title": "MCP Server Over Insecure Transport",
+      "description": "Configuration points an MCP server at a plaintext http:// endpoint \u2014 traffic and tool results are interceptable.",
+      "severity": "MEDIUM",
+      "confidence": "medium",
+      "match": {
+        "type": "config",
+        "regex": "(?i)\"(url|endpoint|serverUrl)\"\\s*:\\s*\"http://"
+      },
+      "false_positive_notes": "Local development MCP servers often use http on localhost; scrutinize non-loopback hosts.",
+      "references": [
+        "https://genai.owasp.org/llmrisk/llm07-insecure-plugin-design/"
+      ],
+      "mitre_attack": "T1557"
+    },
+    {
+      "id": "MCP_AUTO_APPROVE_ALL",
+      "title": "MCP Tools Auto-Approved",
+      "description": "Configuration auto-approves all MCP tool calls, removing per-call human review (excessive agency).",
+      "severity": "MEDIUM",
+      "confidence": "medium",
+      "match": {
+        "type": "config",
+        "contains": [
+          "\"autoApprove\": [\"*\"]",
+          "\"autoApprove\":[\"*\"]",
+          "\"alwaysAllow\": [\"*\"]",
+          "\"alwaysAllow\":[\"*\"]",
+          "\"yoloMode\": true"
+        ]
+      },
+      "false_positive_notes": "Some teams auto-approve on sandboxed hosts; risky when the agent has network or filesystem reach.",
+      "references": [
+        "https://genai.owasp.org/resource/agentic-ai-threats-and-mitigations/"
+      ]
+    },
+    {
+      "id": "CONFIG_HOOK_REMOTE_FETCH",
+      "title": "Config Hook Fetches Remote Code",
+      "description": "A settings/hook value runs a downloader piped into a shell \u2014 remote code execution on agent lifecycle events.",
+      "severity": "HIGH",
+      "confidence": "medium",
+      "match": {
+        "type": "config",
+        "regex": "(?i)\"[^\"]*(command|hooks?|preToolUse|postToolUse)[^\"]*\"\\s*:\\s*\"[^\"]*(curl|wget)[^\"]*\\|[^\"]*sh"
+      },
+      "false_positive_notes": "Legitimate hooks rarely pipe remote content into a shell; verify the source.",
+      "references": [
+        "https://genai.owasp.org/llmrisk/llm05-supply-chain/"
+      ],
+      "mitre_attack": "T1059.004"
+    },
+    {
+      "id": "MCP_UNPINNED_PACKAGE",
+      "title": "MCP Server Runs Unpinned Package",
+      "description": "Configuration launches an MCP server via an unpinned package fetch (npx -y / uvx without a version), a supply-chain exposure.",
+      "severity": "LOW",
+      "confidence": "medium",
+      "match": {
+        "type": "config",
+        "regex": "(?i)\"(npx\\s+-y\\s+[^@\"]+\"|uvx\\s+[^@\"]+\")"
+      },
+      "false_positive_notes": "Unpinned packages are common in examples; pin versions for reproducibility and integrity.",
+      "references": [
+        "https://genai.owasp.org/llmrisk/llm05-supply-chain/"
+      ],
+      "mitre_attack": "T1195.002"
+    }
   ]
 }
