@@ -10,6 +10,7 @@ Status: released (v0.5+). 12 supported products (Claude Code, Codex CLI, Gemini 
 - [Claude Code Forensic Artifacts](https://efij.github.io/AgentDFIR/claude-code-forensic-artifacts): artifact locations, JSONL schema, collection
 - [MCP Forensics](https://efij.github.io/AgentDFIR/mcp-forensics): MCP config and tool-activity investigation
 - [SIEM Interop](https://github.com/efij/AgentDFIR/blob/main/docs/siem-interop.md): OCSF 1.3, SARIF 2.1 and Sigma export for SIEM/SOC pipelines
+- [DFIR Interop](https://github.com/efij/AgentDFIR/blob/main/docs/dfir-interop.md): import KAPE/Velociraptor/CyLR trees; export Timesketch JSONL and l2tcsv timelines
 - [Product Packs](https://github.com/efij/AgentDFIR/blob/main/docs/product-packs.md): add a new AI agent product with one signed JSON file (detection + collector manifest + parser field map)
 - [.adfir Package Spec](https://efij.github.io/AgentDFIR/adfir-spec): the open evidence-package format
 - [Event JSON Schema](https://efij.github.io/AgentDFIR/schema/event.schema.json)

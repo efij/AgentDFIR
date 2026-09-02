@@ -32,7 +32,7 @@ Usage:
   agentdfir simulate [flags]            generate a synthetic incident scenario
   agentdfir diff <pkg-a> <pkg-b>        configuration drift between two packages
   agentdfir baseline create|check       org known-good profiles
-  agentdfir report <package-dir>        HTML/JSON/CSV/STIX/OTel/OCSF/SARIF reports
+  agentdfir report <package-dir>        HTML/JSON/CSV/STIX/OTel/OCSF/SARIF/Timesketch/l2tcsv
   agentdfir export --support <pkg>      derived, redacted support package
   agentdfir keygen                      generate ed25519 signing keypair
   agentdfir sign --key <k> <pkg>        sign a sealed package (SEAL.sig)
@@ -54,6 +54,8 @@ Collect flags:
   --case-id <id>       case identifier (default: generated)
   --operator <name>    asserted operator name for chain of custody
   --path <root>        offline profile root (mounted image / copied home)
+  --import <tree>      KAPE / Velociraptor / CyLR output tree or image: discover every
+                       user profile, collect ALL products for ALL users into one package
   --authorization <r>  authorization reference (ticket / legal basis)
   --max-file-mb <n>    per-artifact size bound in MiB (default 512)
 
@@ -173,8 +175,13 @@ func cmdCollect(args []string) int {
 	maxFileMB := fs.Int64("max-file-mb", 0, "per-artifact size bound (MiB)")
 	liveMode := fs.Bool("live", false, "collect volatile evidence first (RFC 3227 order)")
 	signKey := fs.String("sign", "", "sign the sealed package with this ed25519 private key")
+	importTree := fs.String("import", "", "KAPE/Velociraptor/CyLR/image tree: collect every product for every user profile found")
 	if err := fs.Parse(args); err != nil {
 		return 2
+	}
+	if *importTree != "" {
+		return collectImport(importOpts{tree: *importTree, out: *out, caseID: *caseID, operator: *operator,
+			authz: *authz, signKey: *signKey, maxFileMB: *maxFileMB, args: args})
 	}
 
 	productID := *product

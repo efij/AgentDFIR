@@ -110,11 +110,26 @@ func All() ([]Product, error) {
 	return append(wrap.Products, extraProducts...), nil
 }
 
-// Manifest returns the collector manifest for a product ID, or nil if no
-// collector is implemented yet.
+// Manifest returns the collector manifest for a product ID filtered to the
+// running OS, or nil if no collector is implemented yet.
 func Manifest(productID string) (*CollectorManifest, error) {
+	m, err := rawManifest(productID)
+	if err != nil || m == nil {
+		return nil, err
+	}
+	return filterPlatform(*m), nil
+}
+
+// ManifestAllPlatforms returns the manifest with every platform's entries.
+// Used when collecting from a triage tree or image that may come from a
+// different OS than the analysis host; absent paths are simply not found.
+func ManifestAllPlatforms(productID string) (*CollectorManifest, error) {
+	return rawManifest(productID)
+}
+
+func rawManifest(productID string) (*CollectorManifest, error) {
 	if m, ok := extraManifests[productID]; ok {
-		return filterPlatform(m), nil
+		return &m, nil
 	}
 	var m CollectorManifest
 	switch productID {
@@ -142,7 +157,7 @@ func Manifest(productID string) (*CollectorManifest, error) {
 			return nil, nil
 		}
 	}
-	return filterPlatform(m), nil
+	return &m, nil
 }
 
 // filterPlatform drops entries not applicable to the running OS.
