@@ -7,6 +7,17 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+- **Case explorer** (`agentdfir serve <pkg> [--port N] [--open]`): local browser UI
+  from the single binary — sessions/agents tree with orphan and subagent badges,
+  paginated timeline with text/type/state filters and a per-minute density
+  scrubber, evidence pane showing the event and its raw transcript line, findings
+  sorted by severity with jump-to-evidence, SVG agent topology, and MCP audit /
+  provenance / endpoint-corroboration panels when present. Binds 127.0.0.1 only,
+  GET-only, CSP `default-src 'none'` (no external resources), loopback `Host`
+  check against DNS rebinding, server-side sanitization of every evidence string,
+  never writes to the package. Docs: `docs/serve.md`.
+
 ## [0.11.0] — 2026-09-02
 
 ### Added
