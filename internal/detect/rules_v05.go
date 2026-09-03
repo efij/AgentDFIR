@@ -164,7 +164,7 @@ func mcpToolPoisoning(res *schema.Normalized) []schema.Finding {
 					EvidenceRefs:  []string{ref(ev)},
 					Status:        ev.Corroboration,
 					Endpoint:      schema.StateUnknown,
-					MitreATLAS:    "AML.T0053",
+					MitreATLAS:    "AML.T0099", // AI Agent Tool Data Poisoning (instructions in tool results)
 					FalsePositive: "Tools that legitimately return documentation about prompt injection will match; inspect the full result.",
 				})
 				break
@@ -200,6 +200,7 @@ func sensitiveFileRead(res *schema.Normalized) []schema.Finding {
 			Status:        ev.Corroboration,
 			Endpoint:      schema.StateUnknown,
 			MitreATTACK:   "T1552.001", // Credentials In Files
+			MitreATLAS:    "AML.T0055", // Unsecured Credentials
 			FalsePositive: "Agents legitimately edit .env files or SSH config on request; check the preceding human prompt.",
 		})
 	}
@@ -247,6 +248,7 @@ func networkAndExfil(res *schema.Normalized, opts Options) []schema.Finding {
 						SessionID:   ev.SessionID, AgentID: ev.AgentID, EvidenceRefs: []string{ref(ev)},
 						Status: ev.Corroboration, Endpoint: schema.StateUnknown,
 						MitreATTACK:   "T1552.005", // Cloud Instance Metadata API
+						MitreATLAS:    "AML.T0075", // Cloud Service Discovery
 						FalsePositive: "Cloud-native tooling queries metadata legitimately on cloud hosts.",
 					})
 					continue
@@ -274,7 +276,8 @@ func networkAndExfil(res *schema.Normalized, opts Options) []schema.Finding {
 					Related:      []string{"precursor: " + ref(*sensitive)},
 					EvidenceRefs: []string{ref(ev)},
 					Status:       ev.Corroboration, Endpoint: schema.StateUnknown,
-					MitreATTACK:   "T1041", // Exfiltration Over C2/Web
+					MitreATTACK:   "T1041",     // Exfiltration Over C2/Web
+					MitreATLAS:    "AML.T0086", // Exfiltration via AI Agent Tool Invocation
 					FalsePositive: "Deploy pipelines legitimately archive and upload build artifacts; check destination and payload.",
 				})
 				sensitive = nil
@@ -339,6 +342,7 @@ func spawnExplosion(res *schema.Normalized, opts Options) []schema.Finding {
 			Description: fmt.Sprintf("%d subagent spawns in one session (threshold %d). Runaway delegation loops amplify cost and blast radius.", n, th),
 			SessionID:   s, AgentID: first[s].AgentID, EvidenceRefs: []string{ref(first[s])},
 			Status: schema.StateObserved, Endpoint: schema.StateUnknown,
+			MitreATLAS:    "AML.T0034.002", // Cost Harvesting: Agentic Resource Consumption
 			FalsePositive: "Large fan-out tasks (e.g. per-file review) legitimately spawn many agents; tune with --spawn-threshold.",
 		})
 	}
@@ -396,6 +400,7 @@ func agentSelfModification(res *schema.Normalized) []schema.Finding {
 			SessionID:   ev.SessionID, AgentID: ev.AgentID, EvidenceRefs: []string{ref(ev)},
 			Status: ev.Corroboration, Endpoint: schema.StateUnknown,
 			MitreATTACK:   "T1562.001",
+			MitreATLAS:    "AML.T0081", // Modify AI Agent Configuration
 			FalsePositive: "Users ask agents to configure themselves (add MCP servers, hooks); check the preceding prompt and diff against baseline.",
 		})
 	}

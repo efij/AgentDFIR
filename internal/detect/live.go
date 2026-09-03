@@ -63,7 +63,7 @@ func (l *Live) Eval(ev schema.Event) []schema.Finding {
 				RuleID: "SECRET_ACCESS", Severity: "HIGH", Title: "Honeytoken Accessed by Agent",
 				Description: "A planted canary marker appears in live agent activity (" + ev.EventType + "). Canaries have no legitimate use; this is a high-confidence signal.",
 				SessionID:   ev.SessionID, AgentID: ev.AgentID, EvidenceRefs: []string{ref(ev)},
-				Status: ev.Corroboration, Endpoint: schema.StateUnknown, MitreATTACK: "T1552",
+				Status: ev.Corroboration, Endpoint: schema.StateUnknown, MitreATTACK: "T1552", MitreATLAS: "AML.T0055",
 				FalsePositive: "Only if the marker string was reused for something real.",
 			})
 			break
@@ -88,7 +88,7 @@ func (l *Live) Eval(ev schema.Event) []schema.Finding {
 			RuleID: "AGENT_SPAWN_EXPLOSION", Severity: "MEDIUM", Title: "Excessive Subagent Spawning",
 			Description: fmt.Sprintf("Session %s has spawned %d subagents (threshold %d) and is still spawning.", ev.SessionID, l.agg.spawnCount[ev.SessionID], l.opts.SpawnThreshold),
 			SessionID:   ev.SessionID, AgentID: ev.AgentID, EvidenceRefs: []string{ref(ev)},
-			Status: ev.Corroboration, Endpoint: schema.StateUnknown,
+			Status: ev.Corroboration, Endpoint: schema.StateUnknown, MitreATLAS: "AML.T0034.002",
 			FalsePositive: "Large legitimate fan-out tasks; raise --spawn-threshold.",
 		})
 	}

@@ -142,7 +142,7 @@ func TestContextPoisoningInInstructions(t *testing.T) {
 	if !ok {
 		t.Fatalf("context poisoning not detected; got %v", keys(got))
 	}
-	if fnd.MitreATLAS != "AML.T0051" {
+	if fnd.MitreATLAS != "AML.T0080.000" { // AI Agent Context Poisoning: Memory
 		t.Fatalf("missing ATLAS mapping: %q", fnd.MitreATLAS)
 	}
 }

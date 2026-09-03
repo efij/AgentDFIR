@@ -212,6 +212,7 @@ func (a *streamAgg) spawnExplosion(opts Options) []schema.Finding {
 			Description: fmt.Sprintf("%d subagent spawns in one session (threshold %d). Runaway delegation loops amplify cost and blast radius.", n, th),
 			SessionID:   s, AgentID: a.spawnFirst[s].AgentID, EvidenceRefs: []string{ref(a.spawnFirst[s])},
 			Status: schema.StateObserved, Endpoint: schema.StateUnknown,
+			MitreATLAS:    "AML.T0034.002",
 			FalsePositive: "Large fan-out tasks legitimately spawn many agents; tune with --spawn-threshold.",
 		})
 	}
@@ -324,6 +325,8 @@ func (a *streamAgg) shellExecution() []schema.Finding {
 		Description:  fmt.Sprintf("%d shell command(s) invoked via a shell tool across the collected sessions.", a.shellCount),
 		EvidenceRefs: []string{ref(a.shellFirst)},
 		Status:       schema.StateObserved, Endpoint: schema.StateUnknown,
+		MitreATTACK:   "T1059",
+		MitreATLAS:    "AML.T0050",
 		FalsePositive: "Expected in virtually every coding-agent session; informational context.",
 	}}
 }

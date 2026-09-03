@@ -23,7 +23,7 @@ func oneToolCallRules(ev schema.Event, p *streamPass2) []schema.Finding {
 			RuleID: "SENSITIVE_FILE_READ", Severity: "MEDIUM", Title: "Sensitive Path Accessed by Agent",
 			Description: fmt.Sprintf("Agent tool activity references a sensitive location (%s).", m),
 			SessionID:   ev.SessionID, AgentID: ev.AgentID, EvidenceRefs: []string{ref(ev)},
-			Status: ev.Corroboration, Endpoint: schema.StateUnknown, MitreATTACK: "T1552.001",
+			Status: ev.Corroboration, Endpoint: schema.StateUnknown, MitreATTACK: "T1552.001", MitreATLAS: "AML.T0055",
 			FalsePositive: "Agents legitimately edit .env / SSH config on request; check the preceding prompt.",
 		})
 	}
@@ -36,7 +36,7 @@ func oneToolCallRules(ev schema.Event, p *streamPass2) []schema.Finding {
 				RuleID: "AGENT_SELF_MODIFICATION", Severity: "HIGH", Title: "Agent Modified Its Own Configuration",
 				Description: "Agent wrote to its own settings, hooks, instructions or MCP configuration. Self-modification can persist injected behavior across sessions.",
 				SessionID:   ev.SessionID, AgentID: ev.AgentID, EvidenceRefs: []string{ref(ev)},
-				Status: ev.Corroboration, Endpoint: schema.StateUnknown, MitreATTACK: "T1562.001",
+				Status: ev.Corroboration, Endpoint: schema.StateUnknown, MitreATTACK: "T1562.001", MitreATLAS: "AML.T0081",
 				FalsePositive: "Users ask agents to configure themselves; check the prompt and diff against baseline.",
 			})
 		}
@@ -79,7 +79,7 @@ func oneToolCallRules(ev schema.Event, p *streamPass2) []schema.Finding {
 					RuleID: "UNEXPECTED_NETWORK_DESTINATION", Severity: "HIGH", Title: "Cloud Metadata Endpoint Contacted",
 					Description: fmt.Sprintf("Agent command reaches the instance-metadata service (%s) — a credential-theft pivot in cloud workloads.", d),
 					SessionID:   ev.SessionID, AgentID: ev.AgentID, EvidenceRefs: []string{ref(ev)},
-					Status: ev.Corroboration, Endpoint: schema.StateUnknown, MitreATTACK: "T1552.005",
+					Status: ev.Corroboration, Endpoint: schema.StateUnknown, MitreATTACK: "T1552.005", MitreATLAS: "AML.T0075",
 					FalsePositive: "Cloud-native tooling queries metadata legitimately on cloud hosts.",
 				})
 				continue
@@ -104,7 +104,7 @@ func oneToolCallRules(ev schema.Event, p *streamPass2) []schema.Finding {
 				SessionID:   ev.SessionID, AgentID: ev.AgentID,
 				Related:      []string{"precursor: " + ref(precursor)},
 				EvidenceRefs: []string{ref(ev)},
-				Status:       ev.Corroboration, Endpoint: schema.StateUnknown, MitreATTACK: "T1041",
+				Status:       ev.Corroboration, Endpoint: schema.StateUnknown, MitreATTACK: "T1041", MitreATLAS: "AML.T0086",
 				FalsePositive: "Deploy pipelines archive and upload artifacts; check destination and payload.",
 			})
 			delete(p.pendingExfil, ev.SessionID)
@@ -125,7 +125,7 @@ func mcpPoisonOne(ev schema.Event, server string) (schema.Finding, bool) {
 				RuleID: "MCP_TOOL_POISONING", Severity: "HIGH", Title: "Instruction Content Returned by MCP Tool",
 				Description: fmt.Sprintf("Result from MCP server %q contains instruction-override phrase %q. Tool results are model context — the tool-poisoning delivery path.", server, ph),
 				SessionID:   ev.SessionID, AgentID: ev.AgentID, EvidenceRefs: []string{ref(ev)},
-				Status: ev.Corroboration, Endpoint: schema.StateUnknown, MitreATLAS: "AML.T0053",
+				Status: ev.Corroboration, Endpoint: schema.StateUnknown, MitreATLAS: "AML.T0099",
 				FalsePositive: "Tools that legitimately return docs about prompt injection will match; inspect the full result.",
 			}, true
 		}
@@ -156,7 +156,7 @@ func destructiveOne(ev schema.Event) (schema.Finding, bool) {
 				RuleID: "DESTRUCTIVE_COMMAND", Severity: "MEDIUM", Title: "Potentially Destructive Command",
 				Description: "Agent-invoked shell command matches a destructive pattern: " + pat,
 				SessionID:   ev.SessionID, AgentID: ev.AgentID, EvidenceRefs: []string{ref(ev)},
-				Status: ev.Corroboration, Endpoint: schema.StateUnknown, MitreATTACK: "T1485",
+				Status: ev.Corroboration, Endpoint: schema.StateUnknown, MitreATTACK: "T1485", MitreATLAS: "AML.T0101",
 				FalsePositive: "Destructive patterns are common in legitimate development; path context and repo scope decide.",
 			}, true
 		}

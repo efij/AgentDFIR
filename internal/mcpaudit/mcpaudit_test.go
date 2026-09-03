@@ -209,7 +209,7 @@ func TestEvaluateRules(t *testing.T) {
 		t.Fatalf("PROJECT_SCOPED: %d", n)
 	}
 	// Tool description poisoning from declared tools.
-	if n := len(f["MCP_TOOL_DESCRIPTION_POISONING"]); n != 1 || f["MCP_TOOL_DESCRIPTION_POISONING"][0].MitreATLAS != "AML.T0053" {
+	if n := len(f["MCP_TOOL_DESCRIPTION_POISONING"]); n != 1 || f["MCP_TOOL_DESCRIPTION_POISONING"][0].MitreATLAS != "AML.T0110" {
 		t.Fatalf("POISONING: %+v", f["MCP_TOOL_DESCRIPTION_POISONING"])
 	}
 	// Host switches.

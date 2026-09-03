@@ -78,7 +78,7 @@ Add a second witness and the same commands upgrade every finding from *the agent
 ```
 
 Other ways in: `collect --path <copied home>`, `--import <KAPE/Velociraptor tree>`, `--docker <container>`, `--archive <zip|tar>`.
-Other ways out: `report --format pdf|html|ocsf|sarif|timesketch|…`, `rules export --sigma`. Before an incident: `monitor --detect --alert <url>`, `mcp audit`.
+Other ways out: `report --format pdf|html|ocsf|sarif|timesketch|…`, `rules list --packs rules` (every detection → [MITRE ATLAS / ATT&CK](docs/detection-coverage.md)), `rules export --sigma`. Before an incident: `monitor --detect --alert <url>`, `mcp audit`.
 Every command is listed by workflow step in `agentdfir help`.
 
 Example finding:
@@ -144,7 +144,7 @@ Ships with wrappers for tools IR teams already run:
 |---|---|
 | ✅ | Sealed `.adfir` packages, hash-chained custody, `verify` |
 | ✅ | Claude Code: detect, collect, normalize, timeline, triage |
-| ✅ | 36 deterministic detections (full plan set): rogue/orphan agents, exfiltration, context/tool/MCP poisoning, secret & sensitive-file access, self-modification, log deletion, timestomping, session tampering… with MITRE ATLAS/ATT&CK mapping |
+| ✅ | [132 deterministic detections](docs/detection-coverage.md) (51 built-in + 81 pack rules; 88 HIGH/CRITICAL, every one mapped to MITRE ATLAS 5.6 / ATT&CK — 27 ATLAS and 65 ATT&CK techniques): rogue/orphan agents, exfiltration via tool invocation, context/memory/tool/MCP poisoning, agent credential-store theft, agent config modification, jailbreak & system-prompt extraction, secret & sensitive-file access, persistence (rc files, services, run keys, git hooks), credential dumping, bulk encryption, self-modification, log deletion, timestomping, session tampering… `agentdfir rules list` prints the matrix |
 | ✅ | `simulate` — synthetic incident generation (adversary emulation for AI agents) |
 | ✅ | Full parsers for 12 products: Claude Code, Codex, Gemini CLI, Cursor, Copilot CLI, Copilot Chat (VS Code), Cline, Roo, OpenClaw, OpenCode, Aider, Warp |
 | ✅ | [Endpoint corroboration](docs/endpoint-corroboration.md) — auditd, Sysmon XML, Velociraptor/osquery/eslogger/EDR exports: tool calls → CORROBORATED / CONTRADICTED, unlogged agent processes and connections surfaced |
