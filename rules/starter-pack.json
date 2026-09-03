@@ -1,6 +1,6 @@
 {
   "pack": "agentdfir-starter",
-  "version": "1",
+  "version": "2",
   "rules": [
     {
       "id": "PASTE_SITE_DESTINATION",
@@ -8,9 +8,20 @@
       "description": "Agent-invoked command references a known paste or file-transfer site — a common staging destination.",
       "severity": "HIGH",
       "confidence": "medium",
-      "match": {"type": "command", "contains": ["pastebin.com", "transfer.sh", "0x0.st", "file.io", "paste.ee", "hastebin.com"]},
+      "match": {
+        "type": "command",
+        "contains": [
+          "pastebin.com",
+          "transfer.sh",
+          "0x0.st",
+          "file.io",
+          "paste.ee",
+          "hastebin.com"
+        ]
+      },
       "false_positive_notes": "Developers legitimately share snippets; weigh against what data the same session touched.",
-      "mitre_attack": "T1567"
+      "mitre_attack": "T1567",
+      "mitre_atlas": "AML.T0086"
     },
     {
       "id": "EVIDENCE_STAGING",
@@ -18,7 +29,10 @@
       "description": "Agent command aggregates local data into an archive — review for staging preceding a network send.",
       "severity": "MEDIUM",
       "confidence": "low",
-      "match": {"type": "command", "regex": "(tar\\s+-c|zip\\s+-r|7z\\s+a)\\b"},
+      "match": {
+        "type": "command",
+        "regex": "(tar\\s+-c|zip\\s+-r|7z\\s+a)\\b"
+      },
       "false_positive_notes": "Archiving is routine in builds and backups; only meaningful alongside unexpected destinations.",
       "mitre_attack": "T1074"
     },
@@ -28,9 +42,13 @@
       "description": "Command downloads remote content and pipes it directly into a shell interpreter.",
       "severity": "HIGH",
       "confidence": "high",
-      "match": {"type": "command", "regex": "(curl|wget)[^|;&]*\\|\\s*(ba|z|da)?sh"},
+      "match": {
+        "type": "command",
+        "regex": "(curl|wget)[^|;&]*\\|\\s*(ba|z|da)?sh"
+      },
       "false_positive_notes": "Common in legitimate installers (brew, rustup); verify the source domain.",
-      "mitre_attack": "T1059.004"
+      "mitre_attack": "T1059.004",
+      "mitre_atlas": "AML.T0050"
     },
     {
       "id": "MCP_WILDCARD_PERMISSIONS",
@@ -38,9 +56,19 @@
       "description": "Configuration grants blanket tool permissions (e.g. Bash(*)), removing per-command review.",
       "severity": "MEDIUM",
       "confidence": "medium",
-      "match": {"type": "config", "contains": ["\"Bash(*)\"", "\"Bash(*:*)\""]},
+      "match": {
+        "type": "config",
+        "contains": [
+          "\"Bash(*)\"",
+          "\"Bash(*:*)\""
+        ]
+      },
       "false_positive_notes": "Some teams intentionally allow blanket Bash on sandboxed CI hosts.",
-      "references": ["https://efij.github.io/AgentDFIR/"]
+      "references": [
+        "https://efij.github.io/AgentDFIR/"
+      ],
+      "mitre_atlas": "AML.T0081",
+      "mitre_attack": "T1562.001"
     }
   ]
 }

@@ -53,6 +53,7 @@ LOOK — same results, different views
 EXPORT — hand results to other tools
   agentdfir report <pkg> --format pdf|html|json|csv|stix|otel|ocsf|sarif|timesketch|l2tcsv|all
   agentdfir export --support <pkg>        redacted package for vendor support
+  agentdfir rules list --packs rules      every detection with its MITRE ATT&CK / ATLAS mapping
   agentdfir rules export --sigma <dir>    detection rules as Sigma for your SIEM
 
 BEFORE AN INCIDENT

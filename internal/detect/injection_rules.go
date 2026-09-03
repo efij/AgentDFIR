@@ -2,10 +2,12 @@
 // context/tool poisoning, invisible-Unicode instruction smuggling, and
 // honeytoken access. All scans stream (any artifact size).
 //
-// Mapping discipline: LLM Prompt Injection (AML.T0051) and LLM Plugin
-// Compromise (AML.T0053) are valid MITRE ATLAS techniques for these
-// surfaces. They remain INDICATORS — never auto-escalated to a
-// compromise conclusion.
+// Mapping discipline (MITRE ATLAS v5.x): LLM Prompt Injection (AML.T0051)
+// for conversation content, AI Agent Context Poisoning: Memory
+// (AML.T0080.000) for standing instruction files, AI Agent Tool Poisoning
+// (AML.T0110) for tool/skill definitions, and LLM Prompt Obfuscation
+// (AML.T0068) for invisible-Unicode smuggling. They remain INDICATORS —
+// never auto-escalated to a compromise conclusion.
 package detect
 
 import (
@@ -66,11 +68,11 @@ var injectionSurfaces = []surfaceRule{
 	{[]string{"agent_instructions"}, "AGENT_CONTEXT_POISONING",
 		"Agent Context Poisoning Indicator",
 		"Instruction-override phrase %q present in standing agent instructions (CLAUDE.md / GEMINI.md / rules). Persistent context is a high-value poisoning target because it influences every session.",
-		"AML.T0051"},
+		"AML.T0080.000"},
 	{[]string{"agent_definitions"}, "TOOL_POISONING_INDICATOR",
 		"Tool/Skill Definition Poisoning Indicator",
 		"Instruction-override phrase %q present in a tool, skill, agent or plugin definition. Poisoned tool metadata is read by the model as trusted context.",
-		"AML.T0053"},
+		"AML.T0110"},
 }
 
 func promptInjectionIndicator(man *casepkg.Manifest, pkgDir string) []schema.Finding {
@@ -131,7 +133,7 @@ func invisibleUnicodeInstruction(man *casepkg.Manifest, pkgDir string) []schema.
 			EvidenceRefs:  []string{artRef(a, firstOff)},
 			Status:        schema.StateObserved,
 			Endpoint:      schema.StateUnknown,
-			MitreATLAS:    "AML.T0051",
+			MitreATLAS:    "AML.T0068", // LLM Prompt Obfuscation
 			FalsePositive: "Bidi controls occur in legitimate RTL text; zero-width joiners in some scripts and emoji. Tag characters (U+E0000–U+E007F) have no legitimate use in prompts.",
 		})
 	}
@@ -159,6 +161,7 @@ func HoneytokenFindings(man *casepkg.Manifest, pkgDir string, markers []string) 
 			Status:        schema.StateObserved,
 			Endpoint:      schema.StateUnknown,
 			MitreATTACK:   "T1552",
+			MitreATLAS:    "AML.T0055", // Unsecured Credentials
 			FalsePositive: "Low: honeytokens are planted precisely so that any access is signal. Verify the marker was not legitimately referenced by the operator.",
 		})
 	}

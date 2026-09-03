@@ -152,7 +152,8 @@ func destructiveCommands(res *schema.Normalized) []schema.Finding {
 					EvidenceRefs:  []string{evidenceRef(ev)},
 					Status:        ev.Corroboration,
 					Endpoint:      schema.StateUnknown,
-					MitreATTACK:   "T1485", // Data Destruction (candidate; analyst confirms)
+					MitreATTACK:   "T1485",     // Data Destruction (candidate; analyst confirms)
+					MitreATLAS:    "AML.T0101", // Data Destruction via AI Agent Tool Invocation
 					FalsePositive: "Destructive patterns are common in legitimate development (cleanups, test scaffolding). Path context and repo scope decide.",
 				})
 				break
@@ -186,6 +187,8 @@ func shellExecution(res *schema.Normalized) []schema.Finding {
 		EvidenceRefs:  []string{evidenceRef(first)},
 		Status:        schema.StateObserved,
 		Endpoint:      schema.StateUnknown,
+		MitreATTACK:   "T1059",     // Command and Scripting Interpreter
+		MitreATLAS:    "AML.T0050", // Command and Scripting Interpreter
 		FalsePositive: "Expected in virtually every coding-agent session; informational context, not an indicator.",
 	}}
 }

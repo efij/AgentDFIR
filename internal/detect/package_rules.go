@@ -112,6 +112,7 @@ func permissionBypass(man *casepkg.Manifest, pkgDir string) []schema.Finding {
 			Status:        schema.StateObserved,
 			Endpoint:      schema.StateUnknown,
 			MitreATTACK:   "T1562.001", // Impair Defenses: Disable or Modify Tools
+			MitreATLAS:    "AML.T0081", // Modify AI Agent Configuration
 			FalsePositive: "Developers legitimately enable bypass modes on trusted machines; assess against org policy.",
 		})
 	}
@@ -141,6 +142,7 @@ func permissionEscalation(man *casepkg.Manifest, pkgDir string) []schema.Finding
 			Status:        schema.StateObserved,
 			Endpoint:      schema.StateUnknown,
 			MitreATTACK:   "T1562.001",
+			MitreATLAS:    "AML.T0081",
 			FalsePositive: "Intentional on sandboxed CI hosts; compare against the org baseline (agentdfir baseline check).",
 		})
 	}
