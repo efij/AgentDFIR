@@ -5,8 +5,11 @@
 #
 # Renders scripts/agentdfir.rb.tmpl with the tag's source-tarball sha256 and
 # pushes Formula/agentdfir.rb to $TAP_REPO (default efij/homebrew-agentdfir).
-# Auth: $TAP_TOKEN (CI, a token with contents:write on the tap repo) or your
-# local git credentials (gh auth) when run by hand.
+# Auth, first match wins:
+#   $TAP_SSH_KEY   private key of a write deploy key on the tap repo (CI secret
+#                  HOMEBREW_TAP_SSH_KEY; needs no personal token)
+#   $TAP_TOKEN     a token with contents:write on the tap repo
+#   otherwise      your local git credentials (gh auth) when run by hand
 set -eu
 
 VERSION="${1:?usage: update-tap.sh vX.Y.Z}"
@@ -28,7 +31,12 @@ if command -v sha256sum >/dev/null 2>&1; then SHA="$(sha256sum "$WORK/src.tar.gz
 else SHA="$(shasum -a 256 "$WORK/src.tar.gz" | cut -d' ' -f1)"; fi
 echo "sha256 $SHA"
 
-if [ -n "${TAP_TOKEN:-}" ]; then
+if [ -n "${TAP_SSH_KEY:-}" ]; then
+  KEY="$WORK/deploy_key"
+  umask 077; printf '%s\n' "$TAP_SSH_KEY" > "$KEY"; umask 022
+  export GIT_SSH_COMMAND="ssh -i $KEY -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+  CLONE_URL="git@github.com:${TAP_REPO}.git"
+elif [ -n "${TAP_TOKEN:-}" ]; then
   CLONE_URL="https://x-access-token:${TAP_TOKEN}@github.com/${TAP_REPO}.git"
 else
   CLONE_URL="https://github.com/${TAP_REPO}.git"

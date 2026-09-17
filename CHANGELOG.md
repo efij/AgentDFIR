@@ -7,6 +7,11 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+- Release workflow updates the Homebrew tap with a write deploy key
+  (`HOMEBREW_TAP_SSH_KEY`), no personal token needed; `scripts/update-tap.sh`
+  accepts `TAP_SSH_KEY`. `HOMEBREW_TAP_TOKEN` still works as a fallback.
+
 ## [0.15.0] — 2026-09-17
 
 ### Added
