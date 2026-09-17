@@ -7,6 +7,67 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.0.0] — 2026-09-17
+
+The investigation release. Findings stop being a list and become a story:
+which session, which chain of steps, what led to each step, and what the
+analyst concluded. Every existing command and file format is unchanged; the
+`.adfir` package gains one optional directory (`notes/`) outside the sealed zone.
+
+### Added
+- **Attack chains (toxic combinations)** — `internal/chain`: ordered sequences
+  of events inside one session or one agent's lineage, matched within a time
+  window, built on the existing findings instead of re-deriving them. Eight
+  built-ins ship (injection → self-modification → shell; secret access → upload;
+  orphan agent → config change → tool use; poisoned MCP result → destructive
+  command; injection → commit → push; download → execute; action → log
+  deletion; spawn → cross-session message → outbound transfer). A match is one
+  finding whose `chain_steps` list the exact events in order. Extra chains load
+  from `*.chains.json` in the rule-pack directory (`analyze --rules`), validated
+  like rules (`rules validate`). All chains are in the catalog, `rules list`
+  and the coverage matrix (now 140 rules).
+- **Sessions tab** in the explorer — the new landing view: a case strip
+  (sessions, agents, events, critical+high, attack chains, contradicted,
+  reviewed) and one card per session sorted by risk: product, first prompt,
+  duration, prompts / tool calls / agents / files / destinations / MCP servers,
+  corroboration bar, worst severity, chain titles, tags. Click opens the
+  timeline filtered to that session with a metadata header. `GET /api/sessions`.
+- **How it happened — the investigation tree** under every finding: for a
+  chain, the steps in order; for any other finding, the evidence events. Under
+  each event: the human prompt before it, the tool result the agent had just
+  consumed, the spawn that created the agent, the message a parent sent to a
+  subagent, the result the call returned. Every node opens the raw line;
+  "what led here" walks further back. `GET /api/chain?finding=<i>|event=<id>`.
+- **Search everything** — `Ctrl+K` / `Cmd+K`: every field of every event,
+  every finding, and the raw bytes of every sealed artifact (streaming
+  parallel scan, RE2 regex or literal, case option, 20 s / 500-hit budget,
+  binary artifacts skipped). Raw hits map back to the event on that line.
+  `GET /api/search`.
+- **Case file (analyst notes)** — verdicts on findings (true positive / false
+  positive / needs review) with notes, pinned key-evidence events, session
+  tags and free notes. Appended to `<pkg>/notes/notes.jsonl` as a hash chain
+  (same construction as the custody log), attributed to the OS user, outside
+  the sealed evidence zone. The only write endpoint (`POST /api/notes`) is
+  same-origin only and refuses everything else. HTML and PDF reports gain an
+  *Analyst Investigation* section (verdicts, pinned evidence, tags, notes) and
+  render chain steps under each chain finding; JSON reports carry `notes`.
+- Deep links in the explorer: `#findings/<index>`, `#search/<query>`,
+  `#session/<id>`, `#event/<id>`.
+- `simulate --scenario toxic-chain`: a synthetic session where a fetched web
+  page rewrites the agent's settings, credentials are read and uploaded, and
+  logs are deleted — exercises three chains end to end.
+- `schema.Finding.chain_steps` (optional) and `schema.ChainStep`.
+
+### Changed
+- Findings tab: filters by severity, attack chains only, verdict and text;
+  chain findings show their steps inline; false positives are dimmed.
+- Explorer detail panes: "pin as key evidence" and "what led here" on every
+  event; analyst notes shown next to the event.
+- `analyze` runs the chain stage after every other stage and reports
+  "Attack chains: N evaluated, M matched"; `analysis.json` records `chains`.
+- Help text and docs describe the explorer as sessions · attack chains ·
+  timeline · raw evidence · search · case notes.
+
 ### Fixed
 - Release workflow's tap-version check no longer trips on the `.tar.gz` suffix
   (it read `v0.16.0.`); the tap update itself was already succeeding via the
@@ -550,7 +611,8 @@ and interoperability exports.
   on all evidence-derived output; bounded parsers; zip-slip defense on archive
   extraction; secrets never printed by default.
 
-[Unreleased]: https://github.com/efij/AgentDFIR/compare/v0.16.0...HEAD
+[Unreleased]: https://github.com/efij/AgentDFIR/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/efij/AgentDFIR/compare/v0.16.0...v1.0.0
 [0.16.0]: https://github.com/efij/AgentDFIR/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/efij/AgentDFIR/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/efij/AgentDFIR/compare/v0.13.0...v0.14.0

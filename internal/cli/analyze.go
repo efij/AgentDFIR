@@ -186,7 +186,7 @@ func printTriageFindings(findings []schema.Finding) {
 // cmdSimulate generates a synthetic incident profile.
 func cmdSimulate(args []string) int {
 	fs := flag.NewFlagSet("simulate", flag.ContinueOnError)
-	scenario := fs.String("scenario", "orphan-agent", "scenario id")
+	scenario := fs.String("scenario", "orphan-agent", "scenario id: orphan-agent | toxic-chain")
 	out := fs.String("out", "simulated-profile", "output profile root")
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -194,6 +194,11 @@ func cmdSimulate(args []string) int {
 	switch *scenario {
 	case "orphan-agent":
 		if err := simulate.OrphanAgent(*out); err != nil {
+			fmt.Fprintln(os.Stderr, "error:", err)
+			return 1
+		}
+	case "toxic-chain":
+		if err := simulate.ToxicChain(*out); err != nil {
 			fmt.Fprintln(os.Stderr, "error:", err)
 			return 1
 		}

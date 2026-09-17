@@ -41,14 +41,14 @@ COLLECT — where the evidence is
   agentdfir verify <pkg>                                                       prove the package was not modified
 
 ANALYZE — one command runs every stage, in order
-  agentdfir analyze <pkg>                                    detections + MCP audit + provenance
+  agentdfir analyze <pkg>                                    detections + attack chains + MCP audit + provenance
       --endpoint <auditd.log|sysmon.xml|export.jsonl>        add OS telemetry: which tool calls the OS confirms or contradicts
       --gateway-log <gw.jsonl>                               add your MCP gateway log: which MCP calls it confirms
       --rules <dir>  --honeytokens <file>                    extra rule packs, planted canaries
   (triage = same as analyze. Single stages, for scripts: correlate · mcp audit · provenance · normalize)
 
 LOOK — same results, different views
-  agentdfir serve <pkg> [--open]          browser: agent tree, timeline, raw evidence, findings
+  agentdfir serve <pkg> [--open]          browser: sessions, attack chains, timeline, raw evidence, search, case notes
   agentdfir timeline <pkg>                the unified timeline in your terminal
   agentdfir investigate <pkg>             interactive terminal explorer
   agentdfir replay <pkg>                  step through one session
@@ -64,7 +64,7 @@ BEFORE AN INCIDENT
   agentdfir monitor --detect --alert <url|file>      live sensor: findings pushed as they happen
   agentdfir mcp audit                                MCP servers on this machine: unpinned, plaintext, poisoned
   agentdfir baseline create|check · agentdfir diff <a> <b>     known-good configs and drift
-  agentdfir simulate --scenario orphan-agent         synthetic incident to train and test
+  agentdfir simulate --scenario orphan-agent|toxic-chain   synthetic incident to train and test
 
 TRUST & KEYS
   agentdfir keygen · sign --key <k> <pkg> · encrypt <pkg> · decrypt <file> · inspect <pkg>

@@ -27,6 +27,31 @@ type Rule struct {
 
 // Builtin lists every built-in rule. Keep sorted by package, then ID.
 var Builtin = []Rule{
+	// ----------------------------------------------------------------- chain
+	{ID: "CHAIN_ACTION_THEN_LOG_TAMPER", Package: "chain", Surface: "transcript", MaxSeverity: "CRITICAL",
+		Title: "Suspicious Action Followed by Deletion of Agent Logs", Summary: "Toxic combination: destructive/exfil action, then the agent's own logs targeted for deletion.",
+		MitreATTACK: "T1070.004", MitreATLAS: "AML.T0101"},
+	{ID: "CHAIN_CONTEXT_POISON_TO_EXEC", Package: "chain", Surface: "transcript", MaxSeverity: "CRITICAL",
+		Title: "Untrusted Content Rewrote the Agent's Instructions, Then Code Ran", Summary: "Toxic combination: injection in a tool result → agent writes its own instructions/config → shell execution.",
+		MitreATTACK: "T1059", MitreATLAS: "AML.T0080.000"},
+	{ID: "CHAIN_DOWNLOAD_AND_EXECUTE", Package: "chain", Surface: "command", MaxSeverity: "MEDIUM",
+		Title: "Agent Downloaded Content, Then Executed It", Summary: "Toxic combination: curl/wget followed by execution of a script or binary.",
+		MitreATTACK: "T1105"},
+	{ID: "CHAIN_INJECTION_TO_PUSH", Package: "chain", Surface: "transcript", MaxSeverity: "HIGH",
+		Title: "Injected Instructions Followed by Code Pushed to a Remote", Summary: "Toxic combination: injection in a tool result → commit → push (supply-chain path).",
+		MitreATTACK: "T1195.002", MitreATLAS: "AML.T0010"},
+	{ID: "CHAIN_MCP_RESULT_TO_DESTRUCTIVE", Package: "chain", Surface: "transcript", MaxSeverity: "CRITICAL",
+		Title: "Poisoned MCP Tool Result Followed by a Destructive Command", Summary: "Toxic combination: instruction content from an MCP tool → destructive command.",
+		MitreATTACK: "T1485", MitreATLAS: "AML.T0099"},
+	{ID: "CHAIN_ORPHAN_PERSISTENCE", Package: "chain", Surface: "transcript", MaxSeverity: "CRITICAL",
+		Title: "Agent With No Verified Parent Changed Configuration, Then Acted", Summary: "Toxic combination: orphan agent → writes config/instructions → executes tools.",
+		MitreATTACK: "T1562.001", MitreATLAS: "AML.T0081"},
+	{ID: "CHAIN_SECRET_TO_EXFIL", Package: "chain", Surface: "transcript", MaxSeverity: "CRITICAL",
+		Title: "Secret Material Accessed, Then Data Left the Host", Summary: "Toxic combination: credential/secret access → upload-shaped command or outbound connection.",
+		MitreATTACK: "T1048", MitreATLAS: "AML.T0086"},
+	{ID: "CHAIN_SUBAGENT_CROSS_TALK_EXFIL", Package: "chain", Surface: "transcript", MaxSeverity: "HIGH",
+		Title: "Subagent Spawned, Talked Across Sessions, Then Data Left", Summary: "Toxic combination: spawn → cross-session message → outbound transfer.",
+		MitreATTACK: "T1048", MitreATLAS: "AML.T0086"},
 	// ---------------------------------------------------------------- detect
 	{ID: "AGENT_CONTEXT_POISONING", Package: "detect", Surface: "config", MaxSeverity: "HIGH",
 		Title: "Agent Context Poisoning Indicator", Summary: "Instruction-override phrase in standing agent instructions (CLAUDE.md, rules).",

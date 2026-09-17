@@ -95,20 +95,32 @@ type Relationship struct {
 
 // Finding is one detection result.
 type Finding struct {
-	RuleID        string   `json:"rule_id"`
-	Severity      string   `json:"severity"` // INFO|LOW|MEDIUM|HIGH|CRITICAL
-	Title         string   `json:"title"`
-	Description   string   `json:"description"`
-	SessionID     string   `json:"session_id,omitempty"`
-	AgentID       string   `json:"agent_id,omitempty"`
-	ParentAgentID string   `json:"parent_agent_id,omitempty"` // "UNKNOWN" when unverified
-	Related       []string `json:"related,omitempty"`
-	EvidenceRefs  []string `json:"evidence_refs"` // logical_path:line (artifact <id>)
-	Status        string   `json:"status"`        // corroboration state of the underlying events
-	Endpoint      string   `json:"endpoint_corroboration"`
-	MitreATLAS    string   `json:"mitre_atlas,omitempty"` // omitted when no valid technique exists
-	MitreATTACK   string   `json:"mitre_attack,omitempty"`
-	FalsePositive string   `json:"false_positive_notes,omitempty"`
+	RuleID        string      `json:"rule_id"`
+	Severity      string      `json:"severity"` // INFO|LOW|MEDIUM|HIGH|CRITICAL
+	Title         string      `json:"title"`
+	Description   string      `json:"description"`
+	SessionID     string      `json:"session_id,omitempty"`
+	AgentID       string      `json:"agent_id,omitempty"`
+	ParentAgentID string      `json:"parent_agent_id,omitempty"` // "UNKNOWN" when unverified
+	Related       []string    `json:"related,omitempty"`
+	EvidenceRefs  []string    `json:"evidence_refs"` // logical_path:line (artifact <id>)
+	Status        string      `json:"status"`        // corroboration state of the underlying events
+	Endpoint      string      `json:"endpoint_corroboration"`
+	MitreATLAS    string      `json:"mitre_atlas,omitempty"` // omitted when no valid technique exists
+	MitreATTACK   string      `json:"mitre_attack,omitempty"`
+	FalsePositive string      `json:"false_positive_notes,omitempty"`
+	ChainSteps    []ChainStep `json:"chain_steps,omitempty"` // set only by attack-chain findings: the ordered steps that matched
+}
+
+// ChainStep is one matched step of an attack chain: which named step, which
+// event proved it, when, and the evidence reference of that event.
+type ChainStep struct {
+	Step      string `json:"step"`
+	EventID   string `json:"event_id"`
+	Timestamp string `json:"timestamp,omitempty"`
+	AgentID   string `json:"agent_id,omitempty"`
+	Summary   string `json:"summary,omitempty"`
+	Evidence  string `json:"evidence"`
 }
 
 // Normalized is the merged output of all parsers for one package.

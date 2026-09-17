@@ -12,6 +12,7 @@ import (
 	"github.com/efij/AgentDFIR/internal/casepkg"
 	"github.com/efij/AgentDFIR/internal/encrypt"
 	"github.com/efij/AgentDFIR/internal/export"
+	"github.com/efij/AgentDFIR/internal/notes"
 	"github.com/efij/AgentDFIR/internal/report"
 	"github.com/efij/AgentDFIR/internal/sanitize"
 	"github.com/efij/AgentDFIR/internal/seal"
@@ -58,6 +59,9 @@ func cmdReport(args []string) int {
 	c := &report.Case{
 		Manifest: man, CaseInfo: ci, Verify: vres,
 		Events: res.Events, Entities: res.Entities, Findings: findings,
+	}
+	if st, _ := notes.Open(pkg).Load(); st.Records > 0 {
+		c.Notes = st // the analyst's verdicts, pins and notes travel with the report
 	}
 
 	dir := *outDir
