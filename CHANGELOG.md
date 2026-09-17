@@ -7,6 +7,26 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.15.0] — 2026-09-17
+
+### Added
+- **`agentdfir run`** — the whole workflow in one command for the common case
+  (this machine, this user): detect every installed AI agent, collect all of
+  them into one sealed `.adfir` package, analyze it, open the case explorer in
+  the browser. Each step calls the same code as `detect` / `collect` /
+  `analyze` / `serve`, which are unchanged. Flags: `--product`, `--out`,
+  `--case-id`, `--operator`, `--authorization`, `--max-file-mb`, `--sign`,
+  `--endpoint`, `--gateway-log`, `--port`, `--no-open`, `--no-serve` (print
+  the findings and stop; exit 3 when anything above INFO was found).
+- One-line install-and-run for macOS / Linux in the README, the install guide
+  and on the website.
+
+### Changed
+- Help text, README and website lead with `run`; the four individual steps
+  stay documented right below it.
+- GitHub repository description and homepage link to
+  https://efij.github.io/AgentDFIR/.
+
 ## [0.14.0] — 2026-09-03
 
 Detection coverage release: every HIGH/CRITICAL detection now maps to MITRE
@@ -502,7 +522,9 @@ and interoperability exports.
   on all evidence-derived output; bounded parsers; zip-slip defense on archive
   extraction; secrets never printed by default.
 
-[Unreleased]: https://github.com/efij/AgentDFIR/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/efij/AgentDFIR/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/efij/AgentDFIR/compare/v0.14.0...v0.15.0
+[0.14.0]: https://github.com/efij/AgentDFIR/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/efij/AgentDFIR/compare/v0.12.1...v0.13.0
 [0.12.1]: https://github.com/efij/AgentDFIR/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/efij/AgentDFIR/compare/v0.11.0...v0.12.0

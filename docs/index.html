@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AgentDFIR — Digital Forensics &amp; Incident Response for AI Agents</title>
-<meta name="description" content="Open-source DFIR for AI agents. Collect, preserve, and investigate forensic evidence from Claude Code, Codex CLI, Cursor, Gemini CLI and Copilot — sealed evidence packages, hash-chained custody, tamper-evident verification.">
+<meta name="description" content="Open-source DFIR for AI agents. One command finds every AI agent on a machine, collects its evidence into a sealed package, analyzes it and opens the results in your browser — Claude Code, Codex CLI, Cursor, Gemini CLI, Copilot. Nothing leaves your machine.">
 <link rel="canonical" href="https://efij.github.io/AgentDFIR/">
 <meta property="og:type" content="website">
 <meta property="og:title" content="AgentDFIR — Digital Forensics for AI Agents">
@@ -86,6 +86,7 @@ nav{position:sticky;top:0;z-index:50;background:rgba(11,17,32,.85);backdrop-filt
  radial-gradient(ellipse 60% 40% at 50% -10%,rgba(34,197,94,.09),transparent),
  radial-gradient(ellipse 40% 30% at 85% 10%,rgba(56,189,248,.06),transparent)}
 .hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center}
+.hero-grid>*{min-width:0}
 .kicker{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);border:1px solid rgba(34,197,94,.35);background:var(--accent-glow);padding:5px 12px;border-radius:999px;margin-bottom:22px}
 h1{font-size:clamp(34px,4.6vw,52px);line-height:1.12;font-weight:700;letter-spacing:-.02em}
 h1 .hl{color:var(--accent);text-shadow:0 0 18px var(--accent-glow)}
@@ -132,9 +133,23 @@ h2{font-size:clamp(26px,3.2vw,34px);font-weight:700;letter-spacing:-.015em;line-
 .checks li{display:flex;gap:13px;font-size:15.5px;color:var(--text-2)}
 .checks li svg{flex:none;margin-top:3px;stroke:var(--accent)}
 .checks li strong{color:var(--text)}
+/* one-liner */
+.one{display:flex;align-items:center;gap:10px;margin-top:22px;background:#0A0F1D;border:1px solid var(--border-hi);border-radius:10px;padding:12px 14px;max-width:100%}
+.one code{flex:1;min-width:0;font-size:12.5px;color:var(--text);white-space:nowrap;overflow-x:auto;scrollbar-width:thin}
+.one code .t-p{margin-right:6px}
+.one button{flex:none;background:var(--surface-2);color:var(--text);border:1px solid var(--border-hi);border-radius:7px;padding:7px 12px;font:600 12.5px var(--sans);cursor:pointer;transition:border-color .2s,background .2s}
+.one button:hover{border-color:var(--accent);background:var(--surface)}
+.one button.ok{color:var(--accent);border-color:var(--accent)}
+.one-note{margin-top:10px;font-size:13.5px;color:var(--text-3)}
+.one-note a{color:var(--text-2)}
+.stats{display:flex;gap:24px 30px;flex-wrap:wrap;margin-top:28px;padding-top:22px;border-top:1px solid var(--border)}
+.stats div{font-family:var(--mono);font-size:13px;color:var(--text-3)}
+.stats b{display:block;font:700 21px var(--sans);color:var(--text);letter-spacing:-.01em}
 /* quickstart */
 .qs{background:#0A0F1D;border:1px solid var(--border);border-radius:12px;padding:24px;overflow-x:auto;font-size:13.5px;line-height:2}
 .qs .cm{color:var(--text-3)} .qs .cmd{color:var(--text)}
+.qs+.qs{margin-top:18px}
+.qs-label{font-family:var(--mono);font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3);margin:26px 0 10px}
 /* faq */
 .faq{display:flex;flex-direction:column;gap:28px;max-width:52em}
 .faq h3{font-size:18px;font-weight:600;margin-bottom:8px}
@@ -188,35 +203,46 @@ footer{border-top:1px solid var(--border);padding:44px 0;font-size:14px;color:va
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
         Open source · MIT · Single Go binary
       </span>
-      <h1>Digital forensics for <span class="hl">AI agents</span></h1>
-      <p class="sub">AI coding agents run shell commands, spawn subagents, call MCP servers and push code. When one goes rogue, the evidence is on the endpoint. AgentDFIR collects it, seals it, and shows you what <em>actually</em> happened — Claude Code, Codex CLI, Cursor, Gemini CLI, Copilot.</p>
-      <div class="cta-row">
-        <a class="btn btn-primary" href="https://github.com/efij/AgentDFIR">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-          Get AgentDFIR
-        </a>
-        <a class="btn btn-ghost" href="#quickstart">Quick start</a>
+      <h1>What did your <span class="hl">AI agents</span> actually do?</h1>
+      <p class="sub">Claude Code, Codex, Cursor, Gemini, Copilot run shell commands, spawn subagents and call MCP servers on your machine. One command finds every agent, seals its evidence, analyzes it and shows you the answer in your browser. Nothing leaves your machine.</p>
+      <div class="one">
+        <code id="one-cmd"><span class="t-p">$</span>curl -fsSL https://raw.githubusercontent.com/efij/AgentDFIR/main/install.sh | sh &amp;&amp; ~/.local/bin/agentdfir run</code>
+        <button type="button" data-copy="curl -fsSL https://raw.githubusercontent.com/efij/AgentDFIR/main/install.sh | sh &amp;&amp; ~/.local/bin/agentdfir run" aria-label="Copy the install-and-run command">Copy</button>
       </div>
-      <p class="trust">Zero runtime dependencies · Never executes suspect binaries · Never follows symlinks</p>
+      <p class="one-note">macOS / Linux · installs to <code>~/.local/bin</code>, SHA256-verified · Homebrew: <code>brew install efij/agentdfir/agentdfir &amp;&amp; agentdfir run</code> · <a href="https://github.com/efij/AgentDFIR/releases/latest">Windows .exe</a></p>
+      <div class="cta-row" style="margin-top:22px">
+        <a class="btn btn-primary" href="#quickstart">How it works</a>
+        <a class="btn btn-ghost" href="https://github.com/efij/AgentDFIR">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55v-2.17c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.75 2.69 1.25 3.35.95.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.79 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.12 3.05.74.81 1.18 1.83 1.18 3.09 0 4.41-2.69 5.38-5.25 5.66.41.35.77 1.05.77 2.12v3.15c0 .3.21.66.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></svg>
+          GitHub
+        </a>
+      </div>
+      <div class="stats">
+        <div><b>12</b>agents supported</div>
+        <div><b>132</b>detections</div>
+        <div><b>MITRE</b>ATLAS 5.6 + ATT&amp;CK</div>
+        <div><b>0</b>runtime dependencies</div>
+      </div>
     </div>
-    <div class="term" role="img" aria-label="Terminal showing an agentdfir triage finding: HIGH severity, unexpected agent activity, agent with unknown parent, evidence references, status OBSERVED">
+    <div class="term" role="img" aria-label="Terminal showing agentdfir run: four steps — detect six AI agents, collect them into one sealed package, analyze with findings by severity, open the case explorer in the browser">
       <div class="term-bar">
         <span class="dot" style="background:#F87171"></span><span class="dot" style="background:#FBBF24"></span><span class="dot" style="background:#34D399"></span>
-        <span class="term-title">agentdfir — triage</span>
+        <span class="term-title">agentdfir — run</span>
       </div>
-<pre><span class="t-p">$</span> <span class="t-c">agentdfir triage CASE-2026-042.adfir</span>
-
-<span class="t-hi">HIGH — Unexpected Agent Activity</span> <span class="t-dim">[ORPHAN_AGENT]</span>
-  Agent:   <span class="t-c">adad4e2c</span>    Parent: <span class="t-w">UNKNOWN</span>
-  Finding: Agent appeared without a verified
-           parent invocation.
-  Related: SendMessage/resume interaction
-           with agent <span class="t-c">a7c3f19b</span>
-  Evidence: <span class="t-b">…/agent-adad4e2c.jsonl:1</span>
-  Status: <span class="t-ok">OBSERVED</span>   Endpoint: <span class="t-dim">UNKNOWN</span>
-
-<span class="t-p">$</span> <span class="t-c">agentdfir verify CASE-2026-042.adfir</span>
-Result: <span class="t-ok">VERIFIED — no modifications detected</span></pre>
+<pre><span class="t-p">$</span> <span class="t-c">agentdfir run</span>
+<span class="t-c">Step 1/4  Detect</span> <span class="t-dim">— none is executed</span>
+  Claude Code      <span class="t-ok">detected</span>
+  Codex CLI        <span class="t-ok">detected</span>
+  Cursor CLI       <span class="t-ok">detected</span>
+  Gemini CLI       <span class="t-ok">detected</span>
+<span class="t-c">Step 2/4  Collect</span> <span class="t-dim">— ADFIR-20260917-070334.adfir</span>
+  Sealed: 9036 artifacts, SHA256SUMS written
+<span class="t-c">Step 3/4  Analyze</span>
+  Normalized: 115655 events, 1691 entities
+  MCP audit: 59 server(s), 55 finding(s)
+  <span class="t-hi">741 finding(s): 411 HIGH</span> <span class="t-w">120 MEDIUM</span> <span class="t-dim">33 LOW 177 INFO</span>
+<span class="t-c">Step 4/4  Look</span> <span class="t-dim">— case explorer in your browser</span>
+  Open <span class="t-b">http://127.0.0.1:53114/</span>  <span class="t-dim">(127.0.0.1 only · read-only)</span></pre>
     </div>
   </div>
 </header>
@@ -315,21 +341,38 @@ Result: <span class="t-ok">VERIFIED — no modifications detected</span></pre>
   <div class="wrap">
     <div class="sec-head">
       <p class="sec-kicker">Quick start</p>
-      <h2>From suspect host to sealed findings in five commands</h2>
+      <h2>One command. Four steps you can also run yourself.</h2>
+      <p class="sec-sub"><code>agentdfir run</code> finds every AI agent on this machine, collects all of them into one sealed <code>.adfir</code> package, analyzes it and opens the case explorer. Each step is the same code as the individual command below it.</p>
     </div>
+    <p class="qs-label">Install and run — macOS / Linux</p>
     <div class="qs">
-<pre><span class="cm"># Discover installed AI tooling — never executes suspect binaries</span>
+<pre><span class="cmd">curl -fsSL https://raw.githubusercontent.com/efij/AgentDFIR/main/install.sh | sh &amp;&amp; ~/.local/bin/agentdfir run</span>
+
+<span class="cm"># already installed, or Homebrew (brew install efij/agentdfir/agentdfir)</span>
+<span class="cmd">agentdfir run</span>
+<span class="cmd">agentdfir run --no-serve</span>        <span class="cm"># print the findings and stop (scripts, CI)</span></pre>
+    </div>
+    <p class="qs-label">Step by step — the same thing, one command per step</p>
+    <div class="qs">
+<pre><span class="cm"># 1. which AI agents are on this machine — never executes them</span>
 <span class="cmd">agentdfir detect</span>
 
-<span class="cm"># Forensic acquisition: lossless, sealed, hash-chained</span>
+<span class="cm"># 2. sealed, hash-chained evidence package</span>
 <span class="cmd">agentdfir collect --product claude --operator "Your Name" --case-id CASE-2026-042</span>
 
-<span class="cm"># Tamper-evident verification</span>
-<span class="cmd">agentdfir verify CASE-2026-042.adfir</span>
+<span class="cm"># 3. every analysis stage: detections, MCP audit, provenance</span>
+<span class="cmd">agentdfir analyze CASE-2026-042.adfir</span>
 
-<span class="cm"># Unified, evidence-linked timeline + rule-based detections</span>
-<span class="cmd">agentdfir timeline CASE-2026-042.adfir</span>
-<span class="cmd">agentdfir triage   CASE-2026-042.adfir</span></pre>
+<span class="cm"># 4. browse: agent tree, timeline, raw evidence, findings</span>
+<span class="cmd">agentdfir serve CASE-2026-042.adfir --open</span></pre>
+    </div>
+    <p class="qs-label">Evidence somewhere else?</p>
+    <div class="qs">
+<pre><span class="cmd">agentdfir collect --path /mnt/image/Users/x</span>     <span class="cm"># a copied home or mounted image</span>
+<span class="cmd">agentdfir collect --import ./kape-tree</span>          <span class="cm"># KAPE / Velociraptor / CyLR: every user, every agent</span>
+<span class="cmd">agentdfir collect --docker my-container</span>          <span class="cm"># a container, read-only</span>
+<span class="cmd">agentdfir analyze CASE.adfir --endpoint audit.log</span> <span class="cm"># auditd / Sysmon as a second witness</span>
+<span class="cmd">agentdfir verify  CASE.adfir</span>                     <span class="cm"># prove the package was not modified</span></pre>
     </div>
   </div>
 </section>
@@ -355,7 +398,11 @@ Result: <span class="t-ok">VERIFIED — no modifications detected</span></pre>
       </div>
       <div>
         <h3>What does AgentDFIR detect today?</h3>
-        <p>Orphan agents (transcripts with no verified parent invocation), cross-agent messaging and unexpected resume interactions, destructive shell commands, shell-execution inventory, and transcript integrity gaps (truncated or malformed regions that reduce confidence in surrounding evidence). Detections are deterministic rules — no LLM in the analysis path.</p>
+        <p>132 deterministic rules, every HIGH and CRITICAL one mapped to MITRE ATLAS 5.6 and ATT&amp;CK: orphan agents, cross-agent messaging, destructive and exfiltrating shell commands, agents editing their own instructions or hooks, credentials read from agent config, poisoned or unpinned MCP servers, honeytoken hits, transcript integrity gaps. No LLM in the analysis path — see the <a href="https://github.com/efij/AgentDFIR/blob/main/docs/detection-coverage.md">detection coverage matrix</a>.</p>
+      </div>
+      <div>
+        <h3>Do I need to be a forensics expert to use it?</h3>
+        <p>No. <code>agentdfir run</code> does the whole thing — detect, collect, analyze, browse — and the browser explorer shows findings in plain language with the exact transcript line behind each one. The individual commands exist for investigators working on copied homes, disk images, containers or KAPE trees.</p>
       </div>
     </div>
   </div>
@@ -414,5 +461,15 @@ Result: <span class="t-ok">VERIFIED — no modifications detected</span></pre>
   </div>
 </footer>
 
+<script>
+document.querySelectorAll('button[data-copy]').forEach(function(b){
+  b.addEventListener('click',function(){
+    var t=b.getAttribute('data-copy');
+    var done=function(){b.textContent='Copied';b.classList.add('ok');setTimeout(function(){b.textContent='Copy';b.classList.remove('ok')},1800)};
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(done,function(){})}
+    else{var r=document.createRange();r.selectNodeContents(document.getElementById('one-cmd'));var s=getSelection();s.removeAllRanges();s.addRange(r);try{document.execCommand('copy');done()}catch(e){}}
+  });
+});
+</script>
 </body>
 </html>

@@ -38,9 +38,24 @@ AI-generated text is **never** automatically treated as proof of execution. Ever
 
 An agent claiming *"I executed curl example.com"* with no matching tool call stays `REPORTED` — and AgentDFIR shows you exactly that.
 
-## ⚡ Quick start — four steps
+## ⚡ Quick start — one command
 
-**Install** — one static binary, zero runtime dependencies. Full guide with air-gap,
+macOS / Linux, nothing installed yet? Paste this into a terminal. It installs AgentDFIR
+(SHA256-verified, into `~/.local/bin`), finds every AI agent on this machine, collects
+their evidence into one sealed package, analyzes it and opens the results in your browser.
+Nothing leaves your machine.
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/efij/AgentDFIR/main/install.sh | sh && ~/.local/bin/agentdfir run
+```
+
+Already installed: `agentdfir run`. Homebrew: `brew install efij/agentdfir/agentdfir && agentdfir run`.
+Windows: download the `.exe` from the [releases page](https://github.com/efij/AgentDFIR/releases/latest), then `agentdfir run`.
+
+<details>
+<summary><b>Other ways to install</b> — portable binary, Homebrew, go install, from source</summary>
+
+One static binary, zero runtime dependencies. Full guide with air-gap,
 checksum and Sigstore verification steps: [docs/install.md](docs/install.md).
 
 ```sh
@@ -62,19 +77,22 @@ go install github.com/efij/AgentDFIR/cmd/agentdfir@latest
 go build -trimpath -o agentdfir ./cmd/agentdfir
 ```
 
+</details>
+
+### Step by step — the same thing, one command per step
 
 ```sh
-./agentdfir detect                                   # 1. what AI agents are on this machine (never runs them)
-./agentdfir collect --product claude                 # 2. sealed, hash-chained evidence package
-./agentdfir analyze CASE-2026-042.adfir              # 3. every analysis stage, one command
-./agentdfir serve   CASE-2026-042.adfir --open       # 4. browse: agent tree, timeline, raw evidence, findings
+agentdfir detect                                   # 1. what AI agents are on this machine (never runs them)
+agentdfir collect --product claude                 # 2. sealed, hash-chained evidence package
+agentdfir analyze CASE-2026-042.adfir              # 3. every analysis stage, one command
+agentdfir serve   CASE-2026-042.adfir --open       # 4. browse: agent tree, timeline, raw evidence, findings
 ```
 
 Add a second witness and the same commands upgrade every finding from *the agent says* to *the OS confirms*:
 
 ```sh
-./agentdfir analyze CASE-2026-042.adfir --endpoint /var/log/audit/audit.log   # auditd / Sysmon XML / EDR exports
-./agentdfir analyze CASE-2026-042.adfir --gateway-log mcp-gateway.jsonl        # your MCP gateway's own log
+agentdfir analyze CASE-2026-042.adfir --endpoint /var/log/audit/audit.log   # auditd / Sysmon XML / EDR exports
+agentdfir analyze CASE-2026-042.adfir --gateway-log mcp-gateway.jsonl        # your MCP gateway's own log
 ```
 
 Other ways in: `collect --path <copied home>`, `--import <KAPE/Velociraptor tree>`, `--docker <container>`, `--archive <zip|tar>`.

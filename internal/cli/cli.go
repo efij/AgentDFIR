@@ -22,7 +22,11 @@ import (
 
 const usage = `agentdfir — open-source DFIR for AI agents. Evidence in, verdicts out. Nothing leaves your machine.
 
-THE 4-STEP WORKFLOW
+ONE COMMAND (this machine, this user)
+  agentdfir run                 detect → collect every agent → analyze → open the results in your browser
+  agentdfir run --no-serve      same, print the findings and stop (scripts, CI)
+
+THE 4-STEP WORKFLOW (the same thing, one step at a time)
   1. See what's installed      agentdfir detect
   2. Collect evidence          agentdfir collect --product claude            (sealed .adfir package)
   3. Analyze everything        agentdfir analyze <pkg>                        (detections, MCP audit, provenance…)
@@ -89,6 +93,8 @@ func Main(args []string) int {
 		return cmdProvenance(args[1:])
 	case "serve":
 		return cmdServe(args[1:])
+	case "run":
+		return cmdRun(args[1:])
 	case "detect":
 		return cmdDetect()
 	case "collect":
