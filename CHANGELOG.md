@@ -7,6 +7,24 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.16.0] — 2026-09-17
+
+### Added
+- **`install.ps1`** — Windows installer for the same one-line install-and-run
+  as macOS / Linux: `irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex; agentdfir run`.
+  Detects x64 / ARM64, verifies SHA256, installs to `%LOCALAPPDATA%\agentdfir\bin`,
+  adds it to the user PATH and the current session. PowerShell 5.1 and 7.
+- **Windows ARM64** release assets (`agentdfir-vX.Y.Z-windows-arm64.exe` and `.zip`).
+- `agentdfir run` shows a live status line while collecting (per agent:
+  artifacts, bytes, elapsed), sealing, analyzing and loading the explorer, so
+  long steps on big homes no longer look hung. Terminal only; silent in pipes.
+
+### Changed
+- README, install guide and website show one line per OS (macOS / Linux, Windows).
+- Release `verify` on Windows checksums both Windows CPUs and runs `install.ps1`
+  against the published release; CI smoke-tests `install.ps1` on `windows-latest`
+  with both binaries built locally.
+
 ### Fixed
 - Release workflow updates the Homebrew tap with a write deploy key
   (`HOMEBREW_TAP_SSH_KEY`), no personal token needed; `scripts/update-tap.sh`
@@ -527,7 +545,8 @@ and interoperability exports.
   on all evidence-derived output; bounded parsers; zip-slip defense on archive
   extraction; secrets never printed by default.
 
-[Unreleased]: https://github.com/efij/AgentDFIR/compare/v0.15.0...HEAD
+[Unreleased]: https://github.com/efij/AgentDFIR/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/efij/AgentDFIR/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/efij/AgentDFIR/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/efij/AgentDFIR/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/efij/AgentDFIR/compare/v0.12.1...v0.13.0

@@ -10,13 +10,13 @@
 # plus SHA256SUMS.txt over all of the above.
 #
 # Used by .github/workflows/release.yml and by the CI smoke test, so the
-# artifact layout that install.sh expects is defined in exactly one place.
+# artifact layout that install.sh / install.ps1 expect is defined in exactly one place.
 set -eu
 
 VERSION="${1:?usage: release-build.sh <version> [dist-dir]}"
 DIST="${2:-dist}"
 MODULE="github.com/efij/AgentDFIR"
-TARGETS="${TARGETS:-linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64}"
+TARGETS="${TARGETS:-linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64}"
 
 rm -rf "$DIST"
 mkdir -p "$DIST"

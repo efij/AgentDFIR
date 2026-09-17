@@ -106,8 +106,13 @@ func cmdRun(args []string) int {
 	host, _ := os.Hostname()
 	var total collector.Stats
 	var collectErr error
+	prog := newProgress()
 	for _, pid := range targets {
-		st, err := collectCurrentUser(b, pid, home, host, osUser, *maxFileMB)
+		prog.Start(fmt.Sprintf("  %-16s collecting", pid))
+		st, err := collectCurrentUser(b, pid, home, host, osUser, *maxFileMB, func(s collector.Stats) {
+			prog.Set(fmt.Sprintf("%d artifacts · %s", s.Acquired, humanBytes(s.TotalBytes)))
+		})
+		prog.Stop()
 		total.Acquired += st.Acquired
 		total.Symlinks += st.Symlinks
 		total.Skipped += st.Skipped
@@ -120,11 +125,7 @@ func cmdRun(args []string) int {
 			}
 			continue
 		}
-		fmt.Printf("  %-16s %d artifacts\n", pid, st.Acquired)
-	}
-	if err := b.Seal(); err != nil {
-		fmt.Fprintln(os.Stderr, "seal error:", err)
-		return 1
+		fmt.Printf("  %-16s %d artifacts · %s\n", pid, st.Acquired, humanBytes(st.TotalBytes))
 	}
 	if *signKey != "" {
 		if err := seal.Sign(dest, *signKey); err != nil {
@@ -132,7 +133,14 @@ func cmdRun(args []string) int {
 			return 1
 		}
 	}
-	fmt.Printf("  Sealed: %d artifacts (%d bytes), SHA256SUMS written", total.Acquired, total.TotalBytes)
+	prog.Start("  sealing")
+	sealErr := b.Seal()
+	prog.Stop()
+	if sealErr != nil {
+		fmt.Fprintln(os.Stderr, "seal error:", sealErr)
+		return 1
+	}
+	fmt.Printf("  Sealed: %d artifacts (%s), SHA256SUMS written", total.Acquired, humanBytes(total.TotalBytes))
 	if collectErr != nil {
 		fmt.Print(" — partial evidence, see errors above")
 	}
@@ -140,7 +148,9 @@ func cmdRun(args []string) int {
 
 	// 3. analyze
 	fmt.Println("\nStep 3/4  Analyze — detections, MCP audit, provenance")
-	res, err := analysis.Run(dest, analysis.Options{EndpointLogs: endpointLogs, GatewayLog: *gwLog, Log: os.Stdout})
+	prog.Start("  analyzing")
+	res, err := analysis.Run(dest, analysis.Options{EndpointLogs: endpointLogs, GatewayLog: *gwLog, Log: prog})
+	prog.Stop()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
@@ -157,7 +167,9 @@ func cmdRun(args []string) int {
 
 	// 4. serve
 	fmt.Println("\nStep 4/4  Look — case explorer in your browser")
+	prog.Start("  loading the explorer")
 	s, err := serve.Load(dest, serve.Options{Port: *port})
+	prog.Stop()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
@@ -181,7 +193,7 @@ func cmdRun(args []string) int {
 
 // collectCurrentUser acquires one product from the current user's home into
 // an open package, exactly as `collect --product` does for the live host.
-func collectCurrentUser(b *casepkg.Builder, productID, home, host, osUser string, maxFileMB int64) (*collector.Stats, error) {
+func collectCurrentUser(b *casepkg.Builder, productID, home, host, osUser string, maxFileMB int64, progress func(collector.Stats)) (*collector.Stats, error) {
 	man, err := products.Manifest(productID)
 	if err != nil {
 		return &collector.Stats{}, err
@@ -202,7 +214,7 @@ func collectCurrentUser(b *casepkg.Builder, productID, home, host, osUser string
 			configRoot = v
 		}
 	}
-	opts := collector.Options{ProfileRoot: home, ConfigRoot: configRoot, SystemRoot: "/", Host: host, User: osUser, Product: productID}
+	opts := collector.Options{ProfileRoot: home, ConfigRoot: configRoot, SystemRoot: "/", Host: host, User: osUser, Product: productID, Progress: progress}
 	if maxFileMB > 0 {
 		opts.MaxFileBytes = maxFileMB << 20
 	}

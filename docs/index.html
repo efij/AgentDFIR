@@ -23,7 +23,7 @@
   "@type": "SoftwareApplication",
   "name": "AgentDFIR",
   "applicationCategory": "SecurityApplication",
-  "operatingSystem": "macOS, Windows, Linux",
+  "operatingSystem": "macOS, Windows (x64, ARM64), Linux",
   "description": "Open-source digital forensics and incident response framework for AI agents. Collects, preserves, reconstructs and investigates activity from Claude Code, Codex CLI, Cursor, Gemini CLI, Copilot and other agentic AI tools.",
   "url": "https://efij.github.io/AgentDFIR/",
   "downloadUrl": "https://github.com/efij/AgentDFIR",
@@ -140,6 +140,8 @@ h2{font-size:clamp(26px,3.2vw,34px);font-weight:700;letter-spacing:-.015em;line-
 .one button{flex:none;background:var(--surface-2);color:var(--text);border:1px solid var(--border-hi);border-radius:7px;padding:7px 12px;font:600 12.5px var(--sans);cursor:pointer;transition:border-color .2s,background .2s}
 .one button:hover{border-color:var(--accent);background:var(--surface)}
 .one button.ok{color:var(--accent);border-color:var(--accent)}
+.one-label{font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3);margin:16px 0 6px}
+.one{margin-top:0}
 .one-note{margin-top:10px;font-size:13.5px;color:var(--text-3)}
 .one-note a{color:var(--text-2)}
 .stats{display:flex;gap:24px 30px;flex-wrap:wrap;margin-top:28px;padding-top:22px;border-top:1px solid var(--border)}
@@ -205,11 +207,17 @@ footer{border-top:1px solid var(--border);padding:44px 0;font-size:14px;color:va
       </span>
       <h1>What did your <span class="hl">AI agents</span> actually do?</h1>
       <p class="sub">Claude Code, Codex, Cursor, Gemini, Copilot run shell commands, spawn subagents and call MCP servers on your machine. One command finds every agent, seals its evidence, analyzes it and shows you the answer in your browser. Nothing leaves your machine.</p>
+      <p class="one-label">macOS / Linux</p>
       <div class="one">
         <code id="one-cmd"><span class="t-p">$</span>curl -fsSL https://raw.githubusercontent.com/efij/AgentDFIR/main/install.sh | sh &amp;&amp; ~/.local/bin/agentdfir run</code>
-        <button type="button" data-copy="curl -fsSL https://raw.githubusercontent.com/efij/AgentDFIR/main/install.sh | sh &amp;&amp; ~/.local/bin/agentdfir run" aria-label="Copy the install-and-run command">Copy</button>
+        <button type="button" data-copy="curl -fsSL https://raw.githubusercontent.com/efij/AgentDFIR/main/install.sh | sh &amp;&amp; ~/.local/bin/agentdfir run" data-target="one-cmd" aria-label="Copy the macOS / Linux install-and-run command">Copy</button>
       </div>
-      <p class="one-note">macOS / Linux · installs to <code>~/.local/bin</code>, SHA256-verified · Homebrew: <code>brew install efij/agentdfir/agentdfir &amp;&amp; agentdfir run</code> · <a href="https://github.com/efij/AgentDFIR/releases/latest">Windows .exe</a></p>
+      <p class="one-label">Windows · PowerShell · x64 or ARM64</p>
+      <div class="one">
+        <code id="one-cmd-win"><span class="t-p">&gt;</span>irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex; agentdfir run</code>
+        <button type="button" data-copy="irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex; agentdfir run" data-target="one-cmd-win" aria-label="Copy the Windows install-and-run command">Copy</button>
+      </div>
+      <p class="one-note">SHA256-verified, nothing else installed · Homebrew: <code>brew install efij/agentdfir/agentdfir &amp;&amp; agentdfir run</code> · <a href="https://github.com/efij/AgentDFIR/blob/main/docs/install.md">portable binaries for USB / air-gap</a></p>
       <div class="cta-row" style="margin-top:22px">
         <a class="btn btn-primary" href="#quickstart">How it works</a>
         <a class="btn btn-ghost" href="https://github.com/efij/AgentDFIR">
@@ -344,9 +352,13 @@ footer{border-top:1px solid var(--border);padding:44px 0;font-size:14px;color:va
       <h2>One command. Four steps you can also run yourself.</h2>
       <p class="sec-sub"><code>agentdfir run</code> finds every AI agent on this machine, collects all of them into one sealed <code>.adfir</code> package, analyzes it and opens the case explorer. Each step is the same code as the individual command below it.</p>
     </div>
-    <p class="qs-label">Install and run — macOS / Linux</p>
+    <p class="qs-label">Install and run — one line per OS</p>
     <div class="qs">
-<pre><span class="cmd">curl -fsSL https://raw.githubusercontent.com/efij/AgentDFIR/main/install.sh | sh &amp;&amp; ~/.local/bin/agentdfir run</span>
+<pre><span class="cm"># macOS / Linux</span>
+<span class="cmd">curl -fsSL https://raw.githubusercontent.com/efij/AgentDFIR/main/install.sh | sh &amp;&amp; ~/.local/bin/agentdfir run</span>
+
+<span class="cm"># Windows (PowerShell, x64 or ARM64)</span>
+<span class="cmd">irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex; agentdfir run</span>
 
 <span class="cm"># already installed, or Homebrew (brew install efij/agentdfir/agentdfir)</span>
 <span class="cmd">agentdfir run</span>
@@ -467,7 +479,7 @@ document.querySelectorAll('button[data-copy]').forEach(function(b){
     var t=b.getAttribute('data-copy');
     var done=function(){b.textContent='Copied';b.classList.add('ok');setTimeout(function(){b.textContent='Copy';b.classList.remove('ok')},1800)};
     if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(done,function(){})}
-    else{var r=document.createRange();r.selectNodeContents(document.getElementById('one-cmd'));var s=getSelection();s.removeAllRanges();s.addRange(r);try{document.execCommand('copy');done()}catch(e){}}
+    else{var r=document.createRange();r.selectNodeContents(document.getElementById(b.getAttribute('data-target')));var s=getSelection();s.removeAllRanges();s.addRange(r);try{document.execCommand('copy');done()}catch(e){}}
   });
 });
 </script>

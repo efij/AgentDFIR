@@ -60,3 +60,36 @@ jobs:
       - name: macOS browser-download path (quarantine → xattr -d → runs)
         if: runner.os == 'macOS'
         run: bash scripts/gatekeeper-check.sh "dist/agentdfir-v0.0.0-ci-darwin-$(uname -m | sed 's/x86_64/amd64/')" "agentdfir v0.0.0-ci"
+
+  release-smoke-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+      - name: build both Windows binaries in the release layout
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory dist | Out-Null
+          $ld = "-s -w -X github.com/efij/AgentDFIR/internal/version.Version=v0.0.0-ci"
+          foreach ($a in @('amd64', 'arm64')) {
+            $env:GOOS = 'windows'; $env:GOARCH = $a; $env:CGO_ENABLED = '0'
+            go build -trimpath -ldflags $ld -o "dist/agentdfir-v0.0.0-ci-windows-$a.exe" ./cmd/agentdfir
+            if ($LASTEXITCODE -ne 0) { throw "build windows/$a failed" }
+          }
+          Get-ChildItem dist -Filter *.exe | ForEach-Object { "{0}  {1}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name } | Set-Content dist/SHA256SUMS.txt -Encoding ascii
+          Get-Content dist/SHA256SUMS.txt
+      - name: install.ps1 against local assets (the documented one-liner, offline)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $env:AGENTDFIR_VERSION = 'v0.0.0-ci'
+          $env:AGENTDFIR_BASE_URL = 'file:///' + ($PWD.Path -replace '\\', '/') + '/dist'
+          $env:AGENTDFIR_INSTALL_DIR = "$PWD\ibin"
+          Get-Content -Raw .\install.ps1 | Invoke-Expression
+          $out = & agentdfir version
+          if ($out -notmatch 'agentdfir v0\.0\.0-ci') { throw "unexpected output: $out" }
+          if (-not (Test-Path "$PWD\ibin\agentdfir.exe")) { throw "agentdfir.exe not installed" }
+          Write-Host "ok $out"
