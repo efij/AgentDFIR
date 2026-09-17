@@ -2,7 +2,7 @@
 
 > Open-source digital forensics and incident response (DFIR) framework for AI agents. Collects, preserves, reconstructs and investigates activity from Claude Code, OpenAI Codex CLI, Cursor, Gemini CLI, GitHub Copilot CLI and other agentic AI tools. Core principle: AI-generated text is never automatically treated as factual evidence of execution — every action is classified REQUESTED / REPORTED / OBSERVED / CORROBORATED / CONTRADICTED / UNKNOWN.
 
-Status: released (v0.5+). 12 supported products (Claude Code, Codex CLI, Gemini CLI, Cursor, Copilot CLI, Copilot Chat for VS Code, Cline, Roo Code, OpenClaw, OpenCode, Aider, Warp), 132 deterministic detections (51 built-in + 81 pack rules) every HIGH/CRITICAL one mapped to MITRE ATLAS 5.6 / ATT&CK (27 ATLAS, 65 ATT&CK techniques; see detection-coverage.md), streaming analysis for multi-GB packages, signed product packs for adding new agents without code.
+Status: released (v0.15+). One command does the common case: `agentdfir run` = detect every installed agent → collect into one sealed package → analyze → open the browser explorer; install-and-run in one line: `curl -fsSL https://raw.githubusercontent.com/efij/AgentDFIR/main/install.sh | sh && ~/.local/bin/agentdfir run`. 12 supported products (Claude Code, Codex CLI, Gemini CLI, Cursor, Copilot CLI, Copilot Chat for VS Code, Cline, Roo Code, OpenClaw, OpenCode, Aider, Warp), 132 deterministic detections (51 built-in + 81 pack rules) every HIGH/CRITICAL one mapped to MITRE ATLAS 5.6 / ATT&CK (27 ATLAS, 65 ATT&CK techniques; see detection-coverage.md), streaming analysis for multi-GB packages, signed product packs for adding new agents without code.
 
 ## Docs
 

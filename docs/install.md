@@ -1,7 +1,17 @@
 # Install
 
+**Fastest (macOS / Linux):** install and run in one line. Verifies the SHA256,
+installs to `~/.local/bin`, then finds every AI agent on this machine, collects
+its evidence into a sealed package, analyzes it and opens the results in your
+browser. Nothing leaves your machine.
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/efij/AgentDFIR/main/install.sh | sh && ~/.local/bin/agentdfir run
+```
+
 AgentDFIR is a single static binary with zero runtime dependencies. Pick the path
-that fits the machine you are on. Every path ends with the same file.
+that fits the machine you are on. Every path ends with the same file, and
+`agentdfir run` does the rest.
 
 | You are… | Use | Dialogs |
 |---|---|---|
