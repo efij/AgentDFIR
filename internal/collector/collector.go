@@ -27,8 +27,9 @@ type Options struct {
 	Host          string
 	User          string
 	Product       string
-	MaxFileBytes  int64 // per-artifact bound; 0 = default
-	MaxTotalBytes int64 // package bound; 0 = default
+	MaxFileBytes  int64       // per-artifact bound; 0 = default
+	MaxTotalBytes int64       // package bound; 0 = default
+	Progress      func(Stats) // optional; called after every acquired artifact (UI status lines)
 }
 
 // Defaults for size bounds.
@@ -190,6 +191,9 @@ func ingestPath(b *casepkg.Builder, entry products.ManifestEntry, path string, o
 	// IngestFile records its own status; count from the source size.
 	st.Acquired++
 	st.TotalBytes += info.Size()
+	if opts.Progress != nil {
+		opts.Progress(*st)
+	}
 	return nil
 }
 

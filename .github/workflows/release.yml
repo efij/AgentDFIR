@@ -143,15 +143,18 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           $V = $env:RELEASE_TAG
-          $zip = "agentdfir-$V-windows-amd64.zip"
-          $exe = "agentdfir-$V-windows-amd64.exe"
+          $arch = if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { 'arm64' } else { 'amd64' }
+          $other = if ($arch -eq 'arm64') { 'amd64' } else { 'arm64' }
+          $zip = "agentdfir-$V-windows-$arch.zip"
+          $exe = "agentdfir-$V-windows-$arch.exe"
+          $otherExe = "agentdfir-$V-windows-$other.exe"   # published for the other CPU; checksummed, not run
           New-Item -ItemType Directory rel | Out-Null
           Set-Location rel
-          gh release download $V -R $env:GITHUB_REPOSITORY -p $zip -p $exe -p SHA256SUMS.txt
+          gh release download $V -R $env:GITHUB_REPOSITORY -p $zip -p $exe -p $otherExe -p SHA256SUMS.txt
           if ($LASTEXITCODE -ne 0) { throw "download failed" }
 
           Write-Host "== checksums"
-          foreach ($f in @($zip, $exe)) {
+          foreach ($f in @($zip, $exe, $otherExe)) {
             $actual = (Get-FileHash $f -Algorithm SHA256).Hash.ToLower()
             $line = Select-String -Path SHA256SUMS.txt -Pattern ("\s\*?" + [regex]::Escape($f) + "$") | Select-Object -First 1
             if (-not $line) { throw "$f not in SHA256SUMS.txt" }
@@ -170,6 +173,18 @@ jobs:
             if ($out -notmatch [regex]::Escape("agentdfir $V")) { throw "unexpected output: $out" }
             Write-Host "ok $p -> $out"
           }
+
+      - name: Windows install.ps1 (the documented one-liner, against the published release)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $env:AGENTDFIR_VERSION = $env:RELEASE_TAG
+          $env:AGENTDFIR_INSTALL_DIR = "$PWD\ibin"
+          irm "https://raw.githubusercontent.com/$env:GITHUB_REPOSITORY/$env:RELEASE_TAG/install.ps1" | iex
+          $out = & agentdfir version    # resolves through the PATH install.ps1 just set
+          if ($out -notmatch [regex]::Escape("agentdfir $env:RELEASE_TAG")) { throw "unexpected output: $out" }
+          Write-Host "ok install.ps1 -> $out"
 
   # --------------------------------------------------------------- homebrew
   # Refreshes efij/homebrew-agentdfir. Auth: HOMEBREW_TAP_SSH_KEY (private key

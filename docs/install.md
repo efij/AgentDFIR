@@ -1,12 +1,20 @@
 # Install
 
-**Fastest (macOS / Linux):** install and run in one line. Verifies the SHA256,
-installs to `~/.local/bin`, then finds every AI agent on this machine, collects
-its evidence into a sealed package, analyzes it and opens the results in your
-browser. Nothing leaves your machine.
+**Fastest:** install and run in one line. Verifies the SHA256, installs the
+binary, then finds every AI agent on this machine, collects its evidence into a
+sealed package, analyzes it and opens the results in your browser. Nothing
+leaves your machine.
+
+macOS / Linux (installs to `~/.local/bin`):
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/efij/AgentDFIR/main/install.sh | sh && ~/.local/bin/agentdfir run
+```
+
+Windows, PowerShell, x64 or ARM64 (installs to `%LOCALAPPDATA%\agentdfir\bin`, added to your PATH):
+
+```powershell
+irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex; agentdfir run
 ```
 
 AgentDFIR is a single static binary with zero runtime dependencies. Pick the path
@@ -17,6 +25,7 @@ that fits the machine you are on. Every path ends with the same file, and
 |---|---|---|
 | on an **air-gapped / offline** box, or want **one file on a USB stick** | [Portable binary](#1-portable-binary-air-gap-first) | macOS: one command once. Windows: one click once. |
 | on an online macOS / Linux box | [`install.sh`](#2-installsh-macos--linux) | none |
+| on an online Windows box | [`install.ps1`](#2b-installps1-windows) | none |
 | a Homebrew user | [`brew install`](#3-homebrew-macos--linux) | none |
 | a Go developer | [`go install`](#4-go-install) | none |
 
@@ -40,6 +49,7 @@ prefer them.
 | Linux x86-64 | `agentdfir-vX.Y.Z-linux-amd64` |
 | Linux ARM64 | `agentdfir-vX.Y.Z-linux-arm64` |
 | Windows x86-64 | `agentdfir-vX.Y.Z-windows-amd64.exe` (or `.zip`) |
+| Windows ARM64 (Snapdragon, Surface Pro X…) | `agentdfir-vX.Y.Z-windows-arm64.exe` (or `.zip`) |
 
 ### macOS
 
@@ -70,7 +80,7 @@ ones Homebrew installs. Nothing about this is specific to AgentDFIR.
 2. On first run Windows SmartScreen may show *"Windows protected your PC"*
    because the binary carries no Authenticode signature. Click **More info →
    Run anyway**. Once per file.
-3. `agentdfir-vX.Y.Z-windows-amd64.exe version`
+3. `agentdfir-vX.Y.Z-windows-amd64.exe version` (`-arm64.exe` on an ARM PC)
 
 Verify the checksum first with PowerShell:
 
@@ -117,6 +127,27 @@ AGENTDFIR_VERSION=v0.12.1 AGENTDFIR_INSTALL_DIR=/usr/local/bin sh install.sh
 ```
 
 ---
+
+## 2b. install.ps1 (Windows)
+
+```powershell
+irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex
+```
+
+Detects x64 / ARM64, downloads the raw `.exe` and `SHA256SUMS.txt` from the
+latest release, verifies the checksum, installs `agentdfir.exe` to
+`%LOCALAPPDATA%\agentdfir\bin` and adds that folder to your user PATH and to
+the current session. `Invoke-WebRequest` sets no mark-of-the-web (and the file
+is unblocked anyway), so SmartScreen shows nothing. Works in Windows PowerShell
+5.1 and PowerShell 7; `iex` of a downloaded string is not subject to the
+execution policy.
+
+Pin a version or change the directory the same way as `install.sh`:
+
+```powershell
+$env:AGENTDFIR_VERSION = 'v0.16.0'; $env:AGENTDFIR_INSTALL_DIR = 'C:\Tools\agentdfir'
+irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex
+```
 
 ## 3. Homebrew (macOS / Linux)
 

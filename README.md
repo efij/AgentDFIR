@@ -40,17 +40,23 @@ An agent claiming *"I executed curl example.com"* with no matching tool call sta
 
 ## ⚡ Quick start — one command
 
-macOS / Linux, nothing installed yet? Paste this into a terminal. It installs AgentDFIR
-(SHA256-verified, into `~/.local/bin`), finds every AI agent on this machine, collects
-their evidence into one sealed package, analyzes it and opens the results in your browser.
-Nothing leaves your machine.
+Nothing installed yet? Paste the line for your OS into a terminal. It installs AgentDFIR
+(SHA256-verified), finds every AI agent on this machine, collects their evidence into one
+sealed package, analyzes it and opens the results in your browser. Nothing leaves your machine.
+
+**macOS / Linux**
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/efij/AgentDFIR/main/install.sh | sh && ~/.local/bin/agentdfir run
 ```
 
+**Windows** (PowerShell, x64 or ARM64)
+
+```powershell
+irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex; agentdfir run
+```
+
 Already installed: `agentdfir run`. Homebrew: `brew install efij/agentdfir/agentdfir && agentdfir run`.
-Windows: download the `.exe` from the [releases page](https://github.com/efij/AgentDFIR/releases/latest), then `agentdfir run`.
 
 <details>
 <summary><b>Other ways to install</b> — portable binary, Homebrew, go install, from source</summary>

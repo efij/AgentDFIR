@@ -14,7 +14,7 @@
 #   AGENTDFIR_INSTALL_DIR  target directory (default: ~/.local/bin)
 #   AGENTDFIR_BASE_URL     asset base URL override (tests use file:///…/dist)
 #
-# Windows: download agentdfir-<ver>-windows-amd64.zip from the releases page instead.
+# Windows: irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex
 set -eu
 
 REPO="efij/AgentDFIR"
@@ -43,7 +43,7 @@ sha256_of() {
 case "$(uname -s)" in
   Darwin) OS=darwin ;;
   Linux)  OS=linux ;;
-  *) die "unsupported OS $(uname -s). On Windows download the .zip from https://github.com/$REPO/releases" ;;
+  *) die "unsupported OS $(uname -s). On Windows run: irm https://raw.githubusercontent.com/$REPO/main/install.ps1 | iex" ;;
 esac
 case "$(uname -m)" in
   x86_64|amd64)  ARCH=amd64 ;;
