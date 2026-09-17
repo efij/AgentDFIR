@@ -213,7 +213,7 @@ jobs:
       - name: Verify tap serves this version
         run: |
           set -euo pipefail
-          got=$(curl -fsSL "https://raw.githubusercontent.com/efij/homebrew-agentdfir/main/Formula/agentdfir.rb" | grep -o 'tags/v[0-9][0-9.]*' | head -1 | sed 's#tags/##')
+          got=$(curl -fsSL "https://raw.githubusercontent.com/efij/homebrew-agentdfir/main/Formula/agentdfir.rb" | grep -oE 'tags/v[0-9]+(\.[0-9]+)+' | head -1 | sed 's#tags/##')
           if [ "$got" != "$RELEASE_TAG" ]; then
             echo "::error::tap formula points at ${got:-nothing}, expected $RELEASE_TAG"; exit 1
           fi
