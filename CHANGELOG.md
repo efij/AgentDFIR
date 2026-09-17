@@ -7,6 +7,11 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+- Release workflow's tap-version check no longer trips on the `.tar.gz` suffix
+  (it read `v0.16.0.`); the tap update itself was already succeeding via the
+  deploy key.
+
 ## [0.16.0] — 2026-09-17
 
 ### Added
