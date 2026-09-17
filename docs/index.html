@@ -40,6 +40,8 @@
      "acceptedAnswer": {"@type": "Answer", "text": "AI agent forensics is the discipline of collecting, preserving and analyzing the evidence left on endpoints by agentic AI tools such as Claude Code, Codex CLI, Cursor, Gemini CLI and Copilot — session transcripts, subagent records, MCP configurations, hooks and tool-call logs — so an incident responder can reconstruct who instructed which agent to perform what action, and what evidence proves it."}},
     {"@type": "Question", "name": "Where does Claude Code store session logs?",
      "acceptedAnswer": {"@type": "Answer", "text": "Claude Code stores session transcripts as JSONL files under ~/.claude/projects/<project-dir>/<session-id>.jsonl, alongside prompt history (~/.claude/history.jsonl), settings, hooks, skills, plugins, task state and file-history checkpoints in ~/.claude/, plus global configuration in ~/.claude.json. AgentDFIR acquires all of these into a sealed, hash-verified evidence package."}},
+    {"@type": "Question", "name": "What is an attack chain in AI agent forensics?",
+     "acceptedAnswer": {"@type": "Answer", "text": "An ordered sequence of individually unremarkable agent events that together constitute an attack: for example instruction-override content arriving in a tool result, the agent then writing to its own instruction or configuration files, then executing a shell command, all inside one session within a time window. AgentDFIR matches such toxic combinations and reports each as one finding listing the exact steps."}},
     {"@type": "Question", "name": "Is AI-generated text forensic evidence of execution?",
      "acceptedAnswer": {"@type": "Answer", "text": "No. A model saying 'I executed curl example.com' is a claim (REPORTED), not proof. AgentDFIR classifies every action: REPORTED for model narrative, OBSERVED when a tool-call record exists in the transcript, CORROBORATED only when independent endpoint or network evidence confirms it, and CONTRADICTED when evidence shows it did not occur."}}
   ]
@@ -187,6 +189,7 @@ footer{border-top:1px solid var(--border);padding:44px 0;font-size:14px;color:va
     </a>
     <div class="nav-links">
       <a href="#evidence">Evidence model</a>
+      <a href="#investigate">Investigate</a>
       <a href="#features">Features</a>
       <a href="#package">Package format</a>
       <a href="#quickstart">Quick start</a>
@@ -227,7 +230,7 @@ footer{border-top:1px solid var(--border);padding:44px 0;font-size:14px;color:va
       </div>
       <div class="stats">
         <div><b>12</b>agents supported</div>
-        <div><b>132</b>detections</div>
+        <div><b>140</b>detections</div>
         <div><b>MITRE</b>ATLAS 5.6 + ATT&amp;CK</div>
         <div><b>0</b>runtime dependencies</div>
       </div>
@@ -248,7 +251,8 @@ footer{border-top:1px solid var(--border);padding:44px 0;font-size:14px;color:va
 <span class="t-c">Step 3/4  Analyze</span>
   Normalized: 115655 events, 1691 entities
   MCP audit: 59 server(s), 55 finding(s)
-  <span class="t-hi">741 finding(s): 411 HIGH</span> <span class="t-w">120 MEDIUM</span> <span class="t-dim">33 LOW 177 INFO</span>
+  Attack chains: 8 evaluated, <span class="t-hi">46 matched</span>
+  <span class="t-hi">787 finding(s): 3 CRITICAL 411 HIGH</span> <span class="t-w">120 MEDIUM</span> <span class="t-dim">33 LOW 177 INFO</span>
 <span class="t-c">Step 4/4  Look</span> <span class="t-dim">— case explorer in your browser</span>
   Open <span class="t-b">http://127.0.0.1:53114/</span>  <span class="t-dim">(127.0.0.1 only · read-only)</span></pre>
     </div>
@@ -318,7 +322,25 @@ footer{border-top:1px solid var(--border);padding:44px 0;font-size:14px;color:va
   </div>
 </section>
 
-<section id="package" class="sec-alt">
+<section id="investigate" class="sec-alt">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="sec-kicker">From findings to a story · v1.0</p>
+      <h2>Not a list of alerts. What happened, step by step.</h2>
+      <p class="sec-sub">Seven hundred findings are not an answer. The explorer starts at the session, connects the steps into attack chains, shows what led to each step, searches every byte of evidence, and keeps your conclusions in a tamper-evident case file.</p>
+    </div>
+    <div class="grid">
+      <div class="card"><div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/></svg></div><h3>Sessions first</h3><p>One card per session, worst first: what was asked, duration, tool calls, agents, files, destinations, MCP servers, how much the OS confirms, which attack chains hit. Click, and the timeline is that session.</p></div>
+      <div class="card"><div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h4l3 6-3 6H4"/><path d="M13 6h4l3 6-3 6h-4"/></svg></div><h3>Attack chains</h3><p>Toxic combinations: injection in a tool result → the agent rewrites its own instructions → a shell runs. Secret read → upload. Orphan agent → config change → tool use. Eight built in, MITRE-mapped, JSON-extensible.</p></div>
+      <div class="card"><div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="19" r="2"/><path d="M12 7v4m0 0-5 6m5-6 5 6"/></svg></div><h3>How it happened</h3><p>Under every finding: the steps in order and, under each, the prompt before it, the tool result the agent had just consumed, the spawn that created the agent. Every node is a real transcript line.</p></div>
+      <div class="card"><div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg></div><h3>Search everything</h3><p>Ctrl+K: every event field, every finding, and the raw bytes of every sealed artifact. Literal or regex, seconds over gigabytes, hits jump to the evidence.</p></div>
+      <div class="card"><div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M8 13h8M8 17h5"/></svg></div><h3>Case file</h3><p>True / false positive / needs review, pinned key evidence, session tags, notes — appended to a hash-chained log outside the sealed evidence, attributed to you, rendered into the PDF and HTML report.</p></div>
+      <div class="card"><div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><h3>Still forensically sound</h3><p>Nothing in the tree is inferred without an evidence line. The sealed zone is never written. The one write endpoint is same-origin, loopback only.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="package">
   <div class="wrap two-col">
     <div>
       <p class="sec-kicker">Open format</p>
@@ -345,7 +367,7 @@ footer{border-top:1px solid var(--border);padding:44px 0;font-size:14px;color:va
   </div>
 </section>
 
-<section id="quickstart">
+<section id="quickstart" class="sec-alt">
   <div class="wrap">
     <div class="sec-head">
       <p class="sec-kicker">Quick start</p>
@@ -410,7 +432,11 @@ footer{border-top:1px solid var(--border);padding:44px 0;font-size:14px;color:va
       </div>
       <div>
         <h3>What does AgentDFIR detect today?</h3>
-        <p>132 deterministic rules, every HIGH and CRITICAL one mapped to MITRE ATLAS 5.6 and ATT&amp;CK: orphan agents, cross-agent messaging, destructive and exfiltrating shell commands, agents editing their own instructions or hooks, credentials read from agent config, poisoned or unpinned MCP servers, honeytoken hits, transcript integrity gaps. No LLM in the analysis path — see the <a href="https://github.com/efij/AgentDFIR/blob/main/docs/detection-coverage.md">detection coverage matrix</a>.</p>
+        <p>140 deterministic rules including 8 attack chains, every HIGH and CRITICAL one mapped to MITRE ATLAS 5.6 and ATT&amp;CK: orphan agents, cross-agent messaging, destructive and exfiltrating shell commands, agents editing their own instructions or hooks, credentials read from agent config, poisoned or unpinned MCP servers, honeytoken hits, transcript integrity gaps. No LLM in the analysis path — see the <a href="https://github.com/efij/AgentDFIR/blob/main/docs/detection-coverage.md">detection coverage matrix</a>.</p>
+      </div>
+      <div>
+        <h3>What is an attack chain?</h3>
+        <p>An ordered sequence of agent events that are unremarkable alone and an attack together: instruction-override content in a tool result, then the agent writing its own settings, then a shell command, inside one session within two hours. AgentDFIR matches eight such <a href="https://github.com/efij/AgentDFIR/blob/main/docs/attack-chains.md">toxic combinations</a> out of the box, reports each as one finding with the exact steps, and the explorer shows what led to every step.</p>
       </div>
       <div>
         <h3>Do I need to be a forensics expert to use it?</h3>
@@ -441,10 +467,11 @@ footer{border-top:1px solid var(--border);padding:44px 0;font-size:14px;color:va
       <p class="sec-sub">Machine-readable schemas and artifact references — cite them directly.</p>
     </div>
     <div class="grid">
-      <a class="card" style="text-decoration:none" href="https://github.com/efij/AgentDFIR/blob/main/docs/detection-coverage.md"><h3>Detection Coverage</h3><p>132 detections mapped to MITRE ATLAS 5.6 (including the agentic techniques: context poisoning, agent config modification, credentials from agent config, exfiltration via tool invocation) and ATT&amp;CK. Generated from the binary; enforced by tests.</p></a>
+      <a class="card" style="text-decoration:none" href="https://github.com/efij/AgentDFIR/blob/main/docs/detection-coverage.md"><h3>Detection Coverage</h3><p>140 detections (8 of them attack chains) mapped to MITRE ATLAS 5.6 (including the agentic techniques: context poisoning, agent config modification, credentials from agent config, exfiltration via tool invocation) and ATT&amp;CK. Generated from the binary; enforced by tests.</p></a>
       <a class="card" style="text-decoration:none" href="https://github.com/efij/AgentDFIR/blob/main/docs/install.md"><h3>Install</h3><p>Portable raw binaries for USB / air-gap, install.sh, Homebrew tap, go install. SHA256 and Sigstore verification, and why unsigned downloads prompt on macOS and Windows.</p></a>
       <a class="card" style="text-decoration:none" href="https://github.com/efij/AgentDFIR/blob/main/docs/claude-code-forensic-artifacts.md"><h3>Claude Code Forensic Artifacts</h3><p>Every on-disk location, the JSONL session schema, interpretation and collection commands.</p></a>
-      <a class="card" style="text-decoration:none" href="https://github.com/efij/AgentDFIR/blob/main/docs/serve.md"><h3>Case Explorer</h3><p>agentdfir serve: agent tree, density-scrubber timeline, the raw transcript line behind every event, findings and topology — in your browser, loopback only, zero external resources.</p></a>
+      <a class="card" style="text-decoration:none" href="https://github.com/efij/AgentDFIR/blob/main/docs/serve.md"><h3>Case Explorer</h3><p>agentdfir serve: sessions, attack chains, the investigation tree, density-scrubber timeline, the raw line behind every event, whole-case search, case notes — in your browser, loopback only, zero external resources.</p></a>
+      <a class="card" style="text-decoration:none" href="https://github.com/efij/AgentDFIR/blob/main/docs/attack-chains.md"><h3>Attack Chains</h3><p>Toxic combinations: the 8 built-in chains, how ordered matching inside a session works, step predicates, and how to ship your own *.chains.json.</p></a>
       <a class="card" style="text-decoration:none" href="https://github.com/efij/AgentDFIR/blob/main/docs/container-ci-collection.md"><h3>Containers &amp; CI</h3><p>collect --docker snapshots a container read-only; --archive ingests CI artifacts, support bundles and vendor exports — same sealed package, same analysis.</p></a>
       <a class="card" style="text-decoration:none" href="https://github.com/efij/AgentDFIR/blob/main/docs/provenance.md"><h3>Instruction Provenance</h3><p>For every line of CLAUDE.md, AGENTS.md or .cursorrules: which session, agent and tool wrote it — and whether it entered as a human request or as tool output.</p></a>
       <a class="card" style="text-decoration:none" href="https://github.com/efij/AgentDFIR/blob/main/docs/realtime-detection.md"><h3>Real-time Detection</h3><p>monitor --detect turns the read-only tail into a sensor: exfil sequences, honeytokens, self-modification and more pushed to webhook, syslog or file within seconds.</p></a>

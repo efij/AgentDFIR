@@ -8,13 +8,14 @@ import (
 	"sort"
 
 	"github.com/efij/AgentDFIR/internal/catalog"
+	"github.com/efij/AgentDFIR/internal/chain"
 	"github.com/efij/AgentDFIR/internal/export"
 	"github.com/efij/AgentDFIR/internal/rulepack"
 )
 
 const rulesUsage = `usage:
   agentdfir rules list [--packs <dir>] [--json]  every detection (built-in + packs) with MITRE ATT&CK / ATLAS mapping
-  agentdfir rules validate <dir>                 validate declarative rule packs
+  agentdfir rules validate <dir>                 validate declarative rule packs and *.chains.json attack chains
   agentdfir rules export --sigma <dir> [--out d] convert rule packs to Sigma YAML (one file per rule)
 `
 
@@ -114,7 +115,15 @@ func cmdRules(args []string) int {
 			n += len(p.Rules)
 			fmt.Printf("OK  %s v%s (%d rules)\n", p.Pack, p.Version, len(p.Rules))
 		}
-		fmt.Printf("Validated %d pack(s), %d rule(s).\n", len(packs), n)
+		chains, err := chain.LoadDir(args[1])
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "error:", err)
+			return 1
+		}
+		for _, c := range chains {
+			fmt.Printf("OK  chain %s [%s] %d steps\n", c.ID, c.Severity, len(c.Steps))
+		}
+		fmt.Printf("Validated %d pack(s), %d rule(s), %d attack chain(s).\n", len(packs), n, len(chains))
 		return 0
 	case "export":
 		fs := flag.NewFlagSet("rules export", flag.ContinueOnError)

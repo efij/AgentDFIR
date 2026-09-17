@@ -13,9 +13,11 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/efij/AgentDFIR/internal/casepkg"
+	"github.com/efij/AgentDFIR/internal/notes"
 	"github.com/efij/AgentDFIR/internal/sanitize"
 	"github.com/efij/AgentDFIR/internal/schema"
 )
@@ -28,6 +30,7 @@ type Case struct {
 	Events   []schema.Event
 	Entities []schema.Entity
 	Findings []schema.Finding
+	Notes    *notes.State `json:"notes,omitempty"` // analyst case file (verdicts, pins, tags, notes), when present
 }
 
 // safe escapes a string for HTML after neutralizing terminal/invisible
@@ -135,7 +138,92 @@ func WriteHTML(c *Case, path string) error {
 	w(card("HIGH+", fmt.Sprint(sev["CRITICAL"]+sev["HIGH"])))
 	w(card("Timeline events", fmt.Sprint(len(c.Events))))
 	w(card("Integrity", integrity, intClass))
+	chains := 0
+	for _, fd := range c.Findings {
+		if len(fd.ChainSteps) > 0 {
+			chains++
+		}
+	}
+	if chains > 0 {
+		w(card("Attack chains", fmt.Sprint(chains), "bad"))
+	}
 	w(`</div></section>`)
+
+	// Analyst investigation: verdicts, pinned evidence, tags, notes — from the
+	// hash-chained case file, attributed and timestamped.
+	if n := c.Notes; n != nil && n.Records > 0 {
+		w(`<section><h2>Analyst Investigation</h2>`)
+		if !n.ChainOK {
+			w(`<p class="bad">Case-file hash chain BROKEN: ` + safe(n.ChainErr) + `</p>`)
+		}
+		tp, fp, nr := 0, 0, 0
+		for _, v := range n.Verdicts {
+			switch v.Verdict {
+			case "true_positive":
+				tp++
+			case "false_positive":
+				fp++
+			default:
+				nr++
+			}
+		}
+		w(fmt.Sprintf(`<p>%d analyst record(s) · verdicts: %d true positive, %d false positive, %d needs review · %d pinned item(s)</p>`, n.Records, tp, fp, nr, len(n.Pins)))
+		if len(n.Verdicts) > 0 {
+			w(`<table class="tl"><thead><tr><th>Finding</th><th>Verdict</th><th>Note</th><th>By</th><th>When (UTC)</th></tr></thead><tbody>`)
+			for _, fd := range c.Findings {
+				if v, ok := n.Verdicts[notes.FindingKey(fd.RuleID, fd.EvidenceRefs)]; ok {
+					w(`<tr><td>` + safe(fd.Severity+" "+fd.Title) + `</td><td>` + safe(v.Verdict) + `</td><td>` + safe(v.Note) + `</td><td>` + safe(v.Operator) + `</td><td class="mono">` + safe(v.TS) + `</td></tr>`)
+				}
+			}
+			w(`</tbody></table>`)
+		}
+		if len(n.Pins) > 0 {
+			byID := map[string]schema.Event{}
+			for _, e := range c.Events {
+				byID["event:"+e.EventID] = e
+			}
+			w(`<h3>Pinned evidence</h3><table class="tl"><thead><tr><th>Time</th><th>Event</th><th>Detail</th><th>Evidence</th><th>Analyst note</th></tr></thead><tbody>`)
+			for _, p := range n.Pins {
+				if e, ok := byID[p.Target]; ok {
+					detail := e.Summary
+					if e.Command != "" {
+						detail = "$ " + e.Command
+					} else if e.File != "" {
+						detail = e.Tool + " " + e.File
+					}
+					w(`<tr><td class="mono">` + safe(e.Timestamp) + `</td><td class="mono">` + safe(e.EventType+" "+e.AgentID) + `</td><td>` + safe(detail) + `</td><td class="mono ev">` + safe(fmt.Sprintf("%s:%d", e.SourcePath, e.SourceLine)) + `</td><td>` + safe(p.Note) + `</td></tr>`)
+				} else {
+					w(`<tr><td></td><td class="mono">` + safe(p.Target) + `</td><td></td><td></td><td>` + safe(p.Note) + `</td></tr>`)
+				}
+			}
+			w(`</tbody></table>`)
+		}
+		if len(n.Tags) > 0 {
+			w(`<h3>Session tags</h3><table class="kv">`)
+			for sid, tags := range n.Tags {
+				if len(tags) > 0 {
+					w(kv(sid, strings.Join(tags, ", ")))
+				}
+			}
+			w(`</table>`)
+		}
+		hasNotes := false
+		for _, list := range n.Notes {
+			if len(list) > 0 {
+				hasNotes = true
+			}
+		}
+		if hasNotes {
+			w(`<h3>Notes</h3><table class="tl"><thead><tr><th>When (UTC)</th><th>By</th><th>On</th><th>Note</th></tr></thead><tbody>`)
+			for target, list := range n.Notes {
+				for _, rec := range list {
+					w(`<tr><td class="mono">` + safe(rec.TS) + `</td><td>` + safe(rec.Operator) + `</td><td class="mono">` + safe(target) + `</td><td>` + safe(rec.Text) + `</td></tr>`)
+				}
+			}
+			w(`</tbody></table>`)
+		}
+		w(`</section>`)
+	}
 
 	// Case / collection / environment
 	w(`<section><h2>Case &amp; Collection</h2><table class="kv">`)
@@ -181,6 +269,18 @@ func WriteHTML(c *Case, path string) error {
 		}
 		for _, r := range fd.Related {
 			w(kv("Related", r))
+		}
+		if c.Notes != nil {
+			if v, ok := c.Notes.Verdicts[notes.FindingKey(fd.RuleID, fd.EvidenceRefs)]; ok {
+				w(kv("Analyst verdict", v.Verdict+" — "+v.Note+" ("+v.Operator+", "+v.TS+")"))
+			}
+		}
+		if len(fd.ChainSteps) > 0 {
+			w(`</table><p><strong>How it happened</strong> — the matched steps, in order:</p><ol class="chain">`)
+			for _, st := range fd.ChainSteps {
+				w(`<li><span class="mono">` + safe(st.Timestamp) + `</span> <strong>` + safe(st.Step) + `</strong>: ` + safe(st.Summary) + ` <span class="mono ev">` + safe(st.Evidence) + `</span></li>`)
+			}
+			w(`</ol><table class="kv">`)
 		}
 		for _, e := range fd.EvidenceRefs {
 			w(kv("Evidence", e))
@@ -275,7 +375,8 @@ func ReadManifest(pkgDir string) (*casepkg.Manifest, error) {
 	return &man, nil
 }
 
-const reportCSS = `
+const reportCSS = `ol.chain{margin:6px 0 10px 18px;padding:0}ol.chain li{margin:4px 0}
+
 :root{--bg:#0b1120;--surface:#151f35;--border:#2b3a55;--text:#f1f5f9;--muted:#94a3b8;--accent:#22c55e;--red:#ef4444;--amber:#f59e0b}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,sans-serif;line-height:1.55}
 header{padding:32px 24px;border-bottom:1px solid var(--border);background:var(--surface)}

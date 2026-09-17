@@ -4,8 +4,8 @@
 
 | | |
 |---|---|
-| Rules (built-in + shipped packs) | **132** (51 built-in, 81 in `rules/`) |
-| HIGH / CRITICAL rules | 88, of which **86** carry a MITRE mapping |
+| Rules (built-in + shipped packs) | **140** (59 built-in, 81 in `rules/`) |
+| HIGH / CRITICAL rules | 96, of which **94** carry a MITRE mapping |
 | Distinct MITRE ATLAS techniques covered | **27** (ATLAS 5.6.0) |
 | Distinct MITRE ATT&CK techniques covered | **65** |
 
@@ -27,7 +27,7 @@ agentdfir rules list --packs rules --json   # machine-readable
 
 | ATLAS technique | Name | Rules |
 |---|---|---|
-| `AML.T0010` | AI Supply Chain Compromise | `MCP_ALL_PROJECT_SERVERS_TRUSTED`, `MCP_REMOTE_FETCH_COMMAND`, `MCP_SERVER_ADDED`, `MCP_SERVER_CHANGED`, `UNPINNED_MCP_PACKAGE` |
+| `AML.T0010` | AI Supply Chain Compromise | `CHAIN_INJECTION_TO_PUSH`, `MCP_ALL_PROJECT_SERVERS_TRUSTED`, `MCP_REMOTE_FETCH_COMMAND`, `MCP_SERVER_ADDED`, `MCP_SERVER_CHANGED`, `UNPINNED_MCP_PACKAGE` |
 | `AML.T0010.005` | AI Agent Tool | `MCP_UNPINNED_PACKAGE` (agentdfir-community) |
 | `AML.T0011.000` | Unsafe AI Artifacts | `UNSAFE_MODEL_ARTIFACT_LOAD` (agentdfir-community) |
 | `AML.T0011.001` | Malicious Package | `PACKAGE_INSTALL_FROM_URL` (agentdfir-community) |
@@ -44,14 +44,14 @@ agentdfir rules list --packs rules --json   # machine-readable
 | `AML.T0068` | LLM Prompt Obfuscation | `INVISIBLE_UNICODE_INSTRUCTION` |
 | `AML.T0072` | Reverse Shell | `REVERSE_SHELL` (agentdfir-community) |
 | `AML.T0075` | Cloud Service Discovery | `UNEXPECTED_NETWORK_DESTINATION`, `CLOUD_METADATA_ACCESS` (agentdfir-community) |
-| `AML.T0080.000` | Memory | `AGENT_CONTEXT_POISONING`, `INSTRUCTION_FROM_TOOL_RESULT`, `INSTRUCTION_FILE_REMOTE_CONTENT` (agentdfir-community), `MEMORY_INSTRUCTION_CALLOUT` (agentdfir-community) |
-| `AML.T0081` | Modify AI Agent Configuration | `AGENT_SELF_MODIFICATION`, `PERMISSION_BYPASS_ENABLED`, `PERMISSION_ESCALATION`, `AGENT_ADDS_MCP_SERVER` (agentdfir-community), `AGENT_CONFIG_SHELL_WRITE` (agentdfir-community), `CONFIG_HOOK_REMOTE_FETCH` (agentdfir-community), `MCP_AUTO_APPROVE_ALL` (agentdfir-community), `MCP_WILDCARD_PERMISSIONS` (agentdfir-starter) |
+| `AML.T0080.000` | Memory | `AGENT_CONTEXT_POISONING`, `CHAIN_CONTEXT_POISON_TO_EXEC`, `INSTRUCTION_FROM_TOOL_RESULT`, `INSTRUCTION_FILE_REMOTE_CONTENT` (agentdfir-community), `MEMORY_INSTRUCTION_CALLOUT` (agentdfir-community) |
+| `AML.T0081` | Modify AI Agent Configuration | `AGENT_SELF_MODIFICATION`, `CHAIN_ORPHAN_PERSISTENCE`, `PERMISSION_BYPASS_ENABLED`, `PERMISSION_ESCALATION`, `AGENT_ADDS_MCP_SERVER` (agentdfir-community), `AGENT_CONFIG_SHELL_WRITE` (agentdfir-community), `CONFIG_HOOK_REMOTE_FETCH` (agentdfir-community), `MCP_AUTO_APPROVE_ALL` (agentdfir-community), `MCP_WILDCARD_PERMISSIONS` (agentdfir-starter) |
 | `AML.T0083` | Credentials from AI Agent Configuration | `AGENT_CREDENTIAL_STORE_ACCESS` (agentdfir-community) |
 | `AML.T0084.001` | Tool Definitions | `AGENT_CONFIG_DISCOVERY` (agentdfir-community) |
-| `AML.T0086` | Exfiltration via AI Agent Tool Invocation | `POTENTIAL_DATA_EXFILTRATION`, `CLOUD_STORAGE_UPLOAD` (agentdfir-community), `CURL_FILE_UPLOAD` (agentdfir-community), `DNS_TUNNEL_TOOL` (agentdfir-community), `ENV_DUMP_TO_NETWORK` (agentdfir-community), `GIT_PUSH_TO_URL` (agentdfir-community), `REMOTE_COPY_TO_HOST` (agentdfir-community), `WEBHOOK_C2_EXFIL` (agentdfir-community), `PASTE_SITE_DESTINATION` (agentdfir-starter) |
+| `AML.T0086` | Exfiltration via AI Agent Tool Invocation | `CHAIN_SECRET_TO_EXFIL`, `CHAIN_SUBAGENT_CROSS_TALK_EXFIL`, `POTENTIAL_DATA_EXFILTRATION`, `CLOUD_STORAGE_UPLOAD` (agentdfir-community), `CURL_FILE_UPLOAD` (agentdfir-community), `DNS_TUNNEL_TOOL` (agentdfir-community), `ENV_DUMP_TO_NETWORK` (agentdfir-community), `GIT_PUSH_TO_URL` (agentdfir-community), `REMOTE_COPY_TO_HOST` (agentdfir-community), `WEBHOOK_C2_EXFIL` (agentdfir-community), `PASTE_SITE_DESTINATION` (agentdfir-starter) |
 | `AML.T0090` | OS Credential Dumping | `LSASS_CREDENTIAL_DUMP` (agentdfir-community), `MEMORY_CREDENTIAL_DUMP` (agentdfir-community), `SHADOW_FILE_ACCESS` (agentdfir-community) |
-| `AML.T0099` | AI Agent Tool Data Poisoning | `MCP_TOOL_POISONING` |
-| `AML.T0101` | Data Destruction via AI Agent Tool Invocation | `DESTRUCTIVE_COMMAND`, `DISK_WIPE` (agentdfir-community) |
+| `AML.T0099` | AI Agent Tool Data Poisoning | `CHAIN_MCP_RESULT_TO_DESTRUCTIVE`, `MCP_TOOL_POISONING` |
+| `AML.T0101` | Data Destruction via AI Agent Tool Invocation | `CHAIN_ACTION_THEN_LOG_TAMPER`, `DESTRUCTIVE_COMMAND`, `DISK_WIPE` (agentdfir-community) |
 | `AML.T0103` | Deploy AI Agent | `NESTED_AGENT_PERMISSION_BYPASS` (agentdfir-community) |
 | `AML.T0110` | AI Agent Tool Poisoning | `MCP_TOOL_DESCRIPTION_POISONING`, `TOOL_POISONING_INDICATOR` |
 
@@ -66,17 +66,17 @@ agentdfir rules list --packs rules --json   # machine-readable
 | [`T1036`](https://attack.mitre.org/techniques/T1036/) | `MCP_NAME_COLLISION` |
 | [`T1041`](https://attack.mitre.org/techniques/T1041/) | `POTENTIAL_DATA_EXFILTRATION`, `ENV_DUMP_TO_NETWORK` (agentdfir-community) |
 | [`T1046`](https://attack.mitre.org/techniques/T1046/) | `NETWORK_PORT_SCAN` (agentdfir-community) |
-| [`T1048`](https://attack.mitre.org/techniques/T1048/) | `DNS_TUNNEL_TOOL` (agentdfir-community), `REMOTE_COPY_TO_HOST` (agentdfir-community) |
+| [`T1048`](https://attack.mitre.org/techniques/T1048/) | `CHAIN_SECRET_TO_EXFIL`, `CHAIN_SUBAGENT_CROSS_TALK_EXFIL`, `DNS_TUNNEL_TOOL` (agentdfir-community), `REMOTE_COPY_TO_HOST` (agentdfir-community) |
 | [`T1048.003`](https://attack.mitre.org/techniques/T1048/003/) | `CURL_FILE_UPLOAD` (agentdfir-community) |
 | [`T1053`](https://attack.mitre.org/techniques/T1053/) | `CRON_PERSISTENCE` (agentdfir-community) |
 | [`T1053.005`](https://attack.mitre.org/techniques/T1053/005/) | `WINDOWS_SCHEDULED_TASK` (agentdfir-community) |
-| [`T1059`](https://attack.mitre.org/techniques/T1059/) | `SHELL_EXECUTION`, `BIND_SHELL_LISTENER` (agentdfir-community), `REVERSE_SHELL` (agentdfir-community) |
+| [`T1059`](https://attack.mitre.org/techniques/T1059/) | `CHAIN_CONTEXT_POISON_TO_EXEC`, `SHELL_EXECUTION`, `BIND_SHELL_LISTENER` (agentdfir-community), `REVERSE_SHELL` (agentdfir-community) |
 | [`T1059.001`](https://attack.mitre.org/techniques/T1059/001/) | `POWERSHELL_ENCODED_OR_REMOTE_EXEC` (agentdfir-community) |
 | [`T1059.004`](https://attack.mitre.org/techniques/T1059/004/) | `CONFIG_HOOK_REMOTE_FETCH` (agentdfir-community), `CURL_PIPE_SHELL` (agentdfir-community), `CURL_PIPE_SHELL` (agentdfir-starter) |
 | [`T1070`](https://attack.mitre.org/techniques/T1070/) | `ENDPOINT_CONTRADICTED_COMMAND`, `MCP_GATEWAY_UNLOGGED_CALL`, `UNLOGGED_AGENT_ACTIVITY` |
 | [`T1070.002`](https://attack.mitre.org/techniques/T1070/002/) | `OS_LOG_TAMPER` (agentdfir-community) |
 | [`T1070.003`](https://attack.mitre.org/techniques/T1070/003/) | `HISTORY_CLEARING` (agentdfir-community) |
-| [`T1070.004`](https://attack.mitre.org/techniques/T1070/004/) | `LOG_DELETION` |
+| [`T1070.004`](https://attack.mitre.org/techniques/T1070/004/) | `CHAIN_ACTION_THEN_LOG_TAMPER`, `LOG_DELETION` |
 | [`T1070.006`](https://attack.mitre.org/techniques/T1070/006/) | `TIMESTOMP_INDICATOR`, `TIMESTOMP_COMMAND` (agentdfir-community) |
 | [`T1071`](https://attack.mitre.org/techniques/T1071/) | `UNLOGGED_AGENT_NETWORK` |
 | [`T1074`](https://attack.mitre.org/techniques/T1074/) | `EVIDENCE_STAGING` (agentdfir-starter) |
@@ -85,15 +85,15 @@ agentdfir rules list --packs rules --json   # machine-readable
 | [`T1090.003`](https://attack.mitre.org/techniques/T1090/003/) | `ANON_PROXY_ROUTING` (agentdfir-community) |
 | [`T1098`](https://attack.mitre.org/techniques/T1098/) | `CLOUD_IAM_PERSISTENCE` (agentdfir-community) |
 | [`T1098.004`](https://attack.mitre.org/techniques/T1098/004/) | `KEY_MATERIAL_GENERATION` (agentdfir-community), `SSH_KEY_WRITE` (agentdfir-community) |
-| [`T1105`](https://attack.mitre.org/techniques/T1105/) | `MCP_REMOTE_FETCH_COMMAND`, `DOWNLOAD_THEN_EXECUTE` (agentdfir-community) |
+| [`T1105`](https://attack.mitre.org/techniques/T1105/) | `CHAIN_DOWNLOAD_AND_EXECUTE`, `MCP_REMOTE_FETCH_COMMAND`, `DOWNLOAD_THEN_EXECUTE` (agentdfir-community) |
 | [`T1115`](https://attack.mitre.org/techniques/T1115/) | `CLIPBOARD_CAPTURE` (agentdfir-community) |
 | [`T1136.001`](https://attack.mitre.org/techniques/T1136/001/) | `NEW_ACCOUNT_CREATED` (agentdfir-community) |
 | [`T1140`](https://attack.mitre.org/techniques/T1140/) | `BASE64_PIPE_SHELL` (agentdfir-community) |
 | [`T1195`](https://attack.mitre.org/techniques/T1195/) | `MCP_ALL_PROJECT_SERVERS_TRUSTED`, `MCP_PROJECT_SCOPED_SERVER` |
-| [`T1195.002`](https://attack.mitre.org/techniques/T1195/002/) | `MCP_SERVER_ADDED`, `MCP_SERVER_CHANGED`, `UNPINNED_MCP_PACKAGE`, `AGENT_ADDS_MCP_SERVER` (agentdfir-community), `MCP_UNPINNED_PACKAGE` (agentdfir-community), `PACKAGE_INSTALL_FROM_URL` (agentdfir-community), `PACKAGE_PUBLISH` (agentdfir-community) |
+| [`T1195.002`](https://attack.mitre.org/techniques/T1195/002/) | `CHAIN_INJECTION_TO_PUSH`, `MCP_SERVER_ADDED`, `MCP_SERVER_CHANGED`, `UNPINNED_MCP_PACKAGE`, `AGENT_ADDS_MCP_SERVER` (agentdfir-community), `MCP_UNPINNED_PACKAGE` (agentdfir-community), `PACKAGE_INSTALL_FROM_URL` (agentdfir-community), `PACKAGE_PUBLISH` (agentdfir-community) |
 | [`T1204.002`](https://attack.mitre.org/techniques/T1204/002/) | `UNSAFE_MODEL_ARTIFACT_LOAD` (agentdfir-community) |
 | [`T1222`](https://attack.mitre.org/techniques/T1222/) | `CHMOD_WORLD_WRITABLE` (agentdfir-community) |
-| [`T1485`](https://attack.mitre.org/techniques/T1485/) | `DESTRUCTIVE_COMMAND` |
+| [`T1485`](https://attack.mitre.org/techniques/T1485/) | `CHAIN_MCP_RESULT_TO_DESTRUCTIVE`, `DESTRUCTIVE_COMMAND` |
 | [`T1486`](https://attack.mitre.org/techniques/T1486/) | `BULK_FILE_ENCRYPTION` (agentdfir-community) |
 | [`T1496`](https://attack.mitre.org/techniques/T1496/) | `CRYPTOMINER_EXECUTION` (agentdfir-community) |
 | [`T1543`](https://attack.mitre.org/techniques/T1543/) | `SERVICE_PERSISTENCE` (agentdfir-community) |
@@ -115,7 +115,7 @@ agentdfir rules list --packs rules --json   # machine-readable
 | [`T1560.001`](https://attack.mitre.org/techniques/T1560/001/) | `CREDENTIAL_DIR_ARCHIVE` (agentdfir-community) |
 | [`T1561`](https://attack.mitre.org/techniques/T1561/) | `DISK_WIPE` (agentdfir-community) |
 | [`T1562`](https://attack.mitre.org/techniques/T1562/) | `MCP_GATEWAY_CONTRADICTED_CALL` |
-| [`T1562.001`](https://attack.mitre.org/techniques/T1562/001/) | `AGENT_SELF_MODIFICATION`, `INSTRUCTION_WRITTEN_BY_SUBAGENT`, `PERMISSION_BYPASS_ENABLED`, `PERMISSION_ESCALATION`, `DISABLE_SECURITY_TOOL` (agentdfir-community), `MCP_AUTO_APPROVE_ALL` (agentdfir-community), `NESTED_AGENT_PERMISSION_BYPASS` (agentdfir-community), `WINDOWS_DEFENSE_DISABLE` (agentdfir-community), `MCP_WILDCARD_PERMISSIONS` (agentdfir-starter) |
+| [`T1562.001`](https://attack.mitre.org/techniques/T1562/001/) | `AGENT_SELF_MODIFICATION`, `CHAIN_ORPHAN_PERSISTENCE`, `INSTRUCTION_WRITTEN_BY_SUBAGENT`, `PERMISSION_BYPASS_ENABLED`, `PERMISSION_ESCALATION`, `DISABLE_SECURITY_TOOL` (agentdfir-community), `MCP_AUTO_APPROVE_ALL` (agentdfir-community), `NESTED_AGENT_PERMISSION_BYPASS` (agentdfir-community), `WINDOWS_DEFENSE_DISABLE` (agentdfir-community), `MCP_WILDCARD_PERMISSIONS` (agentdfir-starter) |
 | [`T1562.004`](https://attack.mitre.org/techniques/T1562/004/) | `FIREWALL_DISABLE` (agentdfir-community) |
 | [`T1562.008`](https://attack.mitre.org/techniques/T1562/008/) | `CLOUD_LOGGING_DISABLE` (agentdfir-community) |
 | [`T1565.001`](https://attack.mitre.org/techniques/T1565/001/) | `AGENT_IDENTITY_MISMATCH`, `SESSION_TAMPERING`, `INSTRUCTION_FILE_REMOTE_CONTENT` (agentdfir-community) |
@@ -130,6 +130,11 @@ agentdfir rules list --packs rules --json   # machine-readable
 | Severity | Rule | Surface | ATT&CK | ATLAS | Source |
 |---|---|---|---|---|---|
 | CRITICAL | `BULK_FILE_ENCRYPTION` | command | T1486 | - | agentdfir-community |
+| CRITICAL | `CHAIN_ACTION_THEN_LOG_TAMPER` | transcript | T1070.004 | AML.T0101 | builtin |
+| CRITICAL | `CHAIN_CONTEXT_POISON_TO_EXEC` | transcript | T1059 | AML.T0080.000 | builtin |
+| CRITICAL | `CHAIN_MCP_RESULT_TO_DESTRUCTIVE` | transcript | T1485 | AML.T0099 | builtin |
+| CRITICAL | `CHAIN_ORPHAN_PERSISTENCE` | transcript | T1562.001 | AML.T0081 | builtin |
+| CRITICAL | `CHAIN_SECRET_TO_EXFIL` | transcript | T1048 | AML.T0086 | builtin |
 | CRITICAL | `DISK_WIPE` | command | T1561 | AML.T0101 | agentdfir-community |
 | CRITICAL | `LSASS_CREDENTIAL_DUMP` | command | T1003 | AML.T0090 | agentdfir-community |
 | CRITICAL | `MCP_REMOTE_FETCH_COMMAND` | mcp | T1105 | AML.T0010 | builtin |
@@ -144,6 +149,9 @@ agentdfir rules list --packs rules --json   # machine-readable
 | HIGH | `BASE64_PIPE_SHELL` | command | T1140 | AML.T0050 | agentdfir-community |
 | HIGH | `BIND_SHELL_LISTENER` | command | T1059 | AML.T0050 | agentdfir-community |
 | HIGH | `BROWSER_CREDENTIAL_ACCESS` | command | T1555.003 | AML.T0055 | agentdfir-community |
+| HIGH | `CHAIN_DOWNLOAD_AND_EXECUTE` | command | T1105 | - | builtin |
+| HIGH | `CHAIN_INJECTION_TO_PUSH` | transcript | T1195.002 | AML.T0010 | builtin |
+| HIGH | `CHAIN_SUBAGENT_CROSS_TALK_EXFIL` | transcript | T1048 | AML.T0086 | builtin |
 | HIGH | `CLOUD_CREDENTIAL_EXPORT` | command | T1552.005 | AML.T0055 | agentdfir-community |
 | HIGH | `CLOUD_IAM_PERSISTENCE` | command | T1098 | - | agentdfir-community |
 | HIGH | `CLOUD_LOGGING_DISABLE` | command | T1562.008 | - | agentdfir-community |

@@ -28,6 +28,8 @@ import (
 
 	"github.com/efij/AgentDFIR/internal/analysis"
 	"github.com/efij/AgentDFIR/internal/casepkg"
+	"github.com/efij/AgentDFIR/internal/chain"
+	"github.com/efij/AgentDFIR/internal/notes"
 	"github.com/efij/AgentDFIR/internal/report"
 	"github.com/efij/AgentDFIR/internal/sanitize"
 	"github.com/efij/AgentDFIR/internal/schema"
@@ -57,6 +59,9 @@ type Server struct {
 	entities  []schema.Entity
 	rels      []schema.Relationship
 	truncated bool
+	byRef     map[string]string   // evidence reference → event id
+	flagged   map[string][]string // event id → rule ids citing it
+	notes     *notes.Store
 	mu        sync.RWMutex
 }
 
@@ -108,6 +113,24 @@ func Load(pkg string, opts Options) (*Server, error) {
 		}
 	}
 	s.findings = analysis.LoadFindings(pkg)
+	s.byRef = chain.RefIndex(s.events)
+	s.flagged = map[string][]string{}
+	for _, f := range s.findings {
+		seen := map[string]bool{}
+		for _, ref := range f.EvidenceRefs {
+			if id := chain.EventForRef(s.byRef, ref); id != "" && !seen[id] {
+				seen[id] = true
+				s.flagged[id] = append(s.flagged[id], f.RuleID)
+			}
+		}
+		for _, st := range f.ChainSteps {
+			if !seen[st.EventID] {
+				seen[st.EventID] = true
+				s.flagged[st.EventID] = append(s.flagged[st.EventID], f.RuleID)
+			}
+		}
+	}
+	s.notes = notes.Open(pkg)
 	return s, nil
 }
 
@@ -133,6 +156,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/graph", s.apiGraph)
 	mux.HandleFunc("/api/buckets", s.apiBuckets)
 	mux.HandleFunc("/api/extras", s.apiExtras)
+	mux.HandleFunc("/api/sessions", s.apiSessions)
+	mux.HandleFunc("/api/chain", s.apiChain)
+	mux.HandleFunc("/api/search", s.apiSearch)
+	mux.HandleFunc("/api/notes", s.apiNotes)
 	return guard(mux)
 }
 
@@ -149,8 +176,15 @@ func guard(next http.Handler) http.Handler {
 			return
 		}
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
-			http.Error(w, "read-only", http.StatusMethodNotAllowed)
-			return
+			// The one write: analyst notes, which live outside the sealed zone.
+			// Same-origin only (no cross-site form or fetch can carry the header),
+			// so a page in another tab cannot forge case-file entries.
+			if r.Method != http.MethodPost || r.URL.Path != "/api/notes" || r.Header.Get("X-AgentDFIR-Notes") != "1" ||
+				(r.Header.Get("Sec-Fetch-Site") != "" && r.Header.Get("Sec-Fetch-Site") != "same-origin") ||
+				!originIsLoopback(r.Header.Get("Origin")) {
+				http.Error(w, "read-only", http.StatusMethodNotAllowed)
+				return
+			}
 		}
 		w.Header().Set("Content-Security-Policy", "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src data:; connect-src 'self'; base-uri 'none'; form-action 'none'")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -158,6 +192,19 @@ func guard(next http.Handler) http.Handler {
 		w.Header().Set("Cache-Control", "no-store")
 		next.ServeHTTP(w, r)
 	})
+}
+
+// originIsLoopback accepts a missing Origin (same-origin fetch in most
+// browsers sends it, but not all) or one that names the loopback host.
+func originIsLoopback(o string) bool {
+	if o == "" {
+		return true
+	}
+	o = strings.TrimPrefix(o, "http://")
+	if h, _, err := net.SplitHostPort(o); err == nil {
+		o = h
+	}
+	return o == "127.0.0.1" || o == "localhost" || o == "::1" || o == "[::1]"
 }
 
 func (s *Server) ui(w http.ResponseWriter, r *http.Request) {
@@ -202,10 +249,17 @@ func (s *Server) apiCase(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	sev := map[string]int{}
+	chains := 0
 	for _, f := range s.findings {
 		sev[f.Severity]++
+		if len(f.ChainSteps) > 0 {
+			chains++
+		}
 	}
+	nst, _ := s.notes.Load()
 	out := map[string]any{
+		"chains":    chains,
+		"notes":     map[string]any{"records": nst.Records, "verdicts": len(nst.Verdicts), "pins": len(nst.Pins), "chain_ok": nst.ChainOK},
 		"version":   version.Version,
 		"package":   filepath.Base(s.pkg),
 		"manifest":  s.man,
@@ -373,17 +427,7 @@ func (s *Server) apiRaw(w http.ResponseWriter, r *http.Request) {
 func (s *Server) apiFindings(w http.ResponseWriter, r *http.Request) {
 	out := make([]map[string]any, 0, len(s.findings))
 	for i, f := range s.findings {
-		evID := ""
-		if len(f.EvidenceRefs) > 0 {
-			evID = s.eventForRef(f.EvidenceRefs[0])
-		}
-		out = append(out, map[string]any{
-			"index": i, "rule_id": f.RuleID, "severity": f.Severity, "title": sanitize.Terminal(f.Title),
-			"description": sanitize.Terminal(f.Description), "session": f.SessionID, "agent": f.AgentID, "parent": f.ParentAgentID,
-			"status": f.Status, "endpoint": f.Endpoint, "mitre_attack": f.MitreATTACK, "mitre_atlas": f.MitreATLAS,
-			"evidence": sanitizeAll(f.EvidenceRefs), "related": sanitizeAll(f.Related), "false_positive": sanitize.Terminal(f.FalsePositive),
-			"event_id": evID,
-		})
+		out = append(out, s.findingRow(i, f))
 	}
 	sort.SliceStable(out, func(i, j int) bool {
 		return sevRank(out[i]["severity"].(string)) > sevRank(out[j]["severity"].(string))
@@ -391,28 +435,33 @@ func (s *Server) apiFindings(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, out)
 }
 
-// eventForRef resolves "path:line (artifact …)" to an event id.
-func (s *Server) eventForRef(ref string) string {
-	i := strings.Index(ref, " (artifact ")
-	if i < 0 {
-		return ""
-	}
-	pl := ref[:i]
-	c := strings.LastIndex(pl, ":")
-	if c < 0 {
-		return ""
-	}
-	line, err := strconv.Atoi(pl[c+1:])
-	if err != nil {
-		return ""
-	}
-	path := pl[:c]
-	for _, e := range s.events {
-		if e.SourceLine == line && e.SourcePath == path {
-			return e.EventID
+// findingRow is the sanitized finding the UI lists; chain findings carry
+// their steps so the list can show "3 steps" and the tree can open instantly.
+func (s *Server) findingRow(i int, f schema.Finding) map[string]any {
+	evID := ""
+	for _, ref := range f.EvidenceRefs {
+		if evID = chain.EventForRef(s.byRef, ref); evID != "" {
+			break
 		}
 	}
-	return ""
+	if evID == "" && len(f.ChainSteps) > 0 {
+		evID = f.ChainSteps[len(f.ChainSteps)-1].EventID
+	}
+	row := map[string]any{
+		"index": i, "rule_id": f.RuleID, "severity": f.Severity, "title": sanitize.Terminal(f.Title),
+		"description": sanitize.Terminal(f.Description), "session": f.SessionID, "agent": f.AgentID, "parent": f.ParentAgentID,
+		"status": f.Status, "endpoint": f.Endpoint, "mitre_attack": f.MitreATTACK, "mitre_atlas": f.MitreATLAS,
+		"evidence": sanitizeAll(f.EvidenceRefs), "related": sanitizeAll(f.Related), "false_positive": sanitize.Terminal(f.FalsePositive),
+		"event_id": evID, "key": notes.FindingKey(f.RuleID, f.EvidenceRefs), "chain": len(f.ChainSteps) > 0,
+	}
+	if len(f.ChainSteps) > 0 {
+		steps := make([]map[string]any, 0, len(f.ChainSteps))
+		for _, st := range f.ChainSteps {
+			steps = append(steps, map[string]any{"step": sanitize.Terminal(st.Step), "event_id": st.EventID, "ts": st.Timestamp, "agent": st.AgentID, "summary": sanitize.Terminal(st.Summary)})
+		}
+		row["steps"] = steps
+	}
+	return row
 }
 
 // ---- /api/graph ----

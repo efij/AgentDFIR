@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/efij/AgentDFIR/internal/chain"
 	"github.com/efij/AgentDFIR/internal/correlate"
 	"github.com/efij/AgentDFIR/internal/detect"
 	"github.com/efij/AgentDFIR/internal/endpoint"
@@ -53,6 +54,7 @@ type Result struct {
 	Correlation  *correlate.EndpointResult
 	MCPServers   int
 	Provenance   int // instruction files attributed
+	Chains       int // attack-chain findings
 	StageNotes   []string
 }
 
@@ -253,7 +255,21 @@ func Run(pkg string, o Options) (*Result, error) {
 		res.StageNotes = append(res.StageNotes, "provenance skipped: "+err.Error())
 	}
 
-	// ---- 7. one findings file, severity-sorted, de-duplicated.
+	// ---- 7. attack chains: toxic combinations across the findings above.
+	chains := append([]chain.Chain(nil), chain.Builtin...)
+	if o.RulesDir != "" {
+		extra, err := chain.LoadDir(o.RulesDir)
+		if err != nil {
+			return nil, fmt.Errorf("chain packs: %w", err)
+		}
+		chains = append(chains, extra...)
+	}
+	cf := chain.Run(LoadEvents(pkg), findings, chains)
+	res.Chains = len(cf)
+	findings = append(findings, cf...)
+	o.logf("Attack chains: %d chain(s) evaluated, %d matched", len(chains), len(cf))
+
+	// ---- 8. one findings file, severity-sorted, de-duplicated.
 	findings = dedupe(findings)
 	sortBySeverity(findings)
 	res.Findings = findings
@@ -261,7 +277,7 @@ func Run(pkg string, o Options) (*Result, error) {
 	writeJSON(filepath.Join(detDir, "analysis.json"), map[string]any{
 		"analyzed_utc": time.Now().UTC().Format(time.RFC3339), "events": res.Events, "renormalized": res.Renormalized,
 		"findings": len(findings), "endpoint_logs": o.EndpointLogs, "gateway_log": o.GatewayLog, "rules_dir": o.RulesDir,
-		"honeytokens": len(o.Honeytokens), "notes": res.StageNotes,
+		"honeytokens": len(o.Honeytokens), "chains": res.Chains, "notes": res.StageNotes,
 	})
 	return res, nil
 }

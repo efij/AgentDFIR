@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/efij/AgentDFIR/internal/notes"
 	"github.com/efij/AgentDFIR/internal/sanitize"
 	"github.com/efij/AgentDFIR/internal/schema"
 	"github.com/efij/AgentDFIR/internal/version"
@@ -405,6 +406,15 @@ func WritePDF(c *Case, custody []CustodyRecord, signature string, path string, o
 		for _, r := range f.Related {
 			d.text("F1", 8.5, 8, "Related: "+r)
 		}
+		for si, st := range f.ChainSteps {
+			d.text("F1", 8.5, 8, fmt.Sprintf("Step %d — %s: %s", si+1, st.Step, st.Summary))
+			d.mono("        " + st.Timestamp + "  " + st.Evidence)
+		}
+		if c.Notes != nil {
+			if v, ok := c.Notes.Verdicts[notes.FindingKey(f.RuleID, f.EvidenceRefs)]; ok {
+				d.text("F2", 8.5, 8, "Analyst verdict: "+v.Verdict+" — "+v.Note+" ("+v.Operator+", "+v.TS+")")
+			}
+		}
 		for _, e := range f.EvidenceRefs {
 			d.mono("Evidence: " + e)
 		}
@@ -414,6 +424,48 @@ func WritePDF(c *Case, custody []CustodyRecord, signature string, path string, o
 	}
 	if len(sorted) == 0 {
 		d.text("F1", pdfBodySize, 8, "No findings.")
+	}
+
+	// --- Analyst investigation
+	if n := c.Notes; n != nil && n.Records > 0 {
+		d.h2("Analyst investigation")
+		if !n.ChainOK {
+			d.text("F2", pdfBodySize, 0, "Case-file hash chain BROKEN: "+n.ChainErr)
+		}
+		d.kv("Records", fmt.Sprintf("%d  ·  verdicts %d  ·  pinned %d", n.Records, len(n.Verdicts), len(n.Pins)))
+		byID := map[string]schema.Event{}
+		for _, e := range c.Events {
+			byID["event:"+e.EventID] = e
+		}
+		for _, p := range n.Pins {
+			d.ensure(24)
+			if e, ok := byID[p.Target]; ok {
+				detail := e.Summary
+				if e.Command != "" {
+					detail = "$ " + e.Command
+				} else if e.File != "" {
+					detail = e.Tool + " " + e.File
+				}
+				d.text("F1", 8.5, 8, "Pinned: "+e.Timestamp+"  "+e.EventType+"  "+e.AgentID+"  "+detail)
+				d.mono("        " + fmt.Sprintf("%s:%d", e.SourcePath, e.SourceLine))
+			} else {
+				d.text("F1", 8.5, 8, "Pinned: "+p.Target)
+			}
+			if p.Note != "" {
+				d.text("F1", 8.5, 16, "Note: "+p.Note)
+			}
+		}
+		for sid, tags := range n.Tags {
+			if len(tags) > 0 {
+				d.text("F1", 8.5, 8, "Session "+sid+" tags: "+strings.Join(tags, ", "))
+			}
+		}
+		for target, list := range n.Notes {
+			for _, rec := range list {
+				d.ensure(20)
+				d.text("F1", 8.5, 8, rec.TS+"  "+rec.Operator+"  on "+target+": "+rec.Text)
+			}
+		}
 	}
 
 	// --- Timeline excerpt

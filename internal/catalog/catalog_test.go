@@ -19,10 +19,10 @@ import (
 //
 // Rule IDs always contain an underscore, which keeps severity and state
 // constants ("HIGH", "OBSERVED") out of the match.
-var ruleIDRe = regexp.MustCompile(`(?m)(?:RuleID:\s*|\bfinding\(|\},\s*)"([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)",?\s*$?`)
+var ruleIDRe = regexp.MustCompile(`(?m)(?:RuleID:\s*|\bfinding\(|\},\s*|^\s*ID:\s*)"([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)",?\s*$?`)
 
 // emittingPackages are the Go packages whose findings the catalog mirrors.
-var emittingPackages = []string{"detect", "mcpaudit", "provenance", "correlate"}
+var emittingPackages = []string{"detect", "mcpaudit", "provenance", "correlate", "chain"}
 
 // TestCatalogMatchesSource fails when a rule ID emitted by the code has no
 // catalog entry, or a catalog entry names a rule the code never emits.

@@ -91,7 +91,7 @@ go build -trimpath -o agentdfir ./cmd/agentdfir
 agentdfir detect                                   # 1. what AI agents are on this machine (never runs them)
 agentdfir collect --product claude                 # 2. sealed, hash-chained evidence package
 agentdfir analyze CASE-2026-042.adfir              # 3. every analysis stage, one command
-agentdfir serve   CASE-2026-042.adfir --open       # 4. browse: agent tree, timeline, raw evidence, findings
+agentdfir serve   CASE-2026-042.adfir --open       # 4. browse: sessions, attack chains, timeline, search, case notes
 ```
 
 Add a second witness and the same commands upgrade every finding from *the agent says* to *the OS confirms*:
@@ -118,6 +118,18 @@ HIGH — Unexpected Agent Activity [ORPHAN_AGENT]
 ```
 
 No auto-escalation to "compromise" or "exfiltration" — findings state exactly what the evidence shows, with clickable references to the raw artifact behind every claim.
+
+## 🔎 From findings to a story — the investigation layer (v1.0)
+
+A list of 700 findings is not an answer. The explorer (`agentdfir serve`) turns it into one:
+
+- **Sessions first.** One card per session, worst first: what was asked, how long it ran, how many tool calls, agents, files, destinations, MCP servers, how much of it the OS confirms, and which attack chains hit. Click a card, get that session's timeline with its metadata on top.
+- **Attack chains (toxic combinations).** Individually unremarkable steps that together are an attack: *injection in a tool result → agent rewrites its own instructions → shell runs*, *secret read → upload*, *orphan agent → config change → tool use*, *poisoned MCP result → destructive command*, *injection → commit → push*, *action → log deletion*… Eight ship built in, matched inside one session or one agent's lineage within a time window, mapped to MITRE ATLAS / ATT&CK. Add your own as `*.chains.json` ([docs](docs/attack-chains.md)).
+- **How it happened.** Select any finding and see the tree behind it: the steps in order, and under each step what led there — the human prompt before it, the tool result the agent had just consumed, the spawn that created the agent. Every node is a real transcript line you can open. "What led here" walks further back.
+- **Search everything.** `Ctrl+K`: every event field, every finding, and the raw bytes of every sealed artifact, live, in seconds, regex or literal.
+- **Case file.** Mark findings true / false positive / needs review, pin key evidence, tag sessions, write notes. Saved as a hash-chained log outside the sealed evidence, attributed to you, and rendered as an *Analyst Investigation* section in the PDF and HTML reports.
+
+Try it on a synthetic incident: `agentdfir simulate --scenario toxic-chain --out ./sim && HOME=./sim agentdfir run`.
 
 ## 📦 The `.adfir` evidence package
 
@@ -168,8 +180,9 @@ Ships with wrappers for tools IR teams already run:
 |---|---|
 | ✅ | Sealed `.adfir` packages, hash-chained custody, `verify` |
 | ✅ | Claude Code: detect, collect, normalize, timeline, triage |
-| ✅ | [132 deterministic detections](docs/detection-coverage.md) (51 built-in + 81 pack rules; 88 HIGH/CRITICAL, every one mapped to MITRE ATLAS 5.6 / ATT&CK — 27 ATLAS and 65 ATT&CK techniques): rogue/orphan agents, exfiltration via tool invocation, context/memory/tool/MCP poisoning, agent credential-store theft, agent config modification, jailbreak & system-prompt extraction, secret & sensitive-file access, persistence (rc files, services, run keys, git hooks), credential dumping, bulk encryption, self-modification, log deletion, timestomping, session tampering… `agentdfir rules list` prints the matrix |
-| ✅ | `simulate` — synthetic incident generation (adversary emulation for AI agents) |
+| ✅ | [140 deterministic detections](docs/detection-coverage.md) (59 built-in incl. 8 attack chains + 81 pack rules; 96 HIGH/CRITICAL, every one mapped to MITRE ATLAS 5.6 / ATT&CK — 27 ATLAS and 65 ATT&CK techniques): rogue/orphan agents, exfiltration via tool invocation, context/memory/tool/MCP poisoning, agent credential-store theft, agent config modification, jailbreak & system-prompt extraction, secret & sensitive-file access, persistence (rc files, services, run keys, git hooks), credential dumping, bulk encryption, self-modification, log deletion, timestomping, session tampering… `agentdfir rules list` prints the matrix |
+| ✅ | `simulate` — synthetic incident generation (adversary emulation for AI agents): `orphan-agent`, `toxic-chain` |
+| ✅ | [Attack chains](docs/attack-chains.md), session cards, investigation tree, whole-case search and the hash-chained analyst case file in the [explorer](docs/serve.md) (v1.0) |
 | ✅ | Full parsers for 12 products: Claude Code, Codex, Gemini CLI, Cursor, Copilot CLI, Copilot Chat (VS Code), Cline, Roo, OpenClaw, OpenCode, Aider, Warp |
 | ✅ | [Endpoint corroboration](docs/endpoint-corroboration.md) — auditd, Sysmon XML, Velociraptor/osquery/eslogger/EDR exports: tool calls → CORROBORATED / CONTRADICTED, unlogged agent processes and connections surfaced |
 | ✅ | Reports: network-silent HTML, self-contained PDF (stdlib writer, no renderer deps), JSON, CSV, STIX 2.1, OTel · [OCSF 1.3, SARIF 2.1, Sigma export](docs/siem-interop.md) for SIEM/SOC pipelines |
