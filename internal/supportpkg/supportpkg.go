@@ -71,6 +71,9 @@ func Export(srcPkg, dstPkg string) (*RedactionManifest, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Releases the package lock and closes the manifest and chain files on
+	// every path that returns before sealing; a no-op once Seal ran.
+	defer b.Close()
 
 	rm := &RedactionManifest{
 		GeneratedUTC:  time.Now().UTC().Format(time.RFC3339),

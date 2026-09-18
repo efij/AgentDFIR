@@ -260,21 +260,29 @@ func Status() (*Stats, error) {
 
 // GCResult reports what collection would remove, or did remove.
 type GCResult struct {
-	DryRun  bool
-	Removed int
-	Bytes   int64
+	DryRun    bool
+	Removed   int
+	Bytes     int64
+	Supported bool // false where link counts are unavailable
 }
 
 // GC drops shared blobs no case references. A blob whose link count is
 // still above one is live in at least one package and is never touched.
 // dryRun is the caller's default: deleting evidence bytes, even
 // unreferenced ones, is not something to do without being asked.
+//
+// Where link counts are unavailable (see LinkCountsAvailable) this reports
+// nothing to collect rather than guessing. Refusing to reclaim disk is a
+// far smaller failure than deleting evidence a case still points at.
 func GC(dryRun bool) (*GCResult, error) {
 	s, err := Open()
 	if err != nil {
 		return nil, err
 	}
-	res := &GCResult{DryRun: dryRun}
+	res := &GCResult{DryRun: dryRun, Supported: LinkCountsAvailable}
+	if !LinkCountsAvailable {
+		return res, nil
+	}
 	err = filepath.WalkDir(s.dir, func(path string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return nil

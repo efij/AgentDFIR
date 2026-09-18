@@ -16,6 +16,11 @@ func checkOwner(string, os.FileInfo) error { return nil }
 // lives under LOCALAPPDATA, which is already scoped to the account.
 const PermissionsAreReal = false
 
+// LinkCountsAvailable is false on Windows: os.FileInfo carries no link
+// count there, so the store cannot prove a blob is unreferenced and will
+// not delete one on a guess.
+const LinkCountsAvailable = false
+
 // linkCount is not available through os.FileInfo on Windows. Reporting 2
 // means "assume referenced", so garbage collection never deletes a blob it
 // cannot prove is unreferenced.

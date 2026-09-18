@@ -26,6 +26,11 @@ func checkOwner(dir string, fi os.FileInfo) error {
 // enforcing on the evidence home.
 const PermissionsAreReal = true
 
+// LinkCountsAvailable reports whether this platform can say how many
+// directory entries point at a file, which is how the shared store knows a
+// blob is no longer referenced by any case.
+const LinkCountsAvailable = true
+
 // linkCount reports how many directory entries point at this inode. A
 // shared blob with exactly one is referenced by no case.
 func linkCount(fi os.FileInfo) uint64 {

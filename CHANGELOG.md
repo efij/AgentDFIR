@@ -111,6 +111,10 @@ Measured on the profile above (2.5 GB `~/.claude`, 1.3 GB `~/.codex`,
   every transcript collected on the machine; see `SECURITY.md`.
 
 ### Platform notes
+- `store gc` cannot prove a blob is unreferenced on Windows, where
+  `os.FileInfo` carries no link count. It reports that plainly and removes
+  nothing rather than guessing: refusing to reclaim disk is a much smaller
+  failure than deleting evidence a case still points at.
 - Carry-forward (skipping the re-read of an unchanged file) needs a change
   time an unprivileged writer cannot set. Unix has `ctime`; Windows exposes
   neither a change time nor a file index through `os.FileInfo`, so Windows

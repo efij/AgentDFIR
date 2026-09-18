@@ -44,6 +44,12 @@ func storeStatus() int {
 	fmt.Printf("Home:          %s\n", home)
 	fmt.Printf("Store:         %s\n", st.Dir)
 	fmt.Printf("Blobs:         %d (%s)\n", st.Blobs, humanBytes(st.Bytes))
+	if !store.LinkCountsAvailable {
+		fmt.Println("Unreferenced:  unknown on this platform — the OS does not report how many")
+		fmt.Println("               cases link to a blob, so the store never deletes on a guess.")
+		fmt.Println("               Delete the whole store directory to reclaim it.")
+		return 0
+	}
 	fmt.Printf("Unreferenced:  %d (%s) — no case links to these any more\n", st.Unreferenced, humanBytes(st.UnreferencedBytes))
 	if st.Unreferenced > 0 {
 		fmt.Println("\nReclaim them with: agentdfir store gc --delete")
@@ -61,6 +67,12 @@ func storeGC(args []string) int {
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
+	}
+	if !res.Supported {
+		fmt.Println("This platform does not report how many cases link to a blob, so the shared")
+		fmt.Println("store cannot prove one is unreferenced and will not delete on a guess.")
+		fmt.Println("Nothing was removed. Delete the store directory itself to reclaim it.")
+		return 0
 	}
 	if res.DryRun {
 		fmt.Printf("Would remove %d unreferenced blob(s), reclaiming %s.\n", res.Removed, humanBytes(res.Bytes))

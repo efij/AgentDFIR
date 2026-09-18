@@ -1014,6 +1014,7 @@ func (b *Builder) Seal() error {
 	if err := b.mf.Close(); err != nil {
 		return err
 	}
+	b.coll, b.custody, b.mf = nil, nil, nil
 
 	b.caseInfo.Rounds = append(b.caseInfo.Rounds, Round{
 		Round:            b.round,
@@ -1040,8 +1041,32 @@ func (b *Builder) Seal() error {
 	return nil
 }
 
-// Close releases the package lock without sealing. Safe to call after Seal.
+// Close releases a builder that will not be sealed: it closes the manifest
+// and both hash-chain files and drops the package lock. Safe to call after
+// Seal, and safe to call twice.
+//
+// Closing the files matters beyond tidiness. A caller that hits an error
+// mid-collection abandons the builder, and on Windows an open handle stops
+// the package directory from being removed at all.
 func (b *Builder) Close() {
+	if b.sealed {
+		if b.lock != nil {
+			b.lock.release()
+		}
+		return
+	}
+	if b.coll != nil {
+		_ = b.coll.Close()
+		b.coll = nil
+	}
+	if b.custody != nil {
+		_ = b.custody.Close()
+		b.custody = nil
+	}
+	if b.mf != nil {
+		_ = b.mf.Close()
+		b.mf = nil
+	}
 	if b.lock != nil {
 		b.lock.release()
 	}

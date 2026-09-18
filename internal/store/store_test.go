@@ -91,6 +91,9 @@ func TestAdoptThenLinkReusesGenuineBytes(t *testing.T) {
 // live evidence and must never be collected. One whose only remaining
 // link is the store's own is referenced by no case.
 func TestGCOnlyRemovesUnreferencedBlobs(t *testing.T) {
+	if !LinkCountsAvailable {
+		t.Skip("no link counts on this platform; the store never deletes on a guess")
+	}
 	testHome(t)
 	s, err := Open()
 	if err != nil {

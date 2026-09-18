@@ -456,6 +456,13 @@ func TestSecondWriterIsRefused(t *testing.T) {
 		t.Fatalf("lock not released after sealing: %v", err)
 	}
 	b2.Close()
+	// Close must leave nothing open: a third writer can take the lock, and
+	// on Windows the package directory must be removable.
+	b3, err := Reopen(pkg, CaseInfo{OperatorOSUser: "tester"})
+	if err != nil {
+		t.Fatalf("lock not released by Close: %v", err)
+	}
+	b3.Close()
 }
 
 // TestLegacyPackageStaysReadable: packages written before manifest.jsonl
