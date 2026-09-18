@@ -13,10 +13,7 @@ package provenance
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -87,6 +84,7 @@ func Run(pkgDir string, events []schema.Event, filter string) (*Report, error) {
 	if err != nil {
 		return nil, err
 	}
+	store := casepkg.NewStore(pkgDir, man)
 	// Index events by session for trigger lookup (chronological order = sequence).
 	bySession := map[string][]int{}
 	for i, ev := range events {
@@ -98,7 +96,7 @@ func Run(pkgDir string, events []schema.Event, filter string) (*Report, error) {
 		if ev.EventType != schema.EventToolCall {
 			continue
 		}
-		w, ok := extractWrite(pkgDir, ev)
+		w, ok := extractWrite(store, ev)
 		if !ok {
 			continue
 		}
@@ -108,14 +106,14 @@ func Run(pkgDir string, events []schema.Event, filter string) (*Report, error) {
 	rep := &Report{}
 	// Target files.
 	targets := map[string]bool{}
-	for _, a := range man.Artifacts {
+	for _, a := range man.Current() {
 		if a.Status != casepkg.StatusOK || !instructionCategories[a.ArtifactType] || a.Size > MaxFileBytes || a.Size == 0 {
 			continue
 		}
 		if filter != "" && !strings.Contains(a.LogicalPath, filter) {
 			continue
 		}
-		fr, err := attributeFile(pkgDir, a, writes)
+		fr, err := attributeFile(store, a, writes)
 		if err != nil || fr == nil {
 			continue
 		}
@@ -147,8 +145,8 @@ func Run(pkgDir string, events []schema.Event, filter string) (*Report, error) {
 
 // attributeFile maps each line of the collected file to the latest write
 // whose content contains it.
-func attributeFile(pkgDir string, a casepkg.ArtifactRecord, writes []Write) (*FileReport, error) {
-	data, err := os.ReadFile(filepath.Join(pkgDir, "raw", a.ArtifactID))
+func attributeFile(store *casepkg.Store, a casepkg.ArtifactRecord, writes []Write) (*FileReport, error) {
+	data, err := store.ReadAll(a.ArtifactID, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -348,16 +346,10 @@ func evaluate(rep *Report, writes []Write) []schema.Finding {
 
 // ---- helpers ----
 
+// readManifest reads the package manifest in whichever form it was
+// written (append-only manifest.jsonl, or the legacy manifest.json array).
 func readManifest(pkgDir string) (*casepkg.Manifest, error) {
-	data, err := os.ReadFile(filepath.Join(pkgDir, "manifest.json"))
-	if err != nil {
-		return nil, fmt.Errorf("read manifest: %w", err)
-	}
-	var man casepkg.Manifest
-	if err := json.Unmarshal(data, &man); err != nil {
-		return nil, fmt.Errorf("parse manifest: %w", err)
-	}
-	return &man, nil
+	return casepkg.ReadManifest(pkgDir)
 }
 
 func normPath(p string) string { return strings.ToLower(strings.ReplaceAll(p, "\\", "/")) }

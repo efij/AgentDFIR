@@ -137,12 +137,13 @@ Every acquisition produces a sealed, self-describing, independently parseable pa
 
 ```
 case.adfir/
-├── raw/<sha256>            content-addressed evidence bytes (deduped)
-├── manifest.json           per-artifact metadata + logical paths
+├── raw/<sha256>[.gz]       content-addressed evidence bytes (deduped, compressed when it pays)
+├── manifest.jsonl          append-only per-artifact metadata + logical paths
 ├── collection.jsonl        hash-chained collection log
 ├── chain-of-custody.jsonl  hash-chained custody log
-├── case.json               case, operator, timezone/clock metadata
-├── SHA256SUMS              covers the sealed zone exactly
+├── case.json               case, operator, timezone/clock metadata, per-round summaries
+├── seals/SHA256SUMS.<n>    the seal each earlier round was closed with
+├── SHA256SUMS              covers the sealed zone exactly, as of the latest round
 ├── normalized/             events / entities / relationships (regenerable)
 └── detections/             findings.json
 ```
@@ -150,10 +151,40 @@ case.adfir/
 **Acquisition guarantees:**
 
 - 🔒 **Lossless** — nothing redacted or rewritten at collection time
-- #️⃣ **Hash-while-copy** — hashes describe exactly the preserved bytes; torn-read detection for files a live agent is still writing
-- 🔗 **Symlinks never followed** — a planted symlink can't pull `~/.ssh` into evidence
-- 📝 **Every failure recorded** — access denied, size bounds, irregular files
+- #️⃣ **Hash-while-copy** — `artifact_id` is the SHA-256 of the **plaintext**, whatever the bytes on disk look like; `stored_sha256` covers the stored bytes, so compression can never mask tampering. Torn-read detection for files a live agent is still writing
+- 🔗 **Symlinks never followed** — a planted symlink can't pull `~/.ssh` into evidence, and sources are opened `O_NOFOLLOW` with a post-open identity check so the window between classifying a path and reading it isn't exploitable
+- 📝 **Every failure recorded** — access denied, size bounds, irregular files, policy exclusions
 - 🧾 **Tamper-evident** — hash-chained logs detect edits, deletions and forged appends; `verify` catches a single flipped byte
+- 🧊 **Compressed and deduped** — identical bytes are stored once, and text evidence is gzipped (any analyst can `gunzip` one blob without this tool). A real macOS profile: **3.9 GB of sources → 525 MB sealed**
+
+### Repeat collections add a round, they don't copy everything again
+
+`agentdfir run` writes to one case per host/user under `$AGENTDFIR_HOME`
+(default `~/.agentdfir`), so running it from a different directory extends
+that case instead of producing another multi-gigabyte copy. A second round:
+
+- carries forward files that are unchanged by **size, inode and ctime** — never mtime alone, which any writer can set — recorded as `carried_forward` with the round that actually read them, so carried evidence is never presented as a fresh acquisition
+- stores only the **new tail** of a transcript that grew, after proving the earlier bytes still hash to what was preserved
+- continues both hash chains from their previous last line (a chain that is already broken is refused, not extended) and archives the seal that closed the previous round
+
+On the same machine as above, a second run re-read 10 files, carried 8,269
+forward, and added **157 KB** to disk.
+
+On Windows, carry-forward is off by design — there is no change time an
+unprivileged writer cannot set — so rounds re-read their sources there.
+That costs read time, not storage: unchanged content dedupes against what
+the package already holds, and grown transcripts still store only the tail.
+
+Identical blobs are shared between cases by hardlink through
+`agentdfir store status` / `store gc`; each case directory still holds real
+files, so `cp -a`, `tar` and `export` still produce a self-contained package.
+`--no-share` turns it off.
+
+`normalized/` and `detections/` are the analysis overlay: derived from the
+sealed evidence, excluded from `SHA256SUMS`, and safe to delete at any time —
+`agentdfir analyze <pkg>` rebuilds them. On a large case they can be a
+meaningful share of the directory, so removing them is the quickest way to
+reclaim space without touching evidence.
 
 ## 🛡️ Built for hostile evidence
 

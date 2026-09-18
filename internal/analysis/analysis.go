@@ -74,7 +74,7 @@ func Stale(pkg string) bool {
 	if _, err := os.Stat(filepath.Join(pkg, "detections", "findings.json")); err != nil {
 		return true
 	}
-	if man, err := os.Stat(filepath.Join(pkg, "manifest.json")); err == nil && man.ModTime().After(ev.ModTime()) {
+	if mt, ok := manifestModTime(pkg); ok && mt.After(ev.ModTime()) {
 		return true
 	}
 	return false
@@ -107,7 +107,7 @@ func Run(pkg string, o Options) (*Result, error) {
 	needNorm := o.Renormalize
 	if fi, err := os.Stat(evPath); err != nil {
 		needNorm = true
-	} else if man, err := os.Stat(filepath.Join(pkg, "manifest.json")); err == nil && man.ModTime().After(fi.ModTime()) {
+	} else if mt, ok := manifestModTime(pkg); ok && mt.After(fi.ModTime()) {
 		needNorm = true
 	}
 	var entities []schema.Entity
@@ -385,4 +385,16 @@ func countLines(path string) int {
 			return n
 		}
 	}
+}
+
+// manifestModTime returns when the package manifest last changed, in
+// whichever form it is written. A later collection round appends to it, so
+// this is what tells the overlay it is out of date.
+func manifestModTime(pkg string) (time.Time, bool) {
+	for _, name := range []string{"manifest.jsonl", "manifest.json"} {
+		if fi, err := os.Stat(filepath.Join(pkg, name)); err == nil {
+			return fi.ModTime(), true
+		}
+	}
+	return time.Time{}, false
 }

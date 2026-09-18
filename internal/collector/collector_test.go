@@ -101,7 +101,7 @@ func TestCollectClaudeFixture(t *testing.T) {
 		t.Fatalf("verify problems: %v", res.Problems)
 	}
 
-	man, err := os.ReadFile(filepath.Join(pkg, "manifest.json"))
+	man, err := os.ReadFile(filepath.Join(pkg, "manifest.jsonl"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,10 +116,19 @@ func TestCollectClaudeFixture(t *testing.T) {
 		t.Error("symlink target content leaked into manifest")
 	}
 
-	// The symlink target's CONTENT must not have been acquired.
-	entries, _ := os.ReadDir(filepath.Join(pkg, "raw"))
-	for _, e := range entries {
-		data, _ := os.ReadFile(filepath.Join(pkg, "raw", e.Name()))
+	// The symlink target's CONTENT must not have been acquired. Read
+	// through the store so the check sees plaintext whatever the on-disk
+	// representation is.
+	mf, err := casepkg.ReadManifest(pkg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := casepkg.NewStore(pkg, mf)
+	for _, a := range mf.Artifacts {
+		if a.Status != casepkg.StatusOK {
+			continue
+		}
+		data, _ := store.ReadAll(a.ArtifactID, 0)
 		if strings.Contains(string(data), "PRIVATE KEY MATERIAL") {
 			t.Fatal("collector followed a symlink out of the profile — evidence contains outside content")
 		}
@@ -132,7 +141,7 @@ func TestOfflinePathModeUsesProvidedRoot(t *testing.T) {
 	if st.Acquired == 0 {
 		t.Fatal("offline collection acquired nothing")
 	}
-	man, _ := os.ReadFile(filepath.Join(pkg, "manifest.json"))
+	man, _ := os.ReadFile(filepath.Join(pkg, "manifest.jsonl"))
 	if !strings.Contains(string(man), ".claude/projects/-Users-victim-repo/session-1.jsonl") {
 		t.Error("logical_path not root-relative")
 	}

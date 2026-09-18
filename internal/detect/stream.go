@@ -269,7 +269,7 @@ func (a *streamAgg) sessionTampering() []schema.Finding {
 
 func (a *streamAgg) timestomp(man *casepkg.Manifest) []schema.Finding {
 	var out []schema.Finding
-	for _, art := range man.Artifacts {
+	for _, art := range man.Current() {
 		if art.Status != casepkg.StatusOK || !isType(art, "agent_session", "prompt_history") {
 			continue
 		}

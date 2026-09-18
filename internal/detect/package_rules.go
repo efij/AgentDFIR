@@ -4,10 +4,7 @@
 package detect
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -52,16 +49,10 @@ func RunAll(res *schema.Normalized, pkgDir string, opts Options) []schema.Findin
 	return sortBySeverity(findings)
 }
 
+// readManifest reads the package manifest in whichever form it was
+// written (append-only manifest.jsonl, or the legacy manifest.json array).
 func readManifest(pkgDir string) (*casepkg.Manifest, error) {
-	data, err := os.ReadFile(filepath.Join(pkgDir, "manifest.json"))
-	if err != nil {
-		return nil, err
-	}
-	var man casepkg.Manifest
-	if err := json.Unmarshal(data, &man); err != nil {
-		return nil, err
-	}
-	return &man, nil
+	return casepkg.ReadManifest(pkgDir)
 }
 
 func isType(a casepkg.ArtifactRecord, types ...string) bool {
@@ -95,11 +86,12 @@ var bypassMarkers = []string{
 // or sandboxing entirely.
 func permissionBypass(man *casepkg.Manifest, pkgDir string) []schema.Finding {
 	var out []schema.Finding
-	for _, a := range man.Artifacts {
+	store := casepkg.NewStore(pkgDir, man)
+	for _, a := range man.Current() {
 		if !isType(a, "product_config", "managed_config") {
 			continue
 		}
-		marker, off, ok := scanContains(blobPath(pkgDir, a.ArtifactID), bypassMarkers)
+		marker, off, ok := scanContains(blobReader{store, a.ArtifactID}, bypassMarkers)
 		if !ok {
 			continue
 		}
@@ -125,11 +117,12 @@ var escalationMarkers = []string{`"Bash(*)"`, `"Bash(*:*)"`, `"allow": ["*"]`, `
 // PERMISSION_ESCALATION — blanket allow rules.
 func permissionEscalation(man *casepkg.Manifest, pkgDir string) []schema.Finding {
 	var out []schema.Finding
-	for _, a := range man.Artifacts {
+	store := casepkg.NewStore(pkgDir, man)
+	for _, a := range man.Current() {
 		if !isType(a, "product_config", "managed_config") {
 			continue
 		}
-		marker, off, ok := scanContains(blobPath(pkgDir, a.ArtifactID), escalationMarkers)
+		marker, off, ok := scanContains(blobReader{store, a.ArtifactID}, escalationMarkers)
 		if !ok {
 			continue
 		}
@@ -182,11 +175,12 @@ func SecretKind(value string) (string, bool) {
 // conversations (it passed through the model provider).
 func secretExposure(man *casepkg.Manifest, pkgDir string) []schema.Finding {
 	var out []schema.Finding
-	for _, a := range man.Artifacts {
+	store := casepkg.NewStore(pkgDir, man)
+	for _, a := range man.Current() {
 		if !isType(a, "agent_session", "prompt_history") {
 			continue
 		}
-		hits, counts := scanRegex(blobPath(pkgDir, a.ArtifactID), secretPatterns)
+		hits, counts := scanRegex(blobReader{store, a.ArtifactID}, secretPatterns)
 		for _, h := range hits {
 			out = append(out, schema.Finding{
 				RuleID:   "POTENTIAL_SECRET_EXPOSURE",

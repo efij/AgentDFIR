@@ -72,6 +72,12 @@ func TestVerifyDetectsEvidenceTampering(t *testing.T) {
 		t.Fatal("expected one blob")
 	}
 	blob := filepath.Join(pkg, "raw", entries[0].Name())
+	// Stored blobs are read-only; an attacker with write access to the
+	// package can clear that, so the test does too. The seal, not the file
+	// mode, is what must detect the change.
+	if err := os.Chmod(blob, 0o600); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(blob, []byte(`{"x":2}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +92,7 @@ func TestVerifyDetectsEvidenceTampering(t *testing.T) {
 
 func TestVerifyDetectsManifestTampering(t *testing.T) {
 	pkg := buildPackage(t, map[string]string{"a.jsonl": `{"x":1}`})
-	manPath := filepath.Join(pkg, "manifest.json")
+	manPath := filepath.Join(pkg, "manifest.jsonl")
 	data, _ := os.ReadFile(manPath)
 	tampered := strings.Replace(string(data), "a.jsonl", "b.jsonl", 1)
 	os.WriteFile(manPath, []byte(tampered), 0o600)

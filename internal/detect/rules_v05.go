@@ -510,7 +510,7 @@ func timestompIndicator(res *schema.Normalized, man *casepkg.Manifest) []schema.
 		}
 	}
 	var out []schema.Finding
-	for _, a := range man.Artifacts {
+	for _, a := range man.Current() {
 		if a.Status != casepkg.StatusOK || !isType(a, "agent_session", "prompt_history") {
 			continue
 		}

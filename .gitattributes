@@ -1,0 +1,8 @@
+# Evidence must survive a checkout byte for byte.
+#
+# internal/compat/testdata holds a real .adfir package produced by a
+# released binary, and the test asserts its SHA256SUMS still verifies. Git's
+# end-of-line conversion would rewrite the JSON and JSONL inside it on a
+# Windows checkout and break every hash — which is exactly what it did.
+# Nothing under here is text as far as git is concerned.
+internal/compat/testdata/** -text -diff

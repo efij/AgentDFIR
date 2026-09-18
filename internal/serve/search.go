@@ -4,9 +4,8 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"io"
 	"net/http"
-	"os"
-	"path/filepath"
 	"regexp"
 	"runtime"
 	"sort"
@@ -127,7 +126,7 @@ func (s *Server) apiSearch(w http.ResponseWriter, r *http.Request) {
 func (s *Server) scanRaw(ctx context.Context, re *regexp.Regexp, limit int) ([]rawHit, int64, int, int, bool) {
 	var arts []casepkg.ArtifactRecord
 	skipped := 0
-	for _, a := range s.man.Artifacts {
+	for _, a := range s.arts {
 		if a.ArtifactID == "" || strings.ContainsAny(a.ArtifactID, "/\\.") {
 			continue
 		}
@@ -161,7 +160,7 @@ func (s *Server) scanRaw(ctx context.Context, re *regexp.Regexp, limit int) ([]r
 				if ctx.Err() != nil || int(atomic.LoadInt32(&nHits)) >= limit {
 					continue
 				}
-				local, n, binary := scanArtifact(ctx, filepath.Join(s.pkg, "raw", a.ArtifactID), a, re, limit-int(atomic.LoadInt32(&nHits)), lineByRef)
+				local, n, binary := scanArtifact(ctx, s.store, a, re, limit-int(atomic.LoadInt32(&nHits)), lineByRef)
 				atomic.AddInt64(&scanned, n)
 				if binary {
 					atomic.AddInt32(&skipBin, 1)
@@ -200,20 +199,24 @@ func (s *Server) scanRaw(ctx context.Context, re *regexp.Regexp, limit int) ([]r
 	return hits, scanned, int(nArt), skipped + int(skipBin), trunc.Load()
 }
 
-func scanArtifact(ctx context.Context, path string, a casepkg.ArtifactRecord, re *regexp.Regexp, limit int, byRef map[string]string) ([]rawHit, int64, bool) {
-	f, err := os.Open(path)
+func scanArtifact(ctx context.Context, store *casepkg.Store, a casepkg.ArtifactRecord, re *regexp.Regexp, limit int, byRef map[string]string) ([]rawHit, int64, bool) {
+	// Binary sniff on a separate reader: the plaintext stream is not
+	// seekable once a blob is compressed or split into chunks.
+	probe, err := store.Open(a.ArtifactID)
+	if err != nil {
+		return nil, 0, false
+	}
+	head := make([]byte, 8192)
+	n, _ := io.ReadFull(probe, head)
+	probe.Close()
+	if bytes.IndexByte(head[:n], 0) >= 0 {
+		return nil, int64(n), true // binary (sqlite, images): not line-searchable
+	}
+	f, err := store.Open(a.ArtifactID)
 	if err != nil {
 		return nil, 0, false
 	}
 	defer f.Close()
-	head := make([]byte, 8192)
-	n, _ := f.Read(head)
-	if bytes.IndexByte(head[:n], 0) >= 0 {
-		return nil, int64(n), true // binary (sqlite, images): not line-searchable
-	}
-	if _, err := f.Seek(0, 0); err != nil {
-		return nil, 0, false
-	}
 	sc := bufio.NewScanner(f)
 	sc.Buffer(make([]byte, 0, 256*1024), rawMaxLine)
 	var hits []rawHit

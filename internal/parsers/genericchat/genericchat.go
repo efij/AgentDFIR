@@ -19,7 +19,6 @@ package genericchat
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -110,17 +109,14 @@ func StreamPackage(pkgDir string, sink func(schema.Event)) (*schema.Normalized, 
 }
 
 func parseWith(pkgDir string, sink func(schema.Event)) (*schema.Normalized, error) {
-	data, err := os.ReadFile(filepath.Join(pkgDir, "manifest.json"))
+	man, err := casepkg.ReadManifest(pkgDir)
 	if err != nil {
 		return nil, fmt.Errorf("read manifest: %w", err)
 	}
-	var man casepkg.Manifest
-	if err := json.Unmarshal(data, &man); err != nil {
-		return nil, fmt.Errorf("parse manifest: %w", err)
-	}
+	store := casepkg.NewStore(pkgDir, man)
 	p := &parser{res: &schema.Normalized{}, sink: sink, caseID: man.CaseID, host: man.Host,
 		entities: map[string]schema.Entity{}}
-	for _, a := range man.Artifacts {
+	for _, a := range man.Current() {
 		if a.Status != casepkg.StatusOK || !sessionCategories[a.ArtifactType] {
 			continue
 		}
@@ -128,7 +124,7 @@ func parseWith(pkgDir string, sink func(schema.Event)) (*schema.Normalized, erro
 		if cfg == nil {
 			continue // claude/codex have dedicated parsers
 		}
-		if err := p.parseArtifact(pkgDir, a, cfg); err != nil {
+		if err := p.parseArtifact(store, a, cfg); err != nil {
 			return nil, fmt.Errorf("%s: %w", a.LogicalPath, err)
 		}
 	}
@@ -155,17 +151,12 @@ type parser struct {
 }
 
 // parseArtifact dispatches on file shape.
-func (p *parser) parseArtifact(pkgDir string, art casepkg.ArtifactRecord, cfg *productCfg) error {
-	blob := filepath.Join(pkgDir, "raw", art.ArtifactID)
-	st, err := os.Stat(blob)
-	if err != nil {
-		return err
-	}
-	if st.Size() > MaxFileBytes {
+func (p *parser) parseArtifact(store *casepkg.Store, art casepkg.ArtifactRecord, cfg *productCfg) error {
+	if art.Size > MaxFileBytes {
 		p.gap(art, cfg, 0, 1, fmt.Sprintf("session file exceeds %d-byte bound; preserved unparsed", MaxFileBytes))
 		return nil
 	}
-	data, err := os.ReadFile(blob)
+	data, err := store.ReadAll(art.ArtifactID, MaxFileBytes)
 	if err != nil {
 		return err
 	}

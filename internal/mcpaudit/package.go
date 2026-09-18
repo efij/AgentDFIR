@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -17,34 +16,30 @@ import (
 // every collected artifact whose logical path is a known MCP config is
 // parsed, and cached tool manifests are scanned for description poisoning.
 func ScanPackage(pkgDir string) (*Inventory, []schema.Finding, error) {
-	data, err := os.ReadFile(filepath.Join(pkgDir, "manifest.json"))
+	man, err := casepkg.ReadManifest(pkgDir)
 	if err != nil {
 		return nil, nil, fmt.Errorf("read manifest: %w", err)
 	}
-	var man casepkg.Manifest
-	if err := json.Unmarshal(data, &man); err != nil {
-		return nil, nil, fmt.Errorf("parse manifest: %w", err)
-	}
+	store := casepkg.NewStore(pkgDir, man)
 	inv := &Inventory{Source: pkgDir, Mode: "package"}
 	var extra []schema.Finding
-	for _, a := range man.Artifacts {
+	for _, a := range man.Current() {
 		if a.Status != casepkg.StatusOK || a.ArtifactID == "" {
 			continue
 		}
-		blob := filepath.Join(pkgDir, "raw", a.ArtifactID)
 		host, scope, f, ok := classify(a.LogicalPath)
 		if ok {
-			b, rok := readBounded(blob, inv)
+			b, rok := readBoundedBlob(store, a, inv)
 			if !rok {
 				continue
 			}
 			inv.Configs = append(inv.Configs, a.LogicalPath)
-			parseInto(inv, host, scope, blob, a.LogicalPath, f, b)
+			parseInto(inv, host, scope, a.LogicalPath, a.LogicalPath, f, b)
 			continue
 		}
 		// Cached tool manifests live in state/config dirs; cheap marker check first.
 		if isType(a, "product_config", "product_state", "debug_logs", "managed_config") && a.Size <= MaxConfigBytes {
-			b, rok := readBounded(blob, inv)
+			b, rok := readBoundedBlob(store, a, inv)
 			if !rok || !bytes.Contains(b, []byte("inputSchema")) {
 				continue
 			}

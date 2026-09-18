@@ -78,6 +78,7 @@ func collectImport(o importOpts) int {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
 	}
+	defer b.Close()
 	host, _ := os.Hostname()
 	start := time.Now()
 	total := collector.Stats{}

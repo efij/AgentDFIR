@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 
@@ -44,7 +43,8 @@ func Snapshot(pkgDir string) (*Baseline, error) {
 		Artifacts:    map[string]string{},
 		Rules:        map[string]string{},
 	}
-	for _, a := range man.Artifacts {
+	store := casepkg.NewStore(pkgDir, man)
+	for _, a := range man.Current() {
 		if a.Status != casepkg.StatusOK || !configCategories[a.ArtifactType] {
 			continue
 		}
@@ -52,7 +52,7 @@ func Snapshot(pkgDir string) (*Baseline, error) {
 		b.Rules[a.LogicalPath] = a.CollectorRule
 		if a.CollectorRule == "claude.config" || strings.HasSuffix(a.LogicalPath, "mcp.json") ||
 			strings.HasSuffix(a.LogicalPath, "mcp-config.json") {
-			for _, s := range mcpServersFromBlob(filepath.Join(pkgDir, "raw", a.ArtifactID)) {
+			for _, s := range mcpServersFromBlob(store, a.ArtifactID) {
 				b.MCPServers = append(b.MCPServers, s)
 			}
 		}
@@ -174,8 +174,8 @@ func RuleForChange(c Change) string {
 // mcpServersFromBlob extracts declared MCP server names from a config
 // blob ({"mcpServers":{name:{...}}}). Hostile input: bounded read,
 // tolerant parse, names only (never commands or env).
-func mcpServersFromBlob(path string) []string {
-	data, err := boundedRead(path, 8<<20)
+func mcpServersFromBlob(store *casepkg.Store, id string) []string {
+	data, err := store.ReadAll(id, 8<<20)
 	if err != nil {
 		return nil
 	}
@@ -204,14 +204,8 @@ func boundedRead(path string, max int64) ([]byte, error) {
 	return os.ReadFile(path)
 }
 
+// readManifest reads the package manifest in whichever form it was
+// written (append-only manifest.jsonl, or the legacy manifest.json array).
 func readManifest(pkgDir string) (*casepkg.Manifest, error) {
-	data, err := os.ReadFile(filepath.Join(pkgDir, "manifest.json"))
-	if err != nil {
-		return nil, err
-	}
-	var man casepkg.Manifest
-	if err := json.Unmarshal(data, &man); err != nil {
-		return nil, err
-	}
-	return &man, nil
+	return casepkg.ReadManifest(pkgDir)
 }

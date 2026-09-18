@@ -3,11 +3,12 @@ package detect
 import (
 	"bufio"
 	"io"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"unicode"
+	"unicode/utf8"
+
+	"github.com/efij/AgentDFIR/internal/casepkg"
 )
 
 // Streaming content scanning. Artifacts of ANY size are scanned with
@@ -27,17 +28,20 @@ type scanHit struct {
 	offset int64
 }
 
-// blobPath resolves an artifact's sealed blob path.
-func blobPath(pkgDir, artifactID string) string {
-	return filepath.Join(pkgDir, "raw", artifactID)
+// blobReader opens one artifact's plaintext. Scanning goes through the
+// package store, so it sees evidence content regardless of how the bytes
+// are stored on disk (compressed, or split across appended chunks).
+type blobReader struct {
+	store *casepkg.Store
+	id    string
 }
 
 // streamChunks calls fn for each chunk with its absolute base offset.
 // Chunks overlap by scanOverlap bytes; callers dedupe hits whose offset
 // falls inside the overlap of the previous chunk (offset < base +
 // scanOverlap when base > 0).
-func streamChunks(path string, fn func(chunk []byte, base int64) bool) error {
-	f, err := os.Open(path)
+func streamChunks(b blobReader, fn func(chunk []byte, base int64) bool) error {
+	f, err := b.store.Open(b.id)
 	if err != nil {
 		return err
 	}
@@ -70,13 +74,13 @@ func streamChunks(path string, fn func(chunk []byte, base int64) bool) error {
 
 // scanRegex returns the first hit per pattern (and a count) across the
 // whole artifact, streaming.
-func scanRegex(path string, patterns []struct {
+func scanRegex(b blobReader, patterns []struct {
 	name string
 	re   *regexp.Regexp
 }) (hits []scanHit, counts map[string]int) {
 	counts = map[string]int{}
 	first := map[string]int64{}
-	_ = streamChunks(path, func(chunk []byte, base int64) bool {
+	_ = streamChunks(b, func(chunk []byte, base int64) bool {
 		for _, p := range patterns {
 			for _, loc := range p.re.FindAllIndex(chunk, -1) {
 				off := base + int64(loc[0])
@@ -98,12 +102,12 @@ func scanRegex(path string, patterns []struct {
 }
 
 // scanPhrases finds the first occurrence (case-insensitive) of any phrase.
-func scanPhrases(path string, phrases []string) (phrase string, offset int64, found bool) {
+func scanPhrases(b blobReader, phrases []string) (phrase string, offset int64, found bool) {
 	lower := make([]string, len(phrases))
 	for i, p := range phrases {
 		lower[i] = strings.ToLower(p)
 	}
-	_ = streamChunks(path, func(chunk []byte, base int64) bool {
+	_ = streamChunks(b, func(chunk []byte, base int64) bool {
 		low := strings.ToLower(string(chunk))
 		for i, p := range lower {
 			if idx := strings.Index(low, p); idx >= 0 {
@@ -120,8 +124,8 @@ func scanPhrases(path string, phrases []string) (phrase string, offset int64, fo
 }
 
 // scanContains reports the first occurrence of any exact marker.
-func scanContains(path string, markers []string) (marker string, offset int64, found bool) {
-	_ = streamChunks(path, func(chunk []byte, base int64) bool {
+func scanContains(b blobReader, markers []string) (marker string, offset int64, found bool) {
+	_ = streamChunks(b, func(chunk []byte, base int64) bool {
 		s := string(chunk)
 		for _, m := range markers {
 			if m == "" {
@@ -141,15 +145,25 @@ func scanContains(path string, markers []string) (marker string, offset int64, f
 }
 
 // invisibleStats counts invisible/reordering runes across an artifact.
-func invisibleStats(path string) (tags, bidi, zw int, firstOff int64) {
+func invisibleStats(b blobReader) (tags, bidi, zw int, firstOff int64) {
 	firstOff = -1
-	_ = streamChunks(path, func(chunk []byte, base int64) bool {
+	_ = streamChunks(b, func(chunk []byte, base int64) bool {
 		start := 0
 		if base > 0 {
 			start = scanOverlap
 		}
-		off := start
-		for _, r := range string(chunk[start:]) {
+		// Decode in place. This runs over every byte of every artifact, so
+		// it stays on the byte slice: ranging over string(chunk) would copy
+		// a megabyte per chunk, and every non-ASCII rune would allocate
+		// again to measure its width. Single-byte runes — nearly all of
+		// transcript evidence — never reach the Unicode tables.
+		for off := start; off < len(chunk); {
+			c := chunk[off]
+			if c < utf8.RuneSelf {
+				off++
+				continue
+			}
+			r, size := utf8.DecodeRune(chunk[off:])
 			hit := false
 			switch {
 			case r >= 0xE0000 && r <= 0xE007F:
@@ -161,14 +175,14 @@ func invisibleStats(path string) (tags, bidi, zw int, firstOff int64) {
 			case r >= 0x200B && r <= 0x200F, r == 0xFEFF:
 				zw++
 				hit = true
-			case unicode.Is(unicode.Cf, r) && r != '­':
+			case unicode.Is(unicode.Cf, r) && r != '\u00ad':
 				zw++
 				hit = true
 			}
 			if hit && firstOff == -1 {
 				firstOff = base + int64(off)
 			}
-			off += len(string(r))
+			off += size
 		}
 		return true
 	})

@@ -59,6 +59,7 @@ func Export(srcPkg, dstPkg string) (*RedactionManifest, error) {
 	if err != nil {
 		return nil, err
 	}
+	store := casepkg.NewStore(srcPkg, man)
 	ci, _ := readCaseInfo(srcPkg)
 
 	info := casepkg.CaseInfo{Notes: map[string]string{"derived_from": srcPkg, "mode": "support-redacted"}}
@@ -70,6 +71,9 @@ func Export(srcPkg, dstPkg string) (*RedactionManifest, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Releases the package lock and closes the manifest and chain files on
+	// every path that returns before sealing; a no-op once Seal ran.
+	defer b.Close()
 
 	rm := &RedactionManifest{
 		GeneratedUTC:  time.Now().UTC().Format(time.RFC3339),
@@ -85,13 +89,12 @@ func Export(srcPkg, dstPkg string) (*RedactionManifest, error) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	for _, a := range man.Artifacts {
+	for _, a := range man.Current() {
 		if a.Status != casepkg.StatusOK {
 			_ = b.RecordNonFile(a)
 			continue
 		}
-		blob := filepath.Join(srcPkg, "raw", a.ArtifactID)
-		data, err := os.ReadFile(blob)
+		data, err := store.ReadAll(a.ArtifactID, 0)
 		if err != nil {
 			continue
 		}
@@ -101,24 +104,22 @@ func Export(srcPkg, dstPkg string) (*RedactionManifest, error) {
 			User: a.User, Product: a.Product, CollectorRule: a.CollectorRule,
 			ArtifactType: a.ArtifactType, Sensitivity: a.Sensitivity, Status: casepkg.StatusOK,
 		}
+		// Ingest from the plaintext we hold rather than from the source
+		// blob: the stored bytes may be compressed, and a support package
+		// must preserve the evidence, not its container.
+		tmp := filepath.Join(tmpDir, a.ArtifactID)
+		if err := os.WriteFile(tmp, redacted, 0o600); err != nil {
+			return nil, err
+		}
+		if err := b.IngestFile(tmp, rec); err != nil {
+			return nil, err
+		}
 		if len(counts) > 0 {
-			tmp := filepath.Join(tmpDir, a.ArtifactID)
-			if err := os.WriteFile(tmp, redacted, 0o600); err != nil {
-				return nil, err
-			}
-			if err := b.IngestFile(tmp, rec); err != nil {
-				return nil, err
-			}
 			sum := sha256.Sum256(redacted)
 			rm.RedactedEntries = append(rm.RedactedEntries, RedactionEntry{
 				LogicalPath: a.LogicalPath, OriginalSHA256: a.ArtifactID,
 				RedactedSHA256: hex.EncodeToString(sum[:]), Categories: counts,
 			})
-		} else {
-			// Unchanged content: re-ingest original.
-			if err := b.IngestFile(blob, rec); err != nil {
-				return nil, err
-			}
 		}
 	}
 
@@ -157,16 +158,10 @@ func sumsDigest(pkgDir string) string {
 	return hex.EncodeToString(sum[:])
 }
 
+// readManifest reads the package manifest in whichever form it was
+// written (append-only manifest.jsonl, or the legacy manifest.json array).
 func readManifest(pkgDir string) (*casepkg.Manifest, error) {
-	data, err := os.ReadFile(filepath.Join(pkgDir, "manifest.json"))
-	if err != nil {
-		return nil, err
-	}
-	var m casepkg.Manifest
-	if err := json.Unmarshal(data, &m); err != nil {
-		return nil, err
-	}
-	return &m, nil
+	return casepkg.ReadManifest(pkgDir)
 }
 
 func readCaseInfo(pkgDir string) (*casepkg.CaseInfo, error) {

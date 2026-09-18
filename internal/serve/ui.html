@@ -255,8 +255,17 @@ const caseReady=api('/api/case').then(c=>{
   state.caseinfo=c;
   $('#caseid').textContent=c.manifest.case_id||c.package; $('#host').textContent=c.manifest.host||'—';
   $('#nEvents').textContent=c.events.toLocaleString()+(c.truncated?' (truncated)':''); $('#nSessions').textContent=c.sessions; $('#nAgents').textContent=c.agents; $('#nArtifacts').textContent=c.artifacts;
-  const ok=c.verify&&(!c.verify.Problems||c.verify.Problems.length===0);
-  const ip=$('#integrity'); ip.textContent=ok?'VERIFIED — no modifications':'INTEGRITY FAILED'; ip.classList.add(ok?'ok':'bad');
+  const renderVerify=v=>{
+    const ok=v&&(!v.Problems||v.Problems.length===0);
+    const ip=$('#integrity'); ip.classList.remove('ok','bad');
+    const full=v&&v.Depth==='full';
+    ip.textContent=ok?(full?'VERIFIED — every blob re-hashed':'VERIFIED — seal, chains and blob inventory'):'INTEGRITY FAILED';
+    ip.classList.add(ok?'ok':'bad');
+    ip.title=ok&&!full?'Click to re-hash every stored blob (reads the whole package).':(v&&v.Problems||[]).join('\n');
+    if(ok&&!full){ ip.style.cursor='pointer'; ip.onclick=()=>{ ip.textContent='verifying every blob…'; api('/api/verify').then(renderVerify).catch(e=>{ip.textContent='verification error: '+e.message;}); }; }
+    else { ip.style.cursor=''; ip.onclick=null; }
+  };
+  renderVerify(c.verify);
   const sp=$('#signature'); sp.textContent='seal: '+c.signature; sp.classList.add(c.signature.startsWith('VALID')?'ok':(c.signature.startsWith('INVALID')?'bad':'warn'));
   const s=c.severity||{}; $('#sevsum').textContent=['CRITICAL','HIGH','MEDIUM','LOW','INFO'].filter(k=>s[k]).map(k=>k+' '+s[k]).join(' · ');
   $('#ver').textContent='agentdfir '+c.version; $('#fcount').textContent=c.findings;
