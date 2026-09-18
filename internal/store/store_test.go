@@ -157,6 +157,9 @@ func TestGCOnlyRemovesUnreferencedBlobs(t *testing.T) {
 // TestRefusesGroupWritableHome: the home aggregates every transcript ever
 // collected on the machine.
 func TestRefusesGroupWritableHome(t *testing.T) {
+	if !PermissionsAreReal {
+		t.Skip("mode bits are synthetic on this platform; ACLs govern access")
+	}
 	dir := filepath.Join(t.TempDir(), "loose")
 	if err := os.MkdirAll(dir, 0o777); err != nil {
 		t.Fatal(err)

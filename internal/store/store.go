@@ -131,7 +131,7 @@ func ensureSecureDir(dir string) error {
 	if err := checkOwner(dir, fi); err != nil {
 		return err
 	}
-	if fi.Mode().Perm()&0o022 != 0 {
+	if PermissionsAreReal && fi.Mode().Perm()&0o022 != 0 {
 		return fmt.Errorf("%s is group/world-writable (%o); refusing to store evidence there", dir, fi.Mode().Perm())
 	}
 	return nil

@@ -21,6 +21,11 @@ func checkOwner(dir string, fi os.FileInfo) error {
 	return nil
 }
 
+// PermissionsAreReal reports whether os.FileInfo mode bits describe the
+// actual access control on this platform, and are therefore worth
+// enforcing on the evidence home.
+const PermissionsAreReal = true
+
 // linkCount reports how many directory entries point at this inode. A
 // shared blob with exactly one is referenced by no case.
 func linkCount(fi os.FileInfo) uint64 {
