@@ -77,12 +77,13 @@ var injectionSurfaces = []surfaceRule{
 
 func promptInjectionIndicator(man *casepkg.Manifest, pkgDir string) []schema.Finding {
 	var out []schema.Finding
+	store := casepkg.NewStore(pkgDir, man)
 	for _, a := range man.Artifacts {
 		for _, sr := range injectionSurfaces {
 			if !isType(a, sr.types...) {
 				continue
 			}
-			phrase, off, ok := scanPhrases(blobPath(pkgDir, a.ArtifactID), injectionPhrases)
+			phrase, off, ok := scanPhrases(blobReader{store, a.ArtifactID}, injectionPhrases)
 			if !ok {
 				continue
 			}
@@ -116,11 +117,12 @@ func severityFor(rule string) string {
 // zero-width runs inside agent-facing content.
 func invisibleUnicodeInstruction(man *casepkg.Manifest, pkgDir string) []schema.Finding {
 	var out []schema.Finding
+	store := casepkg.NewStore(pkgDir, man)
 	for _, a := range man.Artifacts {
 		if !isType(a, "agent_session", "prompt_history", "agent_instructions", "agent_definitions") {
 			continue
 		}
-		tags, bidi, zw, firstOff := invisibleStats(blobPath(pkgDir, a.ArtifactID))
+		tags, bidi, zw, firstOff := invisibleStats(blobReader{store, a.ArtifactID})
 		if tags == 0 && bidi < 3 && zw < 8 {
 			continue
 		}
@@ -144,11 +146,12 @@ func invisibleUnicodeInstruction(man *casepkg.Manifest, pkgDir string) []schema.
 // conversations (killer feature #8).
 func HoneytokenFindings(man *casepkg.Manifest, pkgDir string, markers []string) []schema.Finding {
 	var out []schema.Finding
+	store := casepkg.NewStore(pkgDir, man)
 	for _, a := range man.Artifacts {
 		if !isType(a, "agent_session", "prompt_history") {
 			continue
 		}
-		_, off, ok := scanContains(blobPath(pkgDir, a.ArtifactID), markers)
+		_, off, ok := scanContains(blobReader{store, a.ArtifactID}, markers)
 		if !ok {
 			continue
 		}

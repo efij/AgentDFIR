@@ -20,6 +20,8 @@ import (
 	"strings"
 
 	"github.com/efij/AgentDFIR/internal/detect"
+
+	"github.com/efij/AgentDFIR/internal/casepkg"
 )
 
 func secretKind(v string) (string, bool)   { return detect.SecretKind(v) }
@@ -186,6 +188,21 @@ func ScanProfile(root string) *Inventory {
 // and tests). host/scope/project annotate the resulting servers.
 func ParseConfigFile(inv *Inventory, host, scope, path, logical string, f format, data []byte) {
 	parseInto(inv, host, scope, path, logical, f, data)
+}
+
+// readBoundedBlob reads one artifact's plaintext out of a sealed package,
+// bounded the same way live config reads are.
+func readBoundedBlob(store *casepkg.Store, a casepkg.ArtifactRecord, inv *Inventory) ([]byte, bool) {
+	if a.Size > MaxConfigBytes {
+		inv.Problems = append(inv.Problems, a.LogicalPath+": exceeds size bound, not parsed")
+		return nil, false
+	}
+	data, err := store.ReadAll(a.ArtifactID, MaxConfigBytes)
+	if err != nil {
+		inv.Problems = append(inv.Problems, a.LogicalPath+": "+err.Error())
+		return nil, false
+	}
+	return data, true
 }
 
 func readBounded(path string, inv *Inventory) ([]byte, bool) {

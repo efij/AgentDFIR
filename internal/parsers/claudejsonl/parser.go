@@ -15,8 +15,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 
@@ -74,14 +72,11 @@ func StreamPackage(pkgDir string, sink func(schema.Event)) (*Result, error) {
 }
 
 func parseWith(pkgDir string, sink func(schema.Event)) (*Result, error) {
-	data, err := os.ReadFile(filepath.Join(pkgDir, "manifest.json"))
+	man, err := casepkg.ReadManifest(pkgDir)
 	if err != nil {
 		return nil, fmt.Errorf("read manifest: %w", err)
 	}
-	var man casepkg.Manifest
-	if err := json.Unmarshal(data, &man); err != nil {
-		return nil, fmt.Errorf("parse manifest: %w", err)
-	}
+	store := casepkg.NewStore(pkgDir, man)
 	res := &Result{}
 	p := &parser{res: res, sink: sink, caseID: man.CaseID, host: man.Host,
 		entities: map[string]schema.Entity{}, spawned: map[string]string{}}
@@ -90,8 +85,7 @@ func parseWith(pkgDir string, sink func(schema.Event)) (*Result, error) {
 			!strings.HasSuffix(a.LogicalPath, ".jsonl") {
 			continue
 		}
-		blob := filepath.Join(pkgDir, "raw", a.ArtifactID)
-		if err := p.parseTranscript(blob, a); err != nil {
+		if err := p.parseTranscript(store, a); err != nil {
 			return nil, fmt.Errorf("%s: %w", a.LogicalPath, err)
 		}
 	}
@@ -110,8 +104,8 @@ type parser struct {
 	spawned map[string]string
 }
 
-func (p *parser) parseTranscript(blobPath string, art casepkg.ArtifactRecord) error {
-	f, err := os.Open(blobPath)
+func (p *parser) parseTranscript(store *casepkg.Store, art casepkg.ArtifactRecord) error {
+	f, err := store.Open(art.ArtifactID)
 	if err != nil {
 		return err
 	}

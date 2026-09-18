@@ -4,12 +4,12 @@ import (
 	"bufio"
 	"encoding/json"
 	"io"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 
 	"github.com/efij/AgentDFIR/internal/schema"
+
+	"github.com/efij/AgentDFIR/internal/casepkg"
 )
 
 // extractWrite re-reads the raw transcript line behind a tool_call event
@@ -21,8 +21,8 @@ import (
 //	Cline / Roo   <write_to_file><path>…<content>…  ·  <replace_in_file> … =======\n<new>\n>>>>>>> REPLACE
 //	Generic       tool input with {path|file_path|filePath|target_file} and {content|contents|code_edit|new_string|text}
 //	Shell         echo/printf … > path  ·  >> path  ·  cat <<EOF > path … EOF  ·  tee path
-func extractWrite(pkgDir string, ev schema.Event) (Write, bool) {
-	raw, ok := readRawLine(pkgDir, ev)
+func extractWrite(store *casepkg.Store, ev schema.Event) (Write, bool) {
+	raw, ok := readRawLine(store, ev)
 	if !ok {
 		// Fall back to the normalized command for shell redirects.
 		if ev.Command != "" {
@@ -61,18 +61,15 @@ func mk(ev schema.Event, path, content string) Write {
 }
 
 // readRawLine returns the transcript line an event points at.
-func readRawLine(pkgDir string, ev schema.Event) ([]byte, bool) {
+func readRawLine(store *casepkg.Store, ev schema.Event) ([]byte, bool) {
 	if ev.SourceArtifact == "" || ev.SourceArtifact == "live" {
 		return nil, false
 	}
-	f, err := os.Open(filepath.Join(pkgDir, "raw", ev.SourceArtifact))
+	f, err := store.OpenAt(ev.SourceArtifact, ev.SourceOffset)
 	if err != nil {
 		return nil, false
 	}
 	defer f.Close()
-	if _, err := f.Seek(ev.SourceOffset, io.SeekStart); err != nil {
-		return nil, false
-	}
 	r := bufio.NewReaderSize(f, 1<<20)
 	line, err := r.ReadBytes('\n')
 	if err != nil && err != io.EOF {

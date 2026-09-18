@@ -140,7 +140,7 @@ func Apply(packs []Pack, res *schema.Normalized, pkgDir string) ([]schema.Findin
 					}
 					man = m
 				}
-				out = append(out, matchArtifacts(r, man, pkgDir)...)
+				out = append(out, matchArtifacts(r, man, casepkg.NewStore(pkgDir, man))...)
 			}
 		}
 	}
@@ -166,7 +166,7 @@ func matchEvents(r *Rule, res *schema.Normalized) []schema.Finding {
 	return out
 }
 
-func matchArtifacts(r *Rule, man *casepkg.Manifest, pkgDir string) []schema.Finding {
+func matchArtifacts(r *Rule, man *casepkg.Manifest, store *casepkg.Store) []schema.Finding {
 	wantTypes := map[string]bool{}
 	if r.Match.Type == "config" {
 		wantTypes["product_config"] = true
@@ -182,7 +182,7 @@ func matchArtifacts(r *Rule, man *casepkg.Manifest, pkgDir string) []schema.Find
 		if a.Status != casepkg.StatusOK || !wantTypes[a.ArtifactType] {
 			continue
 		}
-		data, err := boundedRead(filepath.Join(pkgDir, "raw", a.ArtifactID), 16<<20)
+		data, err := store.ReadAll(a.ArtifactID, 16<<20)
 		if err != nil {
 			continue
 		}
@@ -225,25 +225,8 @@ func finding(r *Rule, session, agent, status, evidence string) schema.Finding {
 	}
 }
 
-func boundedRead(path string, max int64) ([]byte, error) {
-	st, err := os.Stat(path)
-	if err != nil {
-		return nil, err
-	}
-	if st.Size() > max {
-		return nil, fmt.Errorf("blob exceeds bound")
-	}
-	return os.ReadFile(path)
-}
-
+// readManifest reads the package manifest in whichever form it was
+// written (append-only manifest.jsonl, or the legacy manifest.json array).
 func readManifest(pkgDir string) (*casepkg.Manifest, error) {
-	data, err := os.ReadFile(filepath.Join(pkgDir, "manifest.json"))
-	if err != nil {
-		return nil, err
-	}
-	var m casepkg.Manifest
-	if err := json.Unmarshal(data, &m); err != nil {
-		return nil, err
-	}
-	return &m, nil
+	return casepkg.ReadManifest(pkgDir)
 }

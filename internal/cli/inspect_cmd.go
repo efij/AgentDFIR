@@ -4,9 +4,9 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"path/filepath"
 	"regexp"
 
+	"github.com/efij/AgentDFIR/internal/casepkg"
 	"github.com/efij/AgentDFIR/internal/report"
 	"github.com/efij/AgentDFIR/internal/sanitize"
 )
@@ -41,6 +41,8 @@ func cmdInspect(args []string) int {
 		return 1
 	}
 
+	store := casepkg.NewStore(pkg, man)
+
 	fmt.Printf("Case %s — %d artifact record(s)\n\n", sanitize.Terminal(man.CaseID), len(man.Artifacts))
 	fmt.Printf("%-8s %-11s %-18s %s\n", "STATUS", "SIZE", "TYPE", "LOGICAL PATH")
 	for _, a := range man.Artifacts {
@@ -62,8 +64,8 @@ func cmdInspect(args []string) int {
 		default:
 			continue
 		}
-		data, err := os.ReadFile(filepath.Join(pkg, "raw", a.ArtifactID))
-		if err != nil || len(data) > 16<<20 {
+		data, err := store.ReadAll(a.ArtifactID, 16<<20)
+		if err != nil {
 			continue
 		}
 		for _, p := range inspectPatterns {

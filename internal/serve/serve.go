@@ -15,7 +15,6 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"os"
@@ -50,6 +49,7 @@ type Options struct {
 type Server struct {
 	pkg       string
 	man       *casepkg.Manifest
+	store     *casepkg.Store
 	info      *casepkg.CaseInfo
 	verify    *casepkg.VerifyResult
 	sig       string
@@ -74,9 +74,14 @@ func Load(pkg string, opts Options) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Server{pkg: pkg, man: man, byID: map[string]int{}}
+	s := &Server{pkg: pkg, man: man, byID: map[string]int{}, store: casepkg.NewStore(pkg, man)}
 	s.info, _ = report.ReadCaseInfo(pkg)
-	s.verify, _ = casepkg.Verify(pkg)
+	// Quick verification: the seal over the small sealed files, both hash
+	// chains end to end, the manifest cross-check and every blob's
+	// presence. Re-hashing gigabytes of evidence on every open would make
+	// the explorer unusable on a real case; `agentdfir verify` still runs
+	// the full check, and the UI offers it explicitly.
+	s.verify, _ = casepkg.VerifyQuick(pkg)
 	if sr, err := seal.Verify(pkg, ""); err != nil {
 		s.sig = "error: " + err.Error()
 	} else if !sr.Present {
@@ -149,6 +154,7 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", s.ui)
 	mux.HandleFunc("/api/case", s.apiCase)
+	mux.HandleFunc("/api/verify", s.apiVerify)
 	mux.HandleFunc("/api/events", s.apiEvents)
 	mux.HandleFunc("/api/event/", s.apiEvent)
 	mux.HandleFunc("/api/raw", s.apiRaw)
@@ -395,18 +401,12 @@ func (s *Server) apiRaw(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	f, err := os.Open(filepath.Join(s.pkg, "raw", art))
+	f, err := s.store.OpenAt(art, off)
 	if err != nil {
 		http.NotFound(w, r)
 		return
 	}
 	defer f.Close()
-	if off > 0 {
-		if _, err := f.Seek(off, io.SeekStart); err != nil {
-			http.Error(w, "seek", http.StatusBadRequest)
-			return
-		}
-	}
 	rd := bufio.NewReaderSize(f, 1<<20)
 	line, _ := rd.ReadString('\n')
 	if len(line) > 256<<10 {
@@ -656,4 +656,22 @@ func (s *Server) Serve(ln net.Listener) error {
 // Describe prints a one-line summary for the console.
 func (s *Server) Describe() string {
 	return fmt.Sprintf("%d events, %d findings, %d artifacts", len(s.events), len(s.findings), len(s.man.Artifacts))
+}
+
+// ---- /api/verify ----
+
+// apiVerify re-runs verification on demand. Loading the case uses the
+// quick depth so the explorer opens immediately; this is the explicit
+// full check, re-hashing every stored blob and every chunked artifact's
+// concatenation. It reads the package and writes nothing.
+func (s *Server) apiVerify(w http.ResponseWriter, r *http.Request) {
+	res, err := casepkg.Verify(s.pkg)
+	if err != nil {
+		http.Error(w, sanitize.Terminal(err.Error()), http.StatusInternalServerError)
+		return
+	}
+	s.mu.Lock()
+	s.verify = res
+	s.mu.Unlock()
+	writeJSON(w, res)
 }

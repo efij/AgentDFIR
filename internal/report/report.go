@@ -362,17 +362,10 @@ func ReadCaseInfo(pkgDir string) (*casepkg.CaseInfo, error) {
 	return &ci, nil
 }
 
-// ReadManifest loads manifest.json from a package.
+// ReadManifest loads a package manifest in whichever form it was written
+// (append-only manifest.jsonl, or the legacy manifest.json array).
 func ReadManifest(pkgDir string) (*casepkg.Manifest, error) {
-	data, err := os.ReadFile(filepath.Join(pkgDir, "manifest.json"))
-	if err != nil {
-		return nil, err
-	}
-	var man casepkg.Manifest
-	if err := json.Unmarshal(data, &man); err != nil {
-		return nil, err
-	}
-	return &man, nil
+	return casepkg.ReadManifest(pkgDir)
 }
 
 const reportCSS = `ol.chain{margin:6px 0 10px 18px;padding:0}ol.chain li{margin:4px 0}
