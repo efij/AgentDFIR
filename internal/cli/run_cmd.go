@@ -115,6 +115,12 @@ func cmdRun(args []string) int {
 		CollectionArgs: append([]string{"run"}, args...),
 		Notes:          map[string]string{"mode": "current-user", "run": "detect+collect+analyze"},
 	}
+	if *newCase {
+		if _, err := os.Stat(dest); err == nil {
+			fmt.Fprintf(os.Stderr, "error: --new was given but %s already exists; remove it or choose another --out\n", sanitize.Terminal(dest))
+			return 1
+		}
+	}
 	b, reopened, err := openPackage(dest, id, info, !*noShare)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)

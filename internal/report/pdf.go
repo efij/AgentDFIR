@@ -501,7 +501,7 @@ func WritePDF(c *Case, custody []CustodyRecord, signature string, path string, o
 	d.h2("5. Artifact inventory")
 	if c.Manifest != nil {
 		arts := c.Manifest.Artifacts
-		d.text("F1", 8.5, 0, fmt.Sprintf("%d artifacts; showing up to %d. Full inventory: manifest.json, SHA256SUMS.", len(arts), opts.MaxArtifactRows))
+		d.text("F1", 8.5, 0, fmt.Sprintf("%d artifacts; showing up to %d. Full inventory: the package manifest and SHA256SUMS.", len(arts), opts.MaxArtifactRows))
 		for i, a := range arts {
 			if i >= opts.MaxArtifactRows {
 				break
