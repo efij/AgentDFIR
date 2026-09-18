@@ -180,6 +180,12 @@ Identical blobs are shared between cases by hardlink through
 files, so `cp -a`, `tar` and `export` still produce a self-contained package.
 `--no-share` turns it off.
 
+`normalized/` and `detections/` are the analysis overlay: derived from the
+sealed evidence, excluded from `SHA256SUMS`, and safe to delete at any time —
+`agentdfir analyze <pkg>` rebuilds them. On a large case they can be a
+meaningful share of the directory, so removing them is the quickest way to
+reclaim space without touching evidence.
+
 ## 🛡️ Built for hostile evidence
 
 AI incident evidence may *intentionally* contain prompt injection and anti-analysis payloads. Therefore:
