@@ -355,11 +355,12 @@ footer{border-top:1px solid var(--border);padding:44px 0;font-size:14px;color:va
     </div>
     <div class="tree" role="img" aria-label="Directory tree of an .adfir evidence package">
 <span class="d">case.adfir/</span>
-├── <span class="d">raw/</span><span class="f">&lt;sha256&gt;</span>          <span class="c"># content-addressed evidence</span>
-├── <span class="f">manifest.json</span>         <span class="c"># artifact metadata</span>
+├── <span class="d">raw/</span><span class="f">&lt;sha256&gt;[.gz]</span>     <span class="c"># content-addressed evidence</span>
+├── <span class="f">manifest.jsonl</span>        <span class="c"># artifact metadata, append-only</span>
 ├── <span class="f">collection.jsonl</span>      <span class="c"># hash-chained log</span>
 ├── <span class="f">chain-of-custody.jsonl</span><span class="c"># hash-chained custody</span>
-├── <span class="f">case.json</span>             <span class="c"># operator, clock, timezone</span>
+├── <span class="f">case.json</span>             <span class="c"># operator, clock, rounds</span>
+├── <span class="d">seals/</span><span class="f">SHA256SUMS.n</span>   <span class="c"># each earlier round's seal</span>
 ├── <span class="f">SHA256SUMS</span>            <span class="c"># seals the evidence zone</span>
 ├── <span class="d">normalized/</span>           <span class="c"># events · entities · graph</span>
 └── <span class="d">detections/</span>           <span class="c"># findings.json</span>
