@@ -185,6 +185,8 @@ func (s *Shared) Link(storedSHA, dst string) (bool, error) {
 	if h, err := hashFile(src); err != nil || h != storedSHA {
 		return false, nil
 	}
+	// Blobs are stored read-only; on Windows that bit blocks unlinking.
+	_ = os.Chmod(dst, 0o600)
 	if err := os.Remove(dst); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return false, nil
 	}

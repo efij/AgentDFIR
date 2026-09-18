@@ -898,7 +898,8 @@ func (b *Builder) commitBlob(res *blobResult, id string) error {
 		}
 		// Present but not the expected bytes: replace with what we just
 		// verified ourselves rather than seal someone else's file.
-		os.Remove(dst)
+		_ = os.Chmod(dst, 0o600)
+		_ = os.Remove(dst)
 	}
 
 	if b.Shared != nil {

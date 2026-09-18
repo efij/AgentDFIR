@@ -183,6 +183,9 @@ func TestExcludedSubtreeIsRecordedNotDropped(t *testing.T) {
 // TestSecondRoundCarriesForwardUnchangedFiles exercises the collector end
 // to end: a repeat collection must not re-read what it already holds.
 func TestSecondRoundCarriesForwardUnchangedFiles(t *testing.T) {
+	if !casepkg.SupportsCarryForward() {
+		t.Skip("carry-forward needs a trustworthy change time; this platform re-reads instead")
+	}
 	root := fixtureProfile(t)
 	man, err := products.Manifest("claude-code")
 	if err != nil {

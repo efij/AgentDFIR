@@ -151,6 +151,9 @@ func BenchmarkVerifyQuick(b *testing.B) { benchVerify(b, false) }
 // BenchmarkSecondRoundUnchanged measures a repeat collection where nothing
 // changed: the work should be manifest bookkeeping, not re-reading files.
 func BenchmarkSecondRoundUnchanged(b *testing.B) {
+	if !SupportsCarryForward() {
+		b.Skip("carry-forward unavailable on this platform")
+	}
 	paths := transcriptFixture(b, 24, 400)
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()

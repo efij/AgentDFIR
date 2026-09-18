@@ -37,6 +37,10 @@ func statSignature(info os.FileInfo) (statSig, bool) {
 	}, true
 }
 
+// SupportsCarryForward reports whether this platform can prove a source
+// file is unchanged without re-reading it. It can here: ctime plus inode.
+func SupportsCarryForward() bool { return true }
+
 // openNoFollow opens a path for reading, refusing to traverse a final
 // symlink. Combined with the post-open identity check, this closes the
 // window between classifying a path with lstat and reading it.

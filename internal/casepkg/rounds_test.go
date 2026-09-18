@@ -120,6 +120,9 @@ func TestSecondRoundAppendsAndArchivesSeal(t *testing.T) {
 // re-read, and the record that says so must never look like a fresh
 // acquisition.
 func TestCarryForwardIsLabelledAndNotReRead(t *testing.T) {
+	if !SupportsCarryForward() {
+		t.Skip("carry-forward needs a trustworthy change time; this platform re-reads instead")
+	}
 	src := t.TempDir()
 	path := filepath.Join(src, "a.jsonl")
 	writeFile(t, path, `{"x":1}`)
@@ -179,6 +182,9 @@ func TestCarryForwardIsLabelledAndNotReRead(t *testing.T) {
 // TestModifiedFileIsNotCarriedForward: the whole point of using ctime and
 // inode is that restoring an mtime must not buy a skipped re-read.
 func TestModifiedFileIsNotCarriedForward(t *testing.T) {
+	if !SupportsCarryForward() {
+		t.Skip("carry-forward needs a trustworthy change time; this platform re-reads instead")
+	}
 	src := t.TempDir()
 	path := filepath.Join(src, "a.jsonl")
 	writeFile(t, path, `{"x":1}`)

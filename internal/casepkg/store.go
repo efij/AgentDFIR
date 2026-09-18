@@ -1,6 +1,7 @@
 package casepkg
 
 import (
+	"bytes"
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 // Store is the single read path to a package's content-addressed evidence.
@@ -26,7 +28,27 @@ import (
 type Store struct {
 	dir  string
 	byID map[string]ArtifactRecord
+
+	// Random access to a compressed or chunked artifact cannot seek: the
+	// bytes before the offset have to be produced to reach it. Analysis
+	// reads many lines out of the same transcript by offset (provenance
+	// walks every tool call; the explorer's evidence pane fetches one line
+	// at a time), so without a cache each of those reads would decompress
+	// the file from the start again — quadratic in the number of lines.
+	// A small bounded cache of recently seeked artifacts turns that back
+	// into one decompression per artifact.
+	mu         sync.Mutex
+	cache      map[string][]byte
+	cacheOrder []string
+	cacheBytes int64
 }
+
+// Bounds on the seek cache. Anything larger is streamed and discarded
+// instead: a forensic tool must stay bounded on hostile input.
+const (
+	seekCacheMaxArtifact = 32 << 20
+	seekCacheMaxTotal    = 64 << 20
+)
 
 // Codec values for stored blob bytes.
 const (
@@ -164,16 +186,25 @@ func (s *Store) Open(id string) (io.ReadCloser, error) {
 	return newChunkReader(s, rec)
 }
 
-// OpenAt returns the artifact's plaintext positioned at off. Plain blobs
-// seek; compressed blobs are streamed and discarded up to off, which is
-// what gzip allows and is fast enough for the transcript sizes involved.
+// OpenAt returns the artifact's plaintext positioned at off. A plaintext
+// blob seeks. A compressed or chunked one has no seek, so it is served
+// from the bounded cache above when it fits, and otherwise streamed and
+// discarded up to off.
 func (s *Store) OpenAt(id string, off int64) (io.ReadCloser, error) {
+	if off <= 0 {
+		return s.Open(id)
+	}
+	if rec, ok := s.byID[id]; ok && needsDecode(rec) {
+		if data, ok := s.seekable(id, rec); ok {
+			if off > int64(len(data)) {
+				off = int64(len(data))
+			}
+			return io.NopCloser(bytes.NewReader(data[off:])), nil
+		}
+	}
 	rc, err := s.Open(id)
 	if err != nil {
 		return nil, err
-	}
-	if off <= 0 {
-		return rc, nil
 	}
 	if f, ok := rc.(*os.File); ok {
 		if _, err := f.Seek(off, io.SeekStart); err != nil {
@@ -187,6 +218,49 @@ func (s *Store) OpenAt(id string, off int64) (io.ReadCloser, error) {
 		return nil, err
 	}
 	return rc, nil
+}
+
+// needsDecode reports whether reaching an offset in this artifact costs
+// more than a seek.
+func needsDecode(rec ArtifactRecord) bool {
+	return rec.Codec == CodecGzip || len(rec.Chunks) > 0
+}
+
+// seekable returns the artifact's full plaintext for random access,
+// decoding it at most once while it stays in the cache.
+func (s *Store) seekable(id string, rec ArtifactRecord) ([]byte, bool) {
+	if rec.Size <= 0 || rec.Size > seekCacheMaxArtifact {
+		return nil, false
+	}
+	s.mu.Lock()
+	if data, ok := s.cache[id]; ok {
+		s.mu.Unlock()
+		return data, true
+	}
+	s.mu.Unlock()
+
+	data, err := s.ReadAll(id, seekCacheMaxArtifact)
+	if err != nil {
+		return nil, false
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.cache == nil {
+		s.cache = map[string][]byte{}
+	}
+	if _, ok := s.cache[id]; !ok {
+		s.cache[id] = data
+		s.cacheOrder = append(s.cacheOrder, id)
+		s.cacheBytes += int64(len(data))
+		for s.cacheBytes > seekCacheMaxTotal && len(s.cacheOrder) > 1 {
+			oldest := s.cacheOrder[0]
+			s.cacheOrder = s.cacheOrder[1:]
+			s.cacheBytes -= int64(len(s.cache[oldest]))
+			delete(s.cache, oldest)
+		}
+	}
+	return data, true
 }
 
 // ReadAll reads a whole artifact into memory, refusing anything over max.

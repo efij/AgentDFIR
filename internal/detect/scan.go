@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/efij/AgentDFIR/internal/casepkg"
 )
@@ -151,8 +152,18 @@ func invisibleStats(b blobReader) (tags, bidi, zw int, firstOff int64) {
 		if base > 0 {
 			start = scanOverlap
 		}
-		off := start
-		for _, r := range string(chunk[start:]) {
+		// Decode in place. This runs over every byte of every artifact, so
+		// it stays on the byte slice: ranging over string(chunk) would copy
+		// a megabyte per chunk, and every non-ASCII rune would allocate
+		// again to measure its width. Single-byte runes — nearly all of
+		// transcript evidence — never reach the Unicode tables.
+		for off := start; off < len(chunk); {
+			c := chunk[off]
+			if c < utf8.RuneSelf {
+				off++
+				continue
+			}
+			r, size := utf8.DecodeRune(chunk[off:])
 			hit := false
 			switch {
 			case r >= 0xE0000 && r <= 0xE007F:
@@ -164,14 +175,14 @@ func invisibleStats(b blobReader) (tags, bidi, zw int, firstOff int64) {
 			case r >= 0x200B && r <= 0x200F, r == 0xFEFF:
 				zw++
 				hit = true
-			case unicode.Is(unicode.Cf, r) && r != '­':
+			case unicode.Is(unicode.Cf, r) && r != '\u00ad':
 				zw++
 				hit = true
 			}
 			if hit && firstOff == -1 {
 				firstOff = base + int64(off)
 			}
-			off += len(string(r))
+			off += size
 		}
 		return true
 	})

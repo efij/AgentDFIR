@@ -110,6 +110,17 @@ Measured on the profile above (2.5 GB `~/.claude`, 1.3 GB `~/.codex`,
   Home and store are 0700, stored blobs 0400. One directory now aggregates
   every transcript collected on the machine; see `SECURITY.md`.
 
+### Platform notes
+- Carry-forward (skipping the re-read of an unchanged file) needs a change
+  time an unprivileged writer cannot set. Unix has `ctime`; Windows exposes
+  neither a change time nor a file index through `os.FileInfo`, so Windows
+  re-reads its sources every round rather than guessing from creation or
+  write time. That costs read time, not storage: unchanged files hash to
+  the same content address and dedupe against what the package already
+  holds, and a transcript that only grew still stores just its new tail.
+  Compression, deduplication, cross-case sharing, rounds, parallelism and
+  append-aware storage are identical on all three platforms.
+
 ### Known limitations
 - Analysis still re-normalizes the whole package after a collection round
   rather than only the artifacts that changed. It is faster than before

@@ -170,6 +170,11 @@ that case instead of producing another multi-gigabyte copy. A second round:
 On the same machine as above, a second run re-read 10 files, carried 8,269
 forward, and added **157 KB** to disk.
 
+On Windows, carry-forward is off by design — there is no change time an
+unprivileged writer cannot set — so rounds re-read their sources there.
+That costs read time, not storage: unchanged content dedupes against what
+the package already holds, and grown transcripts still store only the tail.
+
 Identical blobs are shared between cases by hardlink through
 `agentdfir store status` / `store gc`; each case directory still holds real
 files, so `cp -a`, `tar` and `export` still produce a self-contained package.
