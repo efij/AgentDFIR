@@ -87,7 +87,7 @@ var bypassMarkers = []string{
 func permissionBypass(man *casepkg.Manifest, pkgDir string) []schema.Finding {
 	var out []schema.Finding
 	store := casepkg.NewStore(pkgDir, man)
-	for _, a := range man.Artifacts {
+	for _, a := range man.Current() {
 		if !isType(a, "product_config", "managed_config") {
 			continue
 		}
@@ -118,7 +118,7 @@ var escalationMarkers = []string{`"Bash(*)"`, `"Bash(*:*)"`, `"allow": ["*"]`, `
 func permissionEscalation(man *casepkg.Manifest, pkgDir string) []schema.Finding {
 	var out []schema.Finding
 	store := casepkg.NewStore(pkgDir, man)
-	for _, a := range man.Artifacts {
+	for _, a := range man.Current() {
 		if !isType(a, "product_config", "managed_config") {
 			continue
 		}
@@ -176,7 +176,7 @@ func SecretKind(value string) (string, bool) {
 func secretExposure(man *casepkg.Manifest, pkgDir string) []schema.Finding {
 	var out []schema.Finding
 	store := casepkg.NewStore(pkgDir, man)
-	for _, a := range man.Artifacts {
+	for _, a := range man.Current() {
 		if !isType(a, "agent_session", "prompt_history") {
 			continue
 		}

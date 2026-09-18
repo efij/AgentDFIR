@@ -23,7 +23,7 @@ func ScanPackage(pkgDir string) (*Inventory, []schema.Finding, error) {
 	store := casepkg.NewStore(pkgDir, man)
 	inv := &Inventory{Source: pkgDir, Mode: "package"}
 	var extra []schema.Finding
-	for _, a := range man.Artifacts {
+	for _, a := range man.Current() {
 		if a.Status != casepkg.StatusOK || a.ArtifactID == "" {
 			continue
 		}

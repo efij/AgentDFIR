@@ -315,7 +315,7 @@ func WriteHTML(c *Case, path string) error {
 
 	// Evidence inventory
 	w(`<section><h2>Evidence Inventory</h2><table class="tl"><thead><tr><th>Logical path</th><th>Type</th><th>Status</th><th>Size</th><th>SHA-256</th></tr></thead><tbody>`)
-	for _, a := range c.Manifest.Artifacts {
+	for _, a := range c.Manifest.Current() {
 		w(`<tr><td class="mono">` + safe(a.LogicalPath) + `</td><td>` + safe(a.ArtifactType) + `</td><td>` + safe(a.Status) + `</td><td>` + fmt.Sprint(a.Size) + `</td><td class="mono ev">` + safe(a.ArtifactID) + `</td></tr>`)
 	}
 	w(`</tbody></table></section>`)

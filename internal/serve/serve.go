@@ -49,6 +49,7 @@ type Options struct {
 type Server struct {
 	pkg       string
 	man       *casepkg.Manifest
+	arts      []casepkg.ArtifactRecord // the case as it now stands (newest round per source)
 	store     *casepkg.Store
 	info      *casepkg.CaseInfo
 	verify    *casepkg.VerifyResult
@@ -74,7 +75,7 @@ func Load(pkg string, opts Options) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Server{pkg: pkg, man: man, byID: map[string]int{}, store: casepkg.NewStore(pkg, man)}
+	s := &Server{pkg: pkg, man: man, arts: man.Current(), byID: map[string]int{}, store: casepkg.NewStore(pkg, man)}
 	s.info, _ = report.ReadCaseInfo(pkg)
 	// Quick verification: the seal over the small sealed files, both hash
 	// chains end to end, the manifest cross-check and every blob's
@@ -276,7 +277,7 @@ func (s *Server) apiCase(w http.ResponseWriter, r *http.Request) {
 		"truncated": s.truncated,
 		"sessions":  len(sessions),
 		"agents":    len(agents),
-		"artifacts": len(s.man.Artifacts),
+		"artifacts": len(s.arts),
 		"findings":  len(s.findings),
 		"severity":  sev,
 		"types":     types,
@@ -391,7 +392,7 @@ func (s *Server) apiRaw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	found := false
-	for _, a := range s.man.Artifacts {
+	for _, a := range s.arts {
 		if a.ArtifactID == art {
 			found = true
 			break
@@ -655,7 +656,7 @@ func (s *Server) Serve(ln net.Listener) error {
 
 // Describe prints a one-line summary for the console.
 func (s *Server) Describe() string {
-	return fmt.Sprintf("%d events, %d findings, %d artifacts", len(s.events), len(s.findings), len(s.man.Artifacts))
+	return fmt.Sprintf("%d events, %d findings, %d artifacts", len(s.events), len(s.findings), len(s.arts))
 }
 
 // ---- /api/verify ----

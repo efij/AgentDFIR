@@ -178,7 +178,7 @@ func matchArtifacts(r *Rule, man *casepkg.Manifest, store *casepkg.Store) []sche
 		wantTypes["prompt_history"] = true
 	}
 	var out []schema.Finding
-	for _, a := range man.Artifacts {
+	for _, a := range man.Current() {
 		if a.Status != casepkg.StatusOK || !wantTypes[a.ArtifactType] {
 			continue
 		}

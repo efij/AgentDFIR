@@ -498,3 +498,54 @@ func TestLegacyPackageStaysReadable(t *testing.T) {
 		t.Fatal("legacy blob content changed")
 	}
 }
+
+// TestCurrentCollapsesRoundsToOneRecordPerSource: the manifest keeps every
+// round's record, but analysis must see the package as it now stands.
+func TestCurrentCollapsesRoundsToOneRecordPerSource(t *testing.T) {
+	src := t.TempDir()
+	a := filepath.Join(src, "a.jsonl")
+	writeFile(t, a, `{"x":1}`)
+	pkg := filepath.Join(t.TempDir(), "case.adfir")
+
+	b, err := New(pkg, "TEST-CURRENT", CaseInfo{OperatorOSUser: "tester"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ingest(t, b, a, "a.jsonl")
+	if err := b.Seal(); err != nil {
+		t.Fatal(err)
+	}
+
+	writeFile(t, a, `{"x":1}{"x":2}`) // changed: a new content address
+	b2, err := Reopen(pkg, CaseInfo{OperatorOSUser: "tester"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ingest(t, b2, a, "a.jsonl")
+	if err := b2.Seal(); err != nil {
+		t.Fatal(err)
+	}
+
+	man, err := ReadManifest(pkg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(man.Artifacts) != 2 {
+		t.Fatalf("history holds %d records, want 2 — the manifest must keep every round", len(man.Artifacts))
+	}
+	cur := man.Current()
+	if len(cur) != 1 {
+		t.Fatalf("current view holds %d records, want 1 per source", len(cur))
+	}
+	if cur[0].Round != 2 {
+		t.Fatalf("current record is from round %d, want the newest (2)", cur[0].Round)
+	}
+	// Both rounds' blobs are still addressable: superseded evidence is not
+	// deleted, it is superseded.
+	store := NewStore(pkg, man)
+	for _, rec := range man.Artifacts {
+		if _, err := store.ReadAll(rec.ArtifactID, 0); err != nil {
+			t.Fatalf("round %d evidence no longer readable: %v", rec.Round, err)
+		}
+	}
+}

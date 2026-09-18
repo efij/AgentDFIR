@@ -106,7 +106,7 @@ func Run(pkgDir string, events []schema.Event, filter string) (*Report, error) {
 	rep := &Report{}
 	// Target files.
 	targets := map[string]bool{}
-	for _, a := range man.Artifacts {
+	for _, a := range man.Current() {
 		if a.Status != casepkg.StatusOK || !instructionCategories[a.ArtifactType] || a.Size > MaxFileBytes || a.Size == 0 {
 			continue
 		}

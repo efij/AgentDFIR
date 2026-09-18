@@ -25,6 +25,11 @@ const usage = `agentdfir — open-source DFIR for AI agents. Evidence in, verdic
 ONE COMMAND (this machine, this user)
   agentdfir run                 detect → collect every agent → analyze → open the results in your browser
   agentdfir run --no-serve      same, print the findings and stop (scripts, CI)
+     Writes to one case per host/user under $AGENTDFIR_HOME (default ~/.agentdfir), so running it
+     again — from anywhere — adds a round to that case instead of copying every byte a second time.
+     --out <dir> picks the location · --new starts a fresh case · --jobs N sets acquisition workers
+     --recollect re-reads everything · --full-plugins includes node_modules/.git · --no-share keeps
+     this case's bytes out of the shared store
 
 THE 4-STEP WORKFLOW (the same thing, one step at a time)
   1. See what's installed      agentdfir detect

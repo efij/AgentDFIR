@@ -86,7 +86,7 @@ func Export(srcPkg, dstPkg string) (*RedactionManifest, error) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	for _, a := range man.Artifacts {
+	for _, a := range man.Current() {
 		if a.Status != casepkg.StatusOK {
 			_ = b.RecordNonFile(a)
 			continue

@@ -43,9 +43,15 @@ func cmdInspect(args []string) int {
 
 	store := casepkg.NewStore(pkg, man)
 
-	fmt.Printf("Case %s — %d artifact record(s)\n\n", sanitize.Terminal(man.CaseID), len(man.Artifacts))
+	arts := man.Current()
+	if rounds := len(man.Artifacts); rounds != len(arts) {
+		fmt.Printf("Case %s — %d artifact(s) as the package now stands (%d records across all collection rounds)\n\n",
+			sanitize.Terminal(man.CaseID), len(arts), rounds)
+	} else {
+		fmt.Printf("Case %s — %d artifact record(s)\n\n", sanitize.Terminal(man.CaseID), len(arts))
+	}
 	fmt.Printf("%-8s %-11s %-18s %s\n", "STATUS", "SIZE", "TYPE", "LOGICAL PATH")
-	for _, a := range man.Artifacts {
+	for _, a := range arts {
 		fmt.Printf("%-8s %-11d %-18s %s\n", a.Status, a.Size,
 			sanitize.Terminal(a.ArtifactType), sanitize.Terminal(a.LogicalPath))
 	}
@@ -55,7 +61,7 @@ func cmdInspect(args []string) int {
 		fmt.Println("!! --reveal-sensitive active: values will be printed. Handle output as evidence.")
 	}
 	hits := 0
-	for _, a := range man.Artifacts {
+	for _, a := range arts {
 		if a.Status != "OK" {
 			continue
 		}

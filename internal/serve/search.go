@@ -126,7 +126,7 @@ func (s *Server) apiSearch(w http.ResponseWriter, r *http.Request) {
 func (s *Server) scanRaw(ctx context.Context, re *regexp.Regexp, limit int) ([]rawHit, int64, int, int, bool) {
 	var arts []casepkg.ArtifactRecord
 	skipped := 0
-	for _, a := range s.man.Artifacts {
+	for _, a := range s.arts {
 		if a.ArtifactID == "" || strings.ContainsAny(a.ArtifactID, "/\\.") {
 			continue
 		}

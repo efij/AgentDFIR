@@ -44,7 +44,7 @@ func Snapshot(pkgDir string) (*Baseline, error) {
 		Rules:        map[string]string{},
 	}
 	store := casepkg.NewStore(pkgDir, man)
-	for _, a := range man.Artifacts {
+	for _, a := range man.Current() {
 		if a.Status != casepkg.StatusOK || !configCategories[a.ArtifactType] {
 			continue
 		}

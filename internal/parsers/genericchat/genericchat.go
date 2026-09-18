@@ -116,7 +116,7 @@ func parseWith(pkgDir string, sink func(schema.Event)) (*schema.Normalized, erro
 	store := casepkg.NewStore(pkgDir, man)
 	p := &parser{res: &schema.Normalized{}, sink: sink, caseID: man.CaseID, host: man.Host,
 		entities: map[string]schema.Entity{}}
-	for _, a := range man.Artifacts {
+	for _, a := range man.Current() {
 		if a.Status != casepkg.StatusOK || !sessionCategories[a.ArtifactType] {
 			continue
 		}

@@ -334,6 +334,33 @@ func (c *chunkReader) Close() error {
 	return nil
 }
 
+// Current returns one record per collected source: the newest round's view
+// of the package, in the order each source was first recorded.
+//
+// The manifest is a history — a package collected three times holds three
+// records for a file that never changed. That history is what Verify and
+// an audit of the case need. Analysis needs the opposite: the case as it
+// now stands. Handing every historical record to a content rule would scan
+// the same evidence once per round and report the same finding as many
+// times.
+func (m *Manifest) Current() []ArtifactRecord {
+	pos := make(map[string]int, len(m.Artifacts))
+	out := make([]ArtifactRecord, 0, len(m.Artifacts))
+	for _, a := range m.Artifacts {
+		key := a.SourcePath
+		if key == "" {
+			key = a.Product + "\x00" + a.LogicalPath
+		}
+		if i, seen := pos[key]; seen {
+			out[i] = a // newest round wins, in the position it first appeared
+			continue
+		}
+		pos[key] = len(out)
+		out = append(out, a)
+	}
+	return out
+}
+
 // ReadManifest reads manifest.jsonl (current) or manifest.json (packages
 // written before the append-only manifest). Both forms stay readable for
 // the life of the format.

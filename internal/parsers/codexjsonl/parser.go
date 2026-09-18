@@ -76,7 +76,7 @@ func parseWith(pkgDir string, sink func(schema.Event)) (*Result, error) {
 	store := casepkg.NewStore(pkgDir, man)
 	p := &parser{res: &Result{}, caseID: man.CaseID, host: man.Host,
 		entities: map[string]schema.Entity{}}
-	for _, a := range man.Artifacts {
+	for _, a := range man.Current() {
 		if a.Status != casepkg.StatusOK ||
 			(a.CollectorRule != "codex.sessions" && a.CollectorRule != "codex.archived_sessions") ||
 			!strings.HasSuffix(a.LogicalPath, ".jsonl") {

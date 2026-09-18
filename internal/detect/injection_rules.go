@@ -78,7 +78,7 @@ var injectionSurfaces = []surfaceRule{
 func promptInjectionIndicator(man *casepkg.Manifest, pkgDir string) []schema.Finding {
 	var out []schema.Finding
 	store := casepkg.NewStore(pkgDir, man)
-	for _, a := range man.Artifacts {
+	for _, a := range man.Current() {
 		for _, sr := range injectionSurfaces {
 			if !isType(a, sr.types...) {
 				continue
@@ -118,7 +118,7 @@ func severityFor(rule string) string {
 func invisibleUnicodeInstruction(man *casepkg.Manifest, pkgDir string) []schema.Finding {
 	var out []schema.Finding
 	store := casepkg.NewStore(pkgDir, man)
-	for _, a := range man.Artifacts {
+	for _, a := range man.Current() {
 		if !isType(a, "agent_session", "prompt_history", "agent_instructions", "agent_definitions") {
 			continue
 		}
@@ -147,7 +147,7 @@ func invisibleUnicodeInstruction(man *casepkg.Manifest, pkgDir string) []schema.
 func HoneytokenFindings(man *casepkg.Manifest, pkgDir string, markers []string) []schema.Finding {
 	var out []schema.Finding
 	store := casepkg.NewStore(pkgDir, man)
-	for _, a := range man.Artifacts {
+	for _, a := range man.Current() {
 		if !isType(a, "agent_session", "prompt_history") {
 			continue
 		}
