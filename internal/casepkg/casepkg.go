@@ -267,28 +267,30 @@ func New(dir, caseID string, info CaseInfo) (*Builder, error) {
 		return nil, err
 	}
 	b.lock = lk
-	if b.coll, err = hashchain.NewWriter(filepath.Join(dir, "collection.jsonl")); err != nil {
-		b.lock.release()
+	// Every failure from here on goes through Close: it drops the lock and
+	// closes whatever was already opened. Returning without it would leave
+	// handles behind, which on Windows makes the package undeletable.
+	fail := func(err error) (*Builder, error) {
+		b.Close()
 		return nil, err
 	}
+	if b.coll, err = hashchain.NewWriter(filepath.Join(dir, "collection.jsonl")); err != nil {
+		return fail(err)
+	}
 	if b.custody, err = hashchain.NewWriter(filepath.Join(dir, "chain-of-custody.jsonl")); err != nil {
-		b.lock.release()
-		return nil, err
+		return fail(err)
 	}
 	// The manifest header is written once, at creation.
 	if b.mf, err = os.OpenFile(filepath.Join(dir, manifestJSONL), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600); err != nil {
-		b.lock.release()
-		return nil, err
+		return fail(err)
 	}
 	header := b.manifest
 	header.Artifacts = nil
 	if err := b.writeManifestLine(header); err != nil {
-		b.lock.release()
-		return nil, err
+		return fail(err)
 	}
 	if err := b.startRound(); err != nil {
-		b.lock.release()
-		return nil, err
+		return fail(err)
 	}
 	return b, nil
 }
@@ -308,10 +310,6 @@ func Reopen(dir string, info CaseInfo) (*Builder, error) {
 	}
 	lk, err := acquireLock(dir)
 	if err != nil {
-		return nil, err
-	}
-	fail := func(err error) (*Builder, error) {
-		lk.release()
 		return nil, err
 	}
 
@@ -359,6 +357,12 @@ func Reopen(dir string, info CaseInfo) (*Builder, error) {
 		prev:     map[string]ArtifactRecord{},
 		lock:     lk,
 	}
+	// As in New: any failure past this point releases the lock and closes
+	// whatever is already open.
+	fail := func(err error) (*Builder, error) {
+		b.Close()
+		return nil, err
+	}
 	b.manifest.CollectorVersion = version.Version
 	b.manifest.CollectorBinary = selfHash()
 
@@ -381,12 +385,9 @@ func Reopen(dir string, info CaseInfo) (*Builder, error) {
 		return fail(fmt.Errorf("collection log: %w", err))
 	}
 	if b.custody, err = hashchain.NewAppender(filepath.Join(dir, "chain-of-custody.jsonl")); err != nil {
-		b.coll.Close()
 		return fail(fmt.Errorf("custody log: %w", err))
 	}
 	if b.mf, err = openManifestForAppend(dir, man); err != nil {
-		b.coll.Close()
-		b.custody.Close()
 		return fail(err)
 	}
 	if err := b.startRound(); err != nil {
