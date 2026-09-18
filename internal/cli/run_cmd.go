@@ -16,6 +16,7 @@ import (
 	"github.com/efij/AgentDFIR/internal/schema"
 	"github.com/efij/AgentDFIR/internal/seal"
 	"github.com/efij/AgentDFIR/internal/serve"
+	"github.com/efij/AgentDFIR/internal/store"
 )
 
 // cmdRun is the whole workflow in one command for the common case — this
@@ -26,11 +27,16 @@ import (
 func cmdRun(args []string) int {
 	fs := flag.NewFlagSet("run", flag.ContinueOnError)
 	product := fs.String("product", "", "collect only this product (default: every detected agent)")
-	out := fs.String("out", "", "package directory (default: <case-id>.adfir in the current directory)")
+	out := fs.String("out", "", "package directory (default: the case for this host/user under $AGENTDFIR_HOME)")
 	caseID := fs.String("case-id", "", "case identifier")
 	operator := fs.String("operator", "", "asserted operator name")
 	authz := fs.String("authorization", "", "authorization reference")
 	maxFileMB := fs.Int64("max-file-mb", 0, "per-artifact size bound (MiB)")
+	jobs := fs.Int("jobs", 0, "parallel acquisition workers (default: CPUs, max 8)")
+	newCase := fs.Bool("new", false, "start a fresh case instead of adding a round to the existing one")
+	recollect := fs.Bool("recollect", false, "re-read every file, even one an earlier round already preserved")
+	noShare := fs.Bool("no-share", false, "do not share identical blobs with other cases on this machine")
+	fullPlugins := fs.Bool("full-plugins", false, "also collect node_modules/.git subtrees (large, third-party)")
 	signKey := fs.String("sign", "", "sign the sealed package with this ed25519 private key")
 	var endpointLogs multiFlag
 	fs.Var(&endpointLogs, "endpoint", "OS telemetry log (auditd, Sysmon XML, JSONL/CSV export); repeatable")
@@ -39,7 +45,7 @@ func cmdRun(args []string) int {
 	noOpen := fs.Bool("no-open", false, "print the URL but do not open the browser")
 	noServe := fs.Bool("no-serve", false, "stop after analysis and print the findings (scripts, CI)")
 	if err := fs.Parse(args); err != nil || fs.NArg() != 0 {
-		fmt.Fprintln(os.Stderr, "usage: agentdfir run [--product <p>] [--out <dir>] [--endpoint <os-log>]... [--no-open] [--no-serve]")
+		fmt.Fprintln(os.Stderr, "usage: agentdfir run [--product <p>] [--out <dir>] [--endpoint <os-log>]... [--new] [--jobs N] [--no-open] [--no-serve]")
 		return 2
 	}
 
@@ -84,36 +90,56 @@ func cmdRun(args []string) int {
 	if id == "" {
 		id = generateCaseID()
 	}
-	dest := *out
-	if dest == "" {
-		dest = id + ".adfir"
-	}
-	fmt.Printf("\nStep 2/4  Collect — sealed evidence package %s\n", sanitize.Terminal(dest))
+	host, _ := os.Hostname()
 	osUser := ""
 	if u, err := user.Current(); err == nil {
 		osUser = u.Username
+	}
+	// One case per host/user at a predictable path, so running from a
+	// different directory adds a round to the same case instead of copying
+	// every byte of evidence again.
+	dest := *out
+	if dest == "" {
+		d, err := store.CaseDir(host, osUser)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "error:", err)
+			return 1
+		}
+		dest = d
+		if *newCase {
+			dest = filepath.Join(filepath.Dir(d), id+".adfir")
+		}
 	}
 	info := casepkg.CaseInfo{
 		OperatorOSUser: osUser, OperatorAsserted: *operator, Authorization: *authz,
 		CollectionArgs: append([]string{"run"}, args...),
 		Notes:          map[string]string{"mode": "current-user", "run": "detect+collect+analyze"},
 	}
-	b, err := casepkg.New(dest, id, info)
+	b, reopened, err := openPackage(dest, id, info, !*noShare)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
 	}
-	host, _ := os.Hostname()
+	defer b.Close()
+	if reopened {
+		fmt.Printf("\nStep 2/4  Collect — round %d of existing case %s\n", b.Round(), sanitize.Terminal(dest))
+		fmt.Println("  Unchanged files are carried forward, not re-read; files that only grew store just the new tail.")
+	} else {
+		fmt.Printf("\nStep 2/4  Collect — sealed evidence package %s\n", sanitize.Terminal(dest))
+	}
 	var total collector.Stats
 	var collectErr error
 	prog := newProgress()
 	for _, pid := range targets {
 		prog.Start(fmt.Sprintf("  %-16s collecting", pid))
-		st, err := collectCurrentUser(b, pid, home, host, osUser, *maxFileMB, func(s collector.Stats) {
-			prog.Set(fmt.Sprintf("%d artifacts · %s", s.Acquired, humanBytes(s.TotalBytes)))
+		st, err := collectCurrentUser(b, pid, home, host, osUser, collectTuning{
+			MaxFileMB: *maxFileMB, Jobs: *jobs, Recollect: *recollect, FullContent: *fullPlugins,
+		}, func(s collector.Stats) {
+			prog.Set(fmt.Sprintf("%d new · %d carried · %s", s.Acquired, s.Carried, humanBytes(s.TotalBytes)))
 		})
 		prog.Stop()
 		total.Acquired += st.Acquired
+		total.Carried += st.Carried
 		total.Symlinks += st.Symlinks
 		total.Skipped += st.Skipped
 		total.Failed += st.Failed
@@ -125,7 +151,11 @@ func cmdRun(args []string) int {
 			}
 			continue
 		}
-		fmt.Printf("  %-16s %d artifacts · %s\n", pid, st.Acquired, humanBytes(st.TotalBytes))
+		if st.Carried > 0 {
+			fmt.Printf("  %-16s %d new · %d carried forward · %s\n", pid, st.Acquired, st.Carried, humanBytes(st.TotalBytes))
+		} else {
+			fmt.Printf("  %-16s %d artifacts · %s\n", pid, st.Acquired, humanBytes(st.TotalBytes))
+		}
 	}
 	if *signKey != "" {
 		if err := seal.Sign(dest, *signKey); err != nil {
@@ -134,13 +164,15 @@ func cmdRun(args []string) int {
 		}
 	}
 	prog.Start("  sealing")
+	roundStats := b.Stats()
 	sealErr := b.Seal()
 	prog.Stop()
 	if sealErr != nil {
 		fmt.Fprintln(os.Stderr, "seal error:", sealErr)
 		return 1
 	}
-	fmt.Printf("  Sealed: %d artifacts (%s), SHA256SUMS written", total.Acquired, humanBytes(total.TotalBytes))
+	fmt.Printf("  Sealed round %d: %d artifacts (%s evidence, %s added to disk), SHA256SUMS written",
+		b.Round(), total.Acquired+total.Carried, humanBytes(total.TotalBytes), humanBytes(roundStats.StoredBytes))
 	if collectErr != nil {
 		fmt.Print(" — partial evidence, see errors above")
 	}
@@ -191,9 +223,17 @@ func cmdRun(args []string) int {
 	return 0
 }
 
+// collectTuning carries the acquisition knobs from the command line.
+type collectTuning struct {
+	MaxFileMB   int64
+	Jobs        int
+	Recollect   bool
+	FullContent bool
+}
+
 // collectCurrentUser acquires one product from the current user's home into
 // an open package, exactly as `collect --product` does for the live host.
-func collectCurrentUser(b *casepkg.Builder, productID, home, host, osUser string, maxFileMB int64, progress func(collector.Stats)) (*collector.Stats, error) {
+func collectCurrentUser(b *casepkg.Builder, productID, home, host, osUser string, tune collectTuning, progress func(collector.Stats)) (*collector.Stats, error) {
 	man, err := products.Manifest(productID)
 	if err != nil {
 		return &collector.Stats{}, err
@@ -214,15 +254,20 @@ func collectCurrentUser(b *casepkg.Builder, productID, home, host, osUser string
 			configRoot = v
 		}
 	}
-	opts := collector.Options{ProfileRoot: home, ConfigRoot: configRoot, SystemRoot: "/", Host: host, User: osUser, Product: productID, Progress: progress}
-	if maxFileMB > 0 {
-		opts.MaxFileBytes = maxFileMB << 20
+	opts := collector.Options{
+		ProfileRoot: home, ConfigRoot: configRoot, SystemRoot: "/", Host: host, User: osUser,
+		Product: productID, Progress: progress,
+		Jobs: tune.Jobs, Recollect: tune.Recollect, FullContent: tune.FullContent,
+	}
+	if tune.MaxFileMB > 0 {
+		opts.MaxFileBytes = tune.MaxFileMB << 20
 	}
 	start := time.Now()
 	_ = b.Log("collection_run_started", map[string]any{"product": productID, "profile_root": home, "config_root": configRoot})
 	st, runErr := collector.Run(b, man, opts)
 	_ = b.Log("collection_run_finished", map[string]any{
-		"product": productID, "acquired": st.Acquired, "symlinks": st.Symlinks, "skipped": st.Skipped,
+		"product": productID, "acquired": st.Acquired, "carried_forward": st.Carried,
+		"symlinks": st.Symlinks, "skipped": st.Skipped,
 		"failed": st.Failed, "bytes": st.TotalBytes, "duration_ms": time.Since(start).Milliseconds(),
 	})
 	return st, runErr

@@ -507,10 +507,37 @@ func (b *Builder) storedSizeOf(rec ArtifactRecord, name string) int64 {
 	return 0
 }
 
+// PrepareRecord wraps a metadata-only record (symlink, skipped type,
+// bound or policy exclusion, access denied) so it can flow through the
+// same ordered commit path acquired files use.
+func (b *Builder) PrepareRecord(rec ArtifactRecord) *Pending {
+	if rec.CollectedUTC == "" {
+		rec.CollectedUTC = time.Now().UTC().Format(time.RFC3339Nano)
+	}
+	if rec.Method == "" {
+		rec.Method = MethodMetadataOnly
+	}
+	if rec.Round == 0 {
+		rec.Round = b.round
+	}
+	return &Pending{rec: rec}
+}
+
+// PrepareCarryForward builds the record for evidence an earlier round
+// already preserved, for commit in discovery order.
+func (b *Builder) PrepareCarryForward(prev ArtifactRecord, rec ArtifactRecord) *Pending {
+	return &Pending{rec: b.carryRecord(prev, rec), carried: true}
+}
+
 // CarryForward records that an earlier round's evidence still describes
 // the current file, without re-reading it. The record is explicitly marked
 // so no consumer can mistake it for a fresh acquisition.
 func (b *Builder) CarryForward(prev ArtifactRecord, rec ArtifactRecord) error {
+	b.stats.Carried++
+	return b.record(b.carryRecord(prev, rec))
+}
+
+func (b *Builder) carryRecord(prev ArtifactRecord, rec ArtifactRecord) ArtifactRecord {
 	rec.ArtifactID = prev.ArtifactID
 	rec.Size = prev.Size
 	rec.Codec = prev.Codec
@@ -528,15 +555,50 @@ func (b *Builder) CarryForward(prev ArtifactRecord, rec ArtifactRecord) error {
 	if rec.AcquiredIn == 0 {
 		rec.AcquiredIn = 1
 	}
-	b.stats.Carried++
-	return b.record(rec)
+	return rec
 }
 
-// IngestFile copies a regular file into raw/ (hash-while-copy, torn-read
-// detection, symlink-race check) and appends the manifest + collection
-// records. rec must have its descriptive fields set; content fields are
-// filled in here.
+// Pending is a file that has been read, hashed and written to a temporary
+// blob, but not yet committed to the package. Producing one touches no
+// builder state, so collection can run many in parallel; committing one
+// appends to the manifest and hash chain and must stay serial.
+type Pending struct {
+	rec      ArtifactRecord
+	blob     *blobResult
+	commitID string // content address the blob is stored under
+	carried  bool   // evidence an earlier round preserved; nothing to store
+}
+
+// Record returns the manifest record this pending ingest will write.
+func (p *Pending) Record() ArtifactRecord { return p.rec }
+
+// Carried reports whether this record carries forward evidence an earlier
+// round preserved, rather than newly acquired bytes.
+func (p *Pending) Carried() bool { return p != nil && p.carried }
+
+// Discard releases a prepared blob that will not be committed.
+func (p *Pending) Discard() {
+	if p != nil && p.blob != nil {
+		os.Remove(p.blob.tmp)
+	}
+}
+
+// IngestFile prepares and commits one file in the calling goroutine.
 func (b *Builder) IngestFile(srcPath string, rec ArtifactRecord) error {
+	p, err := b.PrepareFile(srcPath, rec)
+	if err != nil {
+		return err
+	}
+	return b.CommitPending(p)
+}
+
+// PrepareFile copies a regular file into a temporary blob (hash-while-copy,
+// torn-read detection, symlink-race check) and returns the record it will
+// produce. It is safe to call concurrently: it reads the builder's
+// previous-round index, which is fixed for the life of a round, and
+// otherwise touches only its own files. rec must have its descriptive
+// fields set; content fields are filled in here.
+func (b *Builder) PrepareFile(srcPath string, rec ArtifactRecord) (*Pending, error) {
 	rec.CollectedUTC = time.Now().UTC().Format(time.RFC3339Nano)
 	rec.Method = MethodFileCopy
 	rec.Round = b.round
@@ -546,7 +608,7 @@ func (b *Builder) IngestFile(srcPath string, rec ArtifactRecord) error {
 	if err != nil {
 		rec.Status = statusForErr(err)
 		rec.Error = err.Error()
-		return b.record(rec)
+		return &Pending{rec: rec}, nil
 	}
 	rec.Size = before.Size()
 	rec.Mode = before.Mode().String()
@@ -560,19 +622,19 @@ func (b *Builder) IngestFile(srcPath string, rec ArtifactRecord) error {
 	if err != nil {
 		rec.Status = statusForErr(err)
 		rec.Error = err.Error()
-		return b.record(rec)
+		return &Pending{rec: rec}, nil
 	}
 	defer f.Close()
 	opened, err := f.Stat()
 	if err != nil {
 		rec.Status = StatusError
 		rec.Error = err.Error()
-		return b.record(rec)
+		return &Pending{rec: rec}, nil
 	}
 	if !sameFile(before, opened) {
 		rec.Status = StatusError
 		rec.Error = "source changed identity between lstat and open (symlink race): not ingested"
-		return b.record(rec)
+		return &Pending{rec: rec}, nil
 	}
 	if sig, ok := statSignature(opened); ok && !sig.ctime.IsZero() {
 		rec.Inode = sig.inode
@@ -587,17 +649,17 @@ func (b *Builder) IngestFile(srcPath string, rec ArtifactRecord) error {
 	// prefix plus the new tail. The prefix check costs nothing: the whole
 	// file must be hashed anyway to compute the artifact_id.
 	if prev, ok := b.prev[srcPath]; ok && prev.Status == StatusOK && prev.Size > 0 && prev.Size < before.Size() {
-		done, err := b.ingestAppended(f, prev, rec, before)
+		p, err := b.prepareAppended(f, prev, rec, before)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		if done {
-			return nil
+		if p != nil {
+			return p, nil
 		}
 		if _, err := f.Seek(0, io.SeekStart); err != nil {
 			rec.Status = StatusError
 			rec.Error = err.Error()
-			return b.record(rec)
+			return &Pending{rec: rec}, nil
 		}
 	}
 
@@ -607,7 +669,7 @@ func (b *Builder) IngestFile(srcPath string, rec ArtifactRecord) error {
 	if err != nil {
 		rec.Status = StatusError
 		rec.Error = err.Error()
-		return b.record(rec)
+		return &Pending{rec: rec}, nil
 	}
 	rec.Size = res.plainSize
 	rec.ArtifactID = res.plainSHA
@@ -620,40 +682,62 @@ func (b *Builder) IngestFile(srcPath string, rec ArtifactRecord) error {
 			rec.FileWasGrowing = true
 		}
 	}
-	if err := b.commitBlob(res, rec.ArtifactID); err != nil {
-		return err
-	}
 	rec.Status = StatusOK
-	b.stats.OK++
-	return b.record(rec)
+	return &Pending{rec: rec, blob: res, commitID: rec.ArtifactID}, nil
 }
 
-// ingestAppended stores only the tail of a file whose prefix is proven
-// identical to what an earlier round preserved. Returns false when the
+// CommitPending places a prepared blob in the package and appends its
+// manifest and collection-log records. It must be called from a single
+// goroutine: both the manifest and the hash chain are strictly ordered.
+func (b *Builder) CommitPending(p *Pending) error {
+	if p == nil {
+		return nil
+	}
+	if p.blob != nil {
+		if err := b.commitBlob(p.blob, p.commitID); err != nil {
+			return err
+		}
+	}
+	switch {
+	case p.carried:
+		b.stats.Carried++
+	case p.rec.Status == StatusOK:
+		b.stats.OK++
+	default:
+		b.stats.Failed++
+	}
+	return b.record(p.rec)
+}
+
+// prepareAppended stores only the tail of a file whose prefix is proven
+// identical to what an earlier round preserved. It returns nil when the
 // prefix does not match, in which case the caller stores the file whole.
-func (b *Builder) ingestAppended(f *os.File, prev ArtifactRecord, rec ArtifactRecord, info os.FileInfo) (bool, error) {
+//
+// The prefix check is free: a changed file must be read in full anyway to
+// compute its artifact_id, and this is that same read.
+func (b *Builder) prepareAppended(f *os.File, prev ArtifactRecord, rec ArtifactRecord, info os.FileInfo) (*Pending, error) {
 	h := sha256.New()
 	if _, err := io.CopyN(h, f, prev.Size); err != nil {
-		return false, nil // short read: fall back to a whole-file copy
+		return nil, nil // short read: fall back to a whole-file copy
 	}
 	marshaler, ok := h.(interface {
 		MarshalBinary() ([]byte, error)
 	})
 	if !ok {
-		return false, nil
+		return nil, nil
 	}
 	state, err := marshaler.MarshalBinary()
 	if err != nil {
-		return false, nil
+		return nil, nil
 	}
 	if hex.EncodeToString(h.Sum(nil)) != prev.ArtifactID {
-		return false, nil // not an append: content before the old EOF changed
+		return nil, nil // not an append: content before the old EOF changed
 	}
 
 	tailLen := info.Size() - prev.Size
 	res, err := b.writeBlob(io.LimitReader(f, tailLen), tailLen)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	// Continue the full-file hash from the prefix state over the tail we
 	// just stored, so artifact_id still addresses the whole plaintext.
@@ -661,35 +745,35 @@ func (b *Builder) ingestAppended(f *os.File, prev ArtifactRecord, rec ArtifactRe
 	if u, ok := full.(interface{ UnmarshalBinary([]byte) error }); ok {
 		if err := u.UnmarshalBinary(state); err != nil {
 			os.Remove(res.tmp)
-			return false, nil
+			return nil, nil
 		}
 	} else {
 		os.Remove(res.tmp)
-		return false, nil
+		return nil, nil
 	}
 	tf, err := os.Open(res.tmp)
 	if err != nil {
 		os.Remove(res.tmp)
-		return false, err
+		return nil, err
 	}
 	if res.codec == CodecGzip {
 		rc, err := gzipReader(tf, tailLen)
 		if err != nil {
 			tf.Close()
 			os.Remove(res.tmp)
-			return false, err
+			return nil, err
 		}
 		_, err = io.Copy(full, rc)
 		rc.Close()
 		if err != nil {
 			tf.Close()
 			os.Remove(res.tmp)
-			return false, err
+			return nil, err
 		}
 	} else if _, err := io.Copy(full, tf); err != nil {
 		tf.Close()
 		os.Remove(res.tmp)
-		return false, err
+		return nil, err
 	}
 	tf.Close()
 
@@ -703,12 +787,8 @@ func (b *Builder) ingestAppended(f *os.File, prev ArtifactRecord, rec ArtifactRe
 		ID: res.plainSHA, Size: res.plainSize, Codec: res.codec,
 		StoredSHA: res.storedSHA, StoredSize: res.storedSize, Round: b.round,
 	})
-	if err := b.commitBlob(res, res.plainSHA); err != nil {
-		return false, err
-	}
 	rec.Status = StatusOK
-	b.stats.OK++
-	return true, b.record(rec)
+	return &Pending{rec: rec, blob: res, commitID: res.plainSHA}, nil
 }
 
 // chunksOf renders an earlier record as a chunk list.

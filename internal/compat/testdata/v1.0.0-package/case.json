@@ -1,0 +1,27 @@
+{
+  "case_id": "V1-COMPAT",
+  "created_utc": "2026-09-18T22:32:03Z",
+  "operator_os_user": "efi.jeremiah",
+  "operator_asserted": "tester",
+  "host": "Efi-Jeremiah-IL.local",
+  "os": "darwin",
+  "local_time": "2026-09-19T01:32:03+03:00",
+  "timezone": "IDT",
+  "utc_offset_seconds": 10800,
+  "collection_args": [
+    "--product",
+    "claude",
+    "--path",
+    "/tmp/claude-501/-Users-efi-jeremiah-projects-AgentDFIR/920e0243-313b-4b4e-aecb-1edf7a2ea1fc/scratchpad/legacyprofile",
+    "--out",
+    "/tmp/claude-501/-Users-efi-jeremiah-projects-AgentDFIR/920e0243-313b-4b4e-aecb-1edf7a2ea1fc/scratchpad/legacy.adfir",
+    "--case-id",
+    "V1-COMPAT",
+    "--operator",
+    "tester"
+  ],
+  "notes": {
+    "mode": "offline-path",
+    "offline_root": "/tmp/claude-501/-Users-efi-jeremiah-projects-AgentDFIR/920e0243-313b-4b4e-aecb-1edf7a2ea1fc/scratchpad/legacyprofile"
+  }
+}

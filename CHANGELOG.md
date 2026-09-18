@@ -7,6 +7,117 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.5.0] — 2026-09-19
+
+The evidence-store release. Collecting the same machine twice used to mean
+two complete copies of several gigabytes; on a real macOS profile a single
+run wrote **3.9 GB**, and running from a different directory wrote another
+3.9 GB. This release makes acquisition compressed, deduplicated, parallel
+and incremental, and hardens the acquisition path while doing it. Every
+command, flag and analysis result is unchanged, and packages written by
+v1.0.0 still open, verify, analyze and accept new rounds — enforced in CI
+against a package built by the released v1.0.0 binary (`internal/compat`).
+
+Measured on the profile above (2.5 GB `~/.claude`, 1.3 GB `~/.codex`,
+~22,000 files): **3.9 GB → 525 MB** sealed evidence; a second run re-read
+10 files, carried 8,269 forward and added **157 KB**.
+
+### Added
+- **Per-blob compression** — evidence is gzipped when a 256 KiB sample says
+  it pays (≥1.15x, >4 KiB); already-compressed content is stored as-is.
+  stdlib gzip keeps runtime dependencies at zero and lets an analyst
+  `gunzip` a single blob with no AgentDFIR binary in the loop. The codec is
+  recorded per blob, so a denser one can be added later without breaking
+  any package written today.
+- **Collection rounds** — a second collection against an existing package
+  appends instead of starting over: records carry their round, both hash
+  chains continue from their previous last line, and the seal that closed
+  the previous round is archived to `seals/SHA256SUMS.<n>`. Nothing already
+  written is ever rewritten. `case.json` gains a per-round summary.
+- **Carry-forward** — a file unchanged by size, inode and ctime is not
+  re-read. It is recorded as `carried_forward` with `acquired_in_round`, so
+  carried evidence is never rendered as a fresh acquisition. `--recollect`
+  forces a full re-read when that assumption is itself in question.
+- **Append-aware storage** — a transcript that only grew stores just the
+  new tail, after proving the earlier bytes still hash to what was
+  preserved. `artifact_id` remains the SHA-256 of the full plaintext, and
+  `verify` streams the chunks and checks the concatenation.
+- **Parallel acquisition** — a bounded worker pool (`--jobs`, default CPUs
+  capped at 8) does the I/O; discovery stays serial and decides everything
+  that affects *what* is collected, and results commit in discovery order.
+  A parallel run produces a byte-identical manifest to a serial one, which
+  is covered by a test.
+- **Stable case location** — `run` with no `--out` writes to one case per
+  host/user under `$AGENTDFIR_HOME` (default `~/.agentdfir`,
+  `%LOCALAPPDATA%\AgentDFIR` on Windows), so the directory you happen to be
+  standing in no longer decides whether you get a new multi-gigabyte copy.
+  `--out` keeps the old explicit behavior; `--new` forces a fresh case.
+- **Shared blob store** — identical bytes are stored once per machine and
+  hardlinked into each case, so a case directory stays self-contained for
+  `cp -a`, `tar` and `export`. `agentdfir store status` and
+  `agentdfir store gc [--delete]` report and reclaim blobs no case
+  references any more. `--no-share` disables sharing.
+- **Quick verification depth** — `casepkg.VerifyQuick` checks the seal over
+  the small sealed files, both hash chains end to end, the manifest
+  cross-check and every blob's presence. The explorer uses it so opening a
+  case is instant, and offers the full check on demand (`/api/verify`);
+  `agentdfir verify` still runs the full re-hash and now reports its depth,
+  the round count and how many artifacts were carried forward.
+- **Collection policy for vendored subtrees** — `node_modules/` and `.git/`
+  under agent plugin directories are recorded as `SKIPPED_BY_POLICY` with
+  their file count and byte total rather than collected. The exclusion is
+  visible in the manifest and reversible with `--full-plugins`.
+- Benchmarks for ingest (compressed vs plain), sealing, both verification
+  depths and an unchanged second round: `go test ./internal/casepkg -bench .`
+
+### Changed
+- `manifest.json` (a single JSON array) is now `manifest.jsonl`: a header
+  line plus one record per line, appendable and streamable. Both forms are
+  read; the eight duplicated manifest readers across the codebase now
+  delegate to one implementation.
+- Every read of evidence goes through `casepkg.Store` instead of joining
+  `raw/<sha256>` in twenty places, so the on-disk representation is no
+  longer part of every package's API.
+- Sealing reuses hashes computed while writing instead of re-reading every
+  blob it just hashed.
+- `adfir` package format version 0.1 → 0.2.
+
+### Security
+- **Content, not filenames, decides reuse.** Dedupe previously trusted a
+  blob because a file of that name existed. With a persistent shared store
+  that would let anything able to write into the store pre-place a file
+  under the hash of evidence it expects to be collected and have that
+  substituted for the real bytes. Stored bytes are now verified before
+  being reused, in the package and in the shared store.
+- **The lstat→open window is closed.** Evidence lives in directories the
+  agent — and anything that compromised it — can write. Sources are opened
+  `O_NOFOLLOW` and the descriptor is confirmed to be the object `lstat`
+  classified; a mismatch is recorded as an error, never ingested.
+- **One writer per package.** Nothing previously stopped two collections
+  writing the same package and interleaving lines into the hash chains. A
+  collect→seal cycle now holds an exclusive lock; a lock whose owner is
+  gone is reclaimed, a live one is never stolen.
+- **Unchanged means unchanged.** Incremental collection judges identity on
+  ctime and inode, never mtime alone, which an unprivileged writer can set
+  at will. An mtime later than ctime is itself recorded.
+- **Appending to a broken chain is refused.** `hashchain.NewAppender`
+  verifies the entire existing chain before writing a byte; extending a
+  broken chain would hide the break behind a valid-looking tail.
+- **Decompression is bounded** by the recorded plaintext size and fails
+  closed, before a hostile or tampered blob could expand.
+- **The evidence home is checked before use** — refused if it is a symlink,
+  not a directory, not owned by the current user, or group/world-writable.
+  Home and store are 0700, stored blobs 0400. One directory now aggregates
+  every transcript collected on the machine; see `SECURITY.md`.
+
+### Known limitations
+- Analysis still re-normalizes the whole package after a collection round
+  rather than only the artifacts that changed. It is faster than before
+  (it now reads compressed blobs), but incremental normalization needs
+  per-artifact segmentation of the events overlay and cross-artifact entity
+  state, and was deliberately left out of this release rather than risking
+  the detection path.
+
 ## [1.0.0] — 2026-09-17
 
 The investigation release. Findings stop being a list and become a story:

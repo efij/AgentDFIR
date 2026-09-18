@@ -6,6 +6,16 @@
 //   - per-artifact and total size bounds; over-bound files are recorded,
 //     not silently dropped
 //   - every failure is recorded in the manifest and collection log
+//
+// Acquisition is parallel but deterministic. Discovery runs serially in
+// manifest order and decides everything that affects *what* is collected —
+// classification, size bounds, policy exclusions, and whether an earlier
+// round's evidence still describes a file. Workers only do the I/O-bound
+// part (read, hash, compress, write). Results are committed in discovery
+// order through a reorder buffer, so the manifest, the collection log and
+// the set of collected artifacts are identical whatever order the workers
+// happen to finish in. A forensic tool must not collect different evidence
+// because a disk was busy.
 package collector
 
 import (
@@ -13,7 +23,9 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
 
 	"github.com/efij/AgentDFIR/internal/casepkg"
 	"github.com/efij/AgentDFIR/internal/products"
@@ -29,6 +41,9 @@ type Options struct {
 	Product       string
 	MaxFileBytes  int64       // per-artifact bound; 0 = default
 	MaxTotalBytes int64       // package bound; 0 = default
+	Jobs          int         // acquisition workers; 0 = min(NumCPU, 8)
+	Recollect     bool        // re-read every file even when an earlier round already preserved it
+	FullContent   bool        // collect dependency/VCS subtrees too (--full-plugins)
 	Progress      func(Stats) // optional; called after every acquired artifact (UI status lines)
 }
 
@@ -36,15 +51,45 @@ type Options struct {
 const (
 	DefaultMaxFileBytes  = 512 << 20 // 512 MiB
 	DefaultMaxTotalBytes = 8 << 30   // 8 GiB
+	maxJobs              = 8
 )
+
+// excludedDirs are subtrees excluded by default from bulk agent-support
+// directories: vendored dependencies and VCS object stores. They are
+// hundreds of megabytes of third-party content that the agent did not
+// author and that no detection reads.
+//
+// They are excluded, not ignored: each excluded subtree gets a
+// SKIPPED_BY_POLICY manifest record naming it with its file count and
+// byte total, so the exclusion is visible in the evidence and reversible
+// with --full-plugins. Evidence that was never collected cannot be
+// examined later, so the decision has to be recorded where an analyst
+// will see it.
+var excludedDirs = map[string]bool{"node_modules": true, ".git": true}
 
 // Stats summarizes a collection run.
 type Stats struct {
 	Acquired   int
+	Carried    int
 	Symlinks   int
 	Skipped    int
 	Failed     int
-	TotalBytes int64
+	TotalBytes int64 // plaintext bytes the package now accounts for
+}
+
+// candidate is one discovered file awaiting acquisition.
+type candidate struct {
+	idx  int
+	path string
+	rec  casepkg.ArtifactRecord
+	info os.FileInfo
+}
+
+// result is one acquired candidate, keyed by discovery order.
+type result struct {
+	idx     int
+	pending *casepkg.Pending
+	err     error
 }
 
 // Run walks every manifest entry and ingests matches into the builder.
@@ -55,35 +100,183 @@ func Run(b *casepkg.Builder, man *products.CollectorManifest, opts Options) (*St
 	if opts.MaxTotalBytes == 0 {
 		opts.MaxTotalBytes = DefaultMaxTotalBytes
 	}
+	if opts.Jobs <= 0 {
+		opts.Jobs = runtime.NumCPU()
+		if opts.Jobs > maxJobs {
+			opts.Jobs = maxJobs
+		}
+	}
 	st := &Stats{}
+	r := newRunner(b, opts, st)
 	for _, entry := range man.Entries {
 		for _, pattern := range entry.Paths {
 			resolved := expand(pattern, opts)
 			if resolved == "" {
 				continue
 			}
-			if err := collectPattern(b, entry, resolved, opts, st); err != nil {
+			if err := r.collectPattern(entry, resolved); err != nil {
+				r.stop()
 				return st, err
 			}
 		}
 	}
-	return st, nil
+	return st, r.stop()
+}
+
+// runner owns the worker pool and the serial commit stage.
+type runner struct {
+	b    *casepkg.Builder
+	opts Options
+	st   *Stats
+
+	jobs    chan candidate
+	results chan result
+	wg      sync.WaitGroup
+	done    chan struct{}
+
+	next    int // next discovery index to commit
+	issued  int
+	planned int64 // bytes discovery has committed to acquiring
+	err     error
+	mu      sync.Mutex
+	stopped bool
+}
+
+func newRunner(b *casepkg.Builder, opts Options, st *Stats) *runner {
+	r := &runner{
+		b: b, opts: opts, st: st,
+		jobs:    make(chan candidate, opts.Jobs*4),
+		results: make(chan result, opts.Jobs*4),
+		done:    make(chan struct{}),
+	}
+	for i := 0; i < opts.Jobs; i++ {
+		r.wg.Add(1)
+		go r.worker()
+	}
+	go r.committer()
+	return r
+}
+
+// worker performs the I/O-bound part of acquisition. It never touches the
+// builder's manifest or logs.
+func (r *runner) worker() {
+	defer r.wg.Done()
+	for c := range r.jobs {
+		p, err := r.b.PrepareFile(c.path, c.rec)
+		r.results <- result{idx: c.idx, pending: p, err: err}
+	}
+}
+
+// committer appends results in discovery order, buffering any that arrive
+// early. Ordering is what makes a parallel run reproduce a serial one.
+func (r *runner) committer() {
+	defer close(r.done)
+	buf := map[int]result{}
+	for res := range r.results {
+		buf[res.idx] = res
+		for {
+			cur, ok := buf[r.next]
+			if !ok {
+				break
+			}
+			delete(buf, r.next)
+			r.next++
+			r.commit(cur)
+		}
+	}
+	// Drain anything left after an error closed the pipeline early.
+	for _, res := range buf {
+		res.pending.Discard()
+	}
+}
+
+// commit appends one result and is the only place Stats is written. Every
+// counter lives in this single goroutine, so the numbers a run reports are
+// not a function of how the workers interleaved.
+func (r *runner) commit(res result) {
+	if res.err != nil {
+		r.fail(res.err)
+		res.pending.Discard()
+		return
+	}
+	rec := res.pending.Record()
+	carried := res.pending.Carried()
+	if err := r.b.CommitPending(res.pending); err != nil {
+		r.fail(err)
+		return
+	}
+	switch {
+	case carried:
+		r.st.Carried++
+		r.st.TotalBytes += rec.Size
+	case rec.Status == casepkg.StatusOK:
+		r.st.Acquired++
+		r.st.TotalBytes += rec.Size
+	case rec.Status == casepkg.StatusSymlink:
+		r.st.Symlinks++
+	case rec.Status == casepkg.StatusSkippedType,
+		rec.Status == casepkg.StatusSkippedBound,
+		rec.Status == casepkg.StatusSkippedPolicy:
+		r.st.Skipped++
+	default:
+		r.st.Failed++
+	}
+	if r.opts.Progress != nil {
+		r.opts.Progress(*r.st)
+	}
+}
+
+func (r *runner) fail(err error) {
+	r.mu.Lock()
+	if r.err == nil {
+		r.err = err
+	}
+	r.mu.Unlock()
+}
+
+// stop closes the pipeline and waits for every result to be committed.
+func (r *runner) stop() error {
+	if r.stopped {
+		return r.err
+	}
+	r.stopped = true
+	close(r.jobs)
+	r.wg.Wait()
+	close(r.results)
+	<-r.done
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.err
+}
+
+// submit queues a discovered file for acquisition.
+func (r *runner) submit(rec casepkg.ArtifactRecord, path string, info os.FileInfo) {
+	r.jobs <- candidate{idx: r.issued, path: path, rec: rec, info: info}
+	r.issued++
+}
+
+// record appends a metadata-only record in discovery order, by routing it
+// through the same ordered pipeline the acquired files use.
+func (r *runner) record(rec casepkg.ArtifactRecord) {
+	p := r.b.PrepareRecord(rec)
+	r.results <- result{idx: r.issued, pending: p}
+	r.issued++
 }
 
 func expand(pattern string, opts Options) string {
-	r := strings.NewReplacer(
+	rep := strings.NewReplacer(
 		"${PROFILE_ROOT}", opts.ProfileRoot,
 		"${CONFIG_ROOT}", opts.ConfigRoot,
 		"${SYSTEM_ROOT}", strings.TrimSuffix(opts.SystemRoot, "/"),
 	)
-	out := r.Replace(pattern)
+	out := rep.Replace(pattern)
 	if strings.Contains(out, "${") {
 		return "" // unresolved variable: entry not applicable to this run
 	}
 	return filepath.FromSlash(out)
 }
 
-func collectPattern(b *casepkg.Builder, entry products.ManifestEntry, pattern string, opts Options, st *Stats) error {
+func (r *runner) collectPattern(entry products.ManifestEntry, pattern string) error {
 	switch {
 	case strings.HasSuffix(pattern, string(filepath.Separator)+"**") || strings.HasSuffix(pattern, "/**"):
 		base := strings.TrimSuffix(strings.TrimSuffix(pattern, "**"), string(filepath.Separator))
@@ -95,22 +288,20 @@ func collectPattern(b *casepkg.Builder, entry products.ManifestEntry, pattern st
 				return fmt.Errorf("glob %s: %w", base, err)
 			}
 			for _, m := range matches {
-				if err := walkTree(b, entry, m, opts, st); err != nil {
+				if err := r.walkTree(entry, m); err != nil {
 					return err
 				}
 			}
 			return nil
 		}
-		return walkTree(b, entry, base, opts, st)
+		return r.walkTree(entry, base)
 	case strings.ContainsAny(pattern, "*?["):
 		matches, err := filepath.Glob(pattern)
 		if err != nil {
 			return fmt.Errorf("glob %s: %w", pattern, err)
 		}
 		for _, m := range matches {
-			if err := ingestPath(b, entry, m, opts, st); err != nil {
-				return err
-			}
+			r.ingestPath(entry, m)
 		}
 		return nil
 	default:
@@ -118,44 +309,73 @@ func collectPattern(b *casepkg.Builder, entry products.ManifestEntry, pattern st
 			if os.IsNotExist(err) {
 				return nil // absent artifact: normal, not recorded as failure
 			}
-			return recordFailure(b, entry, pattern, err, opts, st)
+			r.recordFailure(entry, pattern, err)
+			return nil
 		}
-		return ingestPath(b, entry, pattern, opts, st)
+		r.ingestPath(entry, pattern)
+		return nil
 	}
 }
 
-func walkTree(b *casepkg.Builder, entry products.ManifestEntry, base string, opts Options, st *Stats) error {
+func (r *runner) walkTree(entry products.ManifestEntry, base string) error {
 	if _, err := os.Lstat(base); err != nil {
 		if os.IsNotExist(err) {
 			return nil
 		}
-		return recordFailure(b, entry, base, err, opts, st)
+		r.recordFailure(entry, base, err)
+		return nil
 	}
 	// WalkDir uses lstat semantics: symlinked directories are not descended.
 	return filepath.WalkDir(base, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			ferr := recordFailure(b, entry, path, err, opts, st)
-			if ferr != nil {
-				return ferr
-			}
+			r.recordFailure(entry, path, err)
 			if d != nil && d.IsDir() {
 				return fs.SkipDir
 			}
 			return nil
 		}
 		if d.IsDir() {
+			if !r.opts.FullContent && excludedDirs[d.Name()] && path != base {
+				r.recordExcludedTree(entry, path)
+				return fs.SkipDir
+			}
 			return nil
 		}
-		return ingestPath(b, entry, path, opts, st)
+		r.ingestPath(entry, path)
+		return nil
 	})
 }
 
-func ingestPath(b *casepkg.Builder, entry products.ManifestEntry, path string, opts Options, st *Stats) error {
+// recordExcludedTree documents a subtree the policy did not collect,
+// with enough detail that an analyst can see exactly what was left out.
+func (r *runner) recordExcludedTree(entry products.ManifestEntry, dir string) {
+	var files int
+	var bytes int64
+	_ = filepath.WalkDir(dir, func(_ string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		files++
+		if info, err := d.Info(); err == nil {
+			bytes += info.Size()
+		}
+		return nil
+	})
+	rec := r.baseRecord(entry, dir)
+	rec.Status = casepkg.StatusSkippedPolicy
+	rec.Size = bytes
+	rec.Error = fmt.Sprintf("subtree excluded by default policy (%s): %d file(s), %d bytes not collected; use --full-plugins to include it",
+		filepath.Base(dir), files, bytes)
+	r.record(rec)
+}
+
+func (r *runner) ingestPath(entry products.ManifestEntry, path string) {
 	info, err := os.Lstat(path)
 	if err != nil {
-		return recordFailure(b, entry, path, err, opts, st)
+		r.recordFailure(entry, path, err)
+		return
 	}
-	rec := baseRecord(entry, path, opts)
+	rec := r.baseRecord(entry, path)
 	rec.Size = info.Size()
 	rec.Mode = info.Mode().String()
 	rec.ModTimeUTC = info.ModTime().UTC().Format("2006-01-02T15:04:05.999999999Z07:00")
@@ -165,57 +385,64 @@ func ingestPath(b *casepkg.Builder, entry products.ManifestEntry, path string, o
 		target, _ := os.Readlink(path)
 		rec.Status = casepkg.StatusSymlink
 		rec.SymlinkTarget = target
-		st.Symlinks++
-		return b.RecordNonFile(rec)
+		r.record(rec)
+		return
 	case info.IsDir():
-		return nil
+		return
 	case !info.Mode().IsRegular():
 		rec.Status = casepkg.StatusSkippedType
-		st.Skipped++
-		return b.RecordNonFile(rec)
-	case info.Size() > opts.MaxFileBytes:
+		r.record(rec)
+		return
+	case info.Size() > r.opts.MaxFileBytes:
 		rec.Status = casepkg.StatusSkippedBound
-		rec.Error = fmt.Sprintf("size %d exceeds per-artifact bound %d", info.Size(), opts.MaxFileBytes)
-		st.Skipped++
-		return b.RecordNonFile(rec)
-	case st.TotalBytes+info.Size() > opts.MaxTotalBytes:
+		rec.Error = fmt.Sprintf("size %d exceeds per-artifact bound %d", info.Size(), r.opts.MaxFileBytes)
+		r.record(rec)
+		return
+	case r.planned+info.Size() > r.opts.MaxTotalBytes:
+		// The bound is enforced here, in serial discovery order, and never
+		// by a worker: which files a bound excludes must not depend on
+		// which goroutine happened to get there first.
 		rec.Status = casepkg.StatusSkippedBound
-		rec.Error = fmt.Sprintf("package bound %d would be exceeded", opts.MaxTotalBytes)
-		st.Skipped++
-		return b.RecordNonFile(rec)
+		rec.Error = fmt.Sprintf("package bound %d would be exceeded", r.opts.MaxTotalBytes)
+		r.record(rec)
+		return
 	}
+	r.planned += info.Size()
 
-	if err := b.IngestFile(path, rec); err != nil {
-		return err
+	// An earlier round may already hold exactly these bytes. Judged on
+	// size, inode and ctime — never mtime alone, which any writer can set.
+	if !r.opts.Recollect {
+		if prev, ok := r.b.Unchanged(path, info); ok {
+			r.recordCarried(prev, rec)
+			return
+		}
 	}
-	// IngestFile records its own status; count from the source size.
-	st.Acquired++
-	st.TotalBytes += info.Size()
-	if opts.Progress != nil {
-		opts.Progress(*st)
-	}
-	return nil
+	r.submit(rec, path, info)
 }
 
-func recordFailure(b *casepkg.Builder, entry products.ManifestEntry, path string, cause error, opts Options, st *Stats) error {
-	rec := baseRecord(entry, path, opts)
+func (r *runner) recordCarried(prev casepkg.ArtifactRecord, rec casepkg.ArtifactRecord) {
+	r.results <- result{idx: r.issued, pending: r.b.PrepareCarryForward(prev, rec)}
+	r.issued++
+}
+
+func (r *runner) recordFailure(entry products.ManifestEntry, path string, cause error) {
+	rec := r.baseRecord(entry, path)
 	if os.IsPermission(cause) {
 		rec.Status = casepkg.StatusAccessDenied
 	} else {
 		rec.Status = casepkg.StatusError
 	}
 	rec.Error = cause.Error()
-	st.Failed++
-	return b.RecordNonFile(rec)
+	r.record(rec)
 }
 
-func baseRecord(entry products.ManifestEntry, path string, opts Options) casepkg.ArtifactRecord {
+func (r *runner) baseRecord(entry products.ManifestEntry, path string) casepkg.ArtifactRecord {
 	return casepkg.ArtifactRecord{
 		SourcePath:    path,
-		LogicalPath:   logicalPath(path, opts),
-		Host:          opts.Host,
-		User:          opts.User,
-		Product:       opts.Product,
+		LogicalPath:   logicalPath(path, r.opts),
+		Host:          r.opts.Host,
+		User:          r.opts.User,
+		Product:       r.opts.Product,
 		CollectorRule: entry.ID,
 		ArtifactType:  entry.Category,
 		Sensitivity:   entry.Sensitivity,
@@ -245,7 +472,14 @@ func IngestLooseSessions(b *casepkg.Builder, root string, opts Options) (*Stats,
 	if opts.MaxTotalBytes == 0 {
 		opts.MaxTotalBytes = DefaultMaxTotalBytes
 	}
+	if opts.Jobs <= 0 {
+		opts.Jobs = runtime.NumCPU()
+		if opts.Jobs > maxJobs {
+			opts.Jobs = maxJobs
+		}
+	}
 	st := &Stats{}
+	r := newRunner(b, opts, st)
 	entry := products.ManifestEntry{ID: "archive.sessions", Category: "agent_session", Sensitivity: "high"}
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
@@ -255,7 +489,12 @@ func IngestLooseSessions(b *casepkg.Builder, root string, opts Options) (*Stats,
 		if !strings.HasSuffix(low, ".json") && !strings.HasSuffix(low, ".jsonl") {
 			return nil
 		}
-		return ingestPath(b, entry, path, opts, st)
+		r.ingestPath(entry, path)
+		return nil
 	})
-	return st, err
+	if err != nil {
+		r.stop()
+		return st, err
+	}
+	return st, r.stop()
 }

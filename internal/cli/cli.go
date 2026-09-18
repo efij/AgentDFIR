@@ -39,6 +39,7 @@ COLLECT — where the evidence is
   agentdfir collect --docker <container|export.tar>                            a container (read-only export)
   agentdfir collect --archive <zip|tar|tgz>                                    CI artifact, support bundle, vendor export
   agentdfir verify <pkg>                                                       prove the package was not modified
+  agentdfir store status | store gc                                            shared evidence store: what it holds, reclaim what no case uses
 
 ANALYZE — one command runs every stage, in order
   agentdfir analyze <pkg>                                    detections + attack chains + MCP audit + provenance
@@ -137,6 +138,8 @@ func Main(args []string) int {
 		return cmdExplain(args[1:])
 	case "update-packs":
 		return cmdUpdatePacks(args[1:])
+	case "store":
+		return cmdStore(args[1:])
 	case "rules":
 		return cmdRules(args[1:])
 	case "version", "--version", "-v":
@@ -195,6 +198,10 @@ func cmdCollect(args []string) int {
 	offlineRoot := fs.String("path", "", "offline profile root")
 	authz := fs.String("authorization", "", "authorization reference")
 	maxFileMB := fs.Int64("max-file-mb", 0, "per-artifact size bound (MiB)")
+	jobs := fs.Int("jobs", 0, "parallel acquisition workers (default: CPUs, max 8)")
+	recollect := fs.Bool("recollect", false, "re-read every file, even one an earlier round already preserved")
+	noShare := fs.Bool("no-share", false, "do not share identical blobs with other cases on this machine")
+	fullPlugins := fs.Bool("full-plugins", false, "also collect node_modules/.git subtrees (large, third-party)")
 	liveMode := fs.Bool("live", false, "collect volatile evidence first (RFC 3227 order)")
 	signKey := fs.String("sign", "", "sign the sealed package with this ed25519 private key")
 	importTree := fs.String("import", "", "KAPE/Velociraptor/CyLR/image tree: collect every product for every user profile found")
@@ -309,10 +316,14 @@ func cmdCollect(args []string) int {
 		}
 	}
 
-	b, err := casepkg.New(dest, id, info)
+	b, reopened, err := openPackage(dest, id, info, !*noShare)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
+	}
+	defer b.Close()
+	if reopened {
+		fmt.Printf("Adding round %d to the existing package %s\n", b.Round(), sanitize.Terminal(dest))
 	}
 	host, _ := os.Hostname()
 	opts := collector.Options{
@@ -322,6 +333,9 @@ func cmdCollect(args []string) int {
 		Host:        host,
 		User:        osUser,
 		Product:     productID,
+		Jobs:        *jobs,
+		Recollect:   *recollect,
+		FullContent: *fullPlugins,
 	}
 	if *maxFileMB > 0 {
 		opts.MaxFileBytes = *maxFileMB << 20
@@ -342,10 +356,11 @@ func cmdCollect(args []string) int {
 	}
 	st, runErr := collector.Run(b, man, opts)
 	_ = b.Log("collection_run_finished", map[string]any{
-		"acquired": st.Acquired, "symlinks": st.Symlinks, "skipped": st.Skipped,
+		"acquired": st.Acquired, "carried_forward": st.Carried, "symlinks": st.Symlinks, "skipped": st.Skipped,
 		"failed": st.Failed, "bytes": st.TotalBytes,
 		"duration_ms": time.Since(start).Milliseconds(),
 	})
+	roundStats := b.Stats()
 	if err := b.Seal(); err != nil {
 		fmt.Fprintln(os.Stderr, "seal error:", err)
 		return 1
@@ -362,7 +377,12 @@ func cmdCollect(args []string) int {
 
 	fmt.Printf("Case:      %s\n", id)
 	fmt.Printf("Package:   %s\n", dest)
+	fmt.Printf("Round:     %d\n", b.Round())
 	fmt.Printf("Acquired:  %d artifacts (%d bytes)\n", st.Acquired, st.TotalBytes)
+	if st.Carried > 0 {
+		fmt.Printf("Carried:   %d artifacts unchanged since an earlier round (not re-read, marked carried_forward)\n", st.Carried)
+	}
+	fmt.Printf("Stored:    %s added to disk this round\n", humanBytes(roundStats.StoredBytes))
 	fmt.Printf("Symlinks:  %d recorded (never followed)\n", st.Symlinks)
 	fmt.Printf("Skipped:   %d   Failed: %d\n", st.Skipped, st.Failed)
 	if liveStats != nil {
@@ -391,8 +411,13 @@ func cmdVerify(args []string) int {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
 	}
+	fmt.Printf("Depth:              %s (every stored blob re-hashed)\n", res.Depth)
+	fmt.Printf("Rounds:             %d\n", res.Rounds)
 	fmt.Printf("Files checked:      %d\n", res.FilesChecked)
 	fmt.Printf("Artifacts OK:       %d (not acquired: %d)\n", res.ArtifactsOK, res.ArtifactsFailed)
+	if res.Carried > 0 {
+		fmt.Printf("Carried forward:    %d (preserved by an earlier round, not re-read since)\n", res.Carried)
+	}
 	fmt.Printf("Collection records: %d (hash chain)\n", res.CollectionRecs)
 	fmt.Printf("Custody records:    %d (hash chain)\n", res.CustodyRecs)
 	sigRes, sigErr := seal.Verify(pkgArg, *pubkey)
