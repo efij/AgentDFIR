@@ -156,9 +156,11 @@ func WriteHTML(c *Case, path string) error {
 		if !n.ChainOK {
 			w(`<p class="bad">Case-file hash chain BROKEN: ` + safe(n.ChainErr) + `</p>`)
 		}
-		tp, fp, nr := 0, 0, 0
+		tp, benign, fp, nr := 0, 0, 0, 0
 		for _, v := range n.Verdicts {
 			switch v.Verdict {
+			case "benign":
+				benign++
 			case "true_positive":
 				tp++
 			case "false_positive":
@@ -167,7 +169,7 @@ func WriteHTML(c *Case, path string) error {
 				nr++
 			}
 		}
-		w(fmt.Sprintf(`<p>%d analyst record(s) · verdicts: %d true positive, %d false positive, %d needs review · %d pinned item(s)</p>`, n.Records, tp, fp, nr, len(n.Pins)))
+		w(fmt.Sprintf(`<p>%d analyst record(s) · verdicts: %d true positive, %d benign, %d false positive, %d needs review · %d pinned item(s)</p>`, n.Records, tp, benign, fp, nr, len(n.Pins)))
 		if len(n.Verdicts) > 0 {
 			w(`<table class="tl"><thead><tr><th>Finding</th><th>Verdict</th><th>Note</th><th>By</th><th>When (UTC)</th></tr></thead><tbody>`)
 			for _, fd := range c.Findings {
@@ -259,6 +261,12 @@ func WriteHTML(c *Case, path string) error {
 		}
 		w(kv("Status", fd.Status))
 		w(kv("Second witness", schema.Label(fd.Endpoint)))
+		if fd.Confidence != "" {
+			w(kv("Confidence", fd.Confidence))
+		}
+		for _, r := range fd.Reasons {
+			w(kv("", r))
+		}
 		atlas := fd.MitreATLAS
 		if atlas == "" {
 			atlas = "not mapped"

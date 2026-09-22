@@ -383,6 +383,9 @@ func WritePDF(c *Case, custody []CustodyRecord, signature string, path string, o
 		d.text("F2", pdfBodySize, 0, fmt.Sprintf("%d. [%s] %s — %s", i+1, f.Severity, f.RuleID, f.Title))
 		d.text("F1", pdfBodySize, 8, f.Description)
 		meta := "Evidence: " + schema.Label(f.Status) + "  ·  Second witness: " + schema.Label(f.Endpoint)
+		if f.Confidence != "" {
+			meta += "  ·  Confidence: " + f.Confidence
+		}
 		if f.SessionID != "" {
 			meta += "  ·  Session: " + f.SessionID
 		}

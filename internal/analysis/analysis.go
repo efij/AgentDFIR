@@ -26,6 +26,7 @@ import (
 	"github.com/efij/AgentDFIR/internal/provenance"
 	"github.com/efij/AgentDFIR/internal/rulepack"
 	"github.com/efij/AgentDFIR/internal/schema"
+	"github.com/efij/AgentDFIR/internal/verify"
 	"github.com/efij/AgentDFIR/internal/version"
 	"github.com/efij/AgentDFIR/internal/witness"
 )
@@ -64,6 +65,7 @@ type Result struct {
 	Chains       int // attack-chain findings
 	Packs        []rulepack.PackSource
 	Witness      *witness.Result
+	Groups       int
 	StageNotes   []string
 }
 
@@ -341,11 +343,20 @@ func Run(pkg string, o Options) (*Result, error) {
 	findings = append(findings, cf...)
 	o.logf("Attack chains: %d chain(s) evaluated, %d matched", len(chains), len(cf))
 
-	// ---- 8. one findings file, severity-sorted, de-duplicated.
+	// ---- 8. confidence, then one findings file, severity-sorted.
+	//
+	// Confidence is computed last, over the finished set, so a verifier can
+	// see the enrichment states the earlier stages produced.
+	findings = verify.Apply(findings, LoadEvents(pkg))
 	findings = dedupe(findings)
 	sortBySeverity(findings)
 	res.Findings = findings
 	writeJSON(filepath.Join(detDir, "findings.json"), findings)
+	// Grouped by rule and session, which is how an analyst reads them: on a
+	// real machine 592 HIGH and CRITICAL findings were 85 groups.
+	groups := verify.GroupBy(findings)
+	res.Groups = len(groups)
+	writeJSON(filepath.Join(detDir, "groups.json"), groups)
 	writeJSON(filepath.Join(detDir, "analysis.json"), map[string]any{
 		"analyzed_utc": time.Now().UTC().Format(time.RFC3339), "events": res.Events, "renormalized": res.Renormalized,
 		"findings": len(findings), "endpoint_logs": o.EndpointLogs, "gateway_log": o.GatewayLog, "rules_dir": o.RulesDir,

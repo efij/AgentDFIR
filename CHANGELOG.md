@@ -7,6 +7,41 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [2.0.0] — 2026-09-22
+
+Confidence, separated from severity. A machine producing 592 HIGH and
+CRITICAL findings gave an analyst no way to tell which were worth opening —
+every one arrived identical. They are **85 groups**, and now they carry how
+much to believe them and why.
+
+### Added
+- **`internal/verify` — confidence as its own answer.** Severity is how bad
+  this is if it is real; confidence is how likely it is to be real. They
+  were the same number, so deleting a build directory and deleting a user's
+  SSH key arrived indistinguishable.
+
+  Five deterministic verifiers run over the finished finding set: host
+  witness (a `CONFIRMED` event raises it), self-referential evidence (a rule
+  list or fixture lowers it), mirrored transcripts, building blocks, and
+  findings citing no evidence line. Each may move confidence one step and
+  **must** say why, in a sentence the UI shows verbatim under *Why this
+  confidence*.
+
+  **Severity is never touched by a verifier**, and there is **no LLM in the
+  path**. A finding has to be reproducible from the sealed package alone,
+  years later, by someone who does not have the binary that produced it.
+- **Findings carry a timestamp** at last, taken from the evidence they cite.
+  They had none, which made them impossible to filter or plot by time.
+- **Grouping by rule and session** — `detections/groups.json` and
+  `/api/groups`, each group carrying the worst severity, the best
+  confidence, the count and the time span.
+- **The `benign` verdict.** The rule was right and the activity was
+  authorised. Without it an analyst had to mark a correct detection a false
+  positive just to clear it, which is untrue and the wrong signal for
+  tuning.
+- Confidence and its reasons appear in the explorer, the HTML and PDF
+  reports, and `analyze` output.
+
 ## [1.9.0] — 2026-09-22
 
 The second witness, by default. Until now every finding this tool produced

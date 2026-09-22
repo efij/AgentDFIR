@@ -24,10 +24,20 @@ import (
 
 // Record kinds.
 const (
-	KindVerdict = "verdict" // target finding:<key>, value true_positive|false_positive|needs_review|(empty = clear)
-	KindNote    = "note"    // any target, free text
-	KindPin     = "pin"     // target event:<id> | chain node, value "on"|"off"
-	KindTag     = "tag"     // target session:<id>, value "add"|"remove", text = tag
+	// KindVerdict targets finding:<key>. Values:
+	//   true_positive  the rule was right and the activity was not authorised
+	//   benign         the rule was right and the activity was authorised
+	//   false_positive the rule was wrong
+	//   needs_review   undecided
+	//   ""             clears the verdict
+	//
+	// benign exists because without it an analyst has to mark a correct
+	// detection "false positive" just to clear it, which is both untrue and
+	// the wrong signal for tuning.
+	KindVerdict = "verdict"
+	KindNote    = "note" // any target, free text
+	KindPin     = "pin"  // target event:<id> | chain node, value "on"|"off"
+	KindTag     = "tag"  // target session:<id>, value "add"|"remove", text = tag
 )
 
 // Record is one appended analyst action (plus the chain fields seq/ts_utc/prev).

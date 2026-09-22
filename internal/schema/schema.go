@@ -99,19 +99,35 @@ type Relationship struct {
 
 // Finding is one detection result.
 type Finding struct {
-	RuleID        string      `json:"rule_id"`
-	Severity      string      `json:"severity"` // INFO|LOW|MEDIUM|HIGH|CRITICAL
-	Title         string      `json:"title"`
-	Description   string      `json:"description"`
-	SessionID     string      `json:"session_id,omitempty"`
-	AgentID       string      `json:"agent_id,omitempty"`
-	ParentAgentID string      `json:"parent_agent_id,omitempty"` // "UNKNOWN" when unverified
-	Related       []string    `json:"related,omitempty"`
-	EvidenceRefs  []string    `json:"evidence_refs"` // logical_path:line (artifact <id>)
-	Status        string      `json:"status"`        // corroboration state of the underlying events
-	Endpoint      string      `json:"endpoint_corroboration"`
-	MitreATLAS    string      `json:"mitre_atlas,omitempty"` // omitted when no valid technique exists
-	MitreATTACK   string      `json:"mitre_attack,omitempty"`
+	RuleID        string   `json:"rule_id"`
+	Severity      string   `json:"severity"` // INFO|LOW|MEDIUM|HIGH|CRITICAL
+	Title         string   `json:"title"`
+	Description   string   `json:"description"`
+	SessionID     string   `json:"session_id,omitempty"`
+	AgentID       string   `json:"agent_id,omitempty"`
+	ParentAgentID string   `json:"parent_agent_id,omitempty"` // "UNKNOWN" when unverified
+	Related       []string `json:"related,omitempty"`
+	EvidenceRefs  []string `json:"evidence_refs"` // logical_path:line (artifact <id>)
+	Status        string   `json:"status"`        // corroboration state of the underlying events
+	Endpoint      string   `json:"endpoint_corroboration"`
+	MitreATLAS    string   `json:"mitre_atlas,omitempty"` // omitted when no valid technique exists
+	MitreATTACK   string   `json:"mitre_attack,omitempty"`
+
+	// Confidence is how likely it is that this finding is real. It is
+	// deliberately separate from Severity, which is how bad it would be if
+	// it were. Collapsing the two is how tools end up unable to explain
+	// either: a scratch-directory deletion is low confidence and low impact,
+	// a disproved credential exfiltration is high confidence and high
+	// impact, and one number cannot say both.
+	Confidence string `json:"confidence,omitempty"` // HIGH|MEDIUM|LOW
+	// Reasons are plain sentences explaining how Confidence was reached, in
+	// the order the verifiers ran.
+	Reasons []string `json:"confidence_reasons,omitempty"`
+	// Timestamp is when the evidence this finding cites happened. Findings
+	// had none, which made them impossible to filter or plot by time.
+	Timestamp string `json:"timestamp,omitempty"`
+	// Class separates alerts from context; see internal/catalog.
+	Class         string      `json:"class,omitempty"`
 	FalsePositive string      `json:"false_positive_notes,omitempty"`
 	ChainSteps    []ChainStep `json:"chain_steps,omitempty"` // set only by attack-chain findings: the ordered steps that matched
 }
