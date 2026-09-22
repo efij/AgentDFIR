@@ -86,6 +86,10 @@ kbd{font-family:var(--mono);font-size:11px;padding:1px 5px;border:1px solid var(
 .stat{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px 14px;min-width:120px}
 .stat b{display:block;font-size:20px;font-weight:700} .stat span{color:var(--muted);font-size:12px}
 .stat.bad b{color:var(--bad)} .stat.ok b{color:var(--ok)}
+.stat.link{cursor:pointer;text-align:left;font:inherit;color:inherit} .stat.link:hover{border-color:var(--accent,#7aa2f7)}
+.toolbar .range{color:var(--muted);font-size:12px;display:inline-flex;align-items:center;gap:4px} .toolbar .range input{font:inherit;background:var(--panel);color:inherit;border:1px solid var(--border);border-radius:6px;padding:3px 6px}
+.badge.conf-HIGH{border-color:var(--bad);color:var(--bad)} .badge.conf-MEDIUM{opacity:.9} .badge.conf-LOW{opacity:.6}
+.scard.caselevel{border-style:dashed}
 .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:12px;padding:0 14px 14px}
 .scard{background:var(--panel);border:1px solid var(--border);border-left-width:5px;border-radius:10px;padding:14px;text-align:left;color:var(--text);cursor:pointer;display:flex;flex-direction:column;gap:8px}
 .scard:hover{border-color:var(--accent);border-left-color:inherit}
@@ -197,6 +201,8 @@ textarea.note{width:100%;min-height:60px;padding:8px;background:var(--panel);bor
         <input id="q" type="search" placeholder="Filter: command, summary, tool, file, destination…" aria-label="Text filter">
         <select id="ftype" aria-label="Event type"><option value="">All types</option></select>
         <select id="fstate" aria-label="Corroboration state"><option value="">All states</option></select>
+        <label class="range">from <input type="datetime-local" id="ffrom" step="60" aria-label="From (UTC)"></label>
+        <label class="range">to <input type="datetime-local" id="fto" step="60" aria-label="To (UTC)"></label>
         <button class="btn" id="clear">Clear</button>
         <span class="total" id="total"></span>
       </div>
@@ -211,7 +217,7 @@ textarea.note{width:100%;min-height:60px;padding:8px;background:var(--panel);bor
     <div class="col">
       <div class="toolbar">
         <select id="fsev" aria-label="Severity"><option value="">All severities</option><option>CRITICAL</option><option>HIGH</option><option>MEDIUM</option><option>LOW</option><option>INFO</option></select>
-        <label><input type="checkbox" id="fchains"> attack chains only</label>
+        <select id="fconf" aria-label="Confidence"><option value="">Any confidence</option><option>HIGH</option><option>MEDIUM</option><option>LOW</option></select>
         <select id="fverdict" aria-label="Verdict"><option value="">Any verdict</option><option value="none">Unreviewed</option><option value="true_positive">True positive</option><option value="benign">Benign</option><option value="false_positive">False positive</option><option value="needs_review">Needs review</option></select>
         <input id="fq" type="text" placeholder="Filter findings…" aria-label="Filter findings">
         <span class="total" id="ftotal"></span>
@@ -291,12 +297,23 @@ function loadSessions(){
     state.sessions=ss; const strip=$('#strip'); strip.innerHTML='';
     const stat=(v,l,cls)=>{const d=el('div','stat'+(cls?' '+cls:'')); d.appendChild(el('b','',String(v))); d.appendChild(el('span','',l)); strip.appendChild(d);};
     stat(ss.length,'sessions'); stat(c.agents,'agents'); stat(c.events.toLocaleString(),'events');
-    const sev=c.severity||{}; stat((sev.CRITICAL||0)+(sev.HIGH||0),'critical + high findings',(sev.CRITICAL||0)+(sev.HIGH||0)?'bad':'ok'); stat(c.chains||0,'attack chains',c.chains?'bad':'');
-    stat((c.states||{}).CONTRADICTED||0,'contradicted by endpoint',(c.states||{}).CONTRADICTED?'bad':''); stat(c.first&&c.last?fmtTs(c.first).slice(0,16)+' → '+fmtTs(c.last).slice(0,16):'—','time span (UTC)');
+    const sev=c.severity||{}; stat(sev.CRITICAL||0,'critical findings',sev.CRITICAL?'bad':'ok'); stat(sev.HIGH||0,'high findings',sev.HIGH?'bad':'ok'); stat(c.chains||0,'attack chains',c.chains?'bad':'');
+    stat((c.states||{}).CONTRADICTED||0,'contradicted by endpoint',(c.states||{}).CONTRADICTED?'bad':'');
+    const span=el('button','stat link'); span.type='button'; span.appendChild(el('b','',c.first&&c.last?fmtTs(c.first).slice(0,16)+' → '+fmtTs(c.last).slice(0,16):'—')); span.appendChild(el('span','','time span (UTC) · click to pick dates')); span.title='Open the timeline with a date range'; span.onclick=()=>{switchTab('timeline'); $('#ffrom').focus();}; strip.appendChild(span);
     const nn=c.notes||{}; stat(nn.verdicts||0,'findings reviewed'+(nn.chain_ok===false?' · CASE FILE CHAIN BROKEN':''),nn.chain_ok===false?'bad':'');
     const grid=$('#cards'); grid.innerHTML='';
     if(!ss.length){grid.appendChild(el('div','empty','No sessions in this package.')); return;}
     ss.forEach(s=>{
+      if(s.case_level){
+        // Findings no session claims: package-level rules on configs, MCP
+        // inventories and instruction files. One card, ranked like the rest.
+        const card=el('div','scard caselevel '+(s.worst||'none')); card.tabIndex=0; card.setAttribute('role','button');
+        const hd=el('div','head'); hd.appendChild(el('span','sid','Findings not tied to a session')); if(s.worst) hd.appendChild(el('span','sev '+s.worst,s.worst)); card.appendChild(hd);
+        const nums=el('div','nums'); ['CRITICAL','HIGH','MEDIUM','LOW','INFO'].forEach(k=>{if(!s.findings[k]) return; const sp=el('span'); sp.appendChild(el('b','',String(s.findings[k]))); sp.appendChild(document.createTextNode(' '+k.toLowerCase())); nums.appendChild(sp);}); card.appendChild(nums);
+        card.appendChild(el('div','prompt','Configuration, MCP inventory and instruction-file findings. Click to open them in the Findings tab.'));
+        card.onclick=()=>switchTab('findings'); card.addEventListener('keydown',e=>{if(e.key==='Enter') switchTab('findings');});
+        grid.appendChild(card); return;
+      }
       const card=el('div','scard '+(s.worst||'none')); card.tabIndex=0; card.setAttribute('role','button');
       const hd=el('div','head'); hd.appendChild(el('span','sid',s.id.length>26?s.id.slice(0,26)+'…':s.id)); hd.appendChild(el('span','badge',s.product||'')); if(s.worst) hd.appendChild(el('span','sev '+s.worst,s.worst)); if(s.chains) hd.appendChild(el('span','badge chain',s.chains+' attack chain'+(s.chains>1?'s':''))); if(s.orphans) hd.appendChild(el('span','badge orphan',s.orphans+' orphan')); (s.tags||[]).forEach(t=>hd.appendChild(el('span','badge tag',t))); card.appendChild(hd);
       if(s.first_prompt) card.appendChild(el('div','prompt','“'+s.first_prompt+'”'));
@@ -343,7 +360,7 @@ api('/api/buckets').then(b=>{
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg'); svg.setAttribute('viewBox','0 0 '+W+' '+H); svg.setAttribute('role','img'); svg.setAttribute('aria-label','Event density');
   b.forEach((x,i)=>{const r=document.createElementNS('http://www.w3.org/2000/svg','rect'); r.setAttribute('class','bar'); r.setAttribute('x',i*(W/b.length)); r.setAttribute('width',Math.max(1,bw-1)); const h=Math.max(1,Math.round(x.n/max*(H-4))); r.setAttribute('y',H-h); r.setAttribute('height',h);
     const t=document.createElementNS('http://www.w3.org/2000/svg','title'); t.textContent=x.t.replace('T',' ')+' UTC — '+x.n+' events (click to zoom to this minute)'; r.appendChild(t);
-    r.style.cursor='pointer'; r.addEventListener('click',()=>{state.from=x.t+':00Z'; state.to=x.t+':59.999Z'; state.offset=0; load();}); svg.appendChild(r);});
+    r.style.cursor='pointer'; r.addEventListener('click',()=>{state.from=x.t+':00Z'; state.to=x.t+':59.999Z'; state.offset=0; syncRange(); load();}); svg.appendChild(r);});
   box.appendChild(svg);
 });
 
@@ -369,7 +386,7 @@ function load(){
       const st=el('td'); const d2=el('div'); d2.appendChild(el('span','state '+r.state,stateLabel(r.state))); st.appendChild(d2); tr.appendChild(st);
       tr.addEventListener('click',()=>select(i)); tr.addEventListener('keydown',e=>{if(e.key==='Enter'){select(i);}}); tb.appendChild(tr);
     });
-    $('#total').textContent=d.total.toLocaleString()+' event'+(d.total===1?'':'s')+(state.from?' · zoomed to '+state.from.slice(0,16)+'Z':'');
+    $('#total').textContent=d.total.toLocaleString()+' event'+(d.total===1?'':'s')+(state.from||state.to?' · '+(state.from?state.from.slice(0,16)+'Z':'start')+' → '+(state.to?state.to.slice(0,16)+'Z':'end'):'');
     $('#pageinfo').textContent=d.total?((state.offset+1)+'–'+Math.min(state.offset+state.limit,d.total)+' of '+d.total.toLocaleString()):'no events match';
     $('#prev').disabled=state.offset===0; $('#next').disabled=state.offset+state.limit>=d.total;
     if(!d.items.length){const tr=el('tr'); const td=el('td'); td.colSpan=6; td.appendChild(el('div','empty','No events match the current filters.')); tr.appendChild(td); tb.appendChild(tr);}
@@ -411,7 +428,12 @@ function showEvent(id,target){
 $('#q').addEventListener('input',debounce(()=>{state.q=$('#q').value; state.offset=0; load();},250));
 $('#ftype').addEventListener('change',()=>{state.type=$('#ftype').value; state.offset=0; load();});
 $('#fstate').addEventListener('change',()=>{state.state=$('#fstate').value; state.offset=0; load();});
-$('#clear').addEventListener('click',()=>{state.q='';state.type='';state.state='';state.from='';state.to='';state.offset=0; $('#q').value=''; $('#ftype').value=''; $('#fstate').value=''; load();});
+$('#clear').addEventListener('click',()=>{state.q='';state.type='';state.state='';state.from='';state.to='';state.offset=0; $('#q').value=''; $('#ftype').value=''; $('#fstate').value=''; $('#ffrom').value=''; $('#fto').value=''; load();});
+// Date range: the inputs are read as UTC, like every timestamp on the page.
+// A scrubber click still narrows to one minute; these set any window.
+const rangeChanged=()=>{const a=$('#ffrom').value, b=$('#fto').value; state.from=a?a+':00Z':''; state.to=b?b+':59.999Z':''; state.offset=0; load();};
+$('#ffrom').addEventListener('change',rangeChanged); $('#fto').addEventListener('change',rangeChanged);
+const syncRange=()=>{$('#ffrom').value=state.from?state.from.slice(0,16):''; $('#fto').value=state.to?state.to.slice(0,16):'';};
 $('#prev').addEventListener('click',()=>{state.offset=Math.max(0,state.offset-state.limit); load();});
 $('#next').addEventListener('click',()=>{state.offset+=state.limit; load();});
 document.addEventListener('keydown',e=>{
@@ -430,14 +452,18 @@ function loadFindings(){
 }
 function renderFindings(){
   const list=$('#flist'); list.innerHTML=''; const fs=state.findings;
-  const sev=$('#fsev').value, chains=$('#fchains').checked, vf=$('#fverdict').value, q=$('#fq').value.toLowerCase();
-  const shown=fs.filter(f=>(!sev||f.severity===sev)&&(!chains||f.chain)&&(!q||(f.title+' '+f.rule_id+' '+f.description+' '+(f.mitre_atlas||'')+' '+(f.mitre_attack||'')).toLowerCase().includes(q))&&(!vf||(vf==='none'?!verdictOf(f.key):(verdictOf(f.key)||{}).verdict===vf)));
+  const sev=$('#fsev').value, conf=$('#fconf').value, vf=$('#fverdict').value, q=$('#fq').value.toLowerCase();
+  const SEV={CRITICAL:5,HIGH:4,MEDIUM:3,LOW:2,INFO:1}, CONF={HIGH:3,MEDIUM:2,LOW:1};
+  const shown=fs.filter(f=>(!sev||f.severity===sev)&&(!conf||(f.confidence||'')===conf)&&(!q||(f.title+' '+f.rule_id+' '+f.description+' '+(f.mitre_atlas||'')+' '+(f.mitre_attack||'')).toLowerCase().includes(q))&&(!vf||(vf==='none'?!verdictOf(f.key):(verdictOf(f.key)||{}).verdict===vf)));
+  // Always worst first, then most likely real first — whatever order the
+  // server or a filter produced.
+  shown.sort((a,b)=>((SEV[b.severity]||0)-(SEV[a.severity]||0))||((CONF[b.confidence]||0)-(CONF[a.confidence]||0)));
   $('#ftotal').textContent=shown.length+' of '+fs.length;
   if(!fs.length){list.appendChild(el('div','empty','No findings. Evidence states still tell the story — check the timeline.')); return;}
   if(!shown.length){list.appendChild(el('div','empty','No findings match the filters.')); return;}
   shown.forEach(f=>{
     const v=verdictOf(f.key); const b=el('button','finding '+f.severity+(v&&(v.verdict==='false_positive'||v.verdict==='benign')?' dim':'')); b.setAttribute('aria-pressed',String(state.curFinding&&state.curFinding.index===f.index));
-    const hd=el('div','head'); hd.appendChild(el('span','sev '+f.severity,f.severity)); if(f.chain) hd.appendChild(el('span','badge chain','attack chain · '+f.steps.length+' steps')); hd.appendChild(el('span','title',f.title)); hd.appendChild(el('span','rule',f.rule_id));
+    const hd=el('div','head'); hd.appendChild(el('span','sev '+f.severity,f.severity)); if(f.confidence) hd.appendChild(el('span','badge conf-'+f.confidence,'confidence '+f.confidence)); if(f.chain) hd.appendChild(el('span','badge chain','attack chain · '+f.steps.length+' steps')); hd.appendChild(el('span','title',f.title)); hd.appendChild(el('span','rule',f.rule_id));
     if(f.mitre_attack) hd.appendChild(el('span','badge','ATT&CK '+f.mitre_attack)); if(f.mitre_atlas) hd.appendChild(el('span','badge','ATLAS '+f.mitre_atlas)); if(v) hd.appendChild(el('span','badge '+vcls[v.verdict],vlbl[v.verdict]));
     b.appendChild(hd);
     if(f.chain){const p=el('p'); p.textContent=f.steps.map((s,i)=>(i+1)+'. '+s.step).join('  →  '); b.appendChild(p);} else b.appendChild(el('p','',f.description));
@@ -445,7 +471,7 @@ function renderFindings(){
     b.onclick=()=>{state.curFinding=f; list.querySelectorAll('.finding').forEach(x=>x.setAttribute('aria-pressed','false')); b.setAttribute('aria-pressed','true'); showFinding(f);}; list.appendChild(b);
   });
 }
-['#fsev','#fchains','#fverdict'].forEach(s=>$(s).addEventListener('change',renderFindings)); $('#fq').addEventListener('input',debounce(renderFindings,200));
+['#fsev','#fconf','#fverdict'].forEach(s=>$(s).addEventListener('change',renderFindings)); $('#fq').addEventListener('input',debounce(renderFindings,200));
 loadFindings();
 
 function renderNode(n,depth,target){

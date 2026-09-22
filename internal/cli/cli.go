@@ -38,7 +38,7 @@ THE 4-STEP WORKFLOW (the same thing, one step at a time)
   4. Look at the results       agentdfir serve <pkg>                          (browser, 127.0.0.1 only)
 
 COLLECT — where the evidence is
-  agentdfir collect --product <claude|codex|cursor|gemini|copilot|…> [--live]     this machine, this user
+  agentdfir collect --product <claude|cowork|codex|cursor|gemini|copilot|…> [--live]  this machine, this user
   agentdfir collect --product claude --path /mnt/image/Users/x                  a copied home / mounted image
   agentdfir collect --import <kape-or-velociraptor-tree>                        every user, every agent, one package
   agentdfir collect --docker <container|export.tar>                            a container (read-only export)
@@ -235,6 +235,8 @@ func cmdCollect(args []string) int {
 		productID = "claude-code"
 	case "codex":
 		productID = "codex-cli"
+	case "cowork":
+		productID = "claude-cowork"
 	case "cursor":
 		productID = "cursor-cli"
 	case "gemini":

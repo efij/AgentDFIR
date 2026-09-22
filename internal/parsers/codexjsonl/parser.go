@@ -52,11 +52,19 @@ type payload struct {
 	Content   json.RawMessage `json:"content"`
 	Name      string          `json:"name"`
 	Arguments string          `json:"arguments"`
+	Input     string          `json:"input"` // custom_tool_call carries its argument here, not in arguments
 	CallID    string          `json:"call_id"`
 	Output    json.RawMessage `json:"output"`
 	Action    json.RawMessage `json:"action"`
 	// event_msg
 	Message string `json:"message"`
+	// turn_context: the policy the agent ran under for this turn. The
+	// desktop app writes one per turn; it is the only place in the rollout
+	// that says whether the sandbox was on and what approvals were required.
+	TurnID         string          `json:"turn_id"`
+	ApprovalPolicy string          `json:"approval_policy"`
+	SandboxPolicy  json.RawMessage `json:"sandbox_policy"`
+	Model          string          `json:"model"`
 }
 
 // IDFormat renders an event id from its sequence number; the incremental
@@ -255,6 +263,15 @@ func (p *parser) handleLine(rl rolloutLine, art casepkg.ArtifactRecord, off int6
 				ev.MCPServer = parts[0]
 				ev.MCPTool = parts[1]
 				ev.Action = "mcp_call"
+			} else if pl.Input != "" {
+				// custom_tool_call (exec, apply_patch, …) carries a single
+				// string argument: a script or a patch. Keep enough of it to
+				// read what was asked.
+				ev.Summary = trim(pl.Input, 300)
+				if pl.Name == "exec" {
+					ev.Action = "shell_execution"
+					ev.Command = trim(pl.Input, 300)
+				}
 			}
 			p.emit(ev, art, off, line)
 			p.linkTool(ev)
@@ -269,7 +286,12 @@ func (p *parser) handleLine(rl rolloutLine, art casepkg.ArtifactRecord, off int6
 			ev.Corroboration = schema.StateObserved
 			p.emit(ev, art, off, line)
 			p.linkTool(ev)
-		case "function_call_output":
+		case "function_call_output", "custom_tool_call_output":
+			// custom_tool_call_output is what the desktop app writes for the
+			// result of exec / apply_patch. It was unhandled, so the OBSERVED
+			// output side of every such call — what the command actually
+			// printed — fell into the generic response_item bucket and no
+			// rule that reads tool results ever saw it.
 			ev := base
 			ev.EventType = schema.EventToolResult
 			ev.ActorType = schema.ActorAgent
@@ -292,6 +314,21 @@ func (p *parser) handleLine(rl rolloutLine, art casepkg.ArtifactRecord, off int6
 			ev.Corroboration = schema.StateObserved
 			p.emit(ev, art, off, line)
 		}
+	case "turn_context":
+		// The policy this turn ran under. "approval=never sandbox=danger-
+		// full-access" on a turn that then ran a destructive command is the
+		// difference between a supervised agent and an unsupervised one,
+		// and it is written nowhere else in the rollout.
+		ev := base
+		ev.EventType = schema.EventSessionMeta
+		ev.ActorType = schema.ActorSystem
+		ev.Result = "turn_context"
+		ev.TaskID = pl.TurnID
+		ev.Model = pl.Model
+		ev.Summary = trim(policySummary(pl.ApprovalPolicy, pl.SandboxPolicy, pl.CWD, pl.Model), 200)
+		ev.Corroboration = schema.StateObserved
+		p.emit(ev, art, off, line)
+		p.touchSession(base.SessionID, base.AgentID)
 	case "event_msg":
 		ev := base
 		switch pl.Type {
@@ -455,6 +492,31 @@ func shellCommand(args string) string {
 	return trim(args, 200)
 }
 
+// policySummary renders a turn's approval and sandbox policy in one line.
+// The sandbox is an object ({"type":"danger-full-access"} or
+// {"type":"workspace-write","writable_roots":[…]}); only its type is kept.
+func policySummary(approval string, sandbox json.RawMessage, cwd, model string) string {
+	var parts []string
+	if approval != "" {
+		parts = append(parts, "approval="+approval)
+	}
+	if len(sandbox) > 0 {
+		var sb struct {
+			Type string `json:"type"`
+		}
+		if json.Unmarshal(sandbox, &sb) == nil && sb.Type != "" {
+			parts = append(parts, "sandbox="+sb.Type)
+		}
+	}
+	if model != "" {
+		parts = append(parts, "model="+model)
+	}
+	if cwd != "" {
+		parts = append(parts, "cwd="+cwd)
+	}
+	return strings.Join(parts, " ")
+}
+
 func actionCommand(raw json.RawMessage) string {
 	if len(raw) == 0 {
 		return ""
@@ -482,7 +544,8 @@ func flatOutput(raw json.RawMessage) string {
 	if err := json.Unmarshal(raw, &o); err == nil && o.Output != "" {
 		return o.Output
 	}
-	return ""
+	// custom_tool_call_output: [{"type":"input_text","text":"…"}, …]
+	return contentText(raw)
 }
 
 func trim(s string, n int) string {

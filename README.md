@@ -4,7 +4,7 @@
 
 **Open-source digital forensics and incident response for AI agents.**
 
-*Collect, preserve, reconstruct and investigate activity from Claude Code, Codex CLI, Cursor, Gemini CLI, Copilot and other AI agents.*
+*Collect, preserve, reconstruct and investigate activity from Claude Code, Claude Cowork, Codex (CLI and desktop app), Cursor, Gemini CLI, Copilot and other AI agents.*
 
 [![CI](https://github.com/efij/AgentDFIR/actions/workflows/ci.yml/badge.svg)](https://github.com/efij/AgentDFIR/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -218,7 +218,7 @@ Ships with wrappers for tools IR teams already run:
 | ✅ | [140 deterministic detections](docs/detection-coverage.md) (59 built-in incl. 8 attack chains + 81 pack rules; 96 HIGH/CRITICAL, every one mapped to MITRE ATLAS 5.6 / ATT&CK — 27 ATLAS and 65 ATT&CK techniques): rogue/orphan agents, exfiltration via tool invocation, context/memory/tool/MCP poisoning, agent credential-store theft, agent config modification, jailbreak & system-prompt extraction, secret & sensitive-file access, persistence (rc files, services, run keys, git hooks), credential dumping, bulk encryption, self-modification, log deletion, timestomping, session tampering… `agentdfir rules list` prints the matrix |
 | ✅ | `simulate` — synthetic incident generation (adversary emulation for AI agents): `orphan-agent`, `toxic-chain` |
 | ✅ | [Attack chains](docs/attack-chains.md), session cards, investigation tree, whole-case search and the hash-chained analyst case file in the [explorer](docs/serve.md) (v1.0) |
-| ✅ | Full parsers for 12 products: Claude Code, Codex, Gemini CLI, Cursor, Copilot CLI, Copilot Chat (VS Code), Cline, Roo, OpenClaw, OpenCode, Aider, Warp — plus Kiro (steering, specs, MCP, powers, skills and extension state; no transcript store to parse) |
+| ✅ | Full parsers for 13 products: Claude Code, Claude Cowork (desktop-app agent mode: HMAC audit log, in-VM transcripts, shared folders and egress allowlist per session), Codex CLI + Codex desktop app (rollout JSONL and the SQLite thread store, read with a stdlib-only reader that applies the write-ahead log), Gemini CLI, Cursor, Copilot CLI, Copilot Chat (VS Code), Cline, Roo, OpenClaw, OpenCode, Aider, Warp — plus Kiro (steering, specs, MCP, powers, skills and extension state; no transcript store to parse) |
 | ✅ | [Enrich with a second witness](docs/endpoint-corroboration.md) — auditd, Sysmon XML, Velociraptor/osquery/eslogger/EDR exports: tool calls → CONFIRMED / DISPROVED, unlogged agent processes and connections surfaced |
 | ✅ | Reports: network-silent HTML, self-contained PDF (stdlib writer, no renderer deps), JSON, CSV, STIX 2.1, OTel · [OCSF 1.3, SARIF 2.1, Sigma export](docs/siem-interop.md) for SIEM/SOC pipelines |
 | ✅ | [`serve`](docs/serve.md) — local browser case explorer: agent tree, density-scrubber timeline, raw evidence pane, findings, topology; loopback-only, zero external resources |

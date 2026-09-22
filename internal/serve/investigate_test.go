@@ -7,6 +7,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/efij/AgentDFIR/v2/internal/schema"
 )
 
 func TestSessionsChainSearchNotes(t *testing.T) {
@@ -190,4 +192,51 @@ func itoa(i int) string { return strings.TrimSpace(strings.Repeat(" ", 0) + fmtI
 func fmtInt(i int) string {
 	b, _ := json.Marshal(i)
 	return string(b)
+}
+
+// The Findings tab reads top-down, so the API hands findings back worst
+// first and, within a severity, most-likely-real first. Findings no session
+// claims (package-level rules) get one card on the Sessions tab, ranked
+// like the rest — otherwise the Sessions tab, sorted "worst first", never
+// mentioned CRITICALs the Findings tab showed.
+func TestFindingsSortBySeverityThenConfidenceAndCaseLevelCard(t *testing.T) {
+	pkg := buildPkg(t)
+	s, err := Load(pkg, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	s.findings = append(s.findings,
+		schema.Finding{RuleID: "PKG_RULE_LOW", Severity: "CRITICAL", Confidence: "LOW", Title: "c-low", Status: schema.StateObserved, Endpoint: schema.StateUnknown},
+		schema.Finding{RuleID: "PKG_RULE_HIGH", Severity: "CRITICAL", Confidence: "HIGH", Title: "c-high", Status: schema.StateObserved, Endpoint: schema.StateUnknown},
+		schema.Finding{RuleID: "PKG_RULE_MED", Severity: "CRITICAL", Confidence: "MEDIUM", Title: "c-med", Status: schema.StateObserved, Endpoint: schema.StateUnknown},
+	)
+	srv := httptest.NewServer(s.Handler())
+	defer srv.Close()
+
+	_, fb := get(t, srv, "/api/findings", "127.0.0.1")
+	var fs []map[string]any
+	if err := json.Unmarshal(fb, &fs); err != nil || len(fs) < 4 {
+		t.Fatalf("findings: %v %s", err, fb)
+	}
+	if fs[0]["rule_id"] != "PKG_RULE_HIGH" || fs[1]["rule_id"] != "PKG_RULE_MED" || fs[2]["rule_id"] != "PKG_RULE_LOW" {
+		t.Fatalf("order = %v %v %v; want CRITICAL HIGH, MEDIUM, LOW confidence first", fs[0]["rule_id"], fs[1]["rule_id"], fs[2]["rule_id"])
+	}
+	for _, f := range fs[3:] {
+		if f["severity"] == "CRITICAL" {
+			t.Fatalf("a CRITICAL sorted below a lower severity: %v", f["rule_id"])
+		}
+	}
+
+	_, sb := get(t, srv, "/api/sessions", "127.0.0.1")
+	var cards []sessionCard
+	if err := json.Unmarshal(sb, &cards); err != nil || len(cards) != 2 {
+		t.Fatalf("sessions: %v %s", err, sb)
+	}
+	if !cards[0].CaseLevel || cards[0].Worst != "CRITICAL" || cards[0].Findings["CRITICAL"] != 3 || cards[0].ID != "case-level" {
+		t.Fatalf("first card should be the case-level CRITICAL card: %+v", cards[0])
+	}
+	if cards[1].CaseLevel {
+		t.Fatalf("real session card missing: %+v", cards)
+	}
 }

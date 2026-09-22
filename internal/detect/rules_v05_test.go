@@ -192,3 +192,36 @@ func collectClaude(t *testing.T, files map[string]string) string {
 	}
 	return pkg
 }
+
+// A product database (Codex state_*.sqlite) holds every thread in b-tree
+// order: many session ids in one artifact, timestamps that do not run
+// forward. That is the store's shape, not splicing, so the per-artifact
+// integrity rules must leave database-sourced events alone — and keep
+// firing on a transcript file with the same symptoms.
+func TestDatabaseArtifactsAreExemptFromPerArtifactIntegrityRules(t *testing.T) {
+	mk := func(src string) *schema.Normalized {
+		var evs []schema.Event
+		for i, s := range []string{"tA", "tB", "tC"} {
+			evs = append(evs, schema.Event{
+				EventID: "evt-" + itoa(i), SessionID: s, AgentID: "main:" + s,
+				EventType: schema.EventSessionMeta, Result: "thread_meta",
+				Timestamp:    []string{"2026-08-30T10:00:00Z", "2026-08-29T10:00:00Z", "2026-08-28T10:00:00Z"}[i],
+				TimestampSrc: src, SourceArtifact: "db-artifact", SourcePath: ".codex/state_5.sqlite",
+				Corroboration: schema.StateObserved,
+			})
+		}
+		return &schema.Normalized{Events: evs}
+	}
+	if f := identityMismatch(mk("database")); len(f) != 0 {
+		t.Fatalf("identity mismatch fired on a database artifact: %+v", f)
+	}
+	if f := sessionTampering(mk("database")); len(f) != 0 {
+		t.Fatalf("session tampering fired on a database artifact: %+v", f)
+	}
+	if f := identityMismatch(mk("transcript")); len(f) != 1 {
+		t.Fatalf("identity mismatch on a transcript with three session ids = %d findings; want 1", len(f))
+	}
+	if f := sessionTampering(mk("transcript")); len(f) != 1 {
+		t.Fatalf("session tampering on a transcript with backward timestamps = %d findings; want 1", len(f))
+	}
+}

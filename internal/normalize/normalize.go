@@ -7,6 +7,7 @@ package normalize
 import (
 	"github.com/efij/AgentDFIR/v2/internal/netdest"
 	"github.com/efij/AgentDFIR/v2/internal/parsers/claudejsonl"
+	"github.com/efij/AgentDFIR/v2/internal/parsers/codexdb"
 	"github.com/efij/AgentDFIR/v2/internal/parsers/codexjsonl"
 	"github.com/efij/AgentDFIR/v2/internal/parsers/genericchat"
 	"github.com/efij/AgentDFIR/v2/internal/parsers/segment"
@@ -17,6 +18,7 @@ import (
 var registry = []func(pkgDir string) (*schema.Normalized, error){
 	claudejsonl.ParsePackage,
 	codexjsonl.ParsePackage,
+	codexdb.ParsePackage,
 	genericchat.ParsePackage,
 }
 
@@ -35,6 +37,7 @@ type parserEntry struct {
 var parsers = []parserEntry{
 	{"claude-code", claudejsonl.IDFormat, claudejsonl.StreamPackageCached},
 	{"codex-cli", codexjsonl.IDFormat, codexjsonl.StreamPackageCached},
+	{"codex-db", codexdb.IDFormat, codexdb.StreamPackageCached},
 	{"generic", genericchat.IDFormat, genericchat.StreamPackageCached},
 }
 

@@ -136,6 +136,10 @@ var locations = []location{
 	{"gemini-cli", []string{".gemini/settings.json"}, fmtMCPServers, "user"},
 	{"opencode", []string{".config/opencode/opencode.json", ".config/opencode/config.json"}, fmtOpenCode, "user"},
 	{"codex-cli", []string{".codex/config.toml"}, fmtCodexTOML, "user"},
+	{"claude-desktop", []string{
+		"Library/Application Support/Claude/claude_desktop_config.json",
+		".config/Claude/claude_desktop_config.json",
+		"AppData/Roaming/Claude/claude_desktop_config.json"}, fmtMCPServers, "user"},
 }
 
 // projectFiles are repo-scoped MCP configs; matched by basename anywhere

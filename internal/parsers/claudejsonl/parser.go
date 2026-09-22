@@ -53,6 +53,53 @@ type transcriptLine struct {
 	// chain through them read as tampering. Decoded leniently by
 	// spawnResult instead.
 	ToolUseResult json.RawMessage `json:"toolUseResult"`
+
+	// Cowork's audit.jsonl is the Agent SDK's stream-json dialect of the
+	// same transcript: snake_case keys, an HMAC per line, and system/result
+	// records that the CLI transcript does not write. Read into their own
+	// fields and folded into the camelCase ones by normalize().
+	SessionIDSnake     string          `json:"session_id"`
+	ParentToolUseID    string          `json:"parent_tool_use_id"`
+	ToolUseResultSnake json.RawMessage `json:"tool_use_result"`
+	AuditTimestamp     string          `json:"_audit_timestamp"`
+	AuditHMAC          string          `json:"_audit_hmac"`
+	Subtype            string          `json:"subtype"`
+	Model              string          `json:"model"`
+	PermissionMode     string          `json:"permissionMode"`
+	CLIVersion         string          `json:"claude_code_version"`
+	NumTurns           int             `json:"num_turns"`
+	IsError            bool            `json:"is_error"`
+	TotalCostUSD       float64         `json:"total_cost_usd"`
+	PermissionDenials  json.RawMessage `json:"permission_denials"`
+	MCPServers         json.RawMessage `json:"mcp_servers"`
+}
+
+// normalize folds the stream-json spellings into the transcript fields so
+// one handleLine serves both dialects.
+func (tl *transcriptLine) normalize() {
+	if tl.SessionID == "" {
+		tl.SessionID = tl.SessionIDSnake
+	}
+	if tl.Timestamp == "" {
+		tl.Timestamp = tl.AuditTimestamp
+	}
+	if len(tl.ToolUseResult) == 0 {
+		tl.ToolUseResult = tl.ToolUseResultSnake
+	}
+	if tl.Version == "" {
+		tl.Version = tl.CLIVersion
+	}
+}
+
+// inSubagent reports whether the line was exchanged inside a subagent: the
+// CLI transcript flags it with isSidechain, the audit log with the
+// parent_tool_use_id of the launching call. Only the former marks the
+// agent entity as a sidechain (the audit log's lines all run under the main
+// agent id, and marking that as a sidechain made every Cowork main agent
+// an orphan); both decide whether a user-role text is a human prompt or a
+// message from the parent agent.
+func (tl *transcriptLine) inSubagent() bool {
+	return tl.IsSidechain || tl.ParentToolUseID != ""
 }
 
 // spawnResult reads the child agent id and status out of a toolUseResult
@@ -132,8 +179,21 @@ func parseWith(pkgDir string, sink func(schema.Event), cache segment.Cache) (*Re
 	p := &parser{res: res, sink: sink, caseID: man.CaseID, host: man.Host,
 		entities: map[string]schema.Entity{}, spawned: map[string]string{}}
 	for _, a := range man.Current() {
-		if a.Status != casepkg.StatusOK || a.CollectorRule != "claude.sessions" ||
-			!strings.HasSuffix(a.LogicalPath, ".jsonl") {
+		if a.Status != casepkg.StatusOK {
+			continue
+		}
+		stem := ruleStem(a.CollectorRule)
+		p.product = productFor(a)
+		if sidecarRules[stem] && strings.HasSuffix(a.LogicalPath, ".json") {
+			// Cowork session metadata: not a transcript, one JSON document.
+			// Small, and its events depend only on itself, so it goes
+			// through the same cache protocol as a transcript.
+			if err := p.cached(cache, a, func() error { return p.parseSidecar(store, a, stem) }); err != nil {
+				return nil, fmt.Errorf("%s: %w", a.LogicalPath, err)
+			}
+			continue
+		}
+		if !transcriptRules[stem] || !strings.HasSuffix(a.LogicalPath, ".jsonl") {
 			continue
 		}
 		base := p.seq
@@ -183,6 +243,70 @@ type parser struct {
 	// rec, when set, captures the entity and relationship calls made while
 	// reading the current artifact so the overlay can replay them later.
 	rec *segment.Recorder
+	// product is the product id stamped on events from the current
+	// artifact: claude-code for CLI transcripts, claude-cowork for the
+	// desktop app's sessions. Same format, different evidence source.
+	product string
+	// audit counters for the current audit.jsonl artifact.
+	auditLines, auditSigned int
+}
+
+// transcriptRules are the collector rules whose .jsonl artifacts are
+// Claude transcripts; sidecarRules hold Cowork's per-session JSON metadata.
+var (
+	transcriptRules = map[string]bool{"claude.sessions": true, "cowork.sessions": true, "cowork.audit": true}
+	sidecarRules    = map[string]bool{"cowork.session_meta": true, "cowork.desktop_sessions": true}
+)
+
+// ruleStem strips the per-platform suffix from a collector rule id
+// (cowork.audit_macos → cowork.audit).
+func ruleStem(rule string) string {
+	for _, suf := range []string{"_macos", "_linux", "_windows"} {
+		if strings.HasSuffix(rule, suf) {
+			return strings.TrimSuffix(rule, suf)
+		}
+	}
+	return rule
+}
+
+func productFor(a casepkg.ArtifactRecord) string {
+	if a.Product == "claude-cowork" || strings.HasPrefix(a.CollectorRule, "cowork.") {
+		return "claude-cowork"
+	}
+	return "claude-code"
+}
+
+// cached runs parse for one artifact under the overlay cache protocol:
+// replay if the cache has it, otherwise parse and record.
+func (p *parser) cached(cache segment.Cache, a casepkg.ArtifactRecord, parse func() error) error {
+	base := p.seq
+	if cache != nil {
+		rp, err := cache.Begin(a, base)
+		if err != nil {
+			return err
+		}
+		if rp != nil {
+			p.seq = base + rp.Events
+			for _, e := range rp.Entities {
+				p.addEntity(e)
+			}
+			for _, r := range rp.Relationships {
+				p.addRel(r)
+			}
+			return nil
+		}
+		p.rec = &segment.Recorder{}
+	}
+	if err := parse(); err != nil {
+		return err
+	}
+	if cache != nil {
+		if err := cache.End(a, base, p.seq-base, p.rec.Entities, p.rec.Relationships); err != nil {
+			return err
+		}
+		p.rec = nil
+	}
+	return nil
 }
 
 func (p *parser) parseTranscript(store *casepkg.Store, art casepkg.ArtifactRecord) error {
@@ -192,6 +316,17 @@ func (p *parser) parseTranscript(store *casepkg.Store, art casepkg.ArtifactRecor
 	}
 	defer f.Close()
 
+	p.auditLines, p.auditSigned = 0, 0
+	// Cowork's audit log opens under the Cowork session id (the first user
+	// message, before the CLI starts) and switches to the CLI session id
+	// from the init record on. One file, two ids, by design — which is
+	// exactly what AGENT_IDENTITY_MISMATCH looks for, and it fired on every
+	// Cowork session. The CLI id is the one the in-VM transcript uses, so
+	// the file is read under it: a cheap first pass finds it.
+	primary := ""
+	if ruleStem(art.CollectorRule) == "cowork.audit" {
+		primary = auditPrimarySession(store, art)
+	}
 	uuids := map[string]bool{}
 	type parentRef struct {
 		parent string
@@ -200,6 +335,7 @@ func (p *parser) parseTranscript(store *casepkg.Store, art casepkg.ArtifactRecor
 		sess   string
 	}
 	var parents []parentRef
+	lastSession := ""
 
 	lr := linereader.New(f, MaxLineBytes)
 	for {
@@ -232,11 +368,22 @@ func (p *parser) parseTranscript(store *casepkg.Store, art casepkg.ArtifactRecor
 			}, art, ln.Offset, ln.Number)
 			continue
 		}
+		tl.normalize()
+		if primary != "" && tl.SessionID != "" && tl.SessionID != primary {
+			tl.SessionID = primary
+		}
+		if tl.AuditHMAC != "" {
+			p.auditSigned++
+		}
+		p.auditLines++
 		if tl.UUID != "" {
 			uuids[tl.UUID] = true
 		}
 		if tl.ParentUUID != "" && !danglingByDesign(tl.Type) {
 			parents = append(parents, parentRef{tl.ParentUUID, ln.Offset, ln.Number, tl.SessionID})
+		}
+		if tl.SessionID != "" {
+			lastSession = tl.SessionID
 		}
 		p.handleLine(tl, art, ln.Offset, ln.Number)
 	}
@@ -252,6 +399,19 @@ func (p *parser) parseTranscript(store *casepkg.Store, art casepkg.ArtifactRecor
 				Corroboration: schema.StateObserved,
 			}, art, pr.off, pr.line)
 		}
+	}
+	if p.auditSigned > 0 {
+		// Cowork signs every audit line with an HMAC keyed by the session's
+		// .audit-key. The scheme is not public, so the signatures are
+		// recorded, not verified: an analyst with the key can check them,
+		// and a line without one in a signed file is worth a look.
+		p.emit(schema.Event{
+			EventType: schema.EventSessionMeta, ActorType: schema.ActorSystem,
+			SessionID: lastSession, AgentID: "main:" + lastSession,
+			Result:        "audit_signed",
+			Summary:       fmt.Sprintf("%d of %d audit lines carry an HMAC (scheme not verified)", p.auditSigned, p.auditLines),
+			Corroboration: schema.StateObserved,
+		}, art, 0, 0)
 	}
 	return nil
 }
@@ -317,7 +477,7 @@ func (p *parser) handleLine(tl transcriptLine, art casepkg.ArtifactRecord, off i
 		}
 		if !emittedToolResult {
 			ev := base
-			if tl.IsSidechain {
+			if tl.inSubagent() {
 				// Prompt delivered TO a subagent by its parent.
 				ev.EventType = schema.EventAgentMessage
 				ev.ActorType = schema.ActorAgent
@@ -379,12 +539,25 @@ func (p *parser) handleLine(tl transcriptLine, art casepkg.ArtifactRecord, off i
 				p.emit(sp, art, off, line)
 			}
 		}
-	case "system", "summary", "progress":
+	case "system", "summary", "progress", "result", "rate_limit_event":
 		ev := base
 		ev.EventType = schema.EventSessionMeta
 		ev.ActorType = schema.ActorSystem
 		ev.Result = tl.Type
+		if tl.Subtype != "" {
+			ev.Result += ":" + trim(tl.Subtype, 40)
+		}
 		ev.Corroboration = schema.StateObserved
+		switch {
+		case tl.Type == "system" && tl.Subtype == "init":
+			// The SDK's init record: what the session was allowed to do.
+			ev.Model = tl.Model
+			ev.Summary = trim(strings.TrimSpace(fmt.Sprintf("model=%s permissionMode=%s cwd=%s version=%s mcp_servers=%d",
+				tl.Model, tl.PermissionMode, tl.CWD, tl.Version, jsonLen(tl.MCPServers))), 300)
+		case tl.Type == "result":
+			ev.Summary = trim(fmt.Sprintf("turns=%d error=%v cost_usd=%.4f permission_denials=%d",
+				tl.NumTurns, tl.IsError, tl.TotalCostUSD, jsonLen(tl.PermissionDenials)), 300)
+		}
 		p.emit(ev, art, off, line)
 	default:
 		ev := base
@@ -433,7 +606,7 @@ func (p *parser) touchSession(tl transcriptLine, agentID string) {
 	if tl.SessionID != "" {
 		p.addEntity(schema.Entity{
 			EntityID: "session:" + tl.SessionID, Kind: "session",
-			Label: tl.SessionID, Product: "claude-code",
+			Label: tl.SessionID, Product: p.product,
 		})
 	}
 	attrs := map[string]string{}
@@ -442,7 +615,7 @@ func (p *parser) touchSession(tl transcriptLine, agentID string) {
 	}
 	p.addEntity(schema.Entity{
 		EntityID: "agent:" + agentID, Kind: "agent",
-		Label: agentID, Product: "claude-code", Attributes: attrs,
+		Label: agentID, Product: p.product, Attributes: attrs,
 	})
 	if tl.SessionID != "" {
 		p.addRel(schema.Relationship{
@@ -460,7 +633,10 @@ func (p *parser) emit(ev schema.Event, art casepkg.ArtifactRecord, off int64, li
 	ev.Host = p.host
 	ev.User = art.User
 	ev.Vendor = "anthropic"
-	ev.Product = "claude-code"
+	ev.Product = p.product
+	if ev.Product == "" {
+		ev.Product = "claude-code"
+	}
 	ev.SourceArtifact = art.ArtifactID
 	ev.SourcePath = art.LogicalPath
 	ev.SourceOffset = off
@@ -579,6 +755,23 @@ func flatText(raw json.RawMessage) string {
 	return ""
 }
 
+// jsonLen counts the elements of a JSON array (or keys of an object); 0
+// for anything else.
+func jsonLen(raw json.RawMessage) int {
+	if len(raw) == 0 {
+		return 0
+	}
+	var arr []json.RawMessage
+	if json.Unmarshal(raw, &arr) == nil {
+		return len(arr)
+	}
+	var obj map[string]json.RawMessage
+	if json.Unmarshal(raw, &obj) == nil {
+		return len(obj)
+	}
+	return 0
+}
+
 func inputField(raw json.RawMessage, key string) string {
 	if len(raw) == 0 {
 		return ""
@@ -613,9 +806,15 @@ func isRuneStart(b byte) bool { return b&0xC0 != 0x80 }
 // entity/relationship bookkeeping is kept but not returned.
 type Live struct{ p *parser }
 
-// NewLive creates a line parser for live tailing.
+// NewLive creates a line parser for live tailing of Claude Code transcripts.
 func NewLive(host string, sink func(schema.Event)) *Live {
-	return &Live{p: &parser{res: &Result{}, sink: sink, caseID: "live", host: host,
+	return NewLiveProduct("claude-code", host, sink)
+}
+
+// NewLiveProduct is NewLive for another product that writes the same
+// transcript format (Cowork).
+func NewLiveProduct(product, host string, sink func(schema.Event)) *Live {
+	return &Live{p: &parser{res: &Result{}, sink: sink, caseID: "live", host: host, product: product,
 		entities: map[string]schema.Entity{}, spawned: map[string]string{}}}
 }
 
@@ -628,7 +827,48 @@ func (l *Live) Line(path string, raw []byte, off int64, line int) {
 			Summary: "malformed transcript line", Corroboration: schema.StateObserved}, art, off, line)
 		return
 	}
+	tl.normalize()
 	l.p.handleLine(tl, art, off, line)
+}
+
+// auditPrimarySession returns the session id of the first system record in
+// an audit log (the CLI session), or the most frequent id when there is
+// none. Bounded by the same line limit as the parse itself.
+func auditPrimarySession(store *casepkg.Store, art casepkg.ArtifactRecord) string {
+	f, err := store.Open(art.ArtifactID)
+	if err != nil {
+		return ""
+	}
+	defer f.Close()
+	counts := map[string]int{}
+	lr := linereader.New(f, MaxLineBytes)
+	for {
+		ln, err := lr.Next()
+		if err != nil {
+			break
+		}
+		if ln.Overflow {
+			continue
+		}
+		var probe struct {
+			Type      string `json:"type"`
+			SessionID string `json:"session_id"`
+		}
+		if json.Unmarshal(ln.Bytes, &probe) != nil || probe.SessionID == "" {
+			continue
+		}
+		if probe.Type == "system" {
+			return probe.SessionID
+		}
+		counts[probe.SessionID]++
+	}
+	best, n := "", 0
+	for id, c := range counts {
+		if c > n || c == n && id < best {
+			best, n = id, c
+		}
+	}
+	return best
 }
 
 // danglingByDesign reports record types whose parentUuid routinely points
@@ -641,7 +881,7 @@ func (l *Live) Line(path string, raw []byte, off int64, line int) {
 // spliced transcript.
 func danglingByDesign(recType string) bool {
 	switch recType {
-	case "attachment", "queue-operation", "system", "summary", "progress":
+	case "attachment", "queue-operation", "system", "summary", "progress", "result", "rate_limit_event":
 		return true
 	}
 	return false

@@ -521,10 +521,30 @@ func (s *Server) apiFindings(w http.ResponseWriter, r *http.Request) {
 	for i, f := range s.findings {
 		out = append(out, s.findingRow(i, f))
 	}
+	// Worst first, and within a severity the finding most likely to be
+	// real first: an analyst reading top-down sees CRITICAL/HIGH confidence
+	// HIGH before the same severity at confidence LOW.
 	sort.SliceStable(out, func(i, j int) bool {
-		return sevRank(out[i]["severity"].(string)) > sevRank(out[j]["severity"].(string))
+		si, sj := sevRank(out[i]["severity"].(string)), sevRank(out[j]["severity"].(string))
+		if si != sj {
+			return si > sj
+		}
+		return confRank(out[i]["confidence"].(string)) > confRank(out[j]["confidence"].(string))
 	})
 	writeJSON(w, out)
+}
+
+// confRank orders confidence levels; unknown/empty sorts last.
+func confRank(c string) int {
+	switch c {
+	case "HIGH":
+		return 3
+	case "MEDIUM":
+		return 2
+	case "LOW":
+		return 1
+	}
+	return 0
 }
 
 // findingRow is the sanitized finding the UI lists; chain findings carry

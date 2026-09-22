@@ -669,6 +669,633 @@
           "sensitivity": "high"
         }
       ]
+    },
+    {
+      "product": "claude-cowork",
+      "entries": [
+        {
+          "id": "cowork.sessions_macos",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/Claude/local-agent-mode-sessions/*/*/local_*/.claude/projects/**"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        },
+        {
+          "id": "cowork.sessions_linux",
+          "platforms": [
+            "linux"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/.config/Claude/local-agent-mode-sessions/*/*/local_*/.claude/projects/**"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        },
+        {
+          "id": "cowork.sessions_windows",
+          "platforms": [
+            "windows"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/local-agent-mode-sessions/*/*/local_*/.claude/projects/**"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        },
+        {
+          "id": "cowork.audit_macos",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/Claude/local-agent-mode-sessions/*/*/local_*/audit.jsonl"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        },
+        {
+          "id": "cowork.audit_linux",
+          "platforms": [
+            "linux"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/.config/Claude/local-agent-mode-sessions/*/*/local_*/audit.jsonl"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        },
+        {
+          "id": "cowork.audit_windows",
+          "platforms": [
+            "windows"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/local-agent-mode-sessions/*/*/local_*/audit.jsonl"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        },
+        {
+          "id": "cowork.audit_key_macos",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/Claude/local-agent-mode-sessions/*/*/local_*/.audit-key"
+          ],
+          "category": "credentials",
+          "sensitivity": "critical"
+        },
+        {
+          "id": "cowork.audit_key_linux",
+          "platforms": [
+            "linux"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/.config/Claude/local-agent-mode-sessions/*/*/local_*/.audit-key"
+          ],
+          "category": "credentials",
+          "sensitivity": "critical"
+        },
+        {
+          "id": "cowork.audit_key_windows",
+          "platforms": [
+            "windows"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/local-agent-mode-sessions/*/*/local_*/.audit-key"
+          ],
+          "category": "credentials",
+          "sensitivity": "critical"
+        },
+        {
+          "id": "cowork.session_meta_macos",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/Claude/local-agent-mode-sessions/*/*/local_*.json"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        },
+        {
+          "id": "cowork.session_meta_linux",
+          "platforms": [
+            "linux"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/.config/Claude/local-agent-mode-sessions/*/*/local_*.json"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        },
+        {
+          "id": "cowork.session_meta_windows",
+          "platforms": [
+            "windows"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/local-agent-mode-sessions/*/*/local_*.json"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        },
+        {
+          "id": "cowork.session_home_macos",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/Claude/local-agent-mode-sessions/*/*/local_*/.claude/.claude.json",
+            "${PROFILE_ROOT}/Library/Application Support/Claude/local-agent-mode-sessions/*/*/local_*/.claude/settings.json",
+            "${PROFILE_ROOT}/Library/Application Support/Claude/local-agent-mode-sessions/*/*/local_*/.claude/settings.local.json",
+            "${PROFILE_ROOT}/Library/Application Support/Claude/local-agent-mode-sessions/*/*/local_*/.claude/CLAUDE.md",
+            "${PROFILE_ROOT}/Library/Application Support/Claude/local-agent-mode-sessions/*/*/local_*/.claude/history.jsonl",
+            "${PROFILE_ROOT}/Library/Application Support/Claude/local-agent-mode-sessions/*/*/local_*/.claude/mcp-needs-auth-cache.json",
+            "${PROFILE_ROOT}/Library/Application Support/Claude/local-agent-mode-sessions/*/*/local_*/.claude/sessions/**",
+            "${PROFILE_ROOT}/Library/Application Support/Claude/local-agent-mode-sessions/*/*/local_*/.claude/session-env/**",
+            "${PROFILE_ROOT}/Library/Application Support/Claude/local-agent-mode-sessions/*/*/local_*/.claude/shell-snapshots/**",
+            "${PROFILE_ROOT}/Library/Application Support/Claude/local-agent-mode-sessions/*/*/local_*/.claude/plans/**",
+            "${PROFILE_ROOT}/Library/Application Support/Claude/local-agent-mode-sessions/*/*/local_*/.claude/skills/**",
+            "${PROFILE_ROOT}/Library/Application Support/Claude/local-agent-mode-sessions/*/*/local_*/.claude/backups/**"
+          ],
+          "category": "product_config",
+          "sensitivity": "high"
+        },
+        {
+          "id": "cowork.session_home_linux",
+          "platforms": [
+            "linux"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/.config/Claude/local-agent-mode-sessions/*/*/local_*/.claude/.claude.json",
+            "${PROFILE_ROOT}/.config/Claude/local-agent-mode-sessions/*/*/local_*/.claude/settings.json",
+            "${PROFILE_ROOT}/.config/Claude/local-agent-mode-sessions/*/*/local_*/.claude/settings.local.json",
+            "${PROFILE_ROOT}/.config/Claude/local-agent-mode-sessions/*/*/local_*/.claude/CLAUDE.md",
+            "${PROFILE_ROOT}/.config/Claude/local-agent-mode-sessions/*/*/local_*/.claude/history.jsonl",
+            "${PROFILE_ROOT}/.config/Claude/local-agent-mode-sessions/*/*/local_*/.claude/mcp-needs-auth-cache.json",
+            "${PROFILE_ROOT}/.config/Claude/local-agent-mode-sessions/*/*/local_*/.claude/sessions/**",
+            "${PROFILE_ROOT}/.config/Claude/local-agent-mode-sessions/*/*/local_*/.claude/session-env/**",
+            "${PROFILE_ROOT}/.config/Claude/local-agent-mode-sessions/*/*/local_*/.claude/shell-snapshots/**",
+            "${PROFILE_ROOT}/.config/Claude/local-agent-mode-sessions/*/*/local_*/.claude/plans/**",
+            "${PROFILE_ROOT}/.config/Claude/local-agent-mode-sessions/*/*/local_*/.claude/skills/**",
+            "${PROFILE_ROOT}/.config/Claude/local-agent-mode-sessions/*/*/local_*/.claude/backups/**"
+          ],
+          "category": "product_config",
+          "sensitivity": "high"
+        },
+        {
+          "id": "cowork.session_home_windows",
+          "platforms": [
+            "windows"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/local-agent-mode-sessions/*/*/local_*/.claude/.claude.json",
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/local-agent-mode-sessions/*/*/local_*/.claude/settings.json",
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/local-agent-mode-sessions/*/*/local_*/.claude/settings.local.json",
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/local-agent-mode-sessions/*/*/local_*/.claude/CLAUDE.md",
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/local-agent-mode-sessions/*/*/local_*/.claude/history.jsonl",
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/local-agent-mode-sessions/*/*/local_*/.claude/mcp-needs-auth-cache.json",
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/local-agent-mode-sessions/*/*/local_*/.claude/sessions/**",
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/local-agent-mode-sessions/*/*/local_*/.claude/session-env/**",
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/local-agent-mode-sessions/*/*/local_*/.claude/shell-snapshots/**",
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/local-agent-mode-sessions/*/*/local_*/.claude/plans/**",
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/local-agent-mode-sessions/*/*/local_*/.claude/skills/**",
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/local-agent-mode-sessions/*/*/local_*/.claude/backups/**"
+          ],
+          "category": "product_config",
+          "sensitivity": "high"
+        },
+        {
+          "id": "cowork.session_credentials_macos",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/Claude/local-agent-mode-sessions/*/*/local_*/.claude/.credentials.json"
+          ],
+          "category": "credentials",
+          "sensitivity": "critical"
+        },
+        {
+          "id": "cowork.session_credentials_linux",
+          "platforms": [
+            "linux"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/.config/Claude/local-agent-mode-sessions/*/*/local_*/.claude/.credentials.json"
+          ],
+          "category": "credentials",
+          "sensitivity": "critical"
+        },
+        {
+          "id": "cowork.session_credentials_windows",
+          "platforms": [
+            "windows"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/local-agent-mode-sessions/*/*/local_*/.claude/.credentials.json"
+          ],
+          "category": "credentials",
+          "sensitivity": "critical"
+        },
+        {
+          "id": "cowork.session_files_macos",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/Claude/local-agent-mode-sessions/*/*/local_*/outputs/**",
+            "${PROFILE_ROOT}/Library/Application Support/Claude/local-agent-mode-sessions/*/*/local_*/uploads/**"
+          ],
+          "category": "file_checkpoints",
+          "sensitivity": "high"
+        },
+        {
+          "id": "cowork.session_files_linux",
+          "platforms": [
+            "linux"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/.config/Claude/local-agent-mode-sessions/*/*/local_*/outputs/**",
+            "${PROFILE_ROOT}/.config/Claude/local-agent-mode-sessions/*/*/local_*/uploads/**"
+          ],
+          "category": "file_checkpoints",
+          "sensitivity": "high"
+        },
+        {
+          "id": "cowork.session_files_windows",
+          "platforms": [
+            "windows"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/local-agent-mode-sessions/*/*/local_*/outputs/**",
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/local-agent-mode-sessions/*/*/local_*/uploads/**"
+          ],
+          "category": "file_checkpoints",
+          "sensitivity": "high"
+        },
+        {
+          "id": "cowork.session_shims_macos",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/Claude/local-agent-mode-sessions/*/*/local_*/shim-lib/**",
+            "${PROFILE_ROOT}/Library/Application Support/Claude/local-agent-mode-sessions/*/*/local_*/shim-perm/**"
+          ],
+          "category": "product_state",
+          "sensitivity": "medium"
+        },
+        {
+          "id": "cowork.session_shims_linux",
+          "platforms": [
+            "linux"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/.config/Claude/local-agent-mode-sessions/*/*/local_*/shim-lib/**",
+            "${PROFILE_ROOT}/.config/Claude/local-agent-mode-sessions/*/*/local_*/shim-perm/**"
+          ],
+          "category": "product_state",
+          "sensitivity": "medium"
+        },
+        {
+          "id": "cowork.session_shims_windows",
+          "platforms": [
+            "windows"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/local-agent-mode-sessions/*/*/local_*/shim-lib/**",
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/local-agent-mode-sessions/*/*/local_*/shim-perm/**"
+          ],
+          "category": "product_state",
+          "sensitivity": "medium"
+        },
+        {
+          "id": "cowork.org_state_macos",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/Claude/local-agent-mode-sessions/*/*/spaces.json",
+            "${PROFILE_ROOT}/Library/Application Support/Claude/local-agent-mode-sessions/*/*/spaces/**",
+            "${PROFILE_ROOT}/Library/Application Support/Claude/local-agent-mode-sessions/*/*/scheduled-tasks.json",
+            "${PROFILE_ROOT}/Library/Application Support/Claude/local-agent-mode-sessions/*/*/cowork_settings.json",
+            "${PROFILE_ROOT}/Library/Application Support/Claude/local-agent-mode-sessions/*/*/.claude.json",
+            "${PROFILE_ROOT}/Library/Application Support/Claude/local-agent-mode-sessions/*/*/cowork-gb-cache.json",
+            "${PROFILE_ROOT}/Library/Application Support/Claude/local-agent-mode-sessions/*/*/cowork-clientdata-cache.json"
+          ],
+          "category": "product_config",
+          "sensitivity": "high"
+        },
+        {
+          "id": "cowork.org_state_linux",
+          "platforms": [
+            "linux"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/.config/Claude/local-agent-mode-sessions/*/*/spaces.json",
+            "${PROFILE_ROOT}/.config/Claude/local-agent-mode-sessions/*/*/spaces/**",
+            "${PROFILE_ROOT}/.config/Claude/local-agent-mode-sessions/*/*/scheduled-tasks.json",
+            "${PROFILE_ROOT}/.config/Claude/local-agent-mode-sessions/*/*/cowork_settings.json",
+            "${PROFILE_ROOT}/.config/Claude/local-agent-mode-sessions/*/*/.claude.json",
+            "${PROFILE_ROOT}/.config/Claude/local-agent-mode-sessions/*/*/cowork-gb-cache.json",
+            "${PROFILE_ROOT}/.config/Claude/local-agent-mode-sessions/*/*/cowork-clientdata-cache.json"
+          ],
+          "category": "product_config",
+          "sensitivity": "high"
+        },
+        {
+          "id": "cowork.org_state_windows",
+          "platforms": [
+            "windows"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/local-agent-mode-sessions/*/*/spaces.json",
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/local-agent-mode-sessions/*/*/spaces/**",
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/local-agent-mode-sessions/*/*/scheduled-tasks.json",
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/local-agent-mode-sessions/*/*/cowork_settings.json",
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/local-agent-mode-sessions/*/*/.claude.json",
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/local-agent-mode-sessions/*/*/cowork-gb-cache.json",
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/local-agent-mode-sessions/*/*/cowork-clientdata-cache.json"
+          ],
+          "category": "product_config",
+          "sensitivity": "high"
+        },
+        {
+          "id": "cowork.plugins_macos",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/Claude/local-agent-mode-sessions/*/*/cowork_plugins/**",
+            "${PROFILE_ROOT}/Library/Application Support/Claude/local-agent-mode-sessions/*/*/remote_cowork_plugins/**",
+            "${PROFILE_ROOT}/Library/Application Support/Claude/local-agent-mode-sessions/*/*/rpm/**",
+            "${PROFILE_ROOT}/Library/Application Support/Claude/local-agent-mode-sessions/skills-plugin/**"
+          ],
+          "category": "agent_definitions",
+          "sensitivity": "high"
+        },
+        {
+          "id": "cowork.plugins_linux",
+          "platforms": [
+            "linux"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/.config/Claude/local-agent-mode-sessions/*/*/cowork_plugins/**",
+            "${PROFILE_ROOT}/.config/Claude/local-agent-mode-sessions/*/*/remote_cowork_plugins/**",
+            "${PROFILE_ROOT}/.config/Claude/local-agent-mode-sessions/*/*/rpm/**",
+            "${PROFILE_ROOT}/.config/Claude/local-agent-mode-sessions/skills-plugin/**"
+          ],
+          "category": "agent_definitions",
+          "sensitivity": "high"
+        },
+        {
+          "id": "cowork.plugins_windows",
+          "platforms": [
+            "windows"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/local-agent-mode-sessions/*/*/cowork_plugins/**",
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/local-agent-mode-sessions/*/*/remote_cowork_plugins/**",
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/local-agent-mode-sessions/*/*/rpm/**",
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/local-agent-mode-sessions/skills-plugin/**"
+          ],
+          "category": "agent_definitions",
+          "sensitivity": "high"
+        },
+        {
+          "id": "cowork.debug_macos",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/Claude/local-agent-mode-sessions/*/*/debug/**"
+          ],
+          "category": "debug_logs",
+          "sensitivity": "medium"
+        },
+        {
+          "id": "cowork.debug_linux",
+          "platforms": [
+            "linux"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/.config/Claude/local-agent-mode-sessions/*/*/debug/**"
+          ],
+          "category": "debug_logs",
+          "sensitivity": "medium"
+        },
+        {
+          "id": "cowork.debug_windows",
+          "platforms": [
+            "windows"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/local-agent-mode-sessions/*/*/debug/**"
+          ],
+          "category": "debug_logs",
+          "sensitivity": "medium"
+        },
+        {
+          "id": "cowork.backups_macos",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/Claude/local-agent-mode-sessions/*/*/backups/**"
+          ],
+          "category": "file_checkpoints",
+          "sensitivity": "high"
+        },
+        {
+          "id": "cowork.backups_linux",
+          "platforms": [
+            "linux"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/.config/Claude/local-agent-mode-sessions/*/*/backups/**"
+          ],
+          "category": "file_checkpoints",
+          "sensitivity": "high"
+        },
+        {
+          "id": "cowork.backups_windows",
+          "platforms": [
+            "windows"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/local-agent-mode-sessions/*/*/backups/**"
+          ],
+          "category": "file_checkpoints",
+          "sensitivity": "high"
+        },
+        {
+          "id": "cowork.desktop_sessions_macos",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/Claude/claude-code-sessions/**"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        },
+        {
+          "id": "cowork.desktop_sessions_linux",
+          "platforms": [
+            "linux"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/.config/Claude/claude-code-sessions/**"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        },
+        {
+          "id": "cowork.desktop_sessions_windows",
+          "platforms": [
+            "windows"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/claude-code-sessions/**"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        },
+        {
+          "id": "cowork.desktop_config_macos",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/Claude/claude_desktop_config.json",
+            "${PROFILE_ROOT}/Library/Application Support/Claude/config.json",
+            "${PROFILE_ROOT}/Library/Application Support/Claude/cowork-enabled-cli-ops.json",
+            "${PROFILE_ROOT}/Library/Application Support/Claude/mcp-user-tool-toggles.json",
+            "${PROFILE_ROOT}/Library/Application Support/Claude/extensions-blocklist.json",
+            "${PROFILE_ROOT}/Library/Application Support/Claude/git-worktrees.json",
+            "${PROFILE_ROOT}/Library/Application Support/Claude/vm-support-probe.json",
+            "${PROFILE_ROOT}/Library/Application Support/Claude/plan-usage-history.json"
+          ],
+          "category": "product_config",
+          "sensitivity": "high"
+        },
+        {
+          "id": "cowork.desktop_config_linux",
+          "platforms": [
+            "linux"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/.config/Claude/claude_desktop_config.json",
+            "${PROFILE_ROOT}/.config/Claude/config.json",
+            "${PROFILE_ROOT}/.config/Claude/cowork-enabled-cli-ops.json",
+            "${PROFILE_ROOT}/.config/Claude/mcp-user-tool-toggles.json",
+            "${PROFILE_ROOT}/.config/Claude/extensions-blocklist.json",
+            "${PROFILE_ROOT}/.config/Claude/git-worktrees.json",
+            "${PROFILE_ROOT}/.config/Claude/vm-support-probe.json",
+            "${PROFILE_ROOT}/.config/Claude/plan-usage-history.json"
+          ],
+          "category": "product_config",
+          "sensitivity": "high"
+        },
+        {
+          "id": "cowork.desktop_config_windows",
+          "platforms": [
+            "windows"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/claude_desktop_config.json",
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/config.json",
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/cowork-enabled-cli-ops.json",
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/mcp-user-tool-toggles.json",
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/extensions-blocklist.json",
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/git-worktrees.json",
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/vm-support-probe.json",
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/plan-usage-history.json"
+          ],
+          "category": "product_config",
+          "sensitivity": "high"
+        },
+        {
+          "id": "cowork.git_shadow_macos",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/Claude/git-shadow/**"
+          ],
+          "category": "file_checkpoints",
+          "sensitivity": "high"
+        },
+        {
+          "id": "cowork.git_shadow_linux",
+          "platforms": [
+            "linux"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/.config/Claude/git-shadow/**"
+          ],
+          "category": "file_checkpoints",
+          "sensitivity": "high"
+        },
+        {
+          "id": "cowork.git_shadow_windows",
+          "platforms": [
+            "windows"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/git-shadow/**"
+          ],
+          "category": "file_checkpoints",
+          "sensitivity": "high"
+        },
+        {
+          "id": "cowork.logs_macos",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Logs/Claude/cowork*.log",
+            "${PROFILE_ROOT}/Library/Logs/Claude/coworkd.log",
+            "${PROFILE_ROOT}/Library/Logs/Claude/mcp*.log",
+            "${PROFILE_ROOT}/Library/Logs/Claude/main*.log",
+            "${PROFILE_ROOT}/Library/Logs/Claude/ssh.log",
+            "${PROFILE_ROOT}/Library/Logs/Claude/swift.log",
+            "${PROFILE_ROOT}/Library/Logs/Claude/vzgvisor.log",
+            "${PROFILE_ROOT}/Library/Logs/Claude/chrome-native-host.log"
+          ],
+          "category": "debug_logs",
+          "sensitivity": "medium"
+        },
+        {
+          "id": "cowork.logs_linux",
+          "platforms": [
+            "linux"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/.config/Claude/logs/**"
+          ],
+          "category": "debug_logs",
+          "sensitivity": "medium"
+        },
+        {
+          "id": "cowork.logs_windows",
+          "platforms": [
+            "windows"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/AppData/Roaming/Claude/logs/**"
+          ],
+          "category": "debug_logs",
+          "sensitivity": "medium"
+        }
+      ]
     }
   ]
 }

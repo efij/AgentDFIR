@@ -1,166 +1,19 @@
 {
   "products": [
-    {
-      "id": "claude-code",
-      "name": "Claude Code",
-      "config_dirs": [
-        ".claude"
-      ],
-      "config_files": [
-        ".claude.json"
-      ],
-      "config_env": "CLAUDE_CONFIG_DIR",
-      "binaries": [
-        "claude"
-      ]
-    },
-    {
-      "id": "codex-cli",
-      "name": "Codex CLI",
-      "config_dirs": [
-        ".codex"
-      ],
-      "config_files": [],
-      "config_env": "CODEX_HOME",
-      "binaries": [
-        "codex"
-      ]
-    },
-    {
-      "id": "cursor-cli",
-      "name": "Cursor CLI",
-      "config_dirs": [
-        ".cursor"
-      ],
-      "config_files": [],
-      "binaries": [
-        "cursor-agent",
-        "cursor"
-      ]
-    },
-    {
-      "id": "gemini-cli",
-      "name": "Gemini CLI",
-      "config_dirs": [
-        ".gemini"
-      ],
-      "config_files": [],
-      "binaries": [
-        "gemini"
-      ]
-    },
-    {
-      "id": "copilot-cli",
-      "name": "Copilot CLI",
-      "config_dirs": [
-        ".copilot"
-      ],
-      "config_files": [],
-      "binaries": [
-        "copilot",
-        "github-copilot-cli"
-      ]
-    },
-    {
-      "id": "openclaw",
-      "name": "OpenClaw",
-      "config_dirs": [
-        ".openclaw"
-      ],
-      "config_files": [],
-      "binaries": [
-        "openclaw"
-      ]
-    },
-    {
-      "id": "cline",
-      "name": "Cline",
-      "config_dirs": [
-        "Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev",
-        ".config/Code/User/globalStorage/saoudrizwan.claude-dev",
-        "AppData/Roaming/Code/User/globalStorage/saoudrizwan.claude-dev"
-      ],
-      "config_files": [],
-      "binaries": []
-    },
-    {
-      "id": "roo-code",
-      "name": "Roo Code",
-      "config_dirs": [
-        "Library/Application Support/Code/User/globalStorage/rooveterinaryinc.roo-cline",
-        ".config/Code/User/globalStorage/rooveterinaryinc.roo-cline",
-        "AppData/Roaming/Code/User/globalStorage/rooveterinaryinc.roo-cline"
-      ],
-      "config_files": [],
-      "binaries": []
-    },
-    {
-      "id": "opencode",
-      "name": "OpenCode",
-      "config_dirs": [
-        ".config/opencode",
-        ".local/share/opencode"
-      ],
-      "config_files": [],
-      "binaries": [
-        "opencode"
-      ]
-    },
-    {
-      "id": "copilot-chat-vscode",
-      "name": "Copilot Chat (VS Code)",
-      "config_dirs": [
-        "Library/Application Support/Code/User/workspaceStorage",
-        ".config/Code/User/workspaceStorage",
-        "AppData/Roaming/Code/User/workspaceStorage"
-      ],
-      "config_files": [],
-      "binaries": []
-    },
-    {
-      "id": "aider",
-      "name": "Aider",
-      "config_dirs": [
-        ".aider"
-      ],
-      "config_files": [
-        ".aider.conf.yml",
-        ".aider.chat.history.md"
-      ],
-      "binaries": [
-        "aider"
-      ]
-    },
-    {
-      "id": "warp",
-      "name": "Warp AI",
-      "config_dirs": [
-        "Library/Application Support/dev.warp.Warp-Stable",
-        ".local/state/warp-terminal",
-        "AppData/Local/warp/Warp/data"
-      ],
-      "config_files": [],
-      "binaries": [
-        "warp-terminal"
-      ]
-    },
-    {
-      "id": "kiro",
-      "name": "Kiro",
-      "config_dirs": [
-        ".kiro"
-      ],
-      "config_files": [],
-      "binaries": [
-        "kiro"
-      ]
-    },
-    {
-      "id": "ci-archive",
-      "name": "CI / archive agent logs",
-      "config_dirs": [],
-      "config_files": [],
-      "binaries": []
-    }
+    {"id": "claude-code", "name": "Claude Code", "config_dirs": [".claude"], "config_files": [".claude.json"], "config_env": "CLAUDE_CONFIG_DIR", "binaries": ["claude"]},
+    {"id": "codex-cli", "name": "Codex CLI", "config_dirs": [".codex"], "config_files": [], "config_env": "CODEX_HOME", "binaries": ["codex"]},
+    {"id": "cursor-cli", "name": "Cursor CLI", "config_dirs": [".cursor"], "config_files": [], "binaries": ["cursor-agent", "cursor"]},
+    {"id": "gemini-cli", "name": "Gemini CLI", "config_dirs": [".gemini"], "config_files": [], "binaries": ["gemini"]},
+    {"id": "copilot-cli", "name": "Copilot CLI", "config_dirs": [".copilot"], "config_files": [], "binaries": ["copilot", "github-copilot-cli"]},
+    {"id": "openclaw", "name": "OpenClaw", "config_dirs": [".openclaw"], "config_files": [], "binaries": ["openclaw"]},
+    {"id": "cline", "name": "Cline", "config_dirs": ["Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev", ".config/Code/User/globalStorage/saoudrizwan.claude-dev", "AppData/Roaming/Code/User/globalStorage/saoudrizwan.claude-dev"], "config_files": [], "binaries": []},
+    {"id": "roo-code", "name": "Roo Code", "config_dirs": ["Library/Application Support/Code/User/globalStorage/rooveterinaryinc.roo-cline", ".config/Code/User/globalStorage/rooveterinaryinc.roo-cline", "AppData/Roaming/Code/User/globalStorage/rooveterinaryinc.roo-cline"], "config_files": [], "binaries": []},
+    {"id": "opencode", "name": "OpenCode", "config_dirs": [".config/opencode", ".local/share/opencode"], "config_files": [], "binaries": ["opencode"]},
+    {"id": "copilot-chat-vscode", "name": "Copilot Chat (VS Code)", "config_dirs": ["Library/Application Support/Code/User/workspaceStorage", ".config/Code/User/workspaceStorage", "AppData/Roaming/Code/User/workspaceStorage"], "config_files": [], "binaries": []},
+    {"id": "aider", "name": "Aider", "config_dirs": [".aider"], "config_files": [".aider.conf.yml", ".aider.chat.history.md"], "binaries": ["aider"]},
+    {"id": "warp", "name": "Warp AI", "config_dirs": ["Library/Application Support/dev.warp.Warp-Stable", ".local/state/warp-terminal", "AppData/Local/warp/Warp/data"], "config_files": [], "binaries": ["warp-terminal"]},
+    {"id": "kiro", "name": "Kiro", "config_dirs": [".kiro"], "config_files": [], "binaries": ["kiro"]},
+    {"id": "claude-cowork", "name": "Claude Cowork", "config_dirs": ["Library/Application Support/Claude/local-agent-mode-sessions", ".config/Claude/local-agent-mode-sessions", "AppData/Roaming/Claude/local-agent-mode-sessions", "Library/Application Support/Claude/claude-code-sessions", ".config/Claude/claude-code-sessions", "AppData/Roaming/Claude/claude-code-sessions"], "config_files": [], "binaries": []},
+    {"id": "ci-archive", "name": "CI / archive agent logs", "config_dirs": [], "config_files": [], "binaries": []}
   ]
 }
