@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/efij/AgentDFIR/v2/internal/casepkg"
+	"github.com/efij/AgentDFIR/v2/internal/parsers/segment"
 	"github.com/efij/AgentDFIR/v2/internal/schema"
 	"github.com/efij/AgentDFIR/v2/internal/version"
 )
@@ -99,16 +100,26 @@ var productTable = []productCfg{
 // sessionCategories are the artifact types this parser consumes.
 var sessionCategories = map[string]bool{"agent_session": true, "prompt_history": true}
 
+// IDFormat renders an event id from its sequence number; the incremental
+// overlay needs it to renumber a cached artifact's events.
+const IDFormat = "evt-g-%06d"
+
 // ParsePackage parses every matching session artifact in a sealed package.
-func ParsePackage(pkgDir string) (*schema.Normalized, error) { return parseWith(pkgDir, nil) }
+func ParsePackage(pkgDir string) (*schema.Normalized, error) { return parseWith(pkgDir, nil, nil) }
 
 // StreamPackage parses and emits every event to sink instead of
 // accumulating them, returning only entities/relationships.
 func StreamPackage(pkgDir string, sink func(schema.Event)) (*schema.Normalized, error) {
-	return parseWith(pkgDir, sink)
+	return parseWith(pkgDir, sink, nil)
 }
 
-func parseWith(pkgDir string, sink func(schema.Event)) (*schema.Normalized, error) {
+// StreamPackageCached is StreamPackage with an overlay cache: artifacts the
+// cache already holds are replayed instead of re-read.
+func StreamPackageCached(pkgDir string, sink func(schema.Event), cache segment.Cache) (*schema.Normalized, error) {
+	return parseWith(pkgDir, sink, cache)
+}
+
+func parseWith(pkgDir string, sink func(schema.Event), cache segment.Cache) (*schema.Normalized, error) {
 	man, err := casepkg.ReadManifest(pkgDir)
 	if err != nil {
 		return nil, fmt.Errorf("read manifest: %w", err)
@@ -124,8 +135,35 @@ func parseWith(pkgDir string, sink func(schema.Event)) (*schema.Normalized, erro
 		if cfg == nil {
 			continue // claude/codex have dedicated parsers
 		}
+		base := p.seq
+		if cache != nil {
+			rp, err := cache.Begin(a, base)
+			if err != nil {
+				return nil, fmt.Errorf("%s: %w", a.LogicalPath, err)
+			}
+			if rp != nil {
+				// The cache already wrote this artifact's events; advance
+				// past them and replay the graph calls through the same
+				// merge a fresh parse would have used.
+				p.seq = base + rp.Events
+				for _, e := range rp.Entities {
+					p.addEntity(e)
+				}
+				for _, r := range rp.Relationships {
+					p.addRel(r)
+				}
+				continue
+			}
+			p.rec = &segment.Recorder{}
+		}
 		if err := p.parseArtifact(store, a, cfg); err != nil {
 			return nil, fmt.Errorf("%s: %w", a.LogicalPath, err)
+		}
+		if cache != nil {
+			if err := cache.End(a, base, p.seq-base, p.rec.Entities, p.rec.Relationships); err != nil {
+				return nil, fmt.Errorf("%s: %w", a.LogicalPath, err)
+			}
+			p.rec = nil
 		}
 	}
 	p.finishEntities()
@@ -148,6 +186,9 @@ type parser struct {
 	host     string
 	seq      int
 	entities map[string]schema.Entity
+	// rec, when set, captures this artifact's entity and relationship
+	// calls so the overlay can replay them without re-reading the file.
+	rec *segment.Recorder
 }
 
 // parseArtifact dispatches on file shape.
@@ -563,7 +604,7 @@ func (p *parser) base(art casepkg.ArtifactRecord, cfg *productCfg, sessionID str
 }
 
 func (p *parser) emit(ev schema.Event, art casepkg.ArtifactRecord, off int64, line int) {
-	ev.EventID = fmt.Sprintf("evt-g-%06d", p.seq)
+	ev.EventID = fmt.Sprintf(IDFormat, p.seq)
 	ev.CaseID = p.caseID
 	ev.SchemaVersion = version.SchemaVersion
 	ev.Sequence = p.seq
@@ -616,12 +657,18 @@ func (p *parser) linkTool(ev schema.Event) {
 }
 
 func (p *parser) addEntity(e schema.Entity) {
+	if p.rec != nil {
+		p.rec.Entity(e)
+	}
 	if _, ok := p.entities[e.EntityID]; !ok {
 		p.entities[e.EntityID] = e
 	}
 }
 
 func (p *parser) addRel(r schema.Relationship) {
+	if p.rec != nil {
+		p.rec.Rel(r)
+	}
 	for _, ex := range p.res.Relationships {
 		if ex.From == r.From && ex.To == r.To && ex.Type == r.Type {
 			return

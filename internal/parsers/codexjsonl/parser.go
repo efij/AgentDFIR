@@ -24,6 +24,7 @@ import (
 
 	"github.com/efij/AgentDFIR/v2/internal/casepkg"
 	"github.com/efij/AgentDFIR/v2/internal/parsers/linereader"
+	"github.com/efij/AgentDFIR/v2/internal/parsers/segment"
 	"github.com/efij/AgentDFIR/v2/internal/schema"
 	"github.com/efij/AgentDFIR/v2/internal/version"
 )
@@ -58,17 +59,27 @@ type payload struct {
 	Message string `json:"message"`
 }
 
+// IDFormat renders an event id from its sequence number; the incremental
+// overlay needs it to renumber a cached artifact's events.
+const IDFormat = "evt-x-%06d"
+
 // ParsePackage parses every codex session artifact in a sealed package.
-func ParsePackage(pkgDir string) (*Result, error) { return parseWith(pkgDir, nil) }
+func ParsePackage(pkgDir string) (*Result, error) { return parseWith(pkgDir, nil, nil) }
 
 // StreamPackage parses and emits every event to sink instead of
 // accumulating them, returning only entities/relationships. Bounds memory
 // by entity count rather than event count.
 func StreamPackage(pkgDir string, sink func(schema.Event)) (*Result, error) {
-	return parseWith(pkgDir, sink)
+	return parseWith(pkgDir, sink, nil)
 }
 
-func parseWith(pkgDir string, sink func(schema.Event)) (*Result, error) {
+// StreamPackageCached is StreamPackage with an overlay cache: artifacts the
+// cache already holds are replayed instead of re-read.
+func StreamPackageCached(pkgDir string, sink func(schema.Event), cache segment.Cache) (*Result, error) {
+	return parseWith(pkgDir, sink, cache)
+}
+
+func parseWith(pkgDir string, sink func(schema.Event), cache segment.Cache) (*Result, error) {
 	man, err := casepkg.ReadManifest(pkgDir)
 	if err != nil {
 		return nil, fmt.Errorf("read manifest: %w", err)
@@ -89,8 +100,35 @@ func parseWith(pkgDir string, sink func(schema.Event)) (*Result, error) {
 			!strings.HasSuffix(a.LogicalPath, ".jsonl") {
 			continue
 		}
+		base := p.seq
+		if cache != nil {
+			rp, err := cache.Begin(a, base)
+			if err != nil {
+				return nil, fmt.Errorf("%s: %w", a.LogicalPath, err)
+			}
+			if rp != nil {
+				// The cache already wrote this artifact's events; advance
+				// past them and replay the graph calls through the same
+				// merge a fresh parse would have used.
+				p.seq = base + rp.Events
+				for _, e := range rp.Entities {
+					p.addEntity(e)
+				}
+				for _, r := range rp.Relationships {
+					p.addRel(r)
+				}
+				continue
+			}
+			p.rec = &segment.Recorder{}
+		}
 		if err := p.parseTranscript(store, a); err != nil {
 			return nil, fmt.Errorf("%s: %w", a.LogicalPath, err)
+		}
+		if cache != nil {
+			if err := cache.End(a, base, p.seq-base, p.rec.Entities, p.rec.Relationships); err != nil {
+				return nil, fmt.Errorf("%s: %w", a.LogicalPath, err)
+			}
+			p.rec = nil
 		}
 	}
 	p.finishEntities()
@@ -106,6 +144,9 @@ type parser struct {
 	entities map[string]schema.Entity
 	session  string // current session id (from session_meta or filename)
 	version  string
+	// rec, when set, captures this artifact's entity and relationship
+	// calls so the overlay can replay them without re-reading the file.
+	rec *segment.Recorder
 }
 
 func (p *parser) parseTranscript(store *casepkg.Store, art casepkg.ArtifactRecord) error {
@@ -281,7 +322,7 @@ func (p *parser) handleLine(rl rolloutLine, art casepkg.ArtifactRecord, off int6
 }
 
 func (p *parser) emit(ev schema.Event, art casepkg.ArtifactRecord, off int64, line int) {
-	ev.EventID = fmt.Sprintf("evt-x-%06d", p.seq)
+	ev.EventID = fmt.Sprintf(IDFormat, p.seq)
 	ev.CaseID = p.caseID
 	ev.SchemaVersion = version.SchemaVersion
 	ev.Sequence = p.seq
@@ -328,12 +369,18 @@ func (p *parser) linkTool(ev schema.Event) {
 }
 
 func (p *parser) addEntity(e schema.Entity) {
+	if p.rec != nil {
+		p.rec.Entity(e)
+	}
 	if _, ok := p.entities[e.EntityID]; !ok {
 		p.entities[e.EntityID] = e
 	}
 }
 
 func (p *parser) addRel(r schema.Relationship) {
+	if p.rec != nil {
+		p.rec.Rel(r)
+	}
 	for _, ex := range p.res.Relationships {
 		if ex.From == r.From && ex.To == r.To && ex.Type == r.Type {
 			return
