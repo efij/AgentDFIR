@@ -7,6 +7,46 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [2.4.3] — 2026-09-23
+
+### Fixed
+- **`serve`, `report` and the analyst commands showed whatever analysis was
+  on disk, even one written by an older binary.** `analysis.Stale` compared
+  file times only. A case analyzed before v1.8.0 and opened with 2.4.2 still
+  showed 66 HIGH `INVISIBLE_UNICODE_INSTRUCTION` and 275 HIGH `ORPHAN_AGENT`;
+  the running binary produces 1 and 4. Results now record which version
+  produced them (they already did) and are recomputed when it is not the one
+  running, with one line saying so:
+  `Re-running analysis with agentdfir 2.4.3: analysis was produced by agentdfir 1.7.0.`
+- **Content rules read binary files as instructions.** Category is assigned by
+  path (`skills/**` → `agent_definitions`), and nothing asked whether the
+  bytes were text. On a real case the only HIGH unicode finding left after
+  re-analysis was a 6.3 MB `template_final.pptx`: bytes `F3 A0 80 BA` at
+  offset 1,461,798 decode as tag character U+E003A. Two git pack files and an
+  `icon.png` were MEDIUM; 47 of 66 unicode findings cited binary or `.git`
+  evidence. `Store.IsText` — extension not a known binary type, first 8 KiB
+  has no NUL and is valid UTF-8 — now gates the invisible-Unicode rule, the
+  phrase-scan rules (`PROMPT_INJECTION_INDICATOR`, `TOOL_POISONING_INDICATOR`,
+  `AGENT_CONTEXT_POISONING`) and provenance attribution. Transcripts,
+  Markdown, JSON and source are unaffected.
+- **Artifacts an older collector took from `node_modules` and `.git/objects`
+  never left the scan set.** The manifest is append-only and the current view
+  is newest-round-per-path, so a path that stops being collected stays current
+  forever. A case whose first round ran under collector v1.0.0 carried 5,752
+  plugin files (640 MB) that 1.5.0+ would not collect without
+  `--full-plugins`, and every scan read all of them. `run` (without
+  `--full-plugins`) and `analyze --renormalize` now retire records the current
+  policy excludes: they stay in the manifest as evidence, `Current()` skips
+  them, and a later round that collects the path on purpose wins. The list is
+  derived data at `normalized/retired.json`.
+
+  On the real case (1,087 artifacts, 2.7 GB), 2.4.2 → 2.4.3:
+  `INVISIBLE_UNICODE_INSTRUCTION` 66 → 15 (HIGH 1 → 0, MEDIUM 8 → 5, INFO
+  57 → 10; the 15 left are Persian-digit durations wrapped in bidi isolates
+  and emoji joiners in transcripts), 0 findings cite binary or `.git`
+  evidence (was 47), 734 records retired, `analyze --renormalize` 14 min 41 s
+  → 8 min 32 s. No other rule moved.
+
 ## [2.4.2] — 2026-09-23
 
 ### Fixed

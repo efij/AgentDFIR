@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"unicode/utf8"
 )
 
 // Store is the single read path to a package's content-addressed evidence.
@@ -347,6 +348,9 @@ func (m *Manifest) Current() []ArtifactRecord {
 	pos := make(map[string]int, len(m.Artifacts))
 	out := make([]ArtifactRecord, 0, len(m.Artifacts))
 	for _, a := range m.Artifacts {
+		if m.isRetired(a) {
+			continue
+		}
 		key := a.SourcePath
 		if key == "" {
 			key = a.Product + "\x00" + a.LogicalPath
@@ -366,6 +370,7 @@ func (m *Manifest) Current() []ArtifactRecord {
 // the life of the format.
 func ReadManifest(pkgDir string) (*Manifest, error) {
 	if m, err := readManifestJSONL(filepath.Join(pkgDir, manifestJSONL)); err == nil {
+		readRetired(pkgDir, m)
 		return m, nil
 	} else if !os.IsNotExist(err) {
 		return nil, err
@@ -378,6 +383,7 @@ func ReadManifest(pkgDir string) (*Manifest, error) {
 	if err := json.Unmarshal(data, &m); err != nil {
 		return nil, fmt.Errorf("parse manifest: %w", err)
 	}
+	readRetired(pkgDir, &m)
 	return &m, nil
 }
 
@@ -436,4 +442,53 @@ func storedUnits(rec ArtifactRecord) []string {
 // idFromBlobName maps a blob file name back to its content address.
 func idFromBlobName(name string) string {
 	return strings.TrimSuffix(name, ".gz")
+}
+
+// binaryExt are extensions no content rule should read as text. The sniff
+// below catches the rest; this list only saves opening them.
+var binaryExt = map[string]bool{
+	".png": true, ".jpg": true, ".jpeg": true, ".gif": true, ".webp": true, ".ico": true, ".icns": true,
+	".pptx": true, ".docx": true, ".xlsx": true, ".pdf": true,
+	".zip": true, ".gz": true, ".tgz": true, ".bz2": true, ".xz": true, ".zst": true, ".7z": true, ".jar": true,
+	".pack": true, ".idx": true, ".pyc": true, ".pyo": true, ".class": true,
+	".node": true, ".so": true, ".dylib": true, ".dll": true, ".exe": true, ".wasm": true, ".bin": true, ".o": true, ".a": true,
+	".woff": true, ".woff2": true, ".ttf": true, ".otf": true, ".eot": true,
+	".mp3": true, ".mp4": true, ".mov": true, ".wav": true, ".ogg": true, ".webm": true,
+	".sqlite": true, ".db": true, ".vscdb": true,
+}
+
+// IsText reports whether an artifact's content can be read as instructions
+// or prose: the extension is not a known binary type, and the first 8 KiB
+// has no NUL byte and is valid UTF-8. Transcripts, Markdown, JSON and
+// source pass; a .pptx whose bytes happen to spell a Unicode tag character
+// does not. Category assignment is by path (skills/**), so this is the
+// gate every content rule runs behind.
+func (s *Store) IsText(a ArtifactRecord) bool {
+	if binaryExt[strings.ToLower(filepath.Ext(a.LogicalPath))] || binaryExt[strings.ToLower(filepath.Ext(a.SourcePath))] {
+		return false
+	}
+	rc, err := s.Open(a.ArtifactID)
+	if err != nil {
+		return false
+	}
+	defer rc.Close()
+	buf := make([]byte, 8<<10)
+	n, _ := io.ReadFull(rc, buf)
+	buf = buf[:n]
+	if bytes.IndexByte(buf, 0) >= 0 {
+		return false
+	}
+	if utf8.Valid(buf) {
+		return true
+	}
+	// The window may have cut the last rune in half; a full window is
+	// allowed up to three dangling bytes, a short one (whole file) is not.
+	if n == cap(buf) {
+		for k := 1; k < utf8.UTFMax && k < len(buf); k++ {
+			if utf8.Valid(buf[:len(buf)-k]) {
+				return true
+			}
+		}
+	}
+	return false
 }

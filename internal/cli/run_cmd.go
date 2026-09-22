@@ -243,6 +243,7 @@ func cmdRun(args []string) int {
 	res, err := analysis.Run(dest, analysis.Options{
 		EndpointLogs: endpointLogs, GatewayLog: *gwLog,
 		RulesDir: *rulesDir, NoBuiltinPacks: *noPacks, Log: prog,
+		RetireExcluded: !*fullPlugins,
 		Stage: func(n, total int, name string) {
 			prog.Set(fmt.Sprintf("stage %d/%d · %s", n, total, name))
 		},

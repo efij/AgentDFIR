@@ -72,17 +72,12 @@ const (
 // decision has to be recorded where an analyst will see it.
 var excludedDirs = map[string]bool{"node_modules": true}
 
+// isExcludedPath is the shared policy; the manifest applies the same rule
+// when it retires records an older collector took (casepkg.RetireExcluded).
+
 // excludedPaths are excluded by their position rather than their name:
 // git object storage, wherever it sits.
-func isExcludedPath(path string) bool {
-	p := filepath.ToSlash(path)
-	for _, suffix := range []string{"/.git/objects", "/.git/lfs", "/.git/modules"} {
-		if strings.HasSuffix(p, suffix) || strings.Contains(p, suffix+"/") {
-			return true
-		}
-	}
-	return false
-}
+func isExcludedPath(path string) bool { return casepkg.ExcludedByPolicy(path) }
 
 // Stats summarizes a collection run.
 type Stats struct {

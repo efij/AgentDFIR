@@ -79,7 +79,7 @@ func promptInjectionIndicator(man *casepkg.Manifest, pkgDir string) []schema.Fin
 	var out []schema.Finding
 	store := casepkg.NewStore(pkgDir, man)
 	for _, a := range man.Current() {
-		if selfReferentialPath(a.LogicalPath) {
+		if selfReferentialPath(a.LogicalPath) || !store.IsText(a) {
 			continue
 		}
 		for _, sr := range injectionSurfaces {
@@ -122,7 +122,7 @@ func invisibleUnicodeInstruction(man *casepkg.Manifest, pkgDir string) []schema.
 	var out []schema.Finding
 	store := casepkg.NewStore(pkgDir, man)
 	for _, a := range man.Current() {
-		if !isType(a, "agent_session", "prompt_history", "agent_instructions", "agent_definitions") {
+		if !isType(a, "agent_session", "prompt_history", "agent_instructions", "agent_definitions") || !store.IsText(a) {
 			continue
 		}
 		tags, bidi, zw, firstOff := invisibleStats(blobReader{store, a.ArtifactID})
