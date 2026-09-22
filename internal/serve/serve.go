@@ -29,6 +29,7 @@ import (
 	"github.com/efij/AgentDFIR/v2/internal/casepkg"
 	"github.com/efij/AgentDFIR/v2/internal/chain"
 	"github.com/efij/AgentDFIR/v2/internal/notes"
+	"github.com/efij/AgentDFIR/v2/internal/overlay"
 	"github.com/efij/AgentDFIR/v2/internal/report"
 	"github.com/efij/AgentDFIR/v2/internal/sanitize"
 	"github.com/efij/AgentDFIR/v2/internal/schema"
@@ -99,9 +100,12 @@ func Load(pkg string, opts Options) (*Server, error) {
 		return nil, err
 	}
 	evPath := filepath.Join(pkg, "normalized", "events.jsonl")
-	s.entities = readJSONL[schema.Entity](filepath.Join(pkg, "normalized", "entities.jsonl"))
-	s.rels = readJSONL[schema.Relationship](filepath.Join(pkg, "normalized", "relationships.jsonl"))
-	f, err := os.Open(evPath)
+	s.entities = overlay.ReadJSONL[schema.Entity](filepath.Join(pkg, "normalized", "entities.jsonl"))
+	s.rels = overlay.ReadJSONL[schema.Relationship](filepath.Join(pkg, "normalized", "relationships.jsonl"))
+	// Streamed rather than read whole: the explorer stops at MaxEvents, and
+	// on a large case the overlay is hundreds of megabytes of JSON that the
+	// UI would never show.
+	f, err := overlay.Open(evPath)
 	if err != nil {
 		return nil, err
 	}
@@ -563,7 +567,7 @@ func (s *Server) apiBuckets(w http.ResponseWriter, r *http.Request) {
 func (s *Server) apiExtras(w http.ResponseWriter, r *http.Request) {
 	out := map[string]any{}
 	for name, file := range map[string]string{"mcp": "mcp-audit.json", "enrich": "corroboration.json", "provenance": "provenance.json"} {
-		data, err := os.ReadFile(filepath.Join(s.pkg, "detections", file))
+		data, err := overlay.ReadFile(filepath.Join(s.pkg, "detections", file))
 		if err != nil {
 			continue
 		}
@@ -633,24 +637,6 @@ func min(a, b int) int {
 		return a
 	}
 	return b
-}
-
-func readJSONL[T any](path string) []T {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil
-	}
-	defer f.Close()
-	var out []T
-	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
-	for sc.Scan() {
-		var v T
-		if json.Unmarshal(sc.Bytes(), &v) == nil {
-			out = append(out, v)
-		}
-	}
-	return out
 }
 
 // Serve runs the HTTP server on ln until it stops; idle timeouts keep a

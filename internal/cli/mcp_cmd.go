@@ -11,6 +11,7 @@ import (
 
 	"github.com/efij/AgentDFIR/v2/internal/mcpaudit"
 	"github.com/efij/AgentDFIR/v2/internal/normalize"
+	"github.com/efij/AgentDFIR/v2/internal/overlay"
 	"github.com/efij/AgentDFIR/v2/internal/sanitize"
 	"github.com/efij/AgentDFIR/v2/internal/schema"
 )
@@ -149,14 +150,25 @@ func cmdMCP(args []string) int {
 
 	// Persist.
 	dest := *out
+	inPkg := false
 	if dest == "" && pkg != "" {
 		dest = filepath.Join(pkg, "detections", "mcp-audit.json")
+		inPkg = true
 	}
 	if dest != "" {
 		_ = os.MkdirAll(filepath.Dir(dest), 0o700)
-		data, _ := json.MarshalIndent(rep, "", "  ")
-		if err := os.WriteFile(dest, append(data, '\n'), 0o600); err != nil {
-			fmt.Fprintln(os.Stderr, "error:", err)
+		// Inside a package this file is part of the regenerable overlay and
+		// is stored the same compressed way as the rest of it. An explicit
+		// --out is the exact path the operator named, so it stays plaintext.
+		var wErr error
+		if inPkg {
+			wErr = overlay.WriteJSON(dest, rep)
+		} else {
+			data, _ := json.MarshalIndent(rep, "", "  ")
+			wErr = os.WriteFile(dest, append(data, '\n'), 0o600)
+		}
+		if wErr != nil {
+			fmt.Fprintln(os.Stderr, "error:", wErr)
 			return 1
 		}
 	}

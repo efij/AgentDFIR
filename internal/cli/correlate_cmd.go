@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/efij/AgentDFIR/v2/internal/correlate"
 	"github.com/efij/AgentDFIR/v2/internal/endpoint"
+	"github.com/efij/AgentDFIR/v2/internal/overlay"
 	"github.com/efij/AgentDFIR/v2/internal/sanitize"
 	"github.com/efij/AgentDFIR/v2/internal/schema"
 )
@@ -50,7 +50,7 @@ func cmdCorrelate(args []string) int {
 	}
 	pkg, logs := positional[0], positional[1:]
 	dir := filepath.Join(pkg, "normalized")
-	if _, err := os.Stat(filepath.Join(dir, "events.jsonl")); err != nil {
+	if !overlay.Exists(filepath.Join(dir, "events.jsonl")) {
 		fmt.Println("Package not normalized yet — normalizing first.")
 		if rc := cmdNormalize([]string{pkg}); rc != 0 {
 			return rc
@@ -98,7 +98,7 @@ func runEndpointCorrelation(pkg string, logs []string, f endpoint.Format, opts c
 		records = append(records, lr.Records...)
 	}
 	res, findings := correlate.Endpoint(events, records, opts)
-	if err := writeJSONL(filepath.Join(dir, "events.jsonl"), len(events), func(i int) any { return events[i] }); err != nil {
+	if err := overlay.WriteJSONL(filepath.Join(dir, "events.jsonl"), len(events), func(i int) any { return events[i] }); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return nil, nil, 1
 	}
@@ -108,8 +108,7 @@ func runEndpointCorrelation(pkg string, logs []string, f endpoint.Format, opts c
 		Summary  *correlate.EndpointResult `json:"summary"`
 		Findings []schema.Finding          `json:"findings"`
 	}{res, findings}
-	data, _ := json.MarshalIndent(out, "", "  ")
-	_ = os.WriteFile(filepath.Join(detDir, "corroboration.json"), append(data, '\n'), 0o600)
+	_ = overlay.WriteJSON(filepath.Join(detDir, "corroboration.json"), out)
 
 	fmt.Printf("Endpoint correlation: %d tool calls checked — %d CORROBORATED, %d CONTRADICTED, %d outside telemetry coverage; %d agent-lineage records, %d unlogged.\n",
 		res.ToolCalls, res.Corroborated, res.Contradicted, res.OutsideCover, res.AgentProcesses, res.Unlogged)

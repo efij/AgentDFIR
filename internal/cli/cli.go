@@ -44,6 +44,7 @@ COLLECT — where the evidence is
   agentdfir collect --docker <container|export.tar>                            a container (read-only export)
   agentdfir collect --archive <zip|tar|tgz>                                    CI artifact, support bundle, vendor export
   agentdfir verify <pkg>                                                       prove the package was not modified
+  agentdfir compact <pkg>                                                      delete the regenerable analysis overlay (analyze rebuilds it)
   agentdfir store status | store gc                                            shared evidence store: what it holds, reclaim what no case uses
 
 ANALYZE — one command runs every stage, in order
@@ -145,6 +146,8 @@ func Main(args []string) int {
 		return cmdUpdatePacks(args[1:])
 	case "store":
 		return cmdStore(args[1:])
+	case "compact":
+		return cmdCompact(args[1:])
 	case "rules":
 		return cmdRules(args[1:])
 	case "version", "--version", "-v":

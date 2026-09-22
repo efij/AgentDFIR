@@ -13,6 +13,7 @@ import (
 
 	"github.com/efij/AgentDFIR/v2/internal/casepkg"
 	"github.com/efij/AgentDFIR/v2/internal/collector"
+	"github.com/efij/AgentDFIR/v2/internal/overlay"
 	"github.com/efij/AgentDFIR/v2/internal/products"
 )
 
@@ -68,7 +69,7 @@ func TestServeAPI(t *testing.T) {
 	if len(s.events) < 4 || len(s.findings) == 0 {
 		t.Fatalf("loaded events=%d findings=%d", len(s.events), len(s.findings))
 	}
-	if _, err := os.Stat(filepath.Join(pkg, "normalized", "events.jsonl")); err != nil {
+	if !overlay.Exists(filepath.Join(pkg, "normalized", "events.jsonl")) {
 		t.Fatal("overlay not written on load")
 	}
 	srv := httptest.NewServer(s.Handler())

@@ -8,6 +8,7 @@ import (
 
 	"github.com/efij/AgentDFIR/v2/internal/casepkg"
 	"github.com/efij/AgentDFIR/v2/internal/collector"
+	"github.com/efij/AgentDFIR/v2/internal/overlay"
 	"github.com/efij/AgentDFIR/v2/internal/products"
 	"github.com/efij/AgentDFIR/v2/internal/schema"
 )
@@ -70,8 +71,10 @@ func TestRunAllStagesAndPreserveStates(t *testing.T) {
 			t.Errorf("stage output missing %s (have %v)", want, r)
 		}
 	}
+	// Written in whichever form the overlay uses — compressed today,
+	// plaintext in packages an older binary produced.
 	for _, f := range []string{"findings.json", "mcp-audit.json", "provenance.json", "corroboration.json", "analysis.json"} {
-		if _, err := os.Stat(filepath.Join(pkg, "detections", f)); err != nil {
+		if !overlay.Exists(filepath.Join(pkg, "detections", f)) {
 			t.Errorf("%s not written", f)
 		}
 	}
