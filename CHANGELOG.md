@@ -7,6 +7,8 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [2.4.1] — 2026-09-22
+
 ### Fixed
 - **`serve` never released the event overlay, and CI was red on `main`
   because of it.** The index keeps `normalized/events.jsonl` open so events
