@@ -79,6 +79,9 @@ func promptInjectionIndicator(man *casepkg.Manifest, pkgDir string) []schema.Fin
 	var out []schema.Finding
 	store := casepkg.NewStore(pkgDir, man)
 	for _, a := range man.Current() {
+		if selfReferentialPath(a.LogicalPath) {
+			continue
+		}
 		for _, sr := range injectionSurfaces {
 			if !isType(a, sr.types...) {
 				continue
@@ -181,4 +184,25 @@ func HoneytokenFindings(man *casepkg.Manifest, pkgDir string, markers []string) 
 		})
 	}
 	return out
+}
+
+// selfReferentialPath reports whether an artifact is a security tool's own
+// rule material, a test fixture or this project's own sources.
+//
+// Injection detection works by looking for injection phrases, so anything
+// whose job is to detect or document them contains them by definition.
+// On a real machine TOOL_POISONING_INDICATOR fired on a security plugin's
+// SIGNATURES.md and on its prompt-injection-context.regex — the file that
+// exists to catch exactly that phrase.
+func selfReferentialPath(p string) bool {
+	l := strings.ToLower(p)
+	for _, frag := range []string{
+		"signatures", "/rules/", "rule-pack", "rulepack", "prompt-injection",
+		"/detect/", "/fixtures/", "/testdata/", "_test.", "agentdfir", "runwall",
+	} {
+		if strings.Contains(l, frag) {
+			return true
+		}
+	}
+	return false
 }

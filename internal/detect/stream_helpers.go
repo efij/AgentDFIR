@@ -156,7 +156,7 @@ func destructiveOne(ev schema.Event) (schema.Finding, bool) {
 	for _, pat := range destructivePatterns {
 		if strings.Contains(low, pat) {
 			return schema.Finding{
-				RuleID: "DESTRUCTIVE_COMMAND", Severity: "MEDIUM", Title: "Potentially Destructive Command",
+				RuleID: "DESTRUCTIVE_COMMAND", Severity: destructiveSeverity(ev.Command), Title: "Potentially Destructive Command",
 				Description: "Agent-invoked shell command matches a destructive pattern: " + pat,
 				SessionID:   ev.SessionID, AgentID: ev.AgentID, EvidenceRefs: []string{ref(ev)},
 				Status: ev.Corroboration, Endpoint: schema.StateUnknown, MitreATTACK: "T1485", MitreATLAS: "AML.T0101",
@@ -235,4 +235,20 @@ func deletesLogs(cmd string) bool {
 		}
 	}
 	return false
+}
+
+// destructiveSeverity grades a destructive command by what it deletes.
+// Clearing a scratch, cache or build directory is routine housekeeping and
+// was reported at the same level as deleting a user's files.
+func destructiveSeverity(cmd string) string {
+	targets := DeleteTargets(cmd)
+	if len(targets) == 0 {
+		return "MEDIUM"
+	}
+	for _, t := range targets {
+		if !IsScratchPath(t) {
+			return "MEDIUM"
+		}
+	}
+	return "INFO"
 }

@@ -1,4 +1,6 @@
 {
   "note": "Deleting and recreating a session scratchpad. LOG_DELETION required a delete verb and a log path anywhere in the command, so `rm -rf $S/perf && mkdir -p $S/perf/.claude/projects/-big` fired on the mkdir argument. DESTRUCTIVE_COMMAND printed only the matched pattern, so the card read `rm -rf ` with nothing after it.",
-  "allow": {}
+  "allow": {
+    "DESTRUCTIVE_COMMAND": "The command is genuinely destructive; the target is a session scratch directory, so it is reported as INFO context rather than an alert. A benign true positive, not a false one."
+  }
 }

@@ -7,6 +7,67 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.8.0] — 2026-09-22
+
+Precision. The benign corpus went from **13 false positives to zero** with
+both attack cases still firing, and the budgets are now all zero so it stays
+that way.
+
+### Fixed
+- **`ORPHAN_AGENT` — 275 false HIGH findings from one string.** Claude Code
+  renamed its subagent tool from `Task` to `Agent`; the parser matched only
+  `Task`, so a 206,896-event package contained **zero** `agent_spawn` events
+  and every subagent in it was reported as having no verified parent. The
+  spawned agent's id is also read from `toolUseResult.agentId`, where
+  current builds put it.
+- **`AGENT_SELF_MODIFICATION` — reading your own skills is not writing to
+  them.** The rule matched any of `echo|>|sed|tee|cp|mv` anywhere plus a
+  config path anywhere, so `ls ~/.claude/skills; sed -n 61,140p SKILL.md`
+  was a self-modification. It now resolves actual write targets — redirects,
+  `tee`, `cp`/`mv` destinations — and read-only commands never count.
+- **`LOG_DELETION` — the log path must belong to the delete.**
+  `rm -rf $S/perf && mkdir -p $S/perf/.claude/projects/-big` fired on the
+  `mkdir` argument.
+- **`SESSION_TAMPERING` — dangling parents are normal.** They come from
+  `attachment`, `queue-operation` and `system` records, which are Claude
+  Code's own bookkeeping.
+- **`INVISIBLE_UNICODE_INSTRUCTION` was always HIGH.** Severity now follows
+  which characters were found: Unicode tag characters are HIGH, three or
+  more bidi controls MEDIUM, zero-width alone INFO. Every one of the 43 HIGH
+  findings on a real machine had zero tag characters — they were emoji and
+  Hebrew.
+- **`UNEXPECTED_NETWORK_DESTINATION` parsed flags as hosts.**
+  `nc -z -w 3 localhost 8080` reported `3` as the destination.
+- **`TOOL_POISONING_INDICATOR` flagged security tools' own rules.** A
+  plugin's `SIGNATURES.md` and `prompt-injection-context.regex` contain
+  injection phrases because that is what they detect.
+- **`DESTRUCTIVE_COMMAND` graded by target.** Clearing a scratch, cache or
+  build directory is housekeeping and is reported as INFO.
+- **`AGENT_CONFIG_DISCOVERY`** no longer matches an agent listing its own
+  skills, agents or commands directories, which is how it uses them.
+- **Attack-chain windows were unbounded** (`WindowMinutes: 0`), which
+  matched a download and an unrelated deletion 21 hours apart. Now 120
+  minutes.
+- **The `.gitignore` rule hid the corpus from CI.** An unanchored `.claude/`
+  rule matched the synthetic profiles under `internal/corpus/testdata`, so
+  the cases existed only on the machine that wrote them.
+- **Two implementations of the same rules had drifted.** `rules_v05.go` and
+  `stream_helpers.go` both emit `AGENT_SELF_MODIFICATION` and
+  `LOG_DELETION`, and only the streaming one runs in analysis. They now
+  share one predicate each.
+
+### Added
+- **Building blocks are separated from detections.** `SHELL_EXECUTION`,
+  `AGENT_GENERATED_COMMIT`, `AGENT_GENERATED_PUSH` and
+  `MCP_PROJECT_SCOPED_SERVER` describe what an agent does all day. They are
+  input for the chain rules and context for an analyst, not alerts, and
+  carrying ATT&CK ids inflated the coverage claim — `SHELL_EXECUTION` is
+  INFO and claimed `T1059`; `MCP_PROJECT_SCOPED_SERVER` is INFO, claimed
+  `T1195` and fired 54 times on one machine.
+- `internal/detect/shellparse.go` — write targets, delete targets,
+  read-only detection and scratch-path classification, shared by the rules
+  that used to match a verb anywhere and a path anywhere.
+
 ## [1.7.0] — 2026-09-22
 
 A measurement harness for detection precision. **No behaviour changes**, no
