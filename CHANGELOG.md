@@ -7,6 +7,25 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [2.2.1] — 2026-09-22
+
+### Fixed
+- **Codex CLI sessions were invisible to every detection.**
+  `codexjsonl.StreamPackage` never passed its sink to the parser, so events
+  went into an in-memory slice that the streaming caller discards. It is the
+  only parser that did this — Claude Code and the generic chat parser both
+  wired theirs. `normalize.ParseStream` is what analysis uses, so **no Codex
+  event has reached `normalized/events.jsonl`, or any rule reading it, since
+  streaming normalization was introduced in v0.5.1.**
+
+  `ParsePackage` passes a nil sink and returned the events correctly, which
+  is why every existing test passed. The regression test asserts the two
+  entry points agree; without the fix it reports *StreamPackage emitted 0
+  events, ParsePackage produced 6*.
+
+  **Re-analyze any package containing Codex sessions** — `agentdfir analyze
+  --renormalize <pkg>` — as findings for them were never generated.
+
 ## [2.2.0] — 2026-09-22
 
 ### Added

@@ -74,7 +74,14 @@ func parseWith(pkgDir string, sink func(schema.Event)) (*Result, error) {
 		return nil, fmt.Errorf("read manifest: %w", err)
 	}
 	store := casepkg.NewStore(pkgDir, man)
-	p := &parser{res: &Result{}, caseID: man.CaseID, host: man.Host,
+	// sink is what makes this a streaming parse. It was missing here and
+	// present in every other parser, so StreamPackage built its events in an
+	// in-memory slice that the streaming caller discards: Codex CLI sessions
+	// have been absent from normalized/events.jsonl, and therefore from
+	// every rule that reads it, since streaming normalization was
+	// introduced. ParsePackage passes a nil sink and returned them
+	// correctly, which is why no test caught it.
+	p := &parser{res: &Result{}, sink: sink, caseID: man.CaseID, host: man.Host,
 		entities: map[string]schema.Entity{}}
 	for _, a := range man.Current() {
 		if a.Status != casepkg.StatusOK ||
