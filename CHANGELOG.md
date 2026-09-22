@@ -7,6 +7,21 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+- **`serve` never released the event overlay, and CI was red on `main`
+  because of it.** The index keeps `normalized/events.jsonl` open so events
+  can be read back by byte offset — that is the point of it — but nothing
+  ever closed it. On Windows a file with an open handle cannot be unlinked,
+  so every `internal/serve` test failed in teardown with *The process
+  cannot access the file because it is being used by another process*, and
+  a case directory served in-process could not be deleted afterwards.
+
+  `serve.Server` gains a `Close`, `index.Index.Close` is idempotent, and
+  the `serve` command and tests use them. Windows CI on `main` went red at
+  v2.2.0, where the index landed, and stayed red through v2.4.0 — the
+  assertions passed and only the cleanup failed, which is the kind of red
+  that gets explained away.
+
 ## [2.4.0] — 2026-09-22
 
 ### Added

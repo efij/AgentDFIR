@@ -238,12 +238,16 @@ func (x *Index) Each(fn func(i int, e *schema.Event) bool) error {
 	return nil
 }
 
-// Close releases the overlay handle.
+// Close releases the overlay handle. It is safe to call more than once, so
+// a caller closing on one path and deferring on another does not have to
+// track which of them ran.
 func (x *Index) Close() error {
-	if x.f != nil {
-		return x.f.Close()
+	if x.f == nil {
+		return nil
 	}
-	return nil
+	f := x.f
+	x.f = nil
+	return f.Close()
 }
 
 // Open returns the index for a package, reading <pkg>/index/events.idx when
