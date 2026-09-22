@@ -39,6 +39,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/efij/AgentDFIR/v2/internal/overlay"
 	"github.com/efij/AgentDFIR/v2/internal/schema"
 )
 
@@ -253,8 +254,7 @@ func (x *Index) Close() error {
 // directory, an evidence share mounted noexec/ro) is not an error, because
 // the index is derived and the in-memory one is already complete.
 func Open(pkg string) (*Index, error) {
-	src := filepath.Join(pkg, "normalized", "events.jsonl")
-	fi, err := os.Stat(src)
+	src, fi, err := source(pkg)
 	if err != nil {
 		return nil, err
 	}
@@ -275,8 +275,7 @@ func Open(pkg string) (*Index, error) {
 // on disk already covers the current overlay. analysis.Run calls this after
 // the overlay is final so the explorer never pays for the first build.
 func Refresh(pkg string) error {
-	src := filepath.Join(pkg, "normalized", "events.jsonl")
-	fi, err := os.Stat(src)
+	src, fi, err := source(pkg)
 	if err != nil {
 		return err
 	}
@@ -290,6 +289,27 @@ func Refresh(pkg string) error {
 	}
 	defer x.Close()
 	return write(path, x, fi)
+}
+
+// source locates events.jsonl and makes sure it is in the one form an
+// index can be built over.
+//
+// Everything else in the overlay is stored gzipped; events.jsonl is not,
+// because a row here is a byte offset into it and a gzip stream cannot be
+// seeked. Versions 2.1.0 through 2.2.1 nevertheless rewrote it with the
+// compressing writer once the second witness or endpoint correlation had
+// stamped corroboration states onto the events — which left a case holding
+// only events.jsonl.gz. Nothing treated that as stale, so the index could
+// not be rebuilt and serve refused to open the package at all. Restoring
+// the plaintext form here fixes such a case the next time anything reads
+// it, without a re-parse.
+func source(pkg string) (string, os.FileInfo, error) {
+	src := filepath.Join(pkg, "normalized", "events.jsonl")
+	if err := overlay.Decompress(src); err != nil {
+		return src, nil, err
+	}
+	fi, err := os.Stat(src)
+	return src, fi, err
 }
 
 // Build scans the overlay once and returns the in-memory index. The scan

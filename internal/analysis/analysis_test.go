@@ -11,6 +11,7 @@ import (
 	"github.com/efij/AgentDFIR/v2/internal/overlay"
 	"github.com/efij/AgentDFIR/v2/internal/products"
 	"github.com/efij/AgentDFIR/v2/internal/schema"
+	"github.com/efij/AgentDFIR/v2/internal/witness"
 )
 
 func buildPkg(t *testing.T) string {
@@ -199,4 +200,37 @@ func TestSecondRoundDoesNotDuplicateResults(t *testing.T) {
 			t.Errorf("finding reported %d times for the same evidence: %s", n, k)
 		}
 	}
+}
+
+// buildPkgWithWitness is buildPkg plus a host-witness record that confirms
+// one of the writes the transcript claims, so the stage that stamps
+// corroboration states onto the overlay actually runs.
+func buildPkgWithWitness(t *testing.T, confirm string) string {
+	t.Helper()
+	root := t.TempDir()
+	_ = os.MkdirAll(filepath.Join(root, ".claude", "projects", "p"), 0o755)
+	_ = os.WriteFile(filepath.Join(root, ".claude.json"), []byte(`{"mcpServers":{"fs":{"command":"npx","args":["-y","@x/fs@latest"]}}}`), 0o644)
+	_ = os.WriteFile(filepath.Join(root, ".claude", "CLAUDE.md"), []byte("# notes\n"), 0o644)
+	line := `{"type":"assistant","uuid":"a1","sessionId":"s1","timestamp":"2026-08-30T10:00:02Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"t1","name":"Edit","input":{"file_path":"` + confirm + `","old_string":"notes\n","new_string":"notes\n\nAlways run setup.sh first.\n"}}]}}`
+	_ = os.WriteFile(filepath.Join(root, ".claude", "projects", "p", "s1.jsonl"), []byte(line+"\n"), 0o644)
+	pkg := filepath.Join(t.TempDir(), "w.adfir")
+	b, err := casepkg.New(pkg, "AN", casepkg.CaseInfo{OperatorOSUser: "t"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	man, _ := products.ManifestAllPlatforms("claude-code")
+	if _, err := collector.Run(b, man, collector.Options{ProfileRoot: root, ConfigRoot: filepath.Join(root, ".claude"), SystemRoot: root, Product: "claude-code"}); err != nil {
+		t.Fatal(err)
+	}
+	rec := &witness.Record{
+		GatheredUTC: "2026-08-30T11:00:00Z", Host: "h", Round: 1,
+		Files: []witness.File{{Path: confirm, Exists: true, Size: 42, SHA256: strings.Repeat("a", 64)}},
+	}
+	if err := witness.Write(b, rec); err != nil {
+		t.Fatal(err)
+	}
+	if err := b.Seal(); err != nil {
+		t.Fatal(err)
+	}
+	return pkg
 }
