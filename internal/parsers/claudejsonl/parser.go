@@ -20,6 +20,7 @@ import (
 
 	"github.com/efij/AgentDFIR/v2/internal/casepkg"
 	"github.com/efij/AgentDFIR/v2/internal/parsers/linereader"
+	"github.com/efij/AgentDFIR/v2/internal/parsers/segment"
 	"github.com/efij/AgentDFIR/v2/internal/schema"
 	"github.com/efij/AgentDFIR/v2/internal/version"
 )
@@ -77,17 +78,29 @@ type contentItem struct {
 	AgentID   string          `json:"agentId"` // present on some Task results
 }
 
+// IDFormat renders an event id from its sequence number. The incremental
+// overlay needs it to renumber a cached artifact's events when an earlier
+// artifact changed size.
+const IDFormat = "evt-%06d"
+
 // ParsePackage parses every claude.sessions artifact in a sealed package.
-func ParsePackage(pkgDir string) (*Result, error) { return parseWith(pkgDir, nil) }
+func ParsePackage(pkgDir string) (*Result, error) { return parseWith(pkgDir, nil, nil) }
 
 // StreamPackage parses and emits every event to sink instead of
 // accumulating them, returning only entities/relationships. Bounds memory
 // by entity count rather than event count.
 func StreamPackage(pkgDir string, sink func(schema.Event)) (*Result, error) {
-	return parseWith(pkgDir, sink)
+	return parseWith(pkgDir, sink, nil)
 }
 
-func parseWith(pkgDir string, sink func(schema.Event)) (*Result, error) {
+// StreamPackageCached is StreamPackage with an overlay cache: artifacts the
+// cache already holds are replayed instead of re-read. See the segment
+// package for why that is safe.
+func StreamPackageCached(pkgDir string, sink func(schema.Event), cache segment.Cache) (*Result, error) {
+	return parseWith(pkgDir, sink, cache)
+}
+
+func parseWith(pkgDir string, sink func(schema.Event), cache segment.Cache) (*Result, error) {
 	man, err := casepkg.ReadManifest(pkgDir)
 	if err != nil {
 		return nil, fmt.Errorf("read manifest: %w", err)
@@ -101,8 +114,35 @@ func parseWith(pkgDir string, sink func(schema.Event)) (*Result, error) {
 			!strings.HasSuffix(a.LogicalPath, ".jsonl") {
 			continue
 		}
+		base := p.seq
+		if cache != nil {
+			rp, err := cache.Begin(a, base)
+			if err != nil {
+				return nil, fmt.Errorf("%s: %w", a.LogicalPath, err)
+			}
+			if rp != nil {
+				// The cache has already written this artifact's events.
+				// Advance past them and replay the graph calls through the
+				// same merge a fresh parse would have used.
+				p.seq = base + rp.Events
+				for _, e := range rp.Entities {
+					p.addEntity(e)
+				}
+				for _, r := range rp.Relationships {
+					p.addRel(r)
+				}
+				continue
+			}
+			p.rec = &segment.Recorder{}
+		}
 		if err := p.parseTranscript(store, a); err != nil {
 			return nil, fmt.Errorf("%s: %w", a.LogicalPath, err)
+		}
+		if cache != nil {
+			if err := cache.End(a, base, p.seq-base, p.rec.Entities, p.rec.Relationships); err != nil {
+				return nil, fmt.Errorf("%s: %w", a.LogicalPath, err)
+			}
+			p.rec = nil
 		}
 	}
 	p.finish()
@@ -118,6 +158,9 @@ type parser struct {
 	entities map[string]schema.Entity
 	// spawned maps agent IDs to the event_id of their observed spawn.
 	spawned map[string]string
+	// rec, when set, captures the entity and relationship calls made while
+	// reading the current artifact so the overlay can replay them later.
+	rec *segment.Recorder
 }
 
 func (p *parser) parseTranscript(store *casepkg.Store, art casepkg.ArtifactRecord) error {
@@ -366,7 +409,7 @@ func (p *parser) touchSession(tl transcriptLine, agentID string) {
 }
 
 func (p *parser) emit(ev schema.Event, art casepkg.ArtifactRecord, off int64, line int) {
-	ev.EventID = fmt.Sprintf("evt-%06d", p.seq)
+	ev.EventID = fmt.Sprintf(IDFormat, p.seq)
 	ev.CaseID = p.caseID
 	ev.SchemaVersion = version.SchemaVersion
 	ev.Sequence = p.seq
@@ -419,6 +462,9 @@ func (p *parser) finish() {
 }
 
 func (p *parser) addEntity(e schema.Entity) {
+	if p.rec != nil {
+		p.rec.Entity(e)
+	}
 	if old, ok := p.entities[e.EntityID]; ok {
 		// Merge attributes; keep first label.
 		for k, v := range e.Attributes {
@@ -434,6 +480,9 @@ func (p *parser) addEntity(e schema.Entity) {
 }
 
 func (p *parser) addRel(r schema.Relationship) {
+	if p.rec != nil {
+		p.rec.Rel(r)
+	}
 	for _, ex := range p.res.Relationships {
 		if ex.From == r.From && ex.To == r.To && ex.Type == r.Type {
 			return

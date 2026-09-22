@@ -24,7 +24,11 @@ case.adfir/
 ├── SEAL.sig                # optional: ed25519 detached signature
 ├── .lock                   # transient: held during a collect→seal cycle; not sealed
 ├── normalized/             # overlay: events / entities / relationships (JSONL)
+│   ├── events.jsonl        #   uncompressed: index/ addresses it by byte offset
+│   ├── events/<parser>/    #   per-artifact segments (.jsonl.gz), the parse cache
+│   └── state.json          #   which artifact each segment holds, and at what offset
 ├── detections/             # overlay: findings.json
+├── index/                  # overlay: events.idx, the explorer's offset index
 ├── reports/                # overlay: HTML/JSON/CSV/STIX/OTel
 └── redaction-manifest.json # present only in derived support packages
 ```
@@ -32,6 +36,14 @@ case.adfir/
 `SHA256SUMS` covers exactly: `case.json`, the manifest, `collection.jsonl`,
 `chain-of-custody.jsonl`, every `seals/SHA256SUMS.<n>`, and every file in
 `raw/`. Regenerating the overlay never changes the seal.
+
+Everything in the overlay is gzipped except `normalized/events.jsonl`,
+which stays plaintext because `index/events.idx` records a byte offset per
+event and a gzip stream cannot be seeked. The segments under
+`normalized/events/` hold the same events, split per source artifact, so a
+new collection round re-parses only the transcripts whose content address
+changed. All of it is derived: `agentdfir compact` deletes it, and
+`agentdfir analyze --renormalize` rebuilds it from the sealed evidence.
 
 ## Content addressing
 

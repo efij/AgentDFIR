@@ -9,6 +9,7 @@ import (
 	"github.com/efij/AgentDFIR/v2/internal/parsers/claudejsonl"
 	"github.com/efij/AgentDFIR/v2/internal/parsers/codexjsonl"
 	"github.com/efij/AgentDFIR/v2/internal/parsers/genericchat"
+	"github.com/efij/AgentDFIR/v2/internal/parsers/segment"
 	"github.com/efij/AgentDFIR/v2/internal/schema"
 )
 
@@ -19,12 +20,22 @@ var registry = []func(pkgDir string) (*schema.Normalized, error){
 	genericchat.ParsePackage,
 }
 
-// streamRegistry lists the sink-aware parser entrypoints, in the same
-// order, so events are emitted without ever building a full slice.
-var streamRegistry = []func(pkgDir string, sink func(schema.Event)) (*schema.Normalized, error){
-	claudejsonl.StreamPackage,
-	codexjsonl.StreamPackage,
-	genericchat.StreamPackage,
+// parserEntry is one sink-aware parser plus what the incremental overlay
+// needs to name and renumber the events it produces. The name is also the
+// segment directory, so it is part of the on-disk layout and must not be
+// renamed without invalidating existing overlays.
+type parserEntry struct {
+	name     string
+	idFormat string
+	cached   func(pkgDir string, sink func(schema.Event), c segment.Cache) (*schema.Normalized, error)
+}
+
+// parsers lists the streaming entrypoints in registry order, so events are
+// emitted without ever building a full slice.
+var parsers = []parserEntry{
+	{"claude-code", claudejsonl.IDFormat, claudejsonl.StreamPackageCached},
+	{"codex-cli", codexjsonl.IDFormat, codexjsonl.StreamPackageCached},
+	{"generic", genericchat.IDFormat, genericchat.StreamPackageCached},
 }
 
 // StreamResult carries the bounded (non-event) part of normalization
@@ -34,6 +45,10 @@ type StreamResult struct {
 	Entities      []schema.Entity
 	Relationships []schema.Relationship
 	EventCount    int
+	// Reused and Reparsed count source artifacts served from the overlay's
+	// segments versus read again, when the events came from BuildOverlay.
+	Reused   int
+	Reparsed int
 }
 
 // ParseStream runs all parsers and calls sink for every normalized event
@@ -45,8 +60,8 @@ func ParseStream(pkgDir string, sink func(schema.Event) error) (*StreamResult, e
 	seenEnt := map[string]bool{}
 	out := &StreamResult{}
 	var sinkErr error
-	for _, parse := range streamRegistry {
-		res, err := parse(pkgDir, func(ev schema.Event) {
+	for _, pe := range parsers {
+		res, err := pe.cached(pkgDir, func(ev schema.Event) {
 			if sinkErr != nil {
 				return
 			}
@@ -56,7 +71,7 @@ func ParseStream(pkgDir string, sink func(schema.Event) error) (*StreamResult, e
 				return
 			}
 			out.EventCount++
-		})
+		}, nil)
 		if err != nil {
 			return nil, err
 		}
