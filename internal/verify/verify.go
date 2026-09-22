@@ -19,8 +19,8 @@ package verify
 import (
 	"strings"
 
-	"github.com/efij/AgentDFIR/internal/catalog"
-	"github.com/efij/AgentDFIR/internal/schema"
+	"github.com/efij/AgentDFIR/v2/internal/catalog"
+	"github.com/efij/AgentDFIR/v2/internal/schema"
 )
 
 // Confidence levels.

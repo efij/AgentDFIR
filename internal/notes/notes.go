@@ -19,7 +19,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/efij/AgentDFIR/internal/hashchain"
+	"github.com/efij/AgentDFIR/v2/internal/hashchain"
 )
 
 // Record kinds.

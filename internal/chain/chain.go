@@ -22,8 +22,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/internal/rulepack"
-	"github.com/efij/AgentDFIR/internal/schema"
+	"github.com/efij/AgentDFIR/v2/internal/rulepack"
+	"github.com/efij/AgentDFIR/v2/internal/schema"
 )
 
 // Step is one predicate in a chain. Every non-empty field must hold for an

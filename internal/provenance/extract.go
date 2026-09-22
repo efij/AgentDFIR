@@ -7,9 +7,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/efij/AgentDFIR/internal/schema"
+	"github.com/efij/AgentDFIR/v2/internal/schema"
 
-	"github.com/efij/AgentDFIR/internal/casepkg"
+	"github.com/efij/AgentDFIR/v2/internal/casepkg"
 )
 
 // extractWrite re-reads the raw transcript line behind a tool_call event

@@ -9,10 +9,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/efij/AgentDFIR/internal/mcpaudit"
-	"github.com/efij/AgentDFIR/internal/normalize"
-	"github.com/efij/AgentDFIR/internal/sanitize"
-	"github.com/efij/AgentDFIR/internal/schema"
+	"github.com/efij/AgentDFIR/v2/internal/mcpaudit"
+	"github.com/efij/AgentDFIR/v2/internal/normalize"
+	"github.com/efij/AgentDFIR/v2/internal/sanitize"
+	"github.com/efij/AgentDFIR/v2/internal/schema"
 )
 
 const mcpUsage = `usage:

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efij/AgentDFIR/internal/casepkg"
-	"github.com/efij/AgentDFIR/internal/products"
+	"github.com/efij/AgentDFIR/v2/internal/casepkg"
+	"github.com/efij/AgentDFIR/v2/internal/products"
 )
 
 // fixtureProfile builds a synthetic Claude Code profile with the traps a

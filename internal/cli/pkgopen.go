@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/efij/AgentDFIR/internal/casepkg"
-	"github.com/efij/AgentDFIR/internal/store"
+	"github.com/efij/AgentDFIR/v2/internal/casepkg"
+	"github.com/efij/AgentDFIR/v2/internal/store"
 )
 
 // openPackage opens the destination package for writing: a new one when

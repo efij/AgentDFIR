@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efij/AgentDFIR/internal/casepkg"
-	"github.com/efij/AgentDFIR/internal/collector"
-	"github.com/efij/AgentDFIR/internal/normalize"
-	"github.com/efij/AgentDFIR/internal/products"
+	"github.com/efij/AgentDFIR/v2/internal/casepkg"
+	"github.com/efij/AgentDFIR/v2/internal/collector"
+	"github.com/efij/AgentDFIR/v2/internal/normalize"
+	"github.com/efij/AgentDFIR/v2/internal/products"
 )
 
 // A 20 MB transcript with a secret only at the very end must still be

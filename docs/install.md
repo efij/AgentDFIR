@@ -164,7 +164,7 @@ new releases.
 ## 4. `go install`
 
 ```sh
-go install github.com/efij/AgentDFIR/cmd/agentdfir@latest
+go install github.com/efij/AgentDFIR/v2/cmd/agentdfir@latest
 ```
 
 Builds locally, lands in `$(go env GOPATH)/bin`. Reports its version without
@@ -234,4 +234,4 @@ A tag push builds, signs and publishes assets, then updates the Homebrew tap. Th
 if the `HOMEBREW_TAP_TOKEN` repository secret is missing (fine-grained PAT, `contents: write` on
 `efij/homebrew-agentdfir`) and verifies the formula now serves the tag. Manual fallback: `scripts/update-tap.sh vX.Y.Z`.
 After every release check all four paths report the new version: `brew upgrade agentdfir`, `install.sh`,
-`go install github.com/efij/AgentDFIR/cmd/agentdfir@latest`, raw binary from the releases page.
+`go install github.com/efij/AgentDFIR/v2/cmd/agentdfir@latest`, raw binary from the releases page.

@@ -14,7 +14,7 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/efij/AgentDFIR/internal/casepkg"
+	"github.com/efij/AgentDFIR/v2/internal/casepkg"
 )
 
 // redactors run over each artifact blob. Order matters (longest/most

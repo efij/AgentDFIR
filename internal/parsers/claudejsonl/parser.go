@@ -18,10 +18,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/efij/AgentDFIR/internal/casepkg"
-	"github.com/efij/AgentDFIR/internal/parsers/linereader"
-	"github.com/efij/AgentDFIR/internal/schema"
-	"github.com/efij/AgentDFIR/internal/version"
+	"github.com/efij/AgentDFIR/v2/internal/casepkg"
+	"github.com/efij/AgentDFIR/v2/internal/parsers/linereader"
+	"github.com/efij/AgentDFIR/v2/internal/schema"
+	"github.com/efij/AgentDFIR/v2/internal/version"
 )
 
 // MaxLineBytes bounds a single transcript line (archive-bomb defense).

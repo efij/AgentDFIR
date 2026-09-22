@@ -23,9 +23,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/efij/AgentDFIR/internal/casepkg"
-	"github.com/efij/AgentDFIR/internal/schema"
-	"github.com/efij/AgentDFIR/internal/version"
+	"github.com/efij/AgentDFIR/v2/internal/casepkg"
+	"github.com/efij/AgentDFIR/v2/internal/schema"
+	"github.com/efij/AgentDFIR/v2/internal/version"
 )
 
 // MaxFileBytes bounds a whole session file read (hostile evidence).

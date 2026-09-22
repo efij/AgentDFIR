@@ -15,10 +15,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/efij/AgentDFIR/internal/analysis"
-	"github.com/efij/AgentDFIR/internal/casepkg"
-	"github.com/efij/AgentDFIR/internal/normalize"
-	"github.com/efij/AgentDFIR/internal/schema"
+	"github.com/efij/AgentDFIR/v2/internal/analysis"
+	"github.com/efij/AgentDFIR/v2/internal/casepkg"
+	"github.com/efij/AgentDFIR/v2/internal/normalize"
+	"github.com/efij/AgentDFIR/v2/internal/schema"
 )
 
 const corpus = "testdata/v1.0.0-package"

@@ -19,9 +19,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/efij/AgentDFIR/internal/detect"
+	"github.com/efij/AgentDFIR/v2/internal/detect"
 
-	"github.com/efij/AgentDFIR/internal/casepkg"
+	"github.com/efij/AgentDFIR/v2/internal/casepkg"
 )
 
 func secretKind(v string) (string, bool)   { return detect.SecretKind(v) }

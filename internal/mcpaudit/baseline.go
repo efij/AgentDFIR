@@ -7,8 +7,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/efij/AgentDFIR/internal/schema"
-	"github.com/efij/AgentDFIR/internal/version"
+	"github.com/efij/AgentDFIR/v2/internal/schema"
+	"github.com/efij/AgentDFIR/v2/internal/version"
 )
 
 // Baseline is a known-good snapshot of the MCP inventory. Comparing a

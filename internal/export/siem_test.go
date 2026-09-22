@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efij/AgentDFIR/internal/rulepack"
-	"github.com/efij/AgentDFIR/internal/schema"
+	"github.com/efij/AgentDFIR/v2/internal/rulepack"
+	"github.com/efij/AgentDFIR/v2/internal/schema"
 )
 
 func sampleEvents() []schema.Event {

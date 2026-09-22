@@ -3,20 +3,20 @@ package cli
 import (
 	"flag"
 	"fmt"
-	"github.com/efij/AgentDFIR/internal/analysis"
-	"github.com/efij/AgentDFIR/internal/schema"
+	"github.com/efij/AgentDFIR/v2/internal/analysis"
+	"github.com/efij/AgentDFIR/v2/internal/schema"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/efij/AgentDFIR/internal/casepkg"
-	"github.com/efij/AgentDFIR/internal/encrypt"
-	"github.com/efij/AgentDFIR/internal/export"
-	"github.com/efij/AgentDFIR/internal/notes"
-	"github.com/efij/AgentDFIR/internal/report"
-	"github.com/efij/AgentDFIR/internal/sanitize"
-	"github.com/efij/AgentDFIR/internal/seal"
-	"github.com/efij/AgentDFIR/internal/supportpkg"
+	"github.com/efij/AgentDFIR/v2/internal/casepkg"
+	"github.com/efij/AgentDFIR/v2/internal/encrypt"
+	"github.com/efij/AgentDFIR/v2/internal/export"
+	"github.com/efij/AgentDFIR/v2/internal/notes"
+	"github.com/efij/AgentDFIR/v2/internal/report"
+	"github.com/efij/AgentDFIR/v2/internal/sanitize"
+	"github.com/efij/AgentDFIR/v2/internal/seal"
+	"github.com/efij/AgentDFIR/v2/internal/supportpkg"
 )
 
 // cmdReport renders HTML/JSON/CSV/STIX/OTel outputs for a package.

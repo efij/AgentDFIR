@@ -7,6 +7,20 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [2.0.1] — 2026-09-22
+
+### Fixed
+- **`go install` was broken by v2.0.0.** Go requires a module path to carry
+  its major version from v2 onward, so `go install
+  github.com/efij/AgentDFIR/cmd/agentdfir@v2.0.0` failed with *module path
+  must match major version*. The module is now
+  `github.com/efij/AgentDFIR/v2` and the documented command is
+  `go install github.com/efij/AgentDFIR/v2/cmd/agentdfir@latest`.
+
+  Nothing else changes: the binary, the `.adfir` format, every command and
+  the other three install paths are unaffected. Import paths inside the
+  repository moved to `github.com/efij/AgentDFIR/v2/internal/...`.
+
 ## [2.0.0] — 2026-09-22
 
 Confidence, separated from severity. A machine producing 592 HIGH and

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/efij/AgentDFIR/internal/netdest"
-	"github.com/efij/AgentDFIR/internal/schema"
+	"github.com/efij/AgentDFIR/v2/internal/netdest"
+	"github.com/efij/AgentDFIR/v2/internal/schema"
 )
 
 // oneToolCallRules evaluates the stateless-and-per-session tool-call rules

@@ -19,8 +19,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/internal/parsers/linereader"
-	"github.com/efij/AgentDFIR/internal/sanitize"
+	"github.com/efij/AgentDFIR/v2/internal/parsers/linereader"
+	"github.com/efij/AgentDFIR/v2/internal/sanitize"
 )
 
 // MaxLineBytes bounds one tailed line.

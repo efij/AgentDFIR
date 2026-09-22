@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/internal/sanitize"
-	"github.com/efij/AgentDFIR/internal/schema"
+	"github.com/efij/AgentDFIR/v2/internal/sanitize"
+	"github.com/efij/AgentDFIR/v2/internal/schema"
 )
 
 // DFIR-tool interop: the unified timeline in the two formats the classic

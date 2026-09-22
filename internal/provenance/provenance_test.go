@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efij/AgentDFIR/internal/casepkg"
-	"github.com/efij/AgentDFIR/internal/collector"
-	"github.com/efij/AgentDFIR/internal/normalize"
-	"github.com/efij/AgentDFIR/internal/products"
+	"github.com/efij/AgentDFIR/v2/internal/casepkg"
+	"github.com/efij/AgentDFIR/v2/internal/collector"
+	"github.com/efij/AgentDFIR/v2/internal/normalize"
+	"github.com/efij/AgentDFIR/v2/internal/products"
 )
 
 // A Claude Code profile where CLAUDE.md ends up with four kinds of lines:

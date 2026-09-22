@@ -11,13 +11,13 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/efij/AgentDFIR/internal/casepkg"
-	"github.com/efij/AgentDFIR/internal/collector"
-	"github.com/efij/AgentDFIR/internal/live"
-	"github.com/efij/AgentDFIR/internal/products"
-	"github.com/efij/AgentDFIR/internal/sanitize"
-	"github.com/efij/AgentDFIR/internal/seal"
-	"github.com/efij/AgentDFIR/internal/version"
+	"github.com/efij/AgentDFIR/v2/internal/casepkg"
+	"github.com/efij/AgentDFIR/v2/internal/collector"
+	"github.com/efij/AgentDFIR/v2/internal/live"
+	"github.com/efij/AgentDFIR/v2/internal/products"
+	"github.com/efij/AgentDFIR/v2/internal/sanitize"
+	"github.com/efij/AgentDFIR/v2/internal/seal"
+	"github.com/efij/AgentDFIR/v2/internal/version"
 )
 
 const usage = `agentdfir — open-source DFIR for AI agents. Evidence in, verdicts out. Nothing leaves your machine.

@@ -31,8 +31,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/internal/casepkg"
-	"github.com/efij/AgentDFIR/internal/schema"
+	"github.com/efij/AgentDFIR/v2/internal/casepkg"
+	"github.com/efij/AgentDFIR/v2/internal/schema"
 )
 
 // File is what the host said about one path the agent claimed to write.

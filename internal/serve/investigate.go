@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/internal/chain"
-	"github.com/efij/AgentDFIR/internal/notes"
-	"github.com/efij/AgentDFIR/internal/sanitize"
-	"github.com/efij/AgentDFIR/internal/schema"
+	"github.com/efij/AgentDFIR/v2/internal/chain"
+	"github.com/efij/AgentDFIR/v2/internal/notes"
+	"github.com/efij/AgentDFIR/v2/internal/sanitize"
+	"github.com/efij/AgentDFIR/v2/internal/schema"
 )
 
 // ---- /api/sessions ----

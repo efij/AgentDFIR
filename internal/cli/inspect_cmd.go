@@ -6,9 +6,9 @@ import (
 	"os"
 	"regexp"
 
-	"github.com/efij/AgentDFIR/internal/casepkg"
-	"github.com/efij/AgentDFIR/internal/report"
-	"github.com/efij/AgentDFIR/internal/sanitize"
+	"github.com/efij/AgentDFIR/v2/internal/casepkg"
+	"github.com/efij/AgentDFIR/v2/internal/report"
+	"github.com/efij/AgentDFIR/v2/internal/sanitize"
 )
 
 // inspectPatterns mirrors the detection patterns; values are printed

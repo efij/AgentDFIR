@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efij/AgentDFIR/internal/casepkg"
-	"github.com/efij/AgentDFIR/internal/products"
+	"github.com/efij/AgentDFIR/v2/internal/casepkg"
+	"github.com/efij/AgentDFIR/v2/internal/products"
 )
 
 // collectInto runs a collection over root with the given options and

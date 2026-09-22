@@ -8,7 +8,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/efij/AgentDFIR/internal/casepkg"
+	"github.com/efij/AgentDFIR/v2/internal/casepkg"
 )
 
 // Streaming content scanning. Artifacts of ANY size are scanned with

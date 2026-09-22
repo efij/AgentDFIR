@@ -6,8 +6,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/efij/AgentDFIR/internal/detect"
-	"github.com/efij/AgentDFIR/internal/schema"
+	"github.com/efij/AgentDFIR/v2/internal/detect"
+	"github.com/efij/AgentDFIR/v2/internal/schema"
 )
 
 // Findings derived from the inventory. Rule IDs are distinct from the

@@ -25,7 +25,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/efij/AgentDFIR/internal/products"
+	"github.com/efij/AgentDFIR/v2/internal/products"
 )
 
 // Options bound extraction.

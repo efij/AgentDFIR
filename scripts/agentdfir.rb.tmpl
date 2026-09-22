@@ -11,7 +11,7 @@ class Agentdfir < Formula
   depends_on "go" => :build
 
   def install
-    ldflags = "-s -w -X github.com/efij/AgentDFIR/internal/version.Version=@TAG@"
+    ldflags = "-s -w -X github.com/efij/AgentDFIR/v2/internal/version.Version=@TAG@"
     system "go", "build", *std_go_args(ldflags: ldflags), "./cmd/agentdfir"
   end
 

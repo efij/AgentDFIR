@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/internal/rulepack"
+	"github.com/efij/AgentDFIR/v2/internal/rulepack"
 )
 
 // --- Sigma ---

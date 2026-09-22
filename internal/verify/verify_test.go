@@ -3,7 +3,7 @@ package verify
 import (
 	"testing"
 
-	"github.com/efij/AgentDFIR/internal/schema"
+	"github.com/efij/AgentDFIR/v2/internal/schema"
 )
 
 // TestSeverityIsNeverChanged is the invariant the whole split rests on:

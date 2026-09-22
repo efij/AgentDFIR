@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/internal/correlate"
-	"github.com/efij/AgentDFIR/internal/endpoint"
-	"github.com/efij/AgentDFIR/internal/sanitize"
-	"github.com/efij/AgentDFIR/internal/schema"
+	"github.com/efij/AgentDFIR/v2/internal/correlate"
+	"github.com/efij/AgentDFIR/v2/internal/endpoint"
+	"github.com/efij/AgentDFIR/v2/internal/sanitize"
+	"github.com/efij/AgentDFIR/v2/internal/schema"
 )
 
 const correlateUsage = `usage: agentdfir correlate <package-dir> <endpoint-log>... [--window 3s] [--format auto|auditd|sysmon-xml|jsonl|csv]

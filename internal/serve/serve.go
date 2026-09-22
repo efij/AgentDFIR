@@ -25,16 +25,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/efij/AgentDFIR/internal/analysis"
-	"github.com/efij/AgentDFIR/internal/casepkg"
-	"github.com/efij/AgentDFIR/internal/chain"
-	"github.com/efij/AgentDFIR/internal/notes"
-	"github.com/efij/AgentDFIR/internal/report"
-	"github.com/efij/AgentDFIR/internal/sanitize"
-	"github.com/efij/AgentDFIR/internal/schema"
-	"github.com/efij/AgentDFIR/internal/seal"
-	"github.com/efij/AgentDFIR/internal/verify"
-	"github.com/efij/AgentDFIR/internal/version"
+	"github.com/efij/AgentDFIR/v2/internal/analysis"
+	"github.com/efij/AgentDFIR/v2/internal/casepkg"
+	"github.com/efij/AgentDFIR/v2/internal/chain"
+	"github.com/efij/AgentDFIR/v2/internal/notes"
+	"github.com/efij/AgentDFIR/v2/internal/report"
+	"github.com/efij/AgentDFIR/v2/internal/sanitize"
+	"github.com/efij/AgentDFIR/v2/internal/schema"
+	"github.com/efij/AgentDFIR/v2/internal/seal"
+	"github.com/efij/AgentDFIR/v2/internal/verify"
+	"github.com/efij/AgentDFIR/v2/internal/version"
 )
 
 //go:embed ui.html

@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/efij/AgentDFIR/internal/endpoint"
-	"github.com/efij/AgentDFIR/internal/schema"
+	"github.com/efij/AgentDFIR/v2/internal/endpoint"
+	"github.com/efij/AgentDFIR/v2/internal/schema"
 )
 
 func ts(s string) time.Time { t, _ := time.Parse(time.RFC3339, s); return t }

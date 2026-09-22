@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efij/AgentDFIR/internal/rulepack"
+	"github.com/efij/AgentDFIR/v2/internal/rulepack"
 )
 
 // ruleIDRe matches every way the code base names a finding rule:

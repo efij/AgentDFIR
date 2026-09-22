@@ -5,16 +5,16 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/efij/AgentDFIR/internal/analysis"
+	"github.com/efij/AgentDFIR/v2/internal/analysis"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
-	"github.com/efij/AgentDFIR/internal/normalize"
-	"github.com/efij/AgentDFIR/internal/sanitize"
-	"github.com/efij/AgentDFIR/internal/schema"
-	"github.com/efij/AgentDFIR/internal/simulate"
+	"github.com/efij/AgentDFIR/v2/internal/normalize"
+	"github.com/efij/AgentDFIR/v2/internal/sanitize"
+	"github.com/efij/AgentDFIR/v2/internal/schema"
+	"github.com/efij/AgentDFIR/v2/internal/simulate"
 )
 
 // cmdNormalize parses a sealed package into the analysis overlay:

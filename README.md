@@ -78,7 +78,7 @@ curl -fsSL https://raw.githubusercontent.com/efij/AgentDFIR/main/install.sh | sh
 brew install efij/agentdfir/agentdfir
 
 # Go toolchain
-go install github.com/efij/AgentDFIR/cmd/agentdfir@latest
+go install github.com/efij/AgentDFIR/v2/cmd/agentdfir@latest
 
 # From source
 go build -trimpath -o agentdfir ./cmd/agentdfir

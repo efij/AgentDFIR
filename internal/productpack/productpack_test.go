@@ -7,13 +7,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efij/AgentDFIR/internal/casepkg"
-	"github.com/efij/AgentDFIR/internal/collector"
-	"github.com/efij/AgentDFIR/internal/parsers/genericchat"
-	"github.com/efij/AgentDFIR/internal/productpack"
-	"github.com/efij/AgentDFIR/internal/products"
-	"github.com/efij/AgentDFIR/internal/schema"
-	"github.com/efij/AgentDFIR/internal/seal"
+	"github.com/efij/AgentDFIR/v2/internal/casepkg"
+	"github.com/efij/AgentDFIR/v2/internal/collector"
+	"github.com/efij/AgentDFIR/v2/internal/parsers/genericchat"
+	"github.com/efij/AgentDFIR/v2/internal/productpack"
+	"github.com/efij/AgentDFIR/v2/internal/products"
+	"github.com/efij/AgentDFIR/v2/internal/schema"
+	"github.com/efij/AgentDFIR/v2/internal/seal"
 )
 
 // fooPack is a fictional agent whose transcript shape matches none of the

@@ -7,10 +7,10 @@ import (
 	"os"
 	"sort"
 
-	"github.com/efij/AgentDFIR/internal/catalog"
-	"github.com/efij/AgentDFIR/internal/chain"
-	"github.com/efij/AgentDFIR/internal/export"
-	"github.com/efij/AgentDFIR/internal/rulepack"
+	"github.com/efij/AgentDFIR/v2/internal/catalog"
+	"github.com/efij/AgentDFIR/v2/internal/chain"
+	"github.com/efij/AgentDFIR/v2/internal/export"
+	"github.com/efij/AgentDFIR/v2/internal/rulepack"
 )
 
 const rulesUsage = `usage:

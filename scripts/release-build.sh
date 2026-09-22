@@ -15,7 +15,7 @@ set -eu
 
 VERSION="${1:?usage: release-build.sh <version> [dist-dir]}"
 DIST="${2:-dist}"
-MODULE="github.com/efij/AgentDFIR"
+MODULE="github.com/efij/AgentDFIR/v2"
 TARGETS="${TARGETS:-linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64}"
 
 rm -rf "$DIST"

@@ -7,8 +7,8 @@ import (
 	"os/exec"
 	"runtime"
 
-	"github.com/efij/AgentDFIR/internal/sanitize"
-	"github.com/efij/AgentDFIR/internal/serve"
+	"github.com/efij/AgentDFIR/v2/internal/sanitize"
+	"github.com/efij/AgentDFIR/v2/internal/serve"
 )
 
 // cmdServe hosts the local case explorer for one package.

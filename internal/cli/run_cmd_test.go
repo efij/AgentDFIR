@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efij/AgentDFIR/internal/simulate"
+	"github.com/efij/AgentDFIR/v2/internal/simulate"
 )
 
 // TestRunNoServe drives the one-shot workflow against a simulated home:
