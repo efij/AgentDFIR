@@ -1,0 +1,4 @@
+{
+  "note": "A .gitignore inside a plugin marketplace checkout. Provenance targeted every agent_definitions/product_config artifact in the whole plugin cache, and relative-path matching let `.gitignore` match any /.gitignore, while 3-character line attribution let the token `.claude/` 'write' a line. 25 HIGH findings on a real machine.",
+  "allow": {}
+}

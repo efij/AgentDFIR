@@ -1,0 +1,3 @@
+ignore\s+(all\s+)?previous\s+instructions
+disregard\s+(all\s+)?prior
+exfiltrate

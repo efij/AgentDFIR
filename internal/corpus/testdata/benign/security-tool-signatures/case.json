@@ -1,0 +1,4 @@
+{
+  "note": "A security plugin's own prompt-injection signature list, sitting in the agent's plugin cache. TOOL_POISONING_INDICATOR did strings.Contains over the raw blob with no context, so a file whose job is to DETECT 'ignore previous instructions' was flagged for containing it. 29 HIGH findings on a real machine, most of them this.",
+  "allow": {}
+}

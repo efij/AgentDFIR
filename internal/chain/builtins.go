@@ -38,7 +38,7 @@ var Builtin = []Chain{
 		FalsePositive: "Legitimate deploys read a token and push. Confirm the destination against the allowlist (analyze --known-destinations).",
 	},
 	{
-		ID: "CHAIN_ORPHAN_PERSISTENCE", Severity: "CRITICAL", Scope: "agent", WindowMinutes: 0,
+		ID: "CHAIN_ORPHAN_PERSISTENCE", Severity: "CRITICAL", Scope: "agent", WindowMinutes: 120,
 		Title:       "Agent With No Verified Parent Changed Configuration, Then Acted",
 		Description: "An agent that no spawn record explains modified agent configuration or instruction files and went on to execute tools.",
 		Steps: []Step{
@@ -83,7 +83,7 @@ var Builtin = []Chain{
 		FalsePositive: "Package installers and build scripts do this legitimately. Check the download source.",
 	},
 	{
-		ID: "CHAIN_ACTION_THEN_LOG_TAMPER", Severity: "CRITICAL", Scope: "session", WindowMinutes: 0,
+		ID: "CHAIN_ACTION_THEN_LOG_TAMPER", Severity: "CRITICAL", Scope: "session", WindowMinutes: 120,
 		Title:       "Suspicious Action Followed by Deletion of Agent Logs",
 		Description: "After a destructive or exfiltration-shaped action, the agent targeted its own transcripts or history for deletion: anti-forensics.",
 		Steps: []Step{

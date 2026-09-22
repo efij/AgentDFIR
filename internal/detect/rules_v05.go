@@ -356,9 +356,20 @@ func logDeletion(res *schema.Normalized) []schema.Finding {
 		if ev.EventType != schema.EventToolCall || ev.Command == "" {
 			continue
 		}
-		if !(deleteCmdRe.MatchString(ev.Command) && logTargetRe.MatchString(ev.Command)) &&
-			!histClearRe.MatchString(ev.Command) {
-			continue
+		if !histClearRe.MatchString(ev.Command) {
+			// A log path elsewhere in the same line is not a deletion of it:
+			// `rm -rf $S/perf && mkdir -p $S/perf/.claude/projects/-big`
+			// fired on the mkdir argument. Check the delete's own targets.
+			hit := false
+			for _, t := range DeleteTargets(ev.Command) {
+				if logTargetRe.MatchString(t) && !IsScratchPath(t) {
+					hit = true
+					break
+				}
+			}
+			if !hit {
+				continue
+			}
 		}
 		out = append(out, schema.Finding{
 			RuleID: "LOG_DELETION", Severity: "HIGH", Title: "Agent Activity Logs Targeted for Deletion",
@@ -388,10 +399,24 @@ func agentSelfModification(res *schema.Normalized) []schema.Finding {
 		if subject == "" {
 			subject = ev.Command
 		}
-		if ev.Action == "shell_execution" && !lowerHas(subject, "echo", ">", "sed", "tee", "cp ", "mv ", "cat >", "python", "node") {
-			continue
-		}
-		if !selfCfgRe.MatchString(subject) {
+		if ev.Action == "shell_execution" {
+			// Reading your own skills is how an agent uses them. Only a
+			// command that actually writes somewhere counts, and only if
+			// what it writes to is the config.
+			if IsReadOnlyCommand(ev.Command) {
+				continue
+			}
+			wrote := false
+			for _, t := range WriteTargets(ev.Command) {
+				if selfCfgRe.MatchString(t) {
+					wrote = true
+					break
+				}
+			}
+			if !wrote {
+				continue
+			}
+		} else if !selfCfgRe.MatchString(subject) {
 			continue
 		}
 		out = append(out, schema.Finding{

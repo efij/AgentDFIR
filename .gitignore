@@ -27,6 +27,11 @@ Thumbs.db
 .env
 .env.*
 
-# Local Claude Code worktrees/session data
-.claude/
+# Local Claude Code worktrees/session data.
+# Anchored to the repo root on purpose: the corpus fixtures under
+# internal/corpus/testdata are synthetic .claude profiles that MUST be
+# committed. An unanchored rule matched them too, so the cases existed only
+# on the machine that wrote them and every attack case "lost" its detection
+# in CI.
+/.claude/
 PLAN-*.md

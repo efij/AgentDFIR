@@ -1,0 +1,4 @@
+{
+  "note": "Credential file read followed by an upload-shaped command in the same session. The canonical toxic combination the chain rules exist to catch.",
+  "expect": ["SENSITIVE_FILE_READ", "CHAIN_SECRET_TO_EXFIL"]
+}

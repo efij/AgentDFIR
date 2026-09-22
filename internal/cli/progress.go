@@ -134,3 +134,25 @@ func humanBytes(n int64) string {
 	}
 	return fmt.Sprintf("%d B", n)
 }
+
+// eta renders a real time-remaining from measured throughput.
+//
+// It is only ever shown for acquisition, where a metadata-only pre-walk has
+// already established exactly how many bytes there are. The analysis stages
+// deliberately show no ETA: their costs differ by an order of magnitude and
+// a fabricated number is worse than none.
+func eta(done, total int64, since time.Duration) string {
+	if done <= 0 || total <= 0 || done >= total || since < 2*time.Second {
+		return ""
+	}
+	rate := float64(done) / since.Seconds()
+	if rate <= 0 {
+		return ""
+	}
+	return " · ~" + elapsed(time.Duration(float64(total-done)/rate)*time.Second) + " left"
+}
+
+// step prints a completed step's heading with the time it took.
+func stepDone(label string, since time.Duration) {
+	fmt.Printf("  ✓ %s in %s\n", label, elapsed(since))
+}

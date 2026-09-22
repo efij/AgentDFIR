@@ -1,0 +1,3 @@
+{"type":"user","uuid":"u1","sessionId":"s1","timestamp":"2026-09-16T08:54:00Z","cwd":"/repo","message":{"role":"user","content":"use the graphify skill"}}
+{"type":"assistant","uuid":"a1","parentUuid":"u1","sessionId":"s1","timestamp":"2026-09-16T08:54:14Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"ls ~/.claude/skills/graphify/; sed -n 61,140p ~/.claude/skills/graphify/SKILL.md"}}]}}
+{"type":"assistant","uuid":"a2","parentUuid":"a1","sessionId":"s1","timestamp":"2026-09-16T08:54:20Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"t2","name":"Bash","input":{"command":"grep -n \"Trigger\" ~/.claude/skills/graphify/SKILL.md"}}]}}

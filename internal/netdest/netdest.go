@@ -6,13 +6,16 @@ package netdest
 
 import (
 	"regexp"
+	"strconv"
 	"strings"
 )
 
 var (
-	urlRe   = regexp.MustCompile(`(?i)\bhttps?://([A-Za-z0-9._-]+(?::\d+)?)`)
-	sshRe   = regexp.MustCompile(`\b(?:scp|rsync|ssh|sftp)\b[^|;&]*?\b[A-Za-z0-9._-]+@([A-Za-z0-9._-]+)`)
-	ncRe    = regexp.MustCompile(`\b(?:nc|ncat|netcat)\s+(?:-\w+\s+)*([A-Za-z0-9._-]+)\s+\d+`)
+	urlRe = regexp.MustCompile(`(?i)\bhttps?://([A-Za-z0-9._-]+(?::\d+)?)`)
+	sshRe = regexp.MustCompile(`\b(?:scp|rsync|ssh|sftp)\b[^|;&]*?\b[A-Za-z0-9._-]+@([A-Za-z0-9._-]+)`)
+	// Flags that take a value: without consuming the value, `nc -w 3 host`
+	// reported "3" as the destination.
+	ncRe    = regexp.MustCompile(`\b(?:nc|ncat|netcat)\s+(?:-[a-zA-Z]+(?:\s+\d+)?\s+)*([A-Za-z0-9._-]+)\s+\d+`)
 	ipRe    = regexp.MustCompile(`\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?::\d+)?\b`)
 	uploadR = regexp.MustCompile(`(?i)\b(curl\b[^|;&]*\s(-F|-d|--data|--data-binary|-T|--upload-file|-X\s*P(OST|UT))\b|scp\s+[^|;&]*\s\S+@\S+:|rsync\s+[^|;&]*\s\S+@|\bnc\s|wget\s+[^|;&]*--post)`)
 )
@@ -55,6 +58,9 @@ func Extract(cmd string) []string {
 		add(m[1])
 	}
 	for _, m := range ncRe.FindAllStringSubmatch(cmd, -1) {
+		if !plausibleHost(m[1]) {
+			continue
+		}
 		add(m[1])
 	}
 	for _, m := range ipRe.FindAllStringSubmatch(cmd, -1) {
@@ -95,4 +101,24 @@ func IsUpload(cmd string) bool { return uploadR.MatchString(cmd) }
 func IsCloudMetadata(dest string) bool {
 	h := Host(dest)
 	return h == "169.254.169.254" || h == "metadata.google.internal" || h == "fd00:ec2::254"
+}
+
+// plausibleHost rejects things that are syntactically a word but cannot be
+// a destination: bare numbers (a flag's value), flags themselves, and
+// single labels that are not a known local name.
+func plausibleHost(h string) bool {
+	if h == "" || strings.HasPrefix(h, "-") {
+		return false
+	}
+	if _, err := strconv.Atoi(h); err == nil {
+		return false
+	}
+	if strings.Contains(h, ".") {
+		return true
+	}
+	switch strings.ToLower(h) {
+	case "localhost", "127.0.0.1", "::1":
+		return true
+	}
+	return false
 }

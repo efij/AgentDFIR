@@ -41,7 +41,8 @@ main{min-height:0;overflow:hidden}
 .tree .agent{padding-left:30px}
 .badge{font-family:var(--sans);font-size:10.5px;padding:1px 6px;border-radius:4px;border:1px solid var(--border);color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
 .badge.orphan{border-color:var(--bad);color:var(--bad)} .badge.sub{border-color:var(--accent-2);color:var(--accent-2)} .badge.chain{border-color:var(--crit);color:var(--crit)}
-.badge.tp{border-color:var(--bad);color:var(--bad)} .badge.fp{border-color:var(--ok);color:var(--ok)} .badge.nr{border-color:var(--warn);color:var(--warn)} .badge.tag{border-color:var(--accent);color:var(--accent);text-transform:none}
+.badge.tp{border-color:var(--bad);color:var(--bad)} .badge.fp{border-color:var(--ok);color:var(--ok)} .badge.bn{background:#14313f;color:#7fd3e8}
+.nr{border-color:var(--warn);color:var(--warn)} .badge.tag{border-color:var(--accent);color:var(--accent);text-transform:none}
 .count{margin-left:auto;color:var(--muted);font-size:11.5px}
 .toolbar{display:flex;flex-wrap:wrap;gap:8px;padding:10px 14px;position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--border);z-index:2;align-items:center}
 .toolbar input,.toolbar select{min-height:38px;padding:6px 10px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text)}
@@ -211,7 +212,7 @@ textarea.note{width:100%;min-height:60px;padding:8px;background:var(--panel);bor
       <div class="toolbar">
         <select id="fsev" aria-label="Severity"><option value="">All severities</option><option>CRITICAL</option><option>HIGH</option><option>MEDIUM</option><option>LOW</option><option>INFO</option></select>
         <label><input type="checkbox" id="fchains"> attack chains only</label>
-        <select id="fverdict" aria-label="Verdict"><option value="">Any verdict</option><option value="none">Unreviewed</option><option value="true_positive">True positive</option><option value="false_positive">False positive</option><option value="needs_review">Needs review</option></select>
+        <select id="fverdict" aria-label="Verdict"><option value="">Any verdict</option><option value="none">Unreviewed</option><option value="true_positive">True positive</option><option value="benign">Benign</option><option value="false_positive">False positive</option><option value="needs_review">Needs review</option></select>
         <input id="fq" type="text" placeholder="Filter findings…" aria-label="Filter findings">
         <span class="total" id="ftotal"></span>
       </div>
@@ -248,7 +249,16 @@ const fmtTs=t=>t?t.replace('T',' ').replace(/\.\d+Z$/,'Z'):'—';
 const dur=s=>s<60?s+'s':s<3600?Math.round(s/60)+' min':(s/3600).toFixed(1)+' h';
 const isPinned=id=>(state.notes.pins||[]).some(p=>p.target==='event:'+id);
 const verdictOf=key=>(state.notes.verdicts||{})[key];
-const vcls={true_positive:'tp',false_positive:'fp',needs_review:'nr'}; const vlbl={true_positive:'TRUE POSITIVE',false_positive:'FALSE POSITIVE',needs_review:'NEEDS REVIEW'};
+const vcls={true_positive:'tp',benign:'bn',false_positive:'fp',needs_review:'nr'}; const vlbl={true_positive:'TRUE POSITIVE',benign:'BENIGN',false_positive:'FALSE POSITIVE',needs_review:'NEEDS REVIEW'};
+
+// Plain-English labels for evidence states. The stored values stay as they
+// are (they are the sealed format and the SIEM exports); only what a human
+// reads changes. "Enriched" is deliberately not a state — enrichment is the
+// action, the state has to say confirmed or disproved.
+const STATE_LABEL={REQUESTED:'ASKED',REPORTED:'CLAIMED',OBSERVED:'RECORDED',
+  PARTIALLY_CORROBORATED:'PARTLY CONFIRMED',CORROBORATED:'CONFIRMED',
+  CONTRADICTED:'DISPROVED',UNKNOWN:'UNKNOWN'};
+const stateLabel=s=>STATE_LABEL[s]||s||'UNKNOWN';
 
 // ---- header + case
 const caseReady=api('/api/case').then(c=>{
@@ -270,7 +280,7 @@ const caseReady=api('/api/case').then(c=>{
   const s=c.severity||{}; $('#sevsum').textContent=['CRITICAL','HIGH','MEDIUM','LOW','INFO'].filter(k=>s[k]).map(k=>k+' '+s[k]).join(' · ');
   $('#ver').textContent='agentdfir '+c.version; $('#fcount').textContent=c.findings;
   const ft=$('#ftype'); Object.keys(c.types).sort().forEach(t=>{const o=el('option','',t+' ('+c.types[t]+')'); o.value=t; ft.appendChild(o);});
-  const fs=$('#fstate'); ['CORROBORATED','CONTRADICTED','OBSERVED','REPORTED','PARTIALLY_CORROBORATED','UNKNOWN'].forEach(t=>{ if(!c.states[t]) return; const o=el('option','',t+' ('+c.states[t]+')'); o.value=t; fs.appendChild(o);});
+  const fs=$('#fstate'); ['CORROBORATED','CONTRADICTED','OBSERVED','REPORTED','PARTIALLY_CORROBORATED','UNKNOWN'].forEach(t=>{ if(!c.states[t]) return; const o=el('option','',stateLabel(t)+' ('+c.states[t]+')'); o.value=t; fs.appendChild(o);});
   return c;
 }).catch(err=>{$('#detail').innerHTML=''; $('#detail').appendChild(el('div','empty','Failed to load case: '+err.message));});
 const notesReady=api('/api/notes').then(n=>{state.notes=n.state||state.notes;}).catch(()=>{});
@@ -293,7 +303,7 @@ function loadSessions(){
       const nums=el('div','nums'); const n=(k,v)=>{const sp=el('span'); sp.appendChild(el('b','',String(v))); sp.appendChild(document.createTextNode(' '+k)); nums.appendChild(sp);};
       n('events',s.events); n('prompts',s.prompts); n('tool calls',s.tool_calls); n('agents',s.agents); if(s.spawns) n('spawns',s.spawns); n('files',s.files); if((s.mcp_servers||[]).length) n('MCP',s.mcp_servers.length); if((s.destinations||[]).length) n('destinations',s.destinations.length); if(s.findings_total) n('findings',s.findings_total); card.appendChild(nums);
       card.appendChild(el('div','nums',fmtTs(s.first)+(s.duration_s?' · '+dur(s.duration_s):'')+(s.user?' · '+s.user:'')+(s.host?'@'+s.host:'')));
-      const bar=el('div','bar'); const tot=Object.values(s.states||{}).reduce((a,b)=>a+b,0)||1; ['CONTRADICTED','CORROBORATED','OBSERVED','REPORTED','UNKNOWN'].forEach(k=>{if(!s.states[k]) return; const i=el('i',k); i.style.width=(100*s.states[k]/tot)+'%'; i.title=k+' '+s.states[k]; bar.appendChild(i);}); card.appendChild(bar);
+      const bar=el('div','bar'); const tot=Object.values(s.states||{}).reduce((a,b)=>a+b,0)||1; ['CONTRADICTED','CORROBORATED','OBSERVED','REPORTED','UNKNOWN'].forEach(k=>{if(!s.states[k]) return; const i=el('i',k); i.style.width=(100*s.states[k]/tot)+'%'; i.title=stateLabel(k)+' '+s.states[k]; bar.appendChild(i);}); card.appendChild(bar);
       const chips=el('div','chips'); Object.entries(s.tools||{}).sort((a,b)=>b[1]-a[1]).slice(0,6).forEach(([t,c])=>chips.appendChild(el('span','badge',t+' '+c))); (s.destinations||[]).slice(0,3).forEach(d=>chips.appendChild(el('span','badge warn','→ '+d))); (s.chain_titles||[]).forEach(t=>chips.appendChild(el('span','badge chain',t))); card.appendChild(chips);
       const acts=el('div','verdict'); const tag=el('input'); tag.placeholder='add tag…'; tag.className='btn sm'; tag.style.minWidth='120px'; tag.setAttribute('aria-label','Add a tag to this session');
       tag.addEventListener('click',e=>e.stopPropagation()); tag.addEventListener('keydown',e=>{e.stopPropagation(); if(e.key==='Enter'&&tag.value.trim()){post('tag','session:'+s.id,'add',tag.value.trim()).then(loadSessions);}});
@@ -356,7 +366,7 @@ function load(){
       const tr=el('tr','row'); tr.tabIndex=0; tr.dataset.i=i; tr.setAttribute('aria-selected','false');
       tr.appendChild(cell(fmtTs(r.ts),'ts')); tr.appendChild(cell(r.type,'type')); tr.appendChild(cell(r.agent||'—','type')); tr.appendChild(cell(r.tool||(r.mcp?'mcp:'+r.mcp:'')||'—','type'));
       const wtd=cell(r.what||'','what'); if(isPinned(r.id)) wtd.firstChild.prepend(el('span','badge warn','pinned')); tr.appendChild(wtd);
-      const st=el('td'); const d2=el('div'); d2.appendChild(el('span','state '+r.state,r.state)); st.appendChild(d2); tr.appendChild(st);
+      const st=el('td'); const d2=el('div'); d2.appendChild(el('span','state '+r.state,stateLabel(r.state))); st.appendChild(d2); tr.appendChild(st);
       tr.addEventListener('click',()=>select(i)); tr.addEventListener('keydown',e=>{if(e.key==='Enter'){select(i);}}); tb.appendChild(tr);
     });
     $('#total').textContent=d.total.toLocaleString()+' event'+(d.total===1?'':'s')+(state.from?' · zoomed to '+state.from.slice(0,16)+'Z':'');
@@ -381,7 +391,7 @@ function showEvent(id,target){
   api('/api/event/'+encodeURIComponent(id)).then(e=>{
     d.appendChild(el('h3','','Event'));
     const dl=el('dl'); const add=(k,v)=>{if(v===undefined||v===null||v===''||v===0&&k!=='sequence') return; dl.appendChild(el('dt','',k)); dl.appendChild(el('dd','',String(v)));};
-    add('time',e.timestamp); add('type',e.event_type); add('actor',e.actor_type); add('state',e.corroboration_state); add('product',e.product); add('session',e.session_id); add('agent',e.agent_id); add('parent',e.parent_agent_id); add('task',e.task_id);
+    add('time',e.timestamp); add('type',e.event_type); add('actor',e.actor_type); add('state',stateLabel(e.corroboration_state)); add('product',e.product); add('session',e.session_id); add('agent',e.agent_id); add('parent',e.parent_agent_id); add('task',e.task_id);
     add('tool',e.tool); add('tool call id',e.tool_call_id); add('mcp server',e.mcp_server); add('mcp tool',e.mcp_tool); add('action',e.action); add('command',e.command); add('file',e.file); add('destination',e.network_destination); add('result',e.result); add('summary',e.summary);
     add('evidence',(e.source_logical_path||'')+':'+e.source_line+'  (artifact '+String(e.source_artifact||'').slice(0,12)+', offset '+e.source_offset+')');
     d.appendChild(dl);
@@ -426,7 +436,7 @@ function renderFindings(){
   if(!fs.length){list.appendChild(el('div','empty','No findings. Evidence states still tell the story — check the timeline.')); return;}
   if(!shown.length){list.appendChild(el('div','empty','No findings match the filters.')); return;}
   shown.forEach(f=>{
-    const v=verdictOf(f.key); const b=el('button','finding '+f.severity+(v&&v.verdict==='false_positive'?' dim':'')); b.setAttribute('aria-pressed',String(state.curFinding&&state.curFinding.index===f.index));
+    const v=verdictOf(f.key); const b=el('button','finding '+f.severity+(v&&(v.verdict==='false_positive'||v.verdict==='benign')?' dim':'')); b.setAttribute('aria-pressed',String(state.curFinding&&state.curFinding.index===f.index));
     const hd=el('div','head'); hd.appendChild(el('span','sev '+f.severity,f.severity)); if(f.chain) hd.appendChild(el('span','badge chain','attack chain · '+f.steps.length+' steps')); hd.appendChild(el('span','title',f.title)); hd.appendChild(el('span','rule',f.rule_id));
     if(f.mitre_attack) hd.appendChild(el('span','badge','ATT&CK '+f.mitre_attack)); if(f.mitre_atlas) hd.appendChild(el('span','badge','ATLAS '+f.mitre_atlas)); if(v) hd.appendChild(el('span','badge '+vcls[v.verdict],vlbl[v.verdict]));
     b.appendChild(hd);
@@ -444,7 +454,7 @@ function renderNode(n,depth,target){
   const body=el('div'); body.style.flex='1'; body.style.minWidth='0';
   if(n.role) body.appendChild(el('div','role',n.role));
   const lbl=el('div','lbl',n.label||'(no summary)'); if(n.event_id){lbl.title='Open this event'; lbl.onclick=()=>{ if(target){showEvent(n.event_id,target);} else {switchTab('timeline'); showEvent(n.event_id);} };} body.appendChild(lbl);
-  const meta=el('div','meta'); if(n.ts) meta.appendChild(el('span','',fmtTs(n.ts))); if(n.type) meta.appendChild(el('span','',n.type)); if(n.agent) meta.appendChild(el('span','',n.agent)); if(n.state) meta.appendChild(el('span','state '+n.state,n.state)); (n.findings||[]).filter(r=>!r.startsWith('CHAIN_')).slice(0,4).forEach(r=>meta.appendChild(el('span','badge',r))); body.appendChild(meta);
+  const meta=el('div','meta'); if(n.ts) meta.appendChild(el('span','',fmtTs(n.ts))); if(n.type) meta.appendChild(el('span','',n.type)); if(n.agent) meta.appendChild(el('span','',n.agent)); if(n.state) meta.appendChild(el('span','state '+n.state,stateLabel(n.state))); (n.findings||[]).filter(r=>!r.startsWith('CHAIN_')).slice(0,4).forEach(r=>meta.appendChild(el('span','badge',r))); body.appendChild(meta);
   row.appendChild(body);
   if(n.event_id){const acts=el('div','acts'); acts.appendChild(pinButton(n.event_id,()=>{ if(state.curFinding&&$('#findings').classList.contains('active')) showFinding(state.curFinding); }));
     if(n.more&&(!n.children||!n.children.length)){const m=el('button','btn sm','what led here'); m.onclick=()=>{api('/api/chain?event='+encodeURIComponent(n.event_id)).then(x=>{m.remove(); const ul=el('ul'); (x.children||[]).forEach(c=>ul.appendChild(renderNode(c,depth+1,target))); if(!x.children||!x.children.length) ul.appendChild(el('div','hint','Nothing earlier links to this event.')); li.appendChild(ul);});}; acts.appendChild(m);}
@@ -458,7 +468,16 @@ function showFinding(f){
   const hd=el('div','head'); hd.appendChild(el('span','sev '+f.severity,f.severity)); hd.appendChild(el('span','title',' '+f.title)); d.appendChild(hd);
   d.appendChild(el('p','',f.description));
   const dl=el('dl'); const add=(k,v)=>{if(!v) return; dl.appendChild(el('dt','',k)); dl.appendChild(el('dd','',v));};
-  add('rule',f.rule_id); add('status',f.status); add('endpoint corroboration',f.endpoint); add('session',f.session); add('agent',f.agent); add('parent',f.parent); add('MITRE ATT&CK',f.mitre_attack); add('MITRE ATLAS',f.mitre_atlas);
+  add('rule',f.rule_id); add('evidence',stateLabel(f.status)); add('second witness',stateLabel(f.endpoint)); add('session',f.session); add('agent',f.agent); add('parent',f.parent); add('MITRE ATT&CK',f.mitre_attack); add('MITRE ATLAS',f.mitre_atlas);
+  // Confidence is how likely the finding is real; severity above is how bad
+  // it would be if it were. Showing one without the other is what made 592
+  // HIGH findings unreadable.
+  if(f.confidence) add('confidence',f.confidence+(f.class==='building_block'?' · context, not an alert':''));
+  if(f.timestamp) add('when',f.timestamp);
+  if(f.confidence_reasons&&f.confidence_reasons.length){
+    const why=el('div','why'); why.appendChild(el('h4','','Why this confidence'));
+    const ul=el('ul'); f.confidence_reasons.forEach(r=>ul.appendChild(el('li','',r))); why.appendChild(ul); box.appendChild(why);
+  }
   d.appendChild(dl);
   // chain / investigation tree
   d.appendChild(el('h3','',f.chain?'How it happened — step by step':'Evidence and what led to it'));
@@ -471,7 +490,7 @@ function showFinding(f){
   // verdict + note
   d.appendChild(el('h3','','Your verdict'));
   const v=verdictOf(f.key); const vb=el('div','verdict');
-  [['true_positive','True positive','tp'],['false_positive','False positive','fp'],['needs_review','Needs review','nr']].forEach(([val,lbl,cls])=>{const b=el('button','btn sm '+cls,lbl); b.setAttribute('aria-pressed',String(v&&v.verdict===val)); b.onclick=()=>{const cur=v&&v.verdict===val; post('verdict',f.key,cur?'':val,cur?'':($('#vnote').value||'')).then(()=>{renderFindings(); showFinding(f);});}; vb.appendChild(b);});
+  [['true_positive','True positive','tp'],['benign','Benign','bn'],['false_positive','False positive','fp'],['needs_review','Needs review','nr']].forEach(([val,lbl,cls])=>{const b=el('button','btn sm '+cls,lbl); b.setAttribute('aria-pressed',String(v&&v.verdict===val)); b.onclick=()=>{const cur=v&&v.verdict===val; post('verdict',f.key,cur?'':val,cur?'':($('#vnote').value||'')).then(()=>{renderFindings(); showFinding(f);});}; vb.appendChild(b);});
   d.appendChild(vb);
   const ta=el('textarea','note'); ta.id='vnote'; ta.placeholder='Note for this finding (saved with the verdict, or with "add note")'; if(v&&v.note) ta.value=v.note; d.appendChild(ta);
   const nb=el('button','btn sm','add note'); nb.style.marginTop='6px'; nb.onclick=()=>{if(ta.value.trim()) post('note',f.key,'',ta.value.trim()).then(()=>showFinding(f));}; d.appendChild(nb);
@@ -536,8 +555,9 @@ api('/api/extras').then(x=>{
   if(x.mcp){const c=card('MCP supply-chain audit'); const inv=x.mcp.inventory||{}; c.appendChild(el('p','',(inv.servers||[]).length+' server(s) across '+(inv.configs_seen||[]).length+' config file(s)'));
     const t=table(['host','server','scope','transport','pinned','identity']); (inv.servers||[]).forEach(s=>row(t,[s.host,s.name,s.scope,s.transport,s.command?(s.pinned?'yes':'NO'):'-',s.package?s.package_manager+' '+s.package:(s.url||s.command||'')])); c.appendChild(t);
     findingsTable(c,x.mcp.findings||[]); if(x.mcp.gateway){const g=x.mcp.gateway; c.appendChild(el('p','','Gateway: '+g.records+' records · '+g.matched_with_transcript+' matched · '+g.gateway_only+' gateway-only · '+g.transcript_only+' transcript-only · '+g.denied+' denied · '+g.errors+' errors · p95 '+g.p95_latency_ms+' ms'));} box.appendChild(c);}
-  if(x.corroboration){const c=card('Endpoint corroboration'); const s=x.corroboration.summary||{}; c.appendChild(el('p','',(s.tool_calls_checked||0)+' tool calls checked — '+(s.corroborated||0)+' CORROBORATED, '+(s.contradicted||0)+' CONTRADICTED, '+(s.outside_coverage||0)+' outside coverage; '+(s.agent_lineage_processes||0)+' agent-lineage records, '+(s.unlogged_agent_records||0)+' unlogged.'));
-    if(s.coverage_start) c.appendChild(el('p','','Telemetry coverage '+s.coverage_start+' → '+s.coverage_end)); findingsTable(c,x.corroboration.findings||[]); box.appendChild(c);}
+  const enr=x.enrich||x.corroboration;
+  if(enr){const c=card('Second witness'); const s=enr.summary||{}; c.appendChild(el('p','',(s.tool_calls_checked||0)+' tool calls checked — '+(s.corroborated||0)+' CONFIRMED, '+(s.contradicted||0)+' DISPROVED, '+(s.outside_coverage||0)+' outside coverage; '+(s.agent_lineage_processes||0)+' agent-lineage records, '+(s.unlogged_agent_records||0)+' unlogged.'));
+    if(s.coverage_start) c.appendChild(el('p','','Telemetry coverage '+s.coverage_start+' → '+s.coverage_end)); findingsTable(c,enr.findings||[]); box.appendChild(c);}
   if(x.provenance){const c=card('Instruction & memory provenance'); (x.provenance.files||[]).forEach(f=>{c.appendChild(el('h3','',f.logical_path+' — '+f.attributed_lines+' attributed / '+f.unattributed_lines+' unattributed lines, '+f.writes_seen+' writes'));
       const t=table(['line','text','written by','tool','time','trigger']); (f.lines||[]).filter(l=>l.attributed).forEach(l=>row(t,[l.line,l.text,l.agent_id,l.tool,fmtTs(l.timestamp),l.trigger+(l.trigger_detail&&l.trigger==='tool_result'?' ('+l.trigger_detail+')':'')])); c.appendChild(t);});
     if((x.provenance.writes_to_instruction_paths||[]).length){c.appendChild(el('h3','','Writes to instruction-like paths not collected')); const t=table(['path','agent','tool','time','trigger','snippet']); x.provenance.writes_to_instruction_paths.forEach(w=>row(t,[w.path,w.event.agent_id,w.event.tool,fmtTs(w.event.timestamp),w.trigger,w.snippet])); c.appendChild(t);}

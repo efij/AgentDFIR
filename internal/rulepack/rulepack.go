@@ -10,7 +10,6 @@
 package rulepack
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -87,39 +86,42 @@ func LoadFile(path string) (*Pack, error) {
 	if err != nil {
 		return nil, err
 	}
-	var p Pack
-	if err := json.Unmarshal(data, &p); err != nil {
-		return nil, fmt.Errorf("invalid pack JSON: %w", err)
-	}
+	return parsePack(data)
+}
+
+// validatePack checks one pack's rules and compiles their regexes. Shared
+// by the filesystem and embedded loaders so a pack cannot pass one and fail
+// the other.
+func validatePack(p *Pack) error {
 	for i := range p.Rules {
 		r := &p.Rules[i]
 		if r.ID == "" || r.Title == "" {
-			return nil, fmt.Errorf("rule %d: id and title are required", i)
+			return fmt.Errorf("rule %d: id and title are required", i)
 		}
 		if !validSev[r.Severity] {
-			return nil, fmt.Errorf("rule %s: invalid severity %q", r.ID, r.Severity)
+			return fmt.Errorf("rule %s: invalid severity %q", r.ID, r.Severity)
 		}
 		if !validType[r.Match.Type] {
-			return nil, fmt.Errorf("rule %s: invalid match.type %q", r.ID, r.Match.Type)
+			return fmt.Errorf("rule %s: invalid match.type %q", r.ID, r.Match.Type)
 		}
 		if r.FalsePositive == "" {
-			return nil, fmt.Errorf("rule %s: false_positive_notes is mandatory", r.ID)
+			return fmt.Errorf("rule %s: false_positive_notes is mandatory", r.ID)
 		}
 		if len(r.Match.Contains) == 0 && r.Match.Regex == "" {
-			return nil, fmt.Errorf("rule %s: match needs contains or regex", r.ID)
+			return fmt.Errorf("rule %s: match needs contains or regex", r.ID)
 		}
 		if r.Match.Regex != "" {
 			if len(r.Match.Regex) > maxRegexLen {
-				return nil, fmt.Errorf("rule %s: regex exceeds %d bytes", r.ID, maxRegexLen)
+				return fmt.Errorf("rule %s: regex exceeds %d bytes", r.ID, maxRegexLen)
 			}
 			re, err := regexp.Compile(r.Match.Regex)
 			if err != nil {
-				return nil, fmt.Errorf("rule %s: bad regex: %w", r.ID, err)
+				return fmt.Errorf("rule %s: bad regex: %w", r.ID, err)
 			}
 			r.re = re
 		}
 	}
-	return &p, nil
+	return nil
 }
 
 // Apply evaluates packs against a normalized result + sealed package.

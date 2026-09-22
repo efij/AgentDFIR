@@ -28,10 +28,11 @@ func oneToolCallRules(ev schema.Event, p *streamPass2) []schema.Finding {
 		})
 	}
 
-	// AGENT_SELF_MODIFICATION
-	if ev.Action == "write_file" || ev.Action == "edit_file" ||
-		(ev.Action == "shell_execution" && lowerHas(subj, "echo", ">", "sed", "tee", "cp ", "mv ", "cat >", "python", "node")) {
-		if selfCfgRe.MatchString(subj) {
+	// AGENT_SELF_MODIFICATION — a write to the config, not a mention of it.
+	// Reading your own skills (`ls`, `sed -n …p`, `grep`) is how an agent
+	// uses them; it used to be reported as modifying them.
+	if selfModified(ev) {
+		{
 			out = append(out, schema.Finding{
 				RuleID: "AGENT_SELF_MODIFICATION", Severity: "HIGH", Title: "Agent Modified Its Own Configuration",
 				Description: "Agent wrote to its own settings, hooks, instructions or MCP configuration. Self-modification can persist injected behavior across sessions.",
@@ -62,8 +63,10 @@ func oneToolCallRules(ev schema.Event, p *streamPass2) []schema.Finding {
 				FalsePositive: "Expected in coding-agent sessions; informational.",
 			})
 		}
-		// LOG_DELETION
-		if (deleteCmdRe.MatchString(ev.Command) && logTargetRe.MatchString(ev.Command)) || histClearRe.MatchString(ev.Command) {
+		// LOG_DELETION — the log path must be an argument of the delete
+		// itself. `rm -rf $S/perf && mkdir -p $S/perf/.claude/projects/-big`
+		// used to fire on the mkdir.
+		if deletesLogs(ev.Command) {
 			out = append(out, schema.Finding{
 				RuleID: "LOG_DELETION", Severity: "HIGH", Title: "Agent Activity Logs Targeted for Deletion",
 				Description: "Agent command deletes or clears agent transcripts, history or shell history — anti-forensic behavior.",
@@ -153,7 +156,7 @@ func destructiveOne(ev schema.Event) (schema.Finding, bool) {
 	for _, pat := range destructivePatterns {
 		if strings.Contains(low, pat) {
 			return schema.Finding{
-				RuleID: "DESTRUCTIVE_COMMAND", Severity: "MEDIUM", Title: "Potentially Destructive Command",
+				RuleID: "DESTRUCTIVE_COMMAND", Severity: destructiveSeverity(ev.Command), Title: "Potentially Destructive Command",
 				Description: "Agent-invoked shell command matches a destructive pattern: " + pat,
 				SessionID:   ev.SessionID, AgentID: ev.AgentID, EvidenceRefs: []string{ref(ev)},
 				Status: ev.Corroboration, Endpoint: schema.StateUnknown, MitreATTACK: "T1485", MitreATLAS: "AML.T0101",
@@ -194,4 +197,58 @@ func crossMessageOne(ev schema.Event, agg *streamAgg) (schema.Finding, bool) {
 		Related: []string{related}, EvidenceRefs: []string{ref(ev)},
 		Status: ev.Corroboration, Endpoint: schema.StateUnknown,
 	}, true
+}
+
+// selfModified reports whether an event writes to the agent's own
+// configuration. Shared by the streaming and batch rule sets so the two
+// cannot disagree — they did, and only the streaming one ran in analysis.
+func selfModified(ev schema.Event) bool {
+	switch ev.Action {
+	case "write_file", "edit_file":
+		subj := ev.File
+		if subj == "" {
+			subj = ev.Command
+		}
+		return selfCfgRe.MatchString(subj)
+	case "shell_execution":
+		if IsReadOnlyCommand(ev.Command) {
+			return false
+		}
+		for _, t := range WriteTargets(ev.Command) {
+			if selfCfgRe.MatchString(t) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// deletesLogs reports whether a command deletes agent logs, judged on the
+// delete command's own arguments rather than anything on the line.
+func deletesLogs(cmd string) bool {
+	if histClearRe.MatchString(cmd) {
+		return true
+	}
+	for _, t := range DeleteTargets(cmd) {
+		if logTargetRe.MatchString(t) && !IsScratchPath(t) {
+			return true
+		}
+	}
+	return false
+}
+
+// destructiveSeverity grades a destructive command by what it deletes.
+// Clearing a scratch, cache or build directory is routine housekeeping and
+// was reported at the same level as deleting a user's files.
+func destructiveSeverity(cmd string) string {
+	targets := DeleteTargets(cmd)
+	if len(targets) == 0 {
+		return "MEDIUM"
+	}
+	for _, t := range targets {
+		if !IsScratchPath(t) {
+			return "MEDIUM"
+		}
+	}
+	return "INFO"
 }

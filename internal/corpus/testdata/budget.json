@@ -1,0 +1,5 @@
+{
+  "note": "False positives each rule is allowed across the whole benign corpus. Every entry is zero: the v1.8.0 precision work took the corpus from 13 false positives to none, and this file is what keeps it there. Building blocks (SHELL_EXECUTION, AGENT_GENERATED_COMMIT, AGENT_GENERATED_PUSH, MCP_PROJECT_SCOPED_SERVER) are context rather than alerts and are not counted. A case may allow a specific rule in its own case.json when the rule is right and the activity is benign \u2014 a benign true positive. Raising a number here needs a reason in the same commit.",
+  "total": 0,
+  "rules": {}
+}

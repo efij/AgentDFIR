@@ -1,0 +1,4 @@
+{
+  "note": "Ordinary commands whose flags were parsed as hostnames: netdest treated `-w 3` as the host for nc, and the ssh pattern matched git@ in a remote URL and in e-mail addresses. Produced 60 LOW findings on a real machine and polluted the chain rules that consume destinations.",
+  "allow": {}
+}

@@ -79,6 +79,9 @@ func promptInjectionIndicator(man *casepkg.Manifest, pkgDir string) []schema.Fin
 	var out []schema.Finding
 	store := casepkg.NewStore(pkgDir, man)
 	for _, a := range man.Current() {
+		if selfReferentialPath(a.LogicalPath) {
+			continue
+		}
 		for _, sr := range injectionSurfaces {
 			if !isType(a, sr.types...) {
 				continue
@@ -126,9 +129,21 @@ func invisibleUnicodeInstruction(man *casepkg.Manifest, pkgDir string) []schema.
 		if tags == 0 && bidi < 3 && zw < 8 {
 			continue
 		}
+		// Severity follows which characters were found. Unicode tag
+		// characters (U+E0000–U+E007F) have no legitimate use in prompts and
+		// can carry a whole instruction invisibly. Bidi controls occur in
+		// every right-to-left language and zero-width joiners in ordinary
+		// emoji — on a real machine all 43 HIGH findings had tags == 0.
+		sev := "INFO"
+		switch {
+		case tags > 0:
+			sev = "HIGH"
+		case bidi >= 3:
+			sev = "MEDIUM"
+		}
 		out = append(out, schema.Finding{
 			RuleID:   "INVISIBLE_UNICODE_INSTRUCTION",
-			Severity: "HIGH",
+			Severity: sev,
 			Title:    "Invisible Unicode in Agent-Facing Content",
 			Description: fmt.Sprintf("Invisible characters detected (tag: %d, bidi controls: %d, zero-width: %d). Unicode tag characters can smuggle instructions invisible to a human reviewer but readable by the model.",
 				tags, bidi, zw),
@@ -169,4 +184,25 @@ func HoneytokenFindings(man *casepkg.Manifest, pkgDir string, markers []string) 
 		})
 	}
 	return out
+}
+
+// selfReferentialPath reports whether an artifact is a security tool's own
+// rule material, a test fixture or this project's own sources.
+//
+// Injection detection works by looking for injection phrases, so anything
+// whose job is to detect or document them contains them by definition.
+// On a real machine TOOL_POISONING_INDICATOR fired on a security plugin's
+// SIGNATURES.md and on its prompt-injection-context.regex — the file that
+// exists to catch exactly that phrase.
+func selfReferentialPath(p string) bool {
+	l := strings.ToLower(p)
+	for _, frag := range []string{
+		"signatures", "/rules/", "rule-pack", "rulepack", "prompt-injection",
+		"/detect/", "/fixtures/", "/testdata/", "_test.", "agentdfir", "runwall",
+	} {
+		if strings.Contains(l, frag) {
+			return true
+		}
+	}
+	return false
 }

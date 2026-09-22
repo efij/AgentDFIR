@@ -33,6 +33,7 @@ import (
 	"github.com/efij/AgentDFIR/internal/sanitize"
 	"github.com/efij/AgentDFIR/internal/schema"
 	"github.com/efij/AgentDFIR/internal/seal"
+	"github.com/efij/AgentDFIR/internal/verify"
 	"github.com/efij/AgentDFIR/internal/version"
 )
 
@@ -156,6 +157,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/", s.ui)
 	mux.HandleFunc("/api/case", s.apiCase)
 	mux.HandleFunc("/api/verify", s.apiVerify)
+	mux.HandleFunc("/api/groups", s.apiGroups)
 	mux.HandleFunc("/api/events", s.apiEvents)
 	mux.HandleFunc("/api/event/", s.apiEvent)
 	mux.HandleFunc("/api/raw", s.apiRaw)
@@ -355,7 +357,8 @@ func rowOf(e schema.Event) map[string]any {
 	return map[string]any{
 		"id": e.EventID, "ts": e.Timestamp, "type": e.EventType, "actor": e.ActorType, "session": e.SessionID,
 		"agent": e.AgentID, "parent": e.ParentAgentID, "tool": sanitize.Terminal(e.Tool), "mcp": sanitize.Terminal(e.MCPServer),
-		"what": sanitize.Terminal(trimTo(what, 240)), "state": e.Corroboration, "dest": sanitize.Terminal(e.NetworkDest),
+		"what": sanitize.Terminal(trimTo(what, 240)), "state": e.Corroboration, "state_label": schema.Label(e.Corroboration),
+		"dest": sanitize.Terminal(e.NetworkDest),
 		"path": sanitize.Terminal(e.SourcePath), "line": e.SourceLine, "artifact": e.SourceArtifact, "offset": e.SourceOffset,
 		"product": e.Product,
 	}
@@ -451,7 +454,10 @@ func (s *Server) findingRow(i int, f schema.Finding) map[string]any {
 	row := map[string]any{
 		"index": i, "rule_id": f.RuleID, "severity": f.Severity, "title": sanitize.Terminal(f.Title),
 		"description": sanitize.Terminal(f.Description), "session": f.SessionID, "agent": f.AgentID, "parent": f.ParentAgentID,
-		"status": f.Status, "endpoint": f.Endpoint, "mitre_attack": f.MitreATTACK, "mitre_atlas": f.MitreATLAS,
+		"status": f.Status, "endpoint": f.Endpoint,
+		"status_label": schema.Label(f.Status), "endpoint_label": schema.Label(f.Endpoint),
+		"confidence": f.Confidence, "confidence_reasons": f.Reasons, "class": f.Class, "timestamp": f.Timestamp,
+		"mitre_attack": f.MitreATTACK, "mitre_atlas": f.MitreATLAS,
 		"evidence": sanitizeAll(f.EvidenceRefs), "related": sanitizeAll(f.Related), "false_positive": sanitize.Terminal(f.FalsePositive),
 		"event_id": evID, "key": notes.FindingKey(f.RuleID, f.EvidenceRefs), "chain": len(f.ChainSteps) > 0,
 	}
@@ -556,7 +562,7 @@ func (s *Server) apiBuckets(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) apiExtras(w http.ResponseWriter, r *http.Request) {
 	out := map[string]any{}
-	for name, file := range map[string]string{"mcp": "mcp-audit.json", "corroboration": "corroboration.json", "provenance": "provenance.json"} {
+	for name, file := range map[string]string{"mcp": "mcp-audit.json", "enrich": "corroboration.json", "provenance": "provenance.json"} {
 		data, err := os.ReadFile(filepath.Join(s.pkg, "detections", file))
 		if err != nil {
 			continue
@@ -675,4 +681,29 @@ func (s *Server) apiVerify(w http.ResponseWriter, r *http.Request) {
 	s.verify = res
 	s.mu.Unlock()
 	writeJSON(w, res)
+}
+
+// ---- /api/groups ----
+
+// apiGroups returns findings collapsed by rule and session. A real machine
+// produced 592 HIGH and CRITICAL findings that were 85 groups; a flat list
+// of the former is not something anyone reads.
+func (s *Server) apiGroups(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	findings := s.findings
+	s.mu.RUnlock()
+	groups := verify.GroupBy(findings)
+	out := make([]map[string]any, 0, len(groups))
+	for _, g := range groups {
+		members := make([]string, 0, len(g.Members))
+		for _, m := range g.Members {
+			members = append(members, sanitize.Terminal(m))
+		}
+		out = append(out, map[string]any{
+			"rule_id": g.RuleID, "session_id": g.SessionID, "title": sanitize.Terminal(g.Title),
+			"severity": g.Severity, "confidence": g.Confidence, "count": g.Count,
+			"first_seen": g.First, "last_seen": g.Last, "members": members, "class": g.Class,
+		})
+	}
+	writeJSON(w, map[string]any{"groups": out, "findings": len(findings)})
 }

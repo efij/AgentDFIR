@@ -356,7 +356,8 @@ func (s *Server) apiNotes(w http.ResponseWriter, r *http.Request) {
 		}
 		switch in.Kind {
 		case notes.KindVerdict:
-			if in.Value != "" && in.Value != "true_positive" && in.Value != "false_positive" && in.Value != "needs_review" {
+			if in.Value != "" && in.Value != "true_positive" && in.Value != "benign" &&
+				in.Value != "false_positive" && in.Value != "needs_review" {
 				http.Error(w, "bad verdict", http.StatusBadRequest)
 				return
 			}

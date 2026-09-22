@@ -1,0 +1,4 @@
+{
+  "note": "Reading the agent's own skill files. `sed -n` and `ls` are read-only, but AGENT_SELF_MODIFICATION matched any of echo|>|sed|tee|cp|mv anywhere in a command plus a config path anywhere, so inspecting a skill looked like rewriting one. 83 HIGH findings on a real machine, ~60 of them this shape.",
+  "allow": {}
+}

@@ -7,6 +7,229 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [2.0.0] — 2026-09-22
+
+Confidence, separated from severity. A machine producing 592 HIGH and
+CRITICAL findings gave an analyst no way to tell which were worth opening —
+every one arrived identical. They are **85 groups**, and now they carry how
+much to believe them and why.
+
+### Added
+- **`internal/verify` — confidence as its own answer.** Severity is how bad
+  this is if it is real; confidence is how likely it is to be real. They
+  were the same number, so deleting a build directory and deleting a user's
+  SSH key arrived indistinguishable.
+
+  Five deterministic verifiers run over the finished finding set: host
+  witness (a `CONFIRMED` event raises it), self-referential evidence (a rule
+  list or fixture lowers it), mirrored transcripts, building blocks, and
+  findings citing no evidence line. Each may move confidence one step and
+  **must** say why, in a sentence the UI shows verbatim under *Why this
+  confidence*.
+
+  **Severity is never touched by a verifier**, and there is **no LLM in the
+  path**. A finding has to be reproducible from the sealed package alone,
+  years later, by someone who does not have the binary that produced it.
+- **Findings carry a timestamp** at last, taken from the evidence they cite.
+  They had none, which made them impossible to filter or plot by time.
+- **Grouping by rule and session** — `detections/groups.json` and
+  `/api/groups`, each group carrying the worst severity, the best
+  confidence, the count and the time span.
+- **The `benign` verdict.** The rule was right and the activity was
+  authorised. Without it an analyst had to mark a correct detection a false
+  positive just to clear it, which is untrue and the wrong signal for
+  tuning.
+- Confidence and its reasons appear in the explorer, the HTML and PDF
+  reports, and `analyze` output.
+
+## [1.9.0] — 2026-09-22
+
+The second witness, by default. Until now every finding this tool produced
+was `RECORDED` at best — the transcript says a tool was called, and nothing
+else was ever asked. On a real 206,896-event package **all 1,519 findings
+carried `UNKNOWN`**. The corroboration model existed and was wired to
+nothing, because it assumed the analyst already had auditd or Sysmon
+exports.
+
+### Added
+- **`internal/witness` — host state, recorded during acquisition.** After
+  collection and before sealing, `run` parses what it has just preserved,
+  asks the filesystem about every file the agent claimed to write, reads the
+  reflog of every repository it edited, and seals the answer into the
+  package as `witness.json`, covered by `SHA256SUMS` and the custody chain
+  like any other evidence.
+
+  The timing is the design. Gathering happens at **acquisition**; comparing
+  happens later in analysis, in the regenerable overlay. Asking the host at
+  analysis time — days later, possibly on another machine — would describe a
+  different world, and the tool would be manufacturing evidence rather than
+  preserving it.
+
+  Analysis then raises an event to **`CONFIRMED`** when the file is there
+  with its content hash recorded, and notes the witness in a sentence an
+  analyst can read. **Absence is deliberately not disproof**: a file can be
+  removed by anything between the action and the acquisition, so a missing
+  file is noted and the state is left alone.
+
+  Bounded on purpose — 2,000 files, 8 MiB each, 100 repositories — because
+  the paths come from evidence, which is hostile input. Read-only
+  throughout, and git is never executed: the reflog is read as the text file
+  it is.
+
+  `--no-witness` turns it off.
+- **Shell history is collected at last.** `correlate.ShellHistoryAdapter`
+  has existed since v0.8.0 and **no manifest ever collected the file**, so
+  `run` could never use it. zsh, bash, fish and PowerShell histories are now
+  part of the collection.
+
+## [1.8.0] — 2026-09-22
+
+Precision. The benign corpus went from **13 false positives to zero** with
+both attack cases still firing, and the budgets are now all zero so it stays
+that way.
+
+### Fixed
+- **`ORPHAN_AGENT` — 275 false HIGH findings from one string.** Claude Code
+  renamed its subagent tool from `Task` to `Agent`; the parser matched only
+  `Task`, so a 206,896-event package contained **zero** `agent_spawn` events
+  and every subagent in it was reported as having no verified parent. The
+  spawned agent's id is also read from `toolUseResult.agentId`, where
+  current builds put it.
+- **`AGENT_SELF_MODIFICATION` — reading your own skills is not writing to
+  them.** The rule matched any of `echo|>|sed|tee|cp|mv` anywhere plus a
+  config path anywhere, so `ls ~/.claude/skills; sed -n 61,140p SKILL.md`
+  was a self-modification. It now resolves actual write targets — redirects,
+  `tee`, `cp`/`mv` destinations — and read-only commands never count.
+- **`LOG_DELETION` — the log path must belong to the delete.**
+  `rm -rf $S/perf && mkdir -p $S/perf/.claude/projects/-big` fired on the
+  `mkdir` argument.
+- **`SESSION_TAMPERING` — dangling parents are normal.** They come from
+  `attachment`, `queue-operation` and `system` records, which are Claude
+  Code's own bookkeeping.
+- **`INVISIBLE_UNICODE_INSTRUCTION` was always HIGH.** Severity now follows
+  which characters were found: Unicode tag characters are HIGH, three or
+  more bidi controls MEDIUM, zero-width alone INFO. Every one of the 43 HIGH
+  findings on a real machine had zero tag characters — they were emoji and
+  Hebrew.
+- **`UNEXPECTED_NETWORK_DESTINATION` parsed flags as hosts.**
+  `nc -z -w 3 localhost 8080` reported `3` as the destination.
+- **`TOOL_POISONING_INDICATOR` flagged security tools' own rules.** A
+  plugin's `SIGNATURES.md` and `prompt-injection-context.regex` contain
+  injection phrases because that is what they detect.
+- **`DESTRUCTIVE_COMMAND` graded by target.** Clearing a scratch, cache or
+  build directory is housekeeping and is reported as INFO.
+- **`AGENT_CONFIG_DISCOVERY`** no longer matches an agent listing its own
+  skills, agents or commands directories, which is how it uses them.
+- **Attack-chain windows were unbounded** (`WindowMinutes: 0`), which
+  matched a download and an unrelated deletion 21 hours apart. Now 120
+  minutes.
+- **The `.gitignore` rule hid the corpus from CI.** An unanchored `.claude/`
+  rule matched the synthetic profiles under `internal/corpus/testdata`, so
+  the cases existed only on the machine that wrote them.
+- **Two implementations of the same rules had drifted.** `rules_v05.go` and
+  `stream_helpers.go` both emit `AGENT_SELF_MODIFICATION` and
+  `LOG_DELETION`, and only the streaming one runs in analysis. They now
+  share one predicate each.
+
+### Added
+- **Building blocks are separated from detections.** `SHELL_EXECUTION`,
+  `AGENT_GENERATED_COMMIT`, `AGENT_GENERATED_PUSH` and
+  `MCP_PROJECT_SCOPED_SERVER` describe what an agent does all day. They are
+  input for the chain rules and context for an analyst, not alerts, and
+  carrying ATT&CK ids inflated the coverage claim — `SHELL_EXECUTION` is
+  INFO and claimed `T1059`; `MCP_PROJECT_SCOPED_SERVER` is INFO, claimed
+  `T1195` and fired 54 times on one machine.
+- `internal/detect/shellparse.go` — write targets, delete targets,
+  read-only detection and scratch-path classification, shared by the rules
+  that used to match a verb anywhere and a path anywhere.
+
+## [1.7.0] — 2026-09-22
+
+A measurement harness for detection precision. **No behaviour changes**, no
+rule edits, no new detections — this exists so that every change after it can
+be judged instead of argued about.
+
+### Added
+- **`internal/corpus`** — corpus cases are collected into a real sealed
+  package and run through the real analysis pipeline, nothing mocked.
+  - `testdata/benign/` — seven cases, each reproducing a shape that caused a
+    real false positive on a real machine: read-only skill inspection
+    (`sed -n`, `ls`), emoji ZWJ and Hebrew bidi, scratchpad cleanup, a
+    security plugin's own injection signature list, netcat value-flags and
+    `git@` remotes, hook and attachment transcript lines, and a `.gitignore`
+    in a plugin cache. Written rather than copied: real transcripts carry
+    live secrets.
+  - `testdata/attack/` — cases that must keep firing, so a change that
+    quietens a rule by breaking it fails the build.
+  - `testdata/budget.json` — a per-rule false-positive allowance, baselined
+    against today. A rule over budget fails CI even when the total looks
+    fine; a lost detection fails it from the other side.
+- `go test ./internal/corpus -run TestCorpus -v` prints a per-rule
+  false-positive table, worst first.
+
+The harness found a real false positive on its first run:
+`AGENT_CONFIG_DISCOVERY` fires on `ls ~/.claude/skills`, which is how an
+agent uses its own skills rather than reconnaissance. It was invisible until
+v1.6.0 started running the packs, and it is recorded in the budget with a
+note rather than quietly excused.
+
+## [1.6.0] — 2026-09-22
+
+Ships the rules that were never running, says what it means in plain words,
+and shows real time. No detection logic changed; one packaging bug did more
+damage than any rule.
+
+### Fixed
+- **The shipped rule packs never ran.** `rules/*.json` was not embedded,
+  `analysis.Options.RulesDir` only came from `analyze --rules <dir>`, `run`
+  had no such flag at all, and the release archives contain only the binary.
+  On any installed copy the whole declarative rule set was inert: a real run
+  producing 1,519 findings had generated every one of them from the built-in
+  Go rules, with **80 of 140 declared rules idle**. The packs are now
+  `go:embed`-ed and load by default for `run` and `analyze`.
+  `--rules <dir>` still adds packs on top; `--no-builtin-packs` restores the
+  old behaviour. `run` gains `--rules` too.
+- **`CURL_PIPE_SHELL` shipped in two packs**, so loading both reported it
+  twice on the same evidence. Pack loading now de-duplicates by rule ID,
+  first pack wins, and drops are recorded in the analysis notes.
+- **`.git` was excluded wholesale** by the v1.5.0 collection policy, which
+  also removed `.git/hooks` and `.git/config` — the artifacts a
+  hook-installation detection exists to read, and exactly where a poisoned
+  plugin marketplace repo would put one. Only `.git/objects`, `.git/lfs`
+  and `.git/modules/*/objects` are skipped now.
+- **Warp AI was detected and collected nothing, silently.** The manifest
+  expected `warp.sqlite` at a fixed path; on a real machine it was not
+  there. Paths now glob the per-install directory, and
+  `telemetry_events.json` and `warp_network.log` are collected.
+
+### Added
+- **Absence is evidence.** A manifest path that was checked and does not
+  exist is recorded as `NOT_PRESENT` with the path, instead of being
+  discarded. A detected product that collects nothing now says how many
+  paths it checked rather than printing `0 artifacts · 0 B`.
+- **Rule-set provenance.** `analysis.json` records the name, version and
+  SHA-256 of every pack that contributed, plus the AgentDFIR version, so
+  "which rules decided this" stays answerable after the binary is replaced.
+- **Real timing.** Every step of `run` reports how long it took, with a
+  total. Acquisition shows a true percentage and time remaining, from a
+  metadata-only pre-walk that costs a second or two and reads nothing.
+  Analysis shows named stage progress (`stage 3/7 · detections`) and
+  deliberately **no** ETA — stage costs differ by an order of magnitude and
+  a fabricated number is worse than none.
+
+### Changed
+- **Plain words for evidence states**, everywhere a human reads them:
+  `ASKED` · `CLAIMED` · `RECORDED` · `PARTLY CONFIRMED` · `CONFIRMED` ·
+  `DISPROVED` · `UNKNOWN`. The feature that produces them is called
+  **enrich**, or a second witness.
+  "Enriched" is deliberately not one of the states: enrichment is the
+  action, and the state has to say whether the host confirmed or disproved
+  the claim, or it carries no information.
+  **The stored values and the JSON are unchanged** — `.adfir` is a published
+  format, packages exist in the wild, and OCSF/SARIF/STIX exports feed other
+  systems. The timeline CSV now carries both: the stored state and the plain
+  word beside it.
+
 ## [1.5.0] — 2026-09-19
 
 The evidence-store release. Collecting the same machine twice used to mean

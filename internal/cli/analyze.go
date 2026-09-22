@@ -86,7 +86,7 @@ func cmdTimeline(args []string) int {
 		}
 		fmt.Printf("%-20s %-13s %-9s %-22s %s\n    evidence: %s:%d (artifact %.12s)\n",
 			ev.Timestamp,
-			"["+ev.Corroboration+"]",
+			"["+schema.Label(ev.Corroboration)+"]",
 			ev.ActorType,
 			sanitize.Terminal(label),
 			sanitize.Terminal(detail),
@@ -106,11 +106,12 @@ func cmdAnalyze(args []string) int {
 	shellHistory := fs.String("shell-history", "", "shell history file to check commands against")
 	gwLog := fs.String("gateway-log", "", "MCP gateway log (JSONL) to check MCP calls against")
 	gwMap := fs.String("gateway-map", "", "field-name map for the gateway log")
-	rulesDir := fs.String("rules", "", "directory of extra JSON rule packs")
+	rulesDir := fs.String("rules", "", "directory of extra JSON rule packs (added to the packs shipped in the binary)")
+	noPacks := fs.Bool("no-builtin-packs", false, "skip the rule packs shipped in the binary; run built-in Go rules only")
 	honeyFile := fs.String("honeytokens", "", "file of planted canary markers (one per line)")
 	spawnTh := fs.Int("spawn-threshold", 10, "AGENT_SPAWN_EXPLOSION per-session threshold")
 	knownDest := fs.String("known-destinations", "", "comma-separated extra allowlisted network destinations")
-	renorm := fs.Bool("renormalize", false, "re-parse the evidence even if the overlay is current (discards earlier corroboration states)")
+	renorm := fs.Bool("renormalize", false, "re-parse the evidence even if the overlay is current (discards earlier enrichment results)")
 	asJSON := fs.Bool("json", false, "print findings as JSON")
 	pkg, rest := splitPositional(args)
 	if err := fs.Parse(rest); err != nil || (pkg == "" && fs.NArg() != 1) || (pkg != "" && fs.NArg() != 0) {
@@ -121,7 +122,8 @@ func cmdAnalyze(args []string) int {
 		pkg = fs.Arg(0)
 	}
 	opts := analysis.Options{EndpointLogs: endpointLogs, ShellHistory: *shellHistory, GatewayLog: *gwLog, GatewayMap: *gwMap,
-		GatewayServers: gwServers, RulesDir: *rulesDir, SpawnThreshold: *spawnTh, Renormalize: *renorm, Log: os.Stdout}
+		GatewayServers: gwServers, RulesDir: *rulesDir, NoBuiltinPacks: *noPacks,
+		SpawnThreshold: *spawnTh, Renormalize: *renorm, Log: os.Stdout}
 	if *honeyFile != "" {
 		data, err := os.ReadFile(*honeyFile)
 		if err != nil {
@@ -176,7 +178,7 @@ func printTriageFindings(findings []schema.Finding) {
 		for _, e := range f.EvidenceRefs {
 			fmt.Printf("  Evidence: %s\n", sanitize.Terminal(e))
 		}
-		fmt.Printf("  Status: %s    Endpoint corroboration: %s\n", f.Status, f.Endpoint)
+		fmt.Printf("  Evidence: %s    Second witness: %s\n", schema.Label(f.Status), schema.Label(f.Endpoint))
 		if f.MitreATTACK != "" || f.MitreATLAS != "" {
 			fmt.Printf("  MITRE: %s %s\n", f.MitreATTACK, f.MitreATLAS)
 		}
