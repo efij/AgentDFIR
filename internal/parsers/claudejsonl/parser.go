@@ -12,6 +12,7 @@
 package claudejsonl
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -43,12 +44,33 @@ type transcriptLine struct {
 	Version     string          `json:"version"`
 	CWD         string          `json:"cwd"`
 	Message     json.RawMessage `json:"message"`
-	// ToolUseResult carries the spawned agent's id on current Claude Code
-	// builds; older ones put it in the tool input.
-	ToolUseResult struct {
+	// ToolUseResult is whatever the client attached to a tool result: an
+	// object for spawns (carrying the child's agentId on current builds), but
+	// a plain string for most Bash/Read output and an array for some tools.
+	// It was a fixed struct once, and json.Unmarshal rejected every line
+	// whose value was not an object — on a real package 1,945 ordinary
+	// tool-result lines became "malformed" trace gaps and every parentUuid
+	// chain through them read as tampering. Decoded leniently by
+	// spawnResult instead.
+	ToolUseResult json.RawMessage `json:"toolUseResult"`
+}
+
+// spawnResult reads the child agent id and status out of a toolUseResult
+// when, and only when, it is an object. Strings and arrays are ordinary
+// tool output and yield nothing.
+func spawnResult(raw json.RawMessage) (agentID, status string) {
+	b := bytes.TrimSpace(raw)
+	if len(b) == 0 || b[0] != '{' {
+		return "", ""
+	}
+	var r struct {
 		AgentID string `json:"agentId"`
 		Status  string `json:"status"`
-	} `json:"toolUseResult"`
+	}
+	if json.Unmarshal(b, &r) != nil {
+		return "", ""
+	}
+	return r.AgentID, r.Status
 }
 
 // isSpawnTool reports whether a tool name spawns a subagent.
@@ -264,11 +286,33 @@ func (p *parser) handleLine(tl transcriptLine, art casepkg.ArtifactRecord, off i
 				ev.ToolCallID = it.ToolUseID
 				ev.Corroboration = schema.StateObserved
 				ev.Summary = trim(flatText(it.Content), 200)
-				if it.AgentID != "" {
-					p.spawned[it.AgentID] = fmt.Sprintf("evt-%06d", p.seq)
-				}
 				p.emit(ev, art, off, line)
 				emittedToolResult = true
+				// The child id of an Agent/Task launch arrives on the RESULT
+				// line — in the content item on older builds, in the top-level
+				// toolUseResult on current ones ({"status":"async_launched",
+				// "agentId":…}). Spawn evidence is read from agent_spawn
+				// events, so it must become one here; recording it in the
+				// parser map alone left 275 real subagents reported as
+				// orphans with no verified parent.
+				child, status := it.AgentID, ""
+				if child == "" {
+					child, status = spawnResult(tl.ToolUseResult)
+				}
+				if child != "" {
+					sp := base
+					sp.EventType = schema.EventAgentSpawn
+					sp.ActorType = schema.ActorAgent
+					sp.ToolCallID = it.ToolUseID
+					sp.TaskID = child
+					sp.Corroboration = schema.StateObserved
+					sp.Summary = "subagent " + child + " launched"
+					if status != "" {
+						sp.Summary += " (" + status + ")"
+					}
+					p.spawned[child] = fmt.Sprintf("evt-%06d", p.seq)
+					p.emit(sp, art, off, line)
+				}
 			}
 		}
 		if !emittedToolResult {
@@ -323,7 +367,7 @@ func (p *parser) handleLine(tl transcriptLine, art casepkg.ArtifactRecord, off i
 				// toolUseResult, or the content item on the result.
 				child := inputField(it.Input, "agentId")
 				if child == "" {
-					child = tl.ToolUseResult.AgentID
+					child, _ = spawnResult(tl.ToolUseResult)
 				}
 				if child == "" {
 					child = it.AgentID

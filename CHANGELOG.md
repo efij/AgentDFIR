@@ -7,6 +7,35 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [2.4.2] — 2026-09-23
+
+### Fixed
+- **Most Claude Code tool results were being dropped as "malformed", and
+  every subagent was an orphan.** Since v2.0.0 the parser decoded the
+  transcript's `toolUseResult` field into a fixed struct. Claude Code writes
+  that field as a plain **string** for Bash/Read output and an **array** for
+  some tools; only subagent launches are objects. `json.Unmarshal` rejected
+  the first two shapes, so the whole line was recorded as a `malformed_line`
+  trace gap. On a real 2.7 GB package: **1,945 well-formed tool-result lines
+  dropped, 1,947 `TRACE_GAP` findings, and 99 HIGH `SESSION_TAMPERING`**
+  because every parentUuid chain that ran through a dropped line looked
+  broken. Every rule that reads tool results — injection-in-tool-result,
+  the poison chains, provenance — was blind to those lines.
+
+  The same field carries the spawned child's `agentId` on the **result**
+  line (`{"status":"async_launched","agentId":…}`). The parser looked for it
+  on the tool-call line, where it never is, and never turned the result into
+  an `agent_spawn` event, which is what `ORPHAN_AGENT` checks. So **275 real
+  subagents with a perfectly good parent were HIGH orphans** — the count
+  v1.8.0 was believed to have fixed by handling the `Task`→`Agent` rename;
+  that fix was necessary but not sufficient.
+
+  `toolUseResult` is now decoded leniently (objects only, for the spawn
+  fields) and a launch result emits the spawn event. The regression test
+  reproduces all four symptoms against the old code.
+
+  **Re-analyze existing packages**: `agentdfir analyze --renormalize <pkg>`.
+
 ## [2.4.1] — 2026-09-22
 
 ### Fixed
