@@ -7,6 +7,73 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [2.3.0] — 2026-09-22
+
+### Fixed
+- **`agentdfir serve` could not open a case the second witness or endpoint
+  correlation had touched.** Both stages stamp corroboration states onto
+  events and rewrite `normalized/events.jsonl` in place, and since v2.1.0
+  they did that with the compressing overlay writer — which writes
+  `events.jsonl.gz` and deletes the plaintext form.
+
+  `events.jsonl` is the one overlay file that must not be compressed:
+  every row of `internal/index` is a byte offset into it, and a gzip
+  stream cannot be seeked. So the index could not be built (`event index
+  skipped` in the stage notes) and `serve` returned the error rather than
+  opening the package.
+
+  Nothing detected it, because the staleness check accepts either form:
+  the case looks analyzed and current, so no re-analysis is ever
+  triggered and it stays unopenable. The host witness is recorded on
+  every `agentdfir run`, so this was not limited to analysts who supplied
+  an endpoint log.
+
+  **A case damaged by 2.1.0–2.2.1 heals itself** the next time anything
+  opens its index — one streaming decompression of a file that was about
+  to be read anyway, no re-parse.
+
+### Added
+- **Analysis re-parses only the transcripts a collection round actually
+  changed.** Collection has been incremental since v1.5.0; analysis was
+  not. Any new round invalidated the whole overlay — on a real two-round
+  package, **7 minutes 27 seconds re-parsing 206,896 events out of
+  transcripts that had not changed a byte**.
+
+  The overlay is now segmented per source artifact, under
+  `normalized/events/<parser>/<key>.jsonl.gz`, with
+  `normalized/events.jsonl` as their concatenation in parse order — the
+  same flat, uncompressed file every reader already expects. A rebuild
+  decompresses the segments of artifacts whose content address is
+  unchanged and re-parses only the rest.
+
+  On the added benchmark (32,080 events, 80 transcripts) normalization
+  after a round that changed nothing is **48 ms against 462 ms**. How
+  much of that reaches a whole analysis depends on the case: on that
+  fixture it is 20.4 s against 20.9 s, because detection, rule packs,
+  provenance and chains still re-scan every event. The saving is
+  proportional to how much parsing a case does — which is where the
+  seven-minute cases were losing their time.
+
+  The segments are gzipped like the rest of the overlay (nothing seeks
+  them), so the cache costs about 3% of `events.jsonl` rather than
+  doubling it. `agentdfir compact` still removes all of it, and
+  `--renormalize` still rewrites all of it.
+
+  **Correctness.** The parsers carry state across artifacts — one
+  sequence counter, one merged entity map, one de-duplicated relationship
+  list — so a subset parse that looked fine could still produce a
+  different entity graph and a different agent lineage. Per-artifact
+  contributions are therefore replayed as the *calls* the parser made,
+  through the parser's own merge. Two aliasing defects were found and
+  fixed while proving this: a recorded entity kept the parser's live
+  attribute map, so it was persisted holding attributes contributed by
+  artifacts read later and could reinstate them in a round where those
+  artifacts had been superseded; and the same in reverse on the replay
+  side. Acceptance tests compare an incrementally rebuilt overlay against
+  a full re-parse of the identical package — identical bytes for events,
+  entities and relationships, and an identical finding set — across five
+  rounds of change shapes and all three parsers.
+
 ## [2.2.1] — 2026-09-22
 
 ### Fixed
