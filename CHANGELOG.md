@@ -7,6 +7,29 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Changed
+- **The case explorer no longer holds the case in memory, and no longer
+  truncates it.** `serve` read `normalized/events.jsonl` into one
+  `[]schema.Event` capped at 500,000 events. A real 206,896-event package
+  cost 181 MB of live heap to open (471 MB of heap claimed from the OS),
+  and the cap was the worse half: past it the tail of the case was dropped,
+  the header said *truncated*, and the evidence simply was not in the UI to
+  look at.
+
+  A derived index at `<pkg>/index/events.idx` now records each event's byte
+  offset and length in the overlay, plus the fields the timeline, graph and
+  session cards filter and group on; the full event is read back by offset
+  when a detail view asks for one. The same package opens in 58 MB, and in
+  0.4 s instead of 1.7 s once `analyze` has written the index. There is no
+  cap of any kind; `serve --max-events` is accepted and ignored.
+
+  The index is derived data, not evidence: it lives outside the sealed
+  zone, is not covered by `SHA256SUMS`, and deleting it is always safe. A
+  package without one — including every package written by an earlier
+  version — gets one rebuilt on load, as does one whose overlay has changed
+  underneath it. Every endpoint returns exactly what it returned before,
+  verified byte for byte across the whole corpus.
+
 ## [2.0.1] — 2026-09-22
 
 ### Fixed

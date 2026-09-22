@@ -17,6 +17,7 @@ import (
 
 	"github.com/efij/AgentDFIR/v2/internal/casepkg"
 	"github.com/efij/AgentDFIR/v2/internal/sanitize"
+	"github.com/efij/AgentDFIR/v2/internal/schema"
 )
 
 // ---- /api/search ----
@@ -89,16 +90,20 @@ func (s *Server) apiSearch(w http.ResponseWriter, r *http.Request) {
 	if want["events"] {
 		var rows []map[string]any
 		total := 0
-		for _, e := range s.events {
+		// Every field of every event has to be looked at, which is the one
+		// query that genuinely needs the whole overlay — so it is streamed,
+		// one event resident at a time, rather than held.
+		_ = s.idx.Each(func(_ int, e *schema.Event) bool {
 			hay := strings.Join([]string{e.Command, e.Summary, e.Result, e.Tool, e.File, e.NetworkDest, e.MCPServer, e.MCPTool, e.Action,
 				e.AgentID, e.ParentAgentID, e.SessionID, e.EventType, e.ActorType, e.Model, e.Product, e.User, e.Host, e.SourcePath, e.ToolCallID, e.TaskID}, "\n")
 			if re.MatchString(hay) {
 				total++
 				if len(rows) < limit {
-					rows = append(rows, rowOf(e))
+					rows = append(rows, rowOf(*e))
 				}
 			}
-		}
+			return true
+		})
 		out["events"] = map[string]any{"total": total, "items": rows}
 	}
 	if want["findings"] {

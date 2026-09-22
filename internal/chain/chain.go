@@ -404,10 +404,18 @@ func EventForRef(byRef map[string]string, ref string) string {
 func RefIndex(events []schema.Event) map[string]string {
 	byRef := make(map[string]string, len(events)*2)
 	for _, e := range events {
-		byRef[e.SourcePath+":"+strconv.Itoa(e.SourceLine)] = e.EventID
-		byRef[e.SourcePath+"@"+strconv.FormatInt(e.SourceOffset, 10)] = e.EventID
+		AddRefs(byRef, e.SourcePath, e.SourceLine, e.SourceOffset, e.EventID)
 	}
 	return byRef
+}
+
+// AddRefs registers both reference forms for one event. The explorer builds
+// the same index straight from its event index, without ever holding the
+// events, so the two key formats live in one place rather than being
+// spelled out twice and drifting apart.
+func AddRefs(byRef map[string]string, path string, line int, off int64, eventID string) {
+	byRef[path+":"+strconv.Itoa(line)] = eventID
+	byRef[path+"@"+strconv.FormatInt(off, 10)] = eventID
 }
 
 func containsFold(list []string, v string) bool {

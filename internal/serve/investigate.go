@@ -57,14 +57,18 @@ func (s *Server) apiSessions(w http.ResponseWriter, r *http.Request) {
 	dests := map[string]map[string]bool{}
 	mcps := map[string]map[string]bool{}
 	agents := map[string]map[string]bool{}
-	for _, e := range s.events {
+	first := map[string]int{} // session → its first event, for the host and user
+	x := s.idx
+	for i, n := 0, x.Len(); i < n; i++ {
+		e := x.At(i)
 		if e.SessionID == "" {
 			continue
 		}
 		c := cards[e.SessionID]
 		if c == nil {
-			c = &sessionCard{ID: e.SessionID, Product: e.Product, Host: e.Host, User: e.User, Tools: map[string]int{}, States: map[string]int{}, Findings: map[string]int{}}
+			c = &sessionCard{ID: e.SessionID, Product: e.Product, Tools: map[string]int{}, States: map[string]int{}, Findings: map[string]int{}}
 			cards[e.SessionID] = c
+			first[e.SessionID] = i
 			files[e.SessionID], dests[e.SessionID], mcps[e.SessionID], agents[e.SessionID] = map[string]bool{}, map[string]bool{}, map[string]bool{}, map[string]bool{}
 		}
 		c.Events++
@@ -80,8 +84,12 @@ func (s *Server) apiSessions(w http.ResponseWriter, r *http.Request) {
 		switch e.EventType {
 		case schema.EventHumanPrompt:
 			c.Prompts++
+			// The opening line of the session is not in the index summary;
+			// it is one read, for the first prompt of each session.
 			if c.FirstPrompt == "" {
-				c.FirstPrompt = sanitize.Terminal(trimTo(e.Summary, 160))
+				if ev, err := x.Event(i); err == nil {
+					c.FirstPrompt = sanitize.Terminal(trimTo(ev.Summary, 160))
+				}
 			}
 		case schema.EventModelResponse:
 			c.Responses++
@@ -129,6 +137,11 @@ func (s *Server) apiSessions(w http.ResponseWriter, r *http.Request) {
 	st, _ := s.notes.Load()
 	out := make([]*sessionCard, 0, len(cards))
 	for id, c := range cards {
+		// Host and user, like the first prompt, cost one read per session
+		// rather than a field on every event in the case.
+		if ev, err := x.Event(first[id]); err == nil {
+			c.Host, c.User = ev.Host, ev.User
+		}
 		c.Files = len(files[id])
 		c.Dests = topKeys(dests[id], 5)
 		c.MCPServers = topKeys(mcps[id], 6)
@@ -208,13 +221,18 @@ func (s *Server) apiChain(w http.ResponseWriter, r *http.Request) {
 		pinned[p.Target] = true
 	}
 	if id := q.Get("event"); id != "" {
-		i, ok := s.byID[id]
+		i, ok := s.idx.Lookup(id)
 		if !ok {
 			http.NotFound(w, r)
 			return
 		}
-		n := s.eventNode(s.events[i], "event", "", pinned)
-		n.Children = s.contextOf(s.events[i], pinned)
+		ev, err := s.idx.Event(i)
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		n := s.eventNode(ev, "event", "", pinned)
+		n.Children = s.contextOf(i, ev, pinned)
 		writeJSON(w, n)
 		return
 	}
@@ -227,13 +245,20 @@ func (s *Server) apiChain(w http.ResponseWriter, r *http.Request) {
 	root := &treeNode{ID: "finding:" + strconv.Itoa(idx), Kind: "finding", Label: sanitize.Terminal(f.Title), Detail: sanitize.Terminal(f.Description), Type: f.RuleID, State: f.Status, Agent: f.AgentID}
 	if len(f.ChainSteps) > 0 {
 		for i, step := range f.ChainSteps {
-			ei, ok := s.byID[step.EventID]
+			ei, ok := s.idx.Lookup(step.EventID)
+			var ev schema.Event
+			if ok {
+				var err error
+				if ev, err = s.idx.Event(ei); err != nil {
+					ok = false
+				}
+			}
 			if !ok {
 				root.Children = append(root.Children, &treeNode{ID: "step:" + strconv.Itoa(i), Kind: "step", Role: step.Step, Label: sanitize.Terminal(step.Summary), TS: step.Timestamp})
 				continue
 			}
-			n := s.eventNode(s.events[ei], "step", step.Step, pinned)
-			n.Children = s.contextOf(s.events[ei], pinned)
+			n := s.eventNode(ev, "step", step.Step, pinned)
+			n.Children = s.contextOf(ei, ev, pinned)
 			root.Children = append(root.Children, n)
 		}
 	} else {
@@ -244,8 +269,16 @@ func (s *Server) apiChain(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			seen[id] = true
-			n := s.eventNode(s.events[s.byID[id]], "event", "evidence", pinned)
-			n.Children = s.contextOf(s.events[s.byID[id]], pinned)
+			i, ok := s.idx.Lookup(id)
+			if !ok {
+				continue
+			}
+			ev, err := s.idx.Event(i)
+			if err != nil {
+				continue
+			}
+			n := s.eventNode(ev, "event", "evidence", pinned)
+			n.Children = s.contextOf(i, ev, pinned)
 			root.Children = append(root.Children, n)
 		}
 	}
@@ -275,20 +308,27 @@ func (s *Server) eventNode(e schema.Event, kind, role string, pinned map[string]
 // contextOf returns the causal neighbours of an event, each an evidence-backed
 // event: the prompt that preceded it, the tool result it consumed, the spawn
 // that created its agent, and the message a parent sent to a subagent.
-func (s *Server) contextOf(e schema.Event, pinned map[string]bool) []*treeNode {
-	i, ok := s.byID[e.EventID]
-	if !ok {
+func (s *Server) contextOf(i int, e schema.Event, pinned map[string]bool) []*treeNode {
+	x := s.idx
+	if i < 0 || i >= x.Len() {
 		return nil
 	}
 	var out []*treeNode
+	// The walk itself reads nothing: event type, session, agent and the
+	// spawned task id are all in the index summary, so only the handful of
+	// neighbours that end up on the tree are read back in full.
 	add := func(j int, role string) {
-		n := s.eventNode(s.events[j], "context", role, pinned)
+		ev, err := x.Event(j)
+		if err != nil {
+			return
+		}
+		n := s.eventNode(ev, "context", role, pinned)
 		n.Children = nil
 		out = append(out, n)
 	}
 	var prompt, consumed, spawn, message = -1, -1, -1, -1
 	for j := i - 1; j >= 0 && j > i-4000; j-- {
-		p := s.events[j]
+		p := x.At(j)
 		if p.SessionID != e.SessionID && !(p.EventType == schema.EventAgentSpawn && p.TaskID == e.AgentID) {
 			continue
 		}
@@ -322,11 +362,20 @@ func (s *Server) contextOf(e schema.Event, pinned map[string]bool) []*treeNode {
 	}
 	// What this event led to: the tool result of this call, and the next thing the agent did.
 	if e.EventType == schema.EventToolCall && e.ToolCallID != "" {
-		for j := i + 1; j < len(s.events) && j < i+200; j++ {
-			if s.events[j].EventType == schema.EventToolResult && s.events[j].ToolCallID == e.ToolCallID {
-				add(j, "result returned to the agent")
-				break
+		// The tool call id is the one field of the window that the summary
+		// does not carry, so the candidates — results only — are read.
+		for j := i + 1; j < x.Len() && j < i+200; j++ {
+			if x.At(j).EventType != schema.EventToolResult {
+				continue
 			}
+			ev, err := x.Event(j)
+			if err != nil || ev.ToolCallID != e.ToolCallID {
+				continue
+			}
+			n := s.eventNode(ev, "context", "result returned to the agent", pinned)
+			n.Children = nil
+			out = append(out, n)
+			break
 		}
 	}
 	return out

@@ -28,6 +28,7 @@ import (
 	"github.com/efij/AgentDFIR/v2/internal/analysis"
 	"github.com/efij/AgentDFIR/v2/internal/casepkg"
 	"github.com/efij/AgentDFIR/v2/internal/chain"
+	"github.com/efij/AgentDFIR/v2/internal/index"
 	"github.com/efij/AgentDFIR/v2/internal/notes"
 	"github.com/efij/AgentDFIR/v2/internal/report"
 	"github.com/efij/AgentDFIR/v2/internal/sanitize"
@@ -42,41 +43,48 @@ var uiHTML []byte
 
 // Options configures the server.
 type Options struct {
-	Port      int // 0 = ephemeral
-	MaxEvents int // bound on events held in memory (default 500000)
+	Port int // 0 = ephemeral
+	// MaxEvents is accepted and ignored. The explorer used to hold every
+	// event in memory and cap the case at 500,000 of them; a real package
+	// is 206,896 events and hundreds of MB of RSS, and on anything past the
+	// cap the tail of the case was simply absent from the UI. Events now
+	// live on disk behind an offset index, so there is nothing to bound.
+	MaxEvents int
 }
 
 // Server holds the loaded case.
 type Server struct {
-	pkg       string
-	man       *casepkg.Manifest
-	arts      []casepkg.ArtifactRecord // the case as it now stands (newest round per source)
-	store     *casepkg.Store
-	info      *casepkg.CaseInfo
-	verify    *casepkg.VerifyResult
-	sig       string
-	events    []schema.Event
-	byID      map[string]int
-	findings  []schema.Finding
-	entities  []schema.Entity
-	rels      []schema.Relationship
-	truncated bool
-	byRef     map[string]string   // evidence reference → event id
-	flagged   map[string][]string // event id → rule ids citing it
-	notes     *notes.Store
-	mu        sync.RWMutex
+	pkg      string
+	man      *casepkg.Manifest
+	arts     []casepkg.ArtifactRecord // the case as it now stands (newest round per source)
+	store    *casepkg.Store
+	info     *casepkg.CaseInfo
+	verify   *casepkg.VerifyResult
+	sig      string
+	idx      *index.Index // the whole overlay, by offset; full events read on demand
+	findings []schema.Finding
+	entities []schema.Entity
+	rels     []schema.Relationship
+	byRef    map[string]string   // evidence reference → event id
+	flagged  map[string][]string // event id → rule ids citing it
+	notes    *notes.Store
+	mu       sync.RWMutex
+
+	// Timeline queries that carry free text have to read the candidate
+	// events back off disk, so the last few result sets are kept: the UI
+	// pages through one screen at a time and re-scanning the case for every
+	// page would undo the point of the index.
+	qmu   sync.Mutex
+	qhits map[string][]int
 }
 
 // Load reads (normalizing if needed) everything the UI serves.
 func Load(pkg string, opts Options) (*Server, error) {
-	if opts.MaxEvents <= 0 {
-		opts.MaxEvents = 500000
-	}
 	man, err := report.ReadManifest(pkg)
 	if err != nil {
 		return nil, err
 	}
-	s := &Server{pkg: pkg, man: man, arts: man.Current(), byID: map[string]int{}, store: casepkg.NewStore(pkg, man)}
+	s := &Server{pkg: pkg, man: man, arts: man.Current(), store: casepkg.NewStore(pkg, man)}
 	s.info, _ = report.ReadCaseInfo(pkg)
 	// Quick verification: the seal over the small sealed files, both hash
 	// chains end to end, the manifest cross-check and every blob's
@@ -98,29 +106,27 @@ func Load(pkg string, opts Options) (*Server, error) {
 	if _, err := analysis.Ensure(pkg, os.Stdout); err != nil {
 		return nil, err
 	}
-	evPath := filepath.Join(pkg, "normalized", "events.jsonl")
 	s.entities = readJSONL[schema.Entity](filepath.Join(pkg, "normalized", "entities.jsonl"))
 	s.rels = readJSONL[schema.Relationship](filepath.Join(pkg, "normalized", "relationships.jsonl"))
-	f, err := os.Open(evPath)
+	// The event index: offsets plus the compact summary every list and
+	// filter runs on. analysis.Run leaves one behind; a package from an
+	// older version, or one whose index was deleted (it is derived, so
+	// deleting it is allowed), gets one built here.
+	x, err := index.Open(pkg)
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
-	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
-	for sc.Scan() {
-		if len(s.events) >= opts.MaxEvents {
-			s.truncated = true
-			break
-		}
-		var ev schema.Event
-		if json.Unmarshal(sc.Bytes(), &ev) == nil {
-			s.byID[ev.EventID] = len(s.events)
-			s.events = append(s.events, ev)
-		}
-	}
+	s.idx = x
+	s.qhits = map[string][]int{}
 	s.findings = analysis.LoadFindings(pkg)
-	s.byRef = chain.RefIndex(s.events)
+	// The evidence-reference lookup, built from the index instead of from a
+	// slice of events, so nothing has to be resident to resolve a finding
+	// to the event it cites.
+	s.byRef = make(map[string]string, x.Len()*2)
+	for i, n := 0, x.Len(); i < n; i++ {
+		e := x.At(i)
+		chain.AddRefs(s.byRef, e.SourcePath, e.SourceLine, e.SourceOffset, e.EventID)
+	}
 	s.flagged = map[string][]string{}
 	for _, f := range s.findings {
 		seen := map[string]bool{}
@@ -239,7 +245,8 @@ func (s *Server) apiCase(w http.ResponseWriter, r *http.Request) {
 	sessions := map[string]bool{}
 	agents := map[string]bool{}
 	var first, last string
-	for _, e := range s.events {
+	for i, n := 0, s.idx.Len(); i < n; i++ {
+		e := s.idx.At(i)
 		types[e.EventType]++
 		states[e.Corroboration]++
 		if e.SessionID != "" {
@@ -275,8 +282,10 @@ func (s *Server) apiCase(w http.ResponseWriter, r *http.Request) {
 		"case":      s.info,
 		"verify":    s.verify,
 		"signature": s.sig,
-		"events":    len(s.events),
-		"truncated": s.truncated,
+		"events":    s.idx.Len(),
+		// Kept in the shape the UI reads, and now always false: the index
+		// covers the whole overlay, so there is no tail to hide.
+		"truncated": false,
 		"sessions":  len(sessions),
 		"agents":    len(agents),
 		"artifacts": len(s.arts),
@@ -302,34 +311,10 @@ func (s *Server) apiEvents(w http.ResponseWriter, r *http.Request) {
 	if limit <= 0 || limit > 500 {
 		limit = 200
 	}
-	session, agent, typ, state := q.Get("session"), q.Get("agent"), q.Get("type"), q.Get("state")
-	text := strings.ToLower(q.Get("q"))
-	from, to := q.Get("from"), q.Get("to")
-	var matched []int
-	for i, e := range s.events {
-		if session != "" && e.SessionID != session {
-			continue
-		}
-		if agent != "" && e.AgentID != agent {
-			continue
-		}
-		if typ != "" && e.EventType != typ {
-			continue
-		}
-		if state != "" && e.Corroboration != state {
-			continue
-		}
-		if from != "" && e.Timestamp < from {
-			continue
-		}
-		if to != "" && e.Timestamp > to {
-			continue
-		}
-		if text != "" && !strings.Contains(strings.ToLower(e.Command+" "+e.Summary+" "+e.Tool+" "+e.File+" "+e.NetworkDest+" "+e.MCPServer), text) {
-			continue
-		}
-		matched = append(matched, i)
-	}
+	matched := s.match(filter{
+		session: q.Get("session"), agent: q.Get("agent"), typ: q.Get("type"), state: q.Get("state"),
+		text: strings.ToLower(q.Get("q")), from: q.Get("from"), to: q.Get("to"),
+	})
 	total := len(matched)
 	if offset > total {
 		offset = total
@@ -340,9 +325,86 @@ func (s *Server) apiEvents(w http.ResponseWriter, r *http.Request) {
 	}
 	items := make([]map[string]any, 0, end-offset)
 	for _, i := range matched[offset:end] {
-		items = append(items, rowOf(s.events[i]))
+		ev, err := s.idx.Event(i)
+		if err != nil {
+			continue
+		}
+		items = append(items, rowOf(ev))
 	}
 	writeJSON(w, map[string]any{"total": total, "offset": offset, "items": items})
+}
+
+// filter is one timeline query.
+type filter struct{ session, agent, typ, state, text, from, to string }
+
+func (f filter) key() string {
+	return strings.Join([]string{f.session, f.agent, f.typ, f.state, f.text, f.from, f.to}, "\x00")
+}
+
+// match returns the positions of the events a query selects, in overlay
+// order. Everything but the free-text term is answered from the index
+// summaries and touches no disk at all; a text term is matched against the
+// same six fields as before, which means reading those candidates back —
+// so the result is cached against the query, because the UI asks for it
+// once per page of 200.
+func (s *Server) match(f filter) []int {
+	key := f.key()
+	if f.text != "" {
+		s.qmu.Lock()
+		hits, ok := s.qhits[key]
+		s.qmu.Unlock()
+		if ok {
+			return hits
+		}
+	}
+	x := s.idx
+	var matched []int
+	var buf []byte
+	for i, n := 0, x.Len(); i < n; i++ {
+		e := x.At(i)
+		if f.session != "" && e.SessionID != f.session {
+			continue
+		}
+		if f.agent != "" && e.AgentID != f.agent {
+			continue
+		}
+		if f.typ != "" && e.EventType != f.typ {
+			continue
+		}
+		if f.state != "" && e.Corroboration != f.state {
+			continue
+		}
+		if f.from != "" && e.Timestamp < f.from {
+			continue
+		}
+		if f.to != "" && e.Timestamp > f.to {
+			continue
+		}
+		if f.text != "" {
+			b, err := x.Line(i, buf)
+			if err != nil {
+				continue
+			}
+			buf = b
+			var ev schema.Event
+			if json.Unmarshal(b, &ev) != nil {
+				continue
+			}
+			if !strings.Contains(strings.ToLower(ev.Command+" "+ev.Summary+" "+ev.Tool+" "+ev.File+" "+ev.NetworkDest+" "+ev.MCPServer), f.text) {
+				continue
+			}
+		}
+		matched = append(matched, i)
+	}
+	if f.text != "" {
+		s.qmu.Lock()
+		if len(s.qhits) >= 8 { // the analyst is on a new question; the old lists are dead weight
+			s.qhits = map[string][]int{}
+		}
+		s.qhits[key] = matched
+		s.qmu.Unlock()
+	}
+	return matched
 }
 
 // rowOf is the compact, sanitized timeline row.
@@ -368,12 +430,16 @@ func rowOf(e schema.Event) map[string]any {
 
 func (s *Server) apiEvent(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimPrefix(r.URL.Path, "/api/event/")
-	i, ok := s.byID[id]
+	i, ok := s.idx.Lookup(id)
 	if !ok {
 		http.NotFound(w, r)
 		return
 	}
-	e := s.events[i]
+	e, err := s.idx.Event(i)
+	if err != nil {
+		http.Error(w, "event unreadable", http.StatusInternalServerError)
+		return
+	}
 	// Sanitize free-text fields before they leave.
 	e.Summary = sanitize.Terminal(e.Summary)
 	e.Command = sanitize.Terminal(e.Command)
@@ -489,7 +555,8 @@ func (s *Server) apiGraph(w http.ResponseWriter, r *http.Request) {
 		edges[a][b] = t
 	}
 	spawned := map[string]bool{}
-	for _, e := range s.events {
+	for i, n := 0, s.idx.Len(); i < n; i++ {
+		e := s.idx.At(i)
 		if e.SessionID != "" {
 			if nodes["session:"+e.SessionID] == nil {
 				nodes["session:"+e.SessionID] = &node{ID: "session:" + e.SessionID, Kind: "session", Label: e.SessionID, Product: e.Product, Session: e.SessionID}
@@ -541,7 +608,8 @@ func (s *Server) apiGraph(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) apiBuckets(w http.ResponseWriter, r *http.Request) {
 	buckets := map[string]int{}
-	for _, e := range s.events {
+	for i, n := 0, s.idx.Len(); i < n; i++ {
+		e := s.idx.At(i)
 		if len(e.Timestamp) >= 16 {
 			buckets[e.Timestamp[:16]]++ // minute resolution
 		}
@@ -662,7 +730,7 @@ func (s *Server) Serve(ln net.Listener) error {
 
 // Describe prints a one-line summary for the console.
 func (s *Server) Describe() string {
-	return fmt.Sprintf("%d events, %d findings, %d artifacts", len(s.events), len(s.findings), len(s.arts))
+	return fmt.Sprintf("%d events, %d findings, %d artifacts", s.idx.Len(), len(s.findings), len(s.arts))
 }
 
 // ---- /api/verify ----
