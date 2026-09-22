@@ -80,12 +80,7 @@ func RunStream(pkgDir string, entities []schema.Entity, opts Options) ([]schema.
 	// ---- package content scans (already streaming from raw blobs) ----
 	findings = append(findings, permissionBypass(man, pkgDir)...)
 	findings = append(findings, permissionEscalation(man, pkgDir)...)
-	findings = append(findings, secretExposure(man, pkgDir)...)
-	findings = append(findings, promptInjectionIndicator(man, pkgDir)...)
-	findings = append(findings, invisibleUnicodeInstruction(man, pkgDir)...)
-	if len(opts.Honeytokens) > 0 {
-		findings = append(findings, HoneytokenFindings(man, pkgDir, opts.Honeytokens)...)
-	}
+	findings = append(findings, contentScans(man, pkgDir, opts.Honeytokens)...)
 	return sortBySeverity(findings), nil
 }
 

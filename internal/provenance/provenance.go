@@ -15,8 +15,10 @@ import (
 	"bufio"
 	"fmt"
 	"regexp"
+	"runtime"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/efij/AgentDFIR/v2/internal/casepkg"
 	"github.com/efij/AgentDFIR/v2/internal/detect"
@@ -90,13 +92,17 @@ func Run(pkgDir string, events []schema.Event, filter string) (*Report, error) {
 	for i, ev := range events {
 		bySession[ev.SessionID] = append(bySession[ev.SessionID], i)
 	}
-	// Collect writes with content from raw transcript lines.
+	// Collect writes with content from raw transcript lines: one forward
+	// pass per artifact, then back into event order for the triggers.
+	extracted := map[int]Write{}
+	rawLines(store, events, func(i int, raw []byte) {
+		if w, ok := extractFromRaw(raw, events[i]); ok {
+			extracted[i] = w
+		}
+	})
 	var writes []Write
 	for i, ev := range events {
-		if ev.EventType != schema.EventToolCall {
-			continue
-		}
-		w, ok := extractWrite(store, ev)
+		w, ok := extracted[i]
 		if !ok {
 			continue
 		}
@@ -104,8 +110,10 @@ func Run(pkgDir string, events []schema.Event, filter string) (*Report, error) {
 		writes = append(writes, w)
 	}
 	rep := &Report{}
-	// Target files.
-	targets := map[string]bool{}
+	idx := newWriteIndex(writes)
+	// Target files: every collected instruction file is attributed on its
+	// own, so they are read in parallel; the report keeps manifest order.
+	var candidates []casepkg.ArtifactRecord
 	for _, a := range man.Current() {
 		if a.Status != casepkg.StatusOK || !instructionCategories[a.ArtifactType] || a.Size > MaxFileBytes || a.Size == 0 {
 			continue
@@ -113,14 +121,38 @@ func Run(pkgDir string, events []schema.Event, filter string) (*Report, error) {
 		if filter != "" && !strings.Contains(a.LogicalPath, filter) {
 			continue
 		}
-		if !store.IsText(a) {
+		candidates = append(candidates, a)
+	}
+	reports := make([]*FileReport, len(candidates))
+	var wg sync.WaitGroup
+	next := make(chan int)
+	for w := 0; w < attributeWorkers(); w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := range next {
+				a := candidates[i]
+				if !store.IsText(a) {
+					continue
+				}
+				fr, err := attributeFile(store, a, idx.matching(a.LogicalPath))
+				if err == nil {
+					reports[i] = fr
+				}
+			}
+		}()
+	}
+	for i := range candidates {
+		next <- i
+	}
+	close(next)
+	wg.Wait()
+	targets := map[string]bool{}
+	for i, fr := range reports {
+		if fr == nil {
 			continue
 		}
-		fr, err := attributeFile(store, a, writes)
-		if err != nil || fr == nil {
-			continue
-		}
-		targets[normPath(a.LogicalPath)] = true
+		targets[normPath(candidates[i].LogicalPath)] = true
 		rep.Files = append(rep.Files, *fr)
 	}
 	// Writes to instruction-like paths that are not collected files.
@@ -132,8 +164,9 @@ func Run(pkgDir string, events []schema.Event, filter string) (*Report, error) {
 			continue
 		}
 		matched := false
+		nw := normPath(w.Path)
 		for t := range targets {
-			if pathsMatch(w.Path, t) {
+			if pathsMatchNorm(nw, t) {
 				matched = true
 				break
 			}
@@ -146,9 +179,65 @@ func Run(pkgDir string, events []schema.Event, filter string) (*Report, error) {
 	return rep, nil
 }
 
+// attributeWorkers bounds the instruction files attributed at once. Each
+// holds one file (MaxFileBytes at most) and its line set.
+func attributeWorkers() int {
+	n := runtime.GOMAXPROCS(0)
+	if n > 8 {
+		n = 8
+	}
+	if n < 1 {
+		n = 1
+	}
+	return n
+}
+
+// writeIndex finds the writes whose path matches a collected file without
+// comparing it against every write. Two paths that pathsMatch — equal, or
+// one a suffix of the other at a path boundary — share their last path
+// element, so writes are bucketed by it. On one machine attributeFile
+// compared 5,698 files against 3,291 writes, normalizing both paths each
+// time: 18.7 million comparisons and 72 s of the analysis.
+type writeIndex struct {
+	writes []Write
+	norm   []string         // normPath of each write's path
+	byLast map[string][]int // last path element -> write indices, ascending
+}
+
+func newWriteIndex(writes []Write) *writeIndex {
+	idx := &writeIndex{writes: writes, norm: make([]string, len(writes)), byLast: map[string][]int{}}
+	for i, w := range writes {
+		idx.norm[i] = normPath(w.Path)
+		k := lastElem(idx.norm[i])
+		idx.byLast[k] = append(idx.byLast[k], i)
+	}
+	return idx
+}
+
+// matching returns, in their original order, the writes whose path matches
+// logicalPath.
+func (idx *writeIndex) matching(logicalPath string) []Write {
+	nt := normPath(logicalPath)
+	var out []Write
+	for _, i := range idx.byLast[lastElem(nt)] {
+		if pathsMatchNorm(idx.norm[i], nt) {
+			out = append(out, idx.writes[i])
+		}
+	}
+	return out
+}
+
+// lastElem is the text after the last slash of a normalized path.
+func lastElem(p string) string {
+	if i := strings.LastIndexByte(p, '/'); i >= 0 {
+		return p[i+1:]
+	}
+	return p
+}
+
 // attributeFile maps each line of the collected file to the latest write
-// whose content contains it.
-func attributeFile(store *casepkg.Store, a casepkg.ArtifactRecord, writes []Write) (*FileReport, error) {
+// whose content contains it. relevant is the writes to that file.
+func attributeFile(store *casepkg.Store, a casepkg.ArtifactRecord, relevant []Write) (*FileReport, error) {
 	data, err := store.ReadAll(a.ArtifactID, 0)
 	if err != nil {
 		return nil, err
@@ -157,12 +246,7 @@ func attributeFile(store *casepkg.Store, a casepkg.ArtifactRecord, writes []Writ
 		return nil, nil
 	}
 	fr := &FileReport{LogicalPath: a.LogicalPath, ArtifactID: a.ArtifactID, Product: a.Product}
-	var relevant []Write
-	for _, w := range writes {
-		if pathsMatch(w.Path, a.LogicalPath) {
-			relevant = append(relevant, w)
-		}
-	}
+	relevant = append([]Write(nil), relevant...) // sorted below; do not reorder the caller's slice
 	fr.Writes = len(relevant)
 	// Latest first so the most recent write wins.
 	sort.SliceStable(relevant, func(i, j int) bool { return relevant[i].Event.Timestamp > relevant[j].Event.Timestamp })
@@ -361,7 +445,11 @@ func normPath(p string) string { return strings.ToLower(strings.ReplaceAll(p, "\
 // (absolute vs profile-relative): equal, or one is a suffix of the other
 // at a path boundary.
 func pathsMatch(a, b string) bool {
-	a, b = normPath(a), normPath(b)
+	return pathsMatchNorm(normPath(a), normPath(b))
+}
+
+// pathsMatchNorm is pathsMatch for paths already passed through normPath.
+func pathsMatchNorm(a, b string) bool {
 	if a == "" || b == "" {
 		return false
 	}
