@@ -42,6 +42,22 @@ type transcriptLine struct {
 	Version     string          `json:"version"`
 	CWD         string          `json:"cwd"`
 	Message     json.RawMessage `json:"message"`
+	// ToolUseResult carries the spawned agent's id on current Claude Code
+	// builds; older ones put it in the tool input.
+	ToolUseResult struct {
+		AgentID string `json:"agentId"`
+		Status  string `json:"status"`
+	} `json:"toolUseResult"`
+}
+
+// isSpawnTool reports whether a tool name spawns a subagent.
+//
+// Claude Code renamed this tool from Task to Agent. Matching only "Task"
+// produced zero agent_spawn events on a real 206,896-event package, so
+// every subagent in it was reported as an orphan with no verified parent —
+// 275 HIGH findings, all false.
+func isSpawnTool(name string) bool {
+	return name == "Task" || name == "Agent"
 }
 
 type messageBody struct {
@@ -154,7 +170,7 @@ func (p *parser) parseTranscript(store *casepkg.Store, art casepkg.ArtifactRecor
 		if tl.UUID != "" {
 			uuids[tl.UUID] = true
 		}
-		if tl.ParentUUID != "" {
+		if tl.ParentUUID != "" && !danglingByDesign(tl.Type) {
 			parents = append(parents, parentRef{tl.ParentUUID, ln.Offset, ln.Number, tl.SessionID})
 		}
 		p.handleLine(tl, art, ln.Offset, ln.Number)
@@ -252,14 +268,24 @@ func (p *parser) handleLine(tl transcriptLine, art casepkg.ArtifactRecord, off i
 			p.decorateToolCall(&ev, it)
 			p.emit(ev, art, off, line)
 
-			if it.Name == "Task" {
+			if isSpawnTool(it.Name) {
 				sp := base
 				sp.EventType = schema.EventAgentSpawn
 				sp.ActorType = schema.ActorAgent
 				sp.ToolCallID = it.ID
 				sp.Corroboration = schema.StateObserved
-				sp.Summary = "subagent spawn requested via Task tool"
-				if child := inputField(it.Input, "agentId"); child != "" {
+				sp.Summary = "subagent spawn requested via " + it.Name + " tool"
+				// The child id arrives in one of three places depending on
+				// the client version: the tool input, the top-level
+				// toolUseResult, or the content item on the result.
+				child := inputField(it.Input, "agentId")
+				if child == "" {
+					child = tl.ToolUseResult.AgentID
+				}
+				if child == "" {
+					child = it.AgentID
+				}
+				if child != "" {
 					sp.TaskID = child
 					p.spawned[child] = fmt.Sprintf("evt-%06d", p.seq)
 				}
@@ -303,7 +329,7 @@ func (p *parser) decorateToolCall(ev *schema.Event, it contentItem) {
 	case it.Name == "SendMessage":
 		ev.Action = "inter_agent_message"
 		ev.Summary = "to=" + trim(inputField(it.Input, "to"), 80)
-	case it.Name == "Task":
+	case isSpawnTool(it.Name):
 		ev.Action = "spawn_subagent"
 		ev.Summary = trim(inputField(it.Input, "description"), 120)
 	case strings.HasPrefix(it.Name, "mcp__"):
@@ -510,4 +536,20 @@ func (l *Live) Line(path string, raw []byte, off int64, line int) {
 		return
 	}
 	l.p.handleLine(tl, art, off, line)
+}
+
+// danglingByDesign reports record types whose parentUuid routinely points
+// outside the transcript.
+//
+// Every dangling parent used to be reported as a broken conversation DAG.
+// On real transcripts they come from attachment, queue-operation and system
+// records — Claude Code's own bookkeeping — which produced 49
+// SESSION_TAMPERING findings on one machine and not one of them was a
+// spliced transcript.
+func danglingByDesign(recType string) bool {
+	switch recType {
+	case "attachment", "queue-operation", "system", "summary", "progress":
+		return true
+	}
+	return false
 }

@@ -10,6 +10,7 @@ import (
 
 	"github.com/efij/AgentDFIR/internal/analysis"
 	"github.com/efij/AgentDFIR/internal/casepkg"
+	"github.com/efij/AgentDFIR/internal/catalog"
 	"github.com/efij/AgentDFIR/internal/collector"
 	"github.com/efij/AgentDFIR/internal/products"
 	"github.com/efij/AgentDFIR/internal/schema"
@@ -80,6 +81,12 @@ func TestCorpus(t *testing.T) {
 			case "benign":
 				for rule, n := range got {
 					if _, ok := c.Allow[rule]; ok {
+						continue
+					}
+					// Building blocks describe what an agent does all day.
+					// They are input for the chain rules and context for an
+					// analyst, not alerts, so they are not false positives.
+					if catalog.IsBuildingBlock(rule) {
 						continue
 					}
 					res.FalsePositives[rule] += n

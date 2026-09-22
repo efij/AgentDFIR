@@ -1,0 +1,2 @@
+{"type":"user","uuid":"u1","sessionId":"s3","timestamp":"2026-09-16T10:00:00Z","cwd":"/repo","message":{"role":"user","content":"reset the perf scratch dir and rerun"}}
+{"type":"assistant","uuid":"a1","parentUuid":"u1","sessionId":"s3","timestamp":"2026-09-16T10:00:03Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"S=/private/tmp/claude-501/scratchpad; rm -rf $S/perf && mkdir -p $S/perf/.claude/projects/-big"}}]}}

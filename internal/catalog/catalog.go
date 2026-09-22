@@ -23,6 +23,31 @@ type Rule struct {
 	Summary     string `json:"summary"`
 	MitreATTACK string `json:"mitre_attack,omitempty"`
 	MitreATLAS  string `json:"mitre_atlas,omitempty"`
+	// Class separates alerts from context.
+	//
+	// A building block describes something an agent does constantly — a
+	// shell command ran, a commit was made, an MCP server is project-scoped.
+	// It is input for the chain rules and background for an analyst, not a
+	// thing to look at. Emitting them as ordinary findings buried the real
+	// ones and inflated the ATT&CK coverage claim: SHELL_EXECUTION is INFO
+	// and claimed T1059, MCP_PROJECT_SCOPED_SERVER is INFO, claimed T1195
+	// and fired 54 times on one machine.
+	//
+	// Empty means "detection".
+	Class string `json:"class,omitempty"`
+}
+
+// ClassBuildingBlock marks context rather than an alert.
+const ClassBuildingBlock = "building_block"
+
+// IsBuildingBlock reports whether a rule id is context rather than an alert.
+func IsBuildingBlock(id string) bool {
+	for _, r := range Builtin {
+		if r.ID == id {
+			return r.Class == ClassBuildingBlock
+		}
+	}
+	return false
 }
 
 // Builtin lists every built-in rule. Keep sorted by package, then ID.
@@ -57,9 +82,9 @@ var Builtin = []Rule{
 		Title: "Agent Context Poisoning Indicator", Summary: "Instruction-override phrase in standing agent instructions (CLAUDE.md, rules).",
 		MitreATLAS: "AML.T0080.000"},
 	{ID: "AGENT_GENERATED_COMMIT", Package: "detect", Surface: "command", MaxSeverity: "INFO",
-		Title: "Agent Created a Commit", Summary: "Provenance marker: git commit executed by the agent."},
+		Title: "Agent Created a Commit", Summary: "Provenance marker: git commit executed by the agent.", Class: ClassBuildingBlock},
 	{ID: "AGENT_GENERATED_PUSH", Package: "detect", Surface: "command", MaxSeverity: "LOW",
-		Title: "Agent Pushed to a Remote", Summary: "git push executed by the agent; code left the host."},
+		Title: "Agent Pushed to a Remote", Summary: "git push executed by the agent; code left the host.", Class: ClassBuildingBlock},
 	{ID: "AGENT_IDENTITY_MISMATCH", Package: "detect", Surface: "transcript", MaxSeverity: "HIGH",
 		Title: "Transcript Carries Multiple Session Identities", Summary: "One session file contains records from several sessions (splicing).",
 		MitreATTACK: "T1565.001"},
@@ -111,7 +136,7 @@ var Builtin = []Rule{
 		MitreATTACK: "T1565.001"},
 	{ID: "SHELL_EXECUTION", Package: "detect", Surface: "command", MaxSeverity: "INFO",
 		Title: "Shell Execution Present", Summary: "Shell commands were invoked via a tool (context, not an indicator).",
-		MitreATTACK: "T1059", MitreATLAS: "AML.T0050"},
+		MitreATTACK: "T1059", MitreATLAS: "AML.T0050", Class: ClassBuildingBlock},
 	{ID: "TIMESTOMP_INDICATOR", Package: "detect", Surface: "transcript", MaxSeverity: "MEDIUM",
 		Title: "File Modified Before Content It Contains", Summary: "Filesystem mtime predates an event timestamp inside the file.",
 		MitreATTACK: "T1070.006"},
@@ -157,7 +182,7 @@ var Builtin = []Rule{
 		MitreATTACK: "T1036", MitreATLAS: "AML.T0053"},
 	{ID: "MCP_PROJECT_SCOPED_SERVER", Package: "mcpaudit", Surface: "mcp", MaxSeverity: "INFO",
 		Title: "Project-Scoped MCP Server", Summary: "Server defined by a repository rather than the user.",
-		MitreATTACK: "T1195"},
+		MitreATTACK: "T1195", Class: ClassBuildingBlock},
 	{ID: "MCP_REMOTE_FETCH_COMMAND", Package: "mcpaudit", Surface: "mcp", MaxSeverity: "CRITICAL",
 		Title: "MCP Server Command Fetches and Executes Remote Code", Summary: "Launch command downloads and runs code (CRITICAL) or wraps a shell (MEDIUM).",
 		MitreATTACK: "T1105", MitreATLAS: "AML.T0010"},

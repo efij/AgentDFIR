@@ -1,0 +1,2 @@
+{"type":"user","uuid":"u1","sessionId":"s2","timestamp":"2026-09-16T09:00:00Z","cwd":"/repo","message":{"role":"user","content":"ship it 👨‍👩‍👧 שלום עולם thanks"}}
+{"type":"assistant","uuid":"a1","parentUuid":"u1","sessionId":"s2","timestamp":"2026-09-16T09:00:05Z","message":{"role":"assistant","content":[{"type":"text","text":"Done ✅"}]}}

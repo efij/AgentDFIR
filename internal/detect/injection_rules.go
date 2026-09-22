@@ -126,9 +126,21 @@ func invisibleUnicodeInstruction(man *casepkg.Manifest, pkgDir string) []schema.
 		if tags == 0 && bidi < 3 && zw < 8 {
 			continue
 		}
+		// Severity follows which characters were found. Unicode tag
+		// characters (U+E0000–U+E007F) have no legitimate use in prompts and
+		// can carry a whole instruction invisibly. Bidi controls occur in
+		// every right-to-left language and zero-width joiners in ordinary
+		// emoji — on a real machine all 43 HIGH findings had tags == 0.
+		sev := "INFO"
+		switch {
+		case tags > 0:
+			sev = "HIGH"
+		case bidi >= 3:
+			sev = "MEDIUM"
+		}
 		out = append(out, schema.Finding{
 			RuleID:   "INVISIBLE_UNICODE_INSTRUCTION",
-			Severity: "HIGH",
+			Severity: sev,
 			Title:    "Invisible Unicode in Agent-Facing Content",
 			Description: fmt.Sprintf("Invisible characters detected (tag: %d, bidi controls: %d, zero-width: %d). Unicode tag characters can smuggle instructions invisible to a human reviewer but readable by the model.",
 				tags, bidi, zw),

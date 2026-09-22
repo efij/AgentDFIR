@@ -1,0 +1,5 @@
+{"type":"user","uuid":"u1","sessionId":"s6","timestamp":"2026-09-16T12:00:00Z","cwd":"/repo","message":{"role":"user","content":"run the tests"}}
+{"type":"assistant","uuid":"a1","parentUuid":"u1","sessionId":"s6","timestamp":"2026-09-16T12:00:05Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"go test ./..."}}]}}
+{"type":"attachment","uuid":"x1","parentUuid":"missing-on-purpose","sessionId":"s6","timestamp":"2026-09-16T12:00:06Z"}
+{"type":"system","subtype":"stop_hook_summary","uuid":"h1","sessionId":"s6","timestamp":"2026-09-16T11:59:58Z"}
+{"type":"assistant","uuid":"a2","parentUuid":"a1","sessionId":"s6","timestamp":"2026-09-16T12:00:11Z","message":{"role":"assistant","content":[{"type":"text","text":"All tests pass."}]}}

@@ -146,6 +146,13 @@ func (r *Result) Report() string {
 	for _, x := range rows {
 		fmt.Fprintf(&b, "  %5d  %s\n", x.n, x.rule)
 	}
+	if len(r.Unexpected) > 0 {
+		sort.Strings(r.Unexpected)
+		fmt.Fprintf(&b, "by case:\n")
+		for _, u := range r.Unexpected {
+			fmt.Fprintf(&b, "  %s\n", u)
+		}
+	}
 	if len(r.Missed) > 0 {
 		fmt.Fprintf(&b, "lost detections: %s\n", strings.Join(r.Missed, ", "))
 	}

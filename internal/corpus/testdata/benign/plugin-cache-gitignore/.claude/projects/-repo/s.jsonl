@@ -1,0 +1,2 @@
+{"type":"user","uuid":"u1","sessionId":"s7","timestamp":"2026-09-16T13:00:00Z","cwd":"/repo","message":{"role":"user","content":"add .claude/ to gitignore"}}
+{"type":"assistant","uuid":"a1","parentUuid":"u1","sessionId":"s7","timestamp":"2026-09-16T13:00:06Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"t1","name":"Edit","input":{"file_path":"/repo/.gitignore","old_string":"dist/","new_string":"dist/\n.claude/"}}]}}
