@@ -207,7 +207,7 @@ jobs:
   homebrew:
     needs: verify
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'push' && needs.verify.result == 'success' && !contains(github.ref_name, '-') }}
+    if: ${{ (github.event_name == 'push' || inputs.build) && needs.verify.result == 'success' && !contains(github.ref_name, '-') }}
     steps:
       - uses: actions/checkout@v4
       - name: Update tap formula
@@ -239,7 +239,7 @@ jobs:
   scoop:
     needs: verify
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'push' && needs.verify.result == 'success' && !contains(github.ref_name, '-') }}
+    if: ${{ (github.event_name == 'push' || inputs.build) && needs.verify.result == 'success' && !contains(github.ref_name, '-') }}
     steps:
       - uses: actions/checkout@v4
       - name: Update bucket manifest
