@@ -7,6 +7,31 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [2.1.0] — 2026-09-22
+
+### Added
+- **The analysis overlay is compressed.** On a real case the sealed evidence
+  is 525 MB and the regenerable overlay on top of it was ~300 MB —
+  `normalized/` 178 MB, `detections/` 120 MB — so the derived half of the
+  package had grown larger than the evidence it came from.
+
+  `internal/overlay` is now the single read/write path: writers gzip,
+  readers accept either form, so packages written before this keep opening
+  and `gunzip -c` still works on the new ones. Measured 30:1 on a synthetic
+  package; expect nearer 10:1 on a real case, taking ~300 MB to ~30 MB.
+  Decompression is bounded, as blob reads are — by ratio rather than a
+  recorded size, because the overlay has no manifest to check against.
+
+  An existing plaintext overlay is migrated in place on the next `analyze`:
+  the reuse path never rewrites it, so an upgraded binary would otherwise
+  carry the old one indefinitely.
+- **`agentdfir compact <pkg> [--dry-run]`** deletes the overlay and reports
+  what it reclaimed. Safe by construction — the overlay is excluded from
+  `SHA256SUMS`, and `analyze` rebuilds it.
+
+Detection results are unchanged, asserted by an equivalence test that fails
+without the change.
+
 ## [2.0.1] — 2026-09-22
 
 ### Fixed
