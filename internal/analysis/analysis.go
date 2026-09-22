@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/efij/AgentDFIR/v2/internal/casepkg"
 	"github.com/efij/AgentDFIR/v2/internal/chain"
 	"github.com/efij/AgentDFIR/v2/internal/correlate"
 	"github.com/efij/AgentDFIR/v2/internal/detect"
@@ -47,6 +48,7 @@ type Options struct {
 	SpawnThreshold int
 	KnownDests     []string
 	Renormalize    bool      // force re-parse even if the overlay is current
+	RetireExcluded bool      // drop records the current collection policy would not have collected (node_modules, .git objects) from the scan set
 	Log            io.Writer // progress lines; nil = silent
 	// Stage is called as each stage begins, for a caller that wants to show
 	// which one is running. Deliberately no time estimate: stage costs
@@ -92,24 +94,51 @@ func (o *Options) logf(format string, a ...any) {
 
 // Stale reports whether results need (re)computing: no overlay, no
 // findings, or the package was sealed after the overlay was written.
-func Stale(pkg string) bool {
+func Stale(pkg string) bool { return staleReason(pkg) != "" }
+
+// staleReason says why results must be recomputed, or "" when they are
+// current.
+func staleReason(pkg string) string {
 	ev, err := overlay.Stat(filepath.Join(pkg, "normalized", "events.jsonl"))
 	if err != nil {
-		return true
+		return "no normalized events"
 	}
 	if !overlay.Exists(filepath.Join(pkg, "detections", "findings.json")) {
-		return true
+		return "no findings"
 	}
 	if mt, ok := manifestModTime(pkg); ok && mt.After(ev.ModTime()) {
-		return true
+		return "manifest newer than the normalized overlay"
 	}
-	return false
+	// Results carry the version that produced them. A package analyzed by
+	// an older binary is that binary's opinion, not this one's: on a real
+	// case the difference was 66 HIGH findings that the running version
+	// would not have raised.
+	data, err := overlay.ReadFile(filepath.Join(pkg, "detections", "analysis.json"))
+	if err != nil {
+		return "no analysis metadata"
+	}
+	var meta struct {
+		Version string `json:"agentdfir_version"`
+	}
+	if json.Unmarshal(data, &meta) != nil || meta.Version == "" {
+		return "analysis metadata carries no version"
+	}
+	if meta.Version != version.Version {
+		return "analysis was produced by agentdfir " + meta.Version
+	}
+	return ""
 }
 
-// Ensure runs a default analysis only when results are missing or stale.
+// Ensure runs a default analysis only when results are missing or stale,
+// and says why, so the analyst knows the numbers they were about to read
+// were not the running version's.
 func Ensure(pkg string, log io.Writer) (*Result, error) {
-	if !Stale(pkg) {
+	why := staleReason(pkg)
+	if why == "" {
 		return nil, nil
+	}
+	if log != nil {
+		fmt.Fprintf(log, "Re-running analysis with agentdfir %s: %s.\n", version.Version, why)
 	}
 	return Run(pkg, Options{Log: log})
 }
@@ -128,6 +157,21 @@ func Run(pkg string, o Options) (*Result, error) {
 		}
 	}
 
+	if o.RetireExcluded {
+		// Records an older collector took from trees the policy now skips
+		// stay as evidence but leave the scan set. On a real case this was
+		// 5,752 plugin files (640 MB) from a v1.0.0 round, and the only
+		// HIGH unicode finding was a .pptx among them.
+		if man, err := casepkg.ReadManifest(pkg); err == nil {
+			if n := man.RetireExcluded(); n > 0 {
+				if err := casepkg.WriteRetired(pkg, man); err != nil {
+					return nil, fmt.Errorf("retire excluded artifacts: %w", err)
+				}
+				res.StageNotes = append(res.StageNotes, fmt.Sprintf("%d artifacts under node_modules/.git objects retired from the scan set (evidence kept)", n))
+				o.Renormalize = true
+			}
+		}
+	}
 	o.stage(1, "normalize")
 	// ---- 1. normalize (streaming) — only when the overlay is missing/stale.
 	evPath := filepath.Join(dir, "events.jsonl")

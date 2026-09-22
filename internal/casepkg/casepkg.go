@@ -148,6 +148,10 @@ type Manifest struct {
 	OS               string           `json:"os"`
 	Arch             string           `json:"arch"`
 	Artifacts        []ArtifactRecord `json:"artifacts,omitempty"`
+
+	// retired: source path → last round whose record the current policy
+	// excludes from the scan set. In-memory only; see retire.go.
+	retired map[string]int
 }
 
 // Round summarizes one collection round against a package.

@@ -42,7 +42,12 @@ which stays plaintext because `index/events.idx` records a byte offset per
 event and a gzip stream cannot be seeked. The segments under
 `normalized/events/` hold the same events, split per source artifact, so a
 new collection round re-parses only the transcripts whose content address
-changed. All of it is derived: `agentdfir compact` deletes it, and
+changed. `normalized/retired.json` lists source paths the current
+collection policy excludes (`node_modules`, git object storage) together
+with the last round that collected each; `Current()` leaves those records
+out of the scan set while the manifest keeps them as evidence, and a later
+round that collects the path again (`run --full-plugins`) puts it back. All
+of it is derived: `agentdfir compact` deletes it, and
 `agentdfir analyze --renormalize` rebuilds it from the sealed evidence.
 
 ## Content addressing

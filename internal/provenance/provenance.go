@@ -113,6 +113,9 @@ func Run(pkgDir string, events []schema.Event, filter string) (*Report, error) {
 		if filter != "" && !strings.Contains(a.LogicalPath, filter) {
 			continue
 		}
+		if !store.IsText(a) {
+			continue
+		}
 		fr, err := attributeFile(store, a, writes)
 		if err != nil || fr == nil {
 			continue

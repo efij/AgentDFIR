@@ -123,7 +123,7 @@ func cmdAnalyze(args []string) int {
 	}
 	opts := analysis.Options{EndpointLogs: endpointLogs, ShellHistory: *shellHistory, GatewayLog: *gwLog, GatewayMap: *gwMap,
 		GatewayServers: gwServers, RulesDir: *rulesDir, NoBuiltinPacks: *noPacks,
-		SpawnThreshold: *spawnTh, Renormalize: *renorm, Log: os.Stdout}
+		SpawnThreshold: *spawnTh, Renormalize: *renorm, RetireExcluded: *renorm, Log: os.Stdout}
 	if *honeyFile != "" {
 		data, err := os.ReadFile(*honeyFile)
 		if err != nil {
