@@ -7,6 +7,46 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.9.0] — 2026-09-22
+
+The second witness, by default. Until now every finding this tool produced
+was `RECORDED` at best — the transcript says a tool was called, and nothing
+else was ever asked. On a real 206,896-event package **all 1,519 findings
+carried `UNKNOWN`**. The corroboration model existed and was wired to
+nothing, because it assumed the analyst already had auditd or Sysmon
+exports.
+
+### Added
+- **`internal/witness` — host state, recorded during acquisition.** After
+  collection and before sealing, `run` parses what it has just preserved,
+  asks the filesystem about every file the agent claimed to write, reads the
+  reflog of every repository it edited, and seals the answer into the
+  package as `witness.json`, covered by `SHA256SUMS` and the custody chain
+  like any other evidence.
+
+  The timing is the design. Gathering happens at **acquisition**; comparing
+  happens later in analysis, in the regenerable overlay. Asking the host at
+  analysis time — days later, possibly on another machine — would describe a
+  different world, and the tool would be manufacturing evidence rather than
+  preserving it.
+
+  Analysis then raises an event to **`CONFIRMED`** when the file is there
+  with its content hash recorded, and notes the witness in a sentence an
+  analyst can read. **Absence is deliberately not disproof**: a file can be
+  removed by anything between the action and the acquisition, so a missing
+  file is noted and the state is left alone.
+
+  Bounded on purpose — 2,000 files, 8 MiB each, 100 repositories — because
+  the paths come from evidence, which is hostile input. Read-only
+  throughout, and git is never executed: the reflog is read as the text file
+  it is.
+
+  `--no-witness` turns it off.
+- **Shell history is collected at last.** `correlate.ShellHistoryAdapter`
+  has existed since v0.8.0 and **no manifest ever collected the file**, so
+  `run` could never use it. zsh, bash, fish and PowerShell histories are now
+  part of the collection.
+
 ## [1.8.0] — 2026-09-22
 
 Precision. The benign corpus went from **13 false positives to zero** with

@@ -495,6 +495,58 @@
           "sensitivity": "medium"
         }
       ]
+    },
+    {
+      "product": "host-shell",
+      "entries": [
+        {
+          "id": "shell.zsh_history",
+          "platforms": [
+            "darwin",
+            "linux"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/.zsh_history"
+          ],
+          "category": "shell_state",
+          "sensitivity": "high"
+        },
+        {
+          "id": "shell.bash_history",
+          "platforms": [
+            "darwin",
+            "linux"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/.bash_history"
+          ],
+          "category": "shell_state",
+          "sensitivity": "high"
+        },
+        {
+          "id": "shell.fish_history",
+          "platforms": [
+            "darwin",
+            "linux"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/.local/share/fish/fish_history"
+          ],
+          "category": "shell_state",
+          "sensitivity": "high"
+        },
+        {
+          "id": "shell.ps_history",
+          "platforms": [
+            "windows"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/AppData/Roaming/Microsoft/Windows/PowerShell/PSReadLine/ConsoleHost_history.txt"
+          ],
+          "category": "shell_state",
+          "sensitivity": "high"
+        }
+      ]
     }
   ]
 }

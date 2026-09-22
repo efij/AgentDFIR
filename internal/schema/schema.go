@@ -72,6 +72,10 @@ type Event struct {
 	SourceOffset   int64  `json:"source_offset"` // byte offset of the source line
 	SourceLine     int    `json:"source_line"`
 	Corroboration  string `json:"corroboration_state"`
+	// WitnessNote names the independent source that confirmed or disproved
+	// this event, in a sentence an analyst can read. Empty when nothing
+	// outside the transcript was consulted.
+	WitnessNote string `json:"witness_note,omitempty"`
 }
 
 // Entity is one node in the agent relationship graph.

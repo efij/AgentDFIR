@@ -27,6 +27,7 @@ import (
 	"github.com/efij/AgentDFIR/internal/rulepack"
 	"github.com/efij/AgentDFIR/internal/schema"
 	"github.com/efij/AgentDFIR/internal/version"
+	"github.com/efij/AgentDFIR/internal/witness"
 )
 
 // Options are the optional inputs an analyst may add.
@@ -62,6 +63,7 @@ type Result struct {
 	Provenance   int // instruction files attributed
 	Chains       int // attack-chain findings
 	Packs        []rulepack.PackSource
+	Witness      *witness.Result
 	StageNotes   []string
 }
 
@@ -156,8 +158,24 @@ func Run(pkg string, o Options) (*Result, error) {
 	res.Entities = len(entities)
 
 	o.stage(2, "second witness")
-	// ---- 2. second witness (runs BEFORE detection so findings carry the states).
 	var findings []schema.Finding
+	// Host witness recorded during acquisition. This is the only source
+	// that is always available: it needs no EDR, no auditd, no Sysmon, and
+	// it is why a finding can now say CONFIRMED instead of only RECORDED.
+	if wrec, wErr := witness.Load(pkg); wErr == nil {
+		events := LoadEvents(pkg)
+		wres, wf := witness.Apply(events, wrec)
+		if wres.Checked > 0 {
+			if err := writeJSONL(evPath, len(events), func(i int) any { return events[i] }); err != nil {
+				return nil, err
+			}
+			findings = append(findings, wf...)
+			res.Witness = &wres
+			o.logf("Host witness: %d claimed write(s) checked — %d CONFIRMED, %d DISPROVED, %d no longer present",
+				wres.Checked, wres.Confirmed, wres.Disproved, wres.Absent)
+		}
+	}
+	// ---- 2. second witness (runs BEFORE detection so findings carry the states).
 	if len(o.EndpointLogs) > 0 || o.ShellHistory != "" {
 		events := LoadEvents(pkg)
 		if o.ShellHistory != "" {

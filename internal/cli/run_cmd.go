@@ -11,12 +11,14 @@ import (
 	"github.com/efij/AgentDFIR/internal/analysis"
 	"github.com/efij/AgentDFIR/internal/casepkg"
 	"github.com/efij/AgentDFIR/internal/collector"
+	"github.com/efij/AgentDFIR/internal/normalize"
 	"github.com/efij/AgentDFIR/internal/products"
 	"github.com/efij/AgentDFIR/internal/sanitize"
 	"github.com/efij/AgentDFIR/internal/schema"
 	"github.com/efij/AgentDFIR/internal/seal"
 	"github.com/efij/AgentDFIR/internal/serve"
 	"github.com/efij/AgentDFIR/internal/store"
+	"github.com/efij/AgentDFIR/internal/witness"
 )
 
 // cmdRun is the whole workflow in one command for the common case — this
@@ -35,6 +37,7 @@ func cmdRun(args []string) int {
 	jobs := fs.Int("jobs", 0, "parallel acquisition workers (default: CPUs, max 8)")
 	newCase := fs.Bool("new", false, "start a fresh case instead of adding a round to the existing one")
 	recollect := fs.Bool("recollect", false, "re-read every file, even one an earlier round already preserved")
+	noWitness := fs.Bool("no-witness", false, "do not ask the host whether the files the agent claimed to write exist")
 	noShare := fs.Bool("no-share", false, "do not share identical blobs with other cases on this machine")
 	fullPlugins := fs.Bool("full-plugins", false, "also collect node_modules/.git subtrees (large, third-party)")
 	signKey := fs.String("sign", "", "sign the sealed package with this ed25519 private key")
@@ -198,6 +201,17 @@ func cmdRun(args []string) int {
 			fmt.Printf("  %-16s %d new · %d carried forward · %s\n", pid, st.Acquired, st.Carried, humanBytes(st.TotalBytes))
 		default:
 			fmt.Printf("  %-16s %d artifacts · %s\n", pid, st.Acquired, humanBytes(st.TotalBytes))
+		}
+	}
+	// The host witness is acquisition, not analysis: what the filesystem and
+	// the repositories said at the moment the evidence was taken. Asking
+	// later would describe a different host.
+	if !*noWitness {
+		prog.Start("  asking the host about the agent's claims")
+		gathered := gatherWitness(dest, b, host)
+		prog.Stop()
+		if gathered > 0 {
+			fmt.Printf("  %d claimed write(s) checked against the filesystem\n", gathered)
 		}
 	}
 	if *signKey != "" {
@@ -389,4 +403,30 @@ func severitySummary(f []schema.Finding) string {
 		}
 	}
 	return s
+}
+
+// gatherWitness parses what has just been collected, asks the host about
+// every file the agent claimed to write, and seals the answer into the
+// package. Returns how many paths were checked.
+//
+// It runs on the package's own evidence rather than on the live profile, so
+// it inspects exactly what was preserved, and it runs before Seal so the
+// record is covered by SHA256SUMS and the custody chain like anything else.
+func gatherWitness(pkg string, b *casepkg.Builder, host string) int {
+	var events []schema.Event
+	if _, err := normalize.ParseStream(pkg, func(ev schema.Event) error {
+		events = append(events, ev)
+		return nil
+	}); err != nil {
+		return 0
+	}
+	rec := witness.Gather(events, host, b.Round(), witness.DefaultLimits)
+	if len(rec.Files) == 0 && len(rec.Repos) == 0 {
+		return 0
+	}
+	if err := witness.Write(b, rec); err != nil {
+		fmt.Fprintln(os.Stderr, "note: host witness not recorded:", err)
+		return 0
+	}
+	return len(rec.Files)
 }
