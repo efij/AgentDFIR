@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/efij/AgentDFIR/v2/internal/overlay"
 	"github.com/efij/AgentDFIR/v2/internal/provenance"
 	"github.com/efij/AgentDFIR/v2/internal/sanitize"
 )
@@ -46,7 +47,7 @@ func cmdProvenance(args []string) int {
 		filter = positional[1]
 	}
 	dir := filepath.Join(pkg, "normalized")
-	if _, err := os.Stat(filepath.Join(dir, "events.jsonl")); err != nil {
+	if !overlay.Exists(filepath.Join(dir, "events.jsonl")) {
 		fmt.Println("Package not normalized yet — normalizing first.")
 		if rc := cmdNormalize([]string{pkg}); rc != 0 {
 			return rc
@@ -61,7 +62,7 @@ func cmdProvenance(args []string) int {
 	detDir := filepath.Join(pkg, "detections")
 	_ = os.MkdirAll(detDir, 0o700)
 	data, _ := json.MarshalIndent(rep, "", "  ")
-	_ = os.WriteFile(filepath.Join(detDir, "provenance.json"), append(data, '\n'), 0o600)
+	_ = overlay.WriteJSON(filepath.Join(detDir, "provenance.json"), rep)
 	if *asJSON {
 		fmt.Println(string(data))
 		return exitFor(rep.Findings)

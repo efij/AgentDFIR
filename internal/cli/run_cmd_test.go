@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/efij/AgentDFIR/v2/internal/overlay"
 	"github.com/efij/AgentDFIR/v2/internal/simulate"
 )
 
@@ -27,9 +28,12 @@ func TestRunNoServe(t *testing.T) {
 	if code != 0 && code != 3 { // 3 = findings above INFO, expected for the orphan-agent scenario
 		t.Fatalf("run exit %d, want 0 or 3", code)
 	}
-	for _, p := range []string{"SHA256SUMS", filepath.Join("detections", "findings.json"), filepath.Join("detections", "analysis.json")} {
-		if _, err := os.Stat(filepath.Join(out, p)); err != nil {
-			t.Errorf("missing %s after run: %v", p, err)
+	if _, err := os.Stat(filepath.Join(out, "SHA256SUMS")); err != nil {
+		t.Errorf("missing SHA256SUMS after run: %v", err)
+	}
+	for _, p := range []string{"findings.json", "analysis.json"} {
+		if !overlay.Exists(filepath.Join(out, "detections", p)) {
+			t.Errorf("missing detections/%s after run", p)
 		}
 	}
 }
@@ -55,7 +59,7 @@ func TestRunToxicChain(t *testing.T) {
 	if code := Main([]string{"run", "--no-serve", "--out", out, "--case-id", "TOXIC"}); code != 3 {
 		t.Fatalf("run exit %d, want 3 (findings above INFO)", code)
 	}
-	data, err := os.ReadFile(filepath.Join(out, "detections", "findings.json"))
+	data, err := overlay.ReadFile(filepath.Join(out, "detections", "findings.json"))
 	if err != nil {
 		t.Fatal(err)
 	}

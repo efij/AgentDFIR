@@ -8,7 +8,6 @@
 package analysis
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -23,6 +22,7 @@ import (
 	"github.com/efij/AgentDFIR/v2/internal/endpoint"
 	"github.com/efij/AgentDFIR/v2/internal/mcpaudit"
 	"github.com/efij/AgentDFIR/v2/internal/normalize"
+	"github.com/efij/AgentDFIR/v2/internal/overlay"
 	"github.com/efij/AgentDFIR/v2/internal/provenance"
 	"github.com/efij/AgentDFIR/v2/internal/rulepack"
 	"github.com/efij/AgentDFIR/v2/internal/schema"
@@ -87,11 +87,11 @@ func (o *Options) logf(format string, a ...any) {
 // Stale reports whether results need (re)computing: no overlay, no
 // findings, or the package was sealed after the overlay was written.
 func Stale(pkg string) bool {
-	ev, err := os.Stat(filepath.Join(pkg, "normalized", "events.jsonl"))
+	ev, err := overlay.Stat(filepath.Join(pkg, "normalized", "events.jsonl"))
 	if err != nil {
 		return true
 	}
-	if _, err := os.Stat(filepath.Join(pkg, "detections", "findings.json")); err != nil {
+	if !overlay.Exists(filepath.Join(pkg, "detections", "findings.json")) {
 		return true
 	}
 	if mt, ok := manifestModTime(pkg); ok && mt.After(ev.ModTime()) {
@@ -126,14 +126,17 @@ func Run(pkg string, o Options) (*Result, error) {
 	// ---- 1. normalize (streaming) — only when the overlay is missing/stale.
 	evPath := filepath.Join(dir, "events.jsonl")
 	needNorm := o.Renormalize
-	if fi, err := os.Stat(evPath); err != nil {
+	if fi, err := overlay.Stat(evPath); err != nil {
 		needNorm = true
 	} else if mt, ok := manifestModTime(pkg); ok && mt.After(fi.ModTime()) {
 		needNorm = true
 	}
 	var entities []schema.Entity
 	if needNorm {
-		f, err := os.OpenFile(evPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+		// The sink is the compressed overlay writer: events are encoded
+		// straight into the gzip stream, so the 178 MB plaintext form is
+		// never written to disk even transiently.
+		f, err := overlay.Create(evPath)
 		if err != nil {
 			return nil, err
 		}
@@ -143,19 +146,39 @@ func Run(pkg string, o Options) (*Result, error) {
 			f.Close()
 			return nil, err
 		}
-		f.Close()
-		if err := writeJSONL(filepath.Join(dir, "entities.jsonl"), len(sr.Entities), func(i int) any { return sr.Entities[i] }); err != nil {
+		if err := f.Close(); err != nil {
 			return nil, err
 		}
-		if err := writeJSONL(filepath.Join(dir, "relationships.jsonl"), len(sr.Relationships), func(i int) any { return sr.Relationships[i] }); err != nil {
+		if err := overlay.WriteJSONL(filepath.Join(dir, "entities.jsonl"), len(sr.Entities), func(i int) any { return sr.Entities[i] }); err != nil {
+			return nil, err
+		}
+		if err := overlay.WriteJSONL(filepath.Join(dir, "relationships.jsonl"), len(sr.Relationships), func(i int) any { return sr.Relationships[i] }); err != nil {
 			return nil, err
 		}
 		entities, res.Events, res.Renormalized = sr.Entities, sr.EventCount, true
 		o.logf("Normalized: %d events, %d entities, %d relationships", sr.EventCount, len(sr.Entities), len(sr.Relationships))
 	} else {
-		entities = readJSONL[schema.Entity](filepath.Join(dir, "entities.jsonl"))
-		res.Events = countLines(evPath)
+		// A package analyzed by an earlier binary carries the overlay as
+		// plaintext, and the reuse path below never rewrites it — so without
+		// this the 178 MB would sit there until someone re-collected or
+		// forced a re-parse. Migrate it once, here, where the files are about
+		// to be read anyway.
+		var reclaimed int64
+		for _, name := range []string{"events.jsonl", "entities.jsonl", "relationships.jsonl"} {
+			n, err := overlay.Compress(filepath.Join(dir, name))
+			if err != nil {
+				return nil, err
+			}
+			reclaimed += n
+		}
+		entities = overlay.ReadJSONL[schema.Entity](filepath.Join(dir, "entities.jsonl"))
+		res.Events = overlay.CountLines(evPath)
 		o.logf("Normalized: reusing overlay (%d events); corroboration states preserved", res.Events)
+		// Not a StageNote: those are printed as "note:" on stderr and mean a
+		// stage was skipped or degraded. Reclaiming disk is neither.
+		if reclaimed > 0 {
+			o.logf("Normalized: overlay recompressed, %d bytes reclaimed", reclaimed)
+		}
 	}
 	res.Entities = len(entities)
 
@@ -168,7 +191,7 @@ func Run(pkg string, o Options) (*Result, error) {
 		events := LoadEvents(pkg)
 		wres, wf := witness.Apply(events, wrec)
 		if wres.Checked > 0 {
-			if err := writeJSONL(evPath, len(events), func(i int) any { return events[i] }); err != nil {
+			if err := overlay.WriteJSONL(evPath, len(events), func(i int) any { return events[i] }); err != nil {
 				return nil, err
 			}
 			findings = append(findings, wf...)
@@ -198,14 +221,14 @@ func Run(pkg string, o Options) (*Result, error) {
 			cres, cf := correlate.Endpoint(events, records, correlate.EndpointOptions{Window: o.Window, KnownDests: o.KnownDests})
 			res.Correlation = cres
 			findings = append(findings, cf...)
-			writeJSON(filepath.Join(detDir, "corroboration.json"), struct {
+			_ = overlay.WriteJSON(filepath.Join(detDir, "corroboration.json"), struct {
 				Summary  *correlate.EndpointResult `json:"summary"`
 				Findings []schema.Finding          `json:"findings"`
 			}{cres, cf})
 			o.logf("Endpoint correlation: %d checked — %d CORROBORATED, %d CONTRADICTED, %d outside coverage; %d unlogged agent records",
 				cres.ToolCalls, cres.Corroborated, cres.Contradicted, cres.OutsideCover, cres.Unlogged)
 		}
-		if err := writeJSONL(evPath, len(events), func(i int) any { return events[i] }); err != nil {
+		if err := overlay.WriteJSONL(evPath, len(events), func(i int) any { return events[i] }); err != nil {
 			return nil, err
 		}
 	}
@@ -215,8 +238,8 @@ func Run(pkg string, o Options) (*Result, error) {
 	corrPath := filepath.Join(detDir, "corroboration.json")
 	if len(o.EndpointLogs) == 0 {
 		if res.Renormalized {
-			_ = os.Remove(corrPath)
-		} else if data, err := os.ReadFile(corrPath); err == nil {
+			_ = overlay.Remove(corrPath)
+		} else if data, err := overlay.ReadFile(corrPath); err == nil {
 			var prev struct {
 				Summary  *correlate.EndpointResult `json:"summary"`
 				Findings []schema.Finding          `json:"findings"`
@@ -307,7 +330,7 @@ func Run(pkg string, o Options) (*Result, error) {
 		}
 		res.MCPServers = len(inv.Servers)
 		findings = append(findings, mf...)
-		writeJSON(filepath.Join(detDir, "mcp-audit.json"), struct {
+		_ = overlay.WriteJSON(filepath.Join(detDir, "mcp-audit.json"), struct {
 			Inventory *mcpaudit.Inventory      `json:"inventory"`
 			Findings  []schema.Finding         `json:"findings"`
 			Gateway   *mcpaudit.GatewaySummary `json:"gateway,omitempty"`
@@ -322,7 +345,7 @@ func Run(pkg string, o Options) (*Result, error) {
 	if prov, err := provenance.Run(pkg, LoadEvents(pkg), ""); err == nil {
 		res.Provenance = len(prov.Files)
 		findings = append(findings, prov.Findings...)
-		writeJSON(filepath.Join(detDir, "provenance.json"), prov)
+		_ = overlay.WriteJSON(filepath.Join(detDir, "provenance.json"), prov)
 		o.logf("Provenance: %d instruction file(s) attributed, %d write(s) to uncollected instruction paths, %d finding(s)", len(prov.Files), len(prov.OtherWrite), len(prov.Findings))
 	} else {
 		res.StageNotes = append(res.StageNotes, "provenance skipped: "+err.Error())
@@ -351,13 +374,13 @@ func Run(pkg string, o Options) (*Result, error) {
 	findings = dedupe(findings)
 	sortBySeverity(findings)
 	res.Findings = findings
-	writeJSON(filepath.Join(detDir, "findings.json"), findings)
+	_ = overlay.WriteJSON(filepath.Join(detDir, "findings.json"), findings)
 	// Grouped by rule and session, which is how an analyst reads them: on a
 	// real machine 592 HIGH and CRITICAL findings were 85 groups.
 	groups := verify.GroupBy(findings)
 	res.Groups = len(groups)
-	writeJSON(filepath.Join(detDir, "groups.json"), groups)
-	writeJSON(filepath.Join(detDir, "analysis.json"), map[string]any{
+	_ = overlay.WriteJSON(filepath.Join(detDir, "groups.json"), groups)
+	_ = overlay.WriteJSON(filepath.Join(detDir, "analysis.json"), map[string]any{
 		"analyzed_utc": time.Now().UTC().Format(time.RFC3339), "events": res.Events, "renormalized": res.Renormalized,
 		"findings": len(findings), "endpoint_logs": o.EndpointLogs, "gateway_log": o.GatewayLog, "rules_dir": o.RulesDir,
 		"honeytokens": len(o.Honeytokens), "chains": res.Chains, "notes": res.StageNotes,
@@ -370,18 +393,18 @@ func Run(pkg string, o Options) (*Result, error) {
 
 // LoadEvents reads the overlay into memory (for stages that need it).
 func LoadEvents(pkg string) []schema.Event {
-	return readJSONL[schema.Event](filepath.Join(pkg, "normalized", "events.jsonl"))
+	return overlay.ReadJSONL[schema.Event](filepath.Join(pkg, "normalized", "events.jsonl"))
 }
 
 // LoadEntities reads the overlay entities.
 func LoadEntities(pkg string) []schema.Entity {
-	return readJSONL[schema.Entity](filepath.Join(pkg, "normalized", "entities.jsonl"))
+	return overlay.ReadJSONL[schema.Entity](filepath.Join(pkg, "normalized", "entities.jsonl"))
 }
 
 // LoadFindings reads the persisted findings.
 func LoadFindings(pkg string) []schema.Finding {
 	var out []schema.Finding
-	if data, err := os.ReadFile(filepath.Join(pkg, "detections", "findings.json")); err == nil {
+	if data, err := overlay.ReadFile(filepath.Join(pkg, "detections", "findings.json")); err == nil {
 		_ = json.Unmarshal(data, &out)
 	}
 	return out
@@ -407,68 +430,6 @@ func sortBySeverity(f []schema.Finding) {
 	for i := 1; i < len(f); i++ {
 		for j := i; j > 0 && sevRank[f[j].Severity] > sevRank[f[j-1].Severity]; j-- {
 			f[j], f[j-1] = f[j-1], f[j]
-		}
-	}
-}
-
-func writeJSON(path string, v any) {
-	data, err := json.MarshalIndent(v, "", "  ")
-	if err != nil {
-		return
-	}
-	_ = os.WriteFile(path, append(data, '\n'), 0o600)
-}
-
-func writeJSONL(path string, n int, get func(int) any) error {
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
-	if err != nil {
-		return err
-	}
-	enc := json.NewEncoder(f)
-	for i := 0; i < n; i++ {
-		if err := enc.Encode(get(i)); err != nil {
-			f.Close()
-			return err
-		}
-	}
-	return f.Close()
-}
-
-func readJSONL[T any](path string) []T {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil
-	}
-	defer f.Close()
-	var out []T
-	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
-	for sc.Scan() {
-		var v T
-		if json.Unmarshal(sc.Bytes(), &v) == nil {
-			out = append(out, v)
-		}
-	}
-	return out
-}
-
-func countLines(path string) int {
-	f, err := os.Open(path)
-	if err != nil {
-		return 0
-	}
-	defer f.Close()
-	n := 0
-	buf := make([]byte, 256<<10)
-	for {
-		k, err := f.Read(buf)
-		for i := 0; i < k; i++ {
-			if buf[i] == '\n' {
-				n++
-			}
-		}
-		if err != nil {
-			return n
 		}
 	}
 }

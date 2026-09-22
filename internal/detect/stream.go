@@ -1,15 +1,14 @@
 package detect
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 	"time"
 
 	"github.com/efij/AgentDFIR/v2/internal/casepkg"
+	"github.com/efij/AgentDFIR/v2/internal/overlay"
 	"github.com/efij/AgentDFIR/v2/internal/schema"
 )
 
@@ -91,23 +90,17 @@ func RunStream(pkgDir string, entities []schema.Entity, opts Options) ([]schema.
 }
 
 // streamEvents reads events.jsonl line by line (bounded buffer) and calls
-// fn for each. Malformed lines are skipped (they were already recorded as
-// trace_gap events during normalization).
+// fn for each. The overlay reader decompresses on the fly when the file is
+// stored as events.jsonl.gz, so both passes stay streaming and neither one
+// materializes the 178 MB plaintext. Malformed lines are skipped (they
+// were already recorded as trace_gap events during normalization).
 func streamEvents(path string, fn func(schema.Event)) error {
-	f, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
-	for sc.Scan() {
+	return overlay.Scan(path, func(line []byte) {
 		var ev schema.Event
-		if json.Unmarshal(sc.Bytes(), &ev) == nil {
+		if json.Unmarshal(line, &ev) == nil {
 			fn(ev)
 		}
-	}
-	return sc.Err()
+	})
 }
 
 type streamAgg struct {

@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bufio"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -12,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/efij/AgentDFIR/v2/internal/normalize"
+	"github.com/efij/AgentDFIR/v2/internal/overlay"
 	"github.com/efij/AgentDFIR/v2/internal/sanitize"
 	"github.com/efij/AgentDFIR/v2/internal/schema"
 	"github.com/efij/AgentDFIR/v2/internal/simulate"
@@ -35,15 +35,15 @@ func cmdNormalize(args []string) int {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
 	}
-	if err := writeJSONL(filepath.Join(dir, "events.jsonl"), len(res.Events), func(i int) any { return res.Events[i] }); err != nil {
+	if err := overlay.WriteJSONL(filepath.Join(dir, "events.jsonl"), len(res.Events), func(i int) any { return res.Events[i] }); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
 	}
-	if err := writeJSONL(filepath.Join(dir, "entities.jsonl"), len(res.Entities), func(i int) any { return res.Entities[i] }); err != nil {
+	if err := overlay.WriteJSONL(filepath.Join(dir, "entities.jsonl"), len(res.Entities), func(i int) any { return res.Entities[i] }); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
 	}
-	if err := writeJSONL(filepath.Join(dir, "relationships.jsonl"), len(res.Relationships), func(i int) any { return res.Relationships[i] }); err != nil {
+	if err := overlay.WriteJSONL(filepath.Join(dir, "relationships.jsonl"), len(res.Relationships), func(i int) any { return res.Relationships[i] }); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
 	}
@@ -216,21 +216,7 @@ func cmdSimulate(args []string) int {
 // loadEvents reads back the streamed events overlay (used only by the
 // optional --shell-history and --rules features, which need full events).
 func loadEvents(normalizedDir string) []schema.Event {
-	f, err := os.Open(filepath.Join(normalizedDir, "events.jsonl"))
-	if err != nil {
-		return nil
-	}
-	defer f.Close()
-	var out []schema.Event
-	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
-	for sc.Scan() {
-		var ev schema.Event
-		if json.Unmarshal(sc.Bytes(), &ev) == nil {
-			out = append(out, ev)
-		}
-	}
-	return out
+	return overlay.ReadJSONL[schema.Event](filepath.Join(normalizedDir, "events.jsonl"))
 }
 
 // writeOverlay writes the normalized/ overlay from an already-parsed
@@ -241,34 +227,19 @@ func writeOverlay(pkg string, res *schema.Normalized) int {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
 	}
-	if err := writeJSONL(filepath.Join(dir, "events.jsonl"), len(res.Events), func(i int) any { return res.Events[i] }); err != nil {
+	if err := overlay.WriteJSONL(filepath.Join(dir, "events.jsonl"), len(res.Events), func(i int) any { return res.Events[i] }); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
 	}
-	if err := writeJSONL(filepath.Join(dir, "entities.jsonl"), len(res.Entities), func(i int) any { return res.Entities[i] }); err != nil {
+	if err := overlay.WriteJSONL(filepath.Join(dir, "entities.jsonl"), len(res.Entities), func(i int) any { return res.Entities[i] }); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
 	}
-	if err := writeJSONL(filepath.Join(dir, "relationships.jsonl"), len(res.Relationships), func(i int) any { return res.Relationships[i] }); err != nil {
+	if err := overlay.WriteJSONL(filepath.Join(dir, "relationships.jsonl"), len(res.Relationships), func(i int) any { return res.Relationships[i] }); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
 	}
 	fmt.Printf("Normalized: %d events, %d entities, %d relationships -> %s\n",
 		len(res.Events), len(res.Entities), len(res.Relationships), dir)
 	return 0
-}
-
-func writeJSONL(path string, n int, get func(int) any) error {
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
-	if err != nil {
-		return err
-	}
-	enc := json.NewEncoder(f)
-	for i := 0; i < n; i++ {
-		if err := enc.Encode(get(i)); err != nil {
-			f.Close()
-			return err
-		}
-	}
-	return f.Close()
 }
