@@ -7,6 +7,90 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [2.5.0] — 2026-09-23
+
+### Added
+- **Claude Cowork is a product.** The Claude desktop app's agent mode runs
+  Claude Code inside a VM and keeps its evidence under the app's support
+  directory, not `~/.claude`, so until now it was invisible to `detect`,
+  `collect` and every rule. `claude-cowork` (`collect --product cowork`) is
+  detected by its session store and collects, per session: the stream-json
+  **audit log** (`audit.jsonl`, one HMAC per line, key preserved as
+  `credentials`), the **CLI transcript written inside the VM**
+  (`.claude/projects/**`, the format the Claude parser already reads), the
+  in-VM `.claude` state and credentials, outputs and uploads, and the
+  **sidecar** (`local_<id>.json`) that records the session's blast radius:
+  the host folders the user shared, the egress domain allowlist, remote MCP
+  servers, model, account and VM name. Org-level state (spaces, scheduled
+  tasks, installed plugins, `git-shadow`), the desktop Claude Code tab's
+  sidecars (`claude-code-sessions/`: permission mode, every "always allow"
+  the user granted), `claude_desktop_config.json` and the Cowork/VM logs
+  under `~/Library/Logs/Claude` are collected too. macOS paths are
+  verified against a real install; Linux and Windows paths follow the
+  Electron convention and are recorded as not-present when absent.
+
+  The Claude parser reads the audit dialect (snake_case `session_id`,
+  `parent_tool_use_id`, `tool_use_result`, `_audit_timestamp`) alongside
+  the CLI transcript, stamps Cowork evidence `claude-cowork`, turns the
+  SDK's `system:init` (model, permission mode, MCP servers) and `result`
+  (turns, cost, permission denials) records into `session_meta` events,
+  emits one event per shared folder (`File`) and per allowed egress domain
+  (`NetworkDest`), and ties the in-VM CLI session to its Cowork session in
+  the graph. `--detect --alert` recognises the session store path for live
+  tailing. `mcp audit` inventories `claude_desktop_config.json`. The HMAC
+  scheme is not public: signatures are counted and recorded per file
+  (`audit_signed`), not verified.
+
+- **Codex desktop app, and the SQLite thread store.** Codex (app and current
+  CLI) writes each thread to `state_*.sqlite` (cwd, model, **sandbox and
+  approval policy**, git origin and branch, source, spawn edges between
+  threads) and `thread_history_*.sqlite` (every user message, agent
+  message, command execution with exit code, file change with paths, MCP
+  call with server/tool/status, web search). None of it was collected. The
+  manifest now takes both stores **with their write-ahead logs**, the
+  goals/queue/memories stores, `logs_*.sqlite`, `session_index.jsonl`, the
+  app's global state, plugins, browser sessions, computer-use config,
+  attachments and generated images, the Electron app's own state under
+  `~/Library/Application Support/Codex` (preferences, history, local
+  storage; not the 200 MB cache), and the ChatGPT app's Codex task caches.
+
+  A new parser (`internal/parsers/codexdb`) emits a `session_meta` per
+  thread (`source=vscode approval=never sandbox=danger-full-access …`),
+  `agent_spawn` per spawn edge, and — for threads whose rollout JSONL is
+  **not** in the package — the item rows as the transcript, so a pruned or
+  never-written rollout no longer makes the thread disappear. Threads with
+  a rollout are not duplicated. Rows are read with
+  `internal/parsers/sqlitero`, a **stdlib-only read-only SQLite reader**
+  (b-tree walk, overflow chains, WITHOUT ROWID tables, WAL frames verified
+  by salt and checksum): the collector core stays dependency-free and
+  cross-compiles as before. Checked against the sqlite3 CLI on a real
+  57 MB store — identical row counts on every table.
+
+### Fixed
+- **Codex rollout parser dropped the output of every desktop-app tool
+  call.** The app writes `custom_tool_call` / `custom_tool_call_output`
+  (exec, apply_patch); only `function_call_output` was handled, so the
+  OBSERVED result side of those calls fell into a generic bucket and no
+  rule that reads tool results saw it. `custom_tool_call` with an `exec`
+  script is now a `shell_execution` with the script as its command, and
+  its output is a `tool_result` paired by `call_id`.
+- **`AGENT_IDENTITY_MISMATCH` and `SESSION_TAMPERING` no longer fire on
+  database-sourced events.** A product store holds every thread in b-tree
+  order, so one artifact with thirty session ids and non-monotonic
+  timestamps is its normal shape; on the first real Codex-app collection
+  the state store produced one HIGH and one MEDIUM finding of pure noise.
+  Cowork's audit log had the same problem for a different reason: it opens
+  under the Cowork session id and switches to the CLI session id after
+  init, so every Cowork session was a HIGH identity mismatch and every
+  Cowork main agent an `ORPHAN_AGENT` (the audit log's subagent lines run
+  under the main agent id and were being marked as sidechains). On a real
+  seven-session Cowork collection: 7 → 0 identity mismatches, 4 → 1
+  orphans, 34 → 0 `UNEXPECTED_TASK`.
+- **`turn_context` records were ignored.** They are the only place the
+  rollout says which approval and sandbox policy a turn ran under. Each is
+  now a `session_meta` (`approval=never sandbox=danger-full-access
+  model=… cwd=…`) with the turn id.
+
 ## [2.4.3] — 2026-09-23
 
 ### Fixed

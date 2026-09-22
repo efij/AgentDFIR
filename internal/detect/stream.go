@@ -160,7 +160,7 @@ func (a *streamAgg) pass1(ev schema.Event) {
 		}
 		a.shellCount++
 	}
-	if art := ev.SourceArtifact; art != "" {
+	if art := ev.SourceArtifact; art != "" && !multiSessionStore(ev) {
 		if a.artSessions[art] == nil {
 			a.artSessions[art] = map[string]bool{}
 			a.artSample[art] = ev

@@ -4,10 +4,26 @@
     { "id": "codex.config", "paths": ["${CONFIG_ROOT}/config.toml", "${CONFIG_ROOT}/config.json"], "category": "product_config", "sensitivity": "high" },
     { "id": "codex.sessions", "paths": ["${CONFIG_ROOT}/sessions/**"], "category": "agent_session", "sensitivity": "high" },
     { "id": "codex.archived_sessions", "paths": ["${CONFIG_ROOT}/archived_sessions/**"], "category": "agent_session", "sensitivity": "high" },
-    { "id": "codex.history", "paths": ["${CONFIG_ROOT}/history.jsonl"], "category": "prompt_history", "sensitivity": "high" },
+    { "id": "codex.session_index", "paths": ["${CONFIG_ROOT}/session_index.jsonl"], "category": "agent_session", "sensitivity": "medium" },
+    { "id": "codex.state_db", "paths": ["${CONFIG_ROOT}/state_*.sqlite", "${CONFIG_ROOT}/state_*.sqlite-wal"], "category": "agent_session", "sensitivity": "high" },
+    { "id": "codex.thread_history_db", "paths": ["${CONFIG_ROOT}/thread_history_*.sqlite", "${CONFIG_ROOT}/thread_history_*.sqlite-wal"], "category": "agent_session", "sensitivity": "high" },
+    { "id": "codex.task_db", "paths": ["${CONFIG_ROOT}/goals_*.sqlite", "${CONFIG_ROOT}/goals_*.sqlite-wal", "${CONFIG_ROOT}/queue_*.sqlite", "${CONFIG_ROOT}/queue_*.sqlite-wal"], "category": "task_state", "sensitivity": "medium" },
+    { "id": "codex.memory_db", "paths": ["${CONFIG_ROOT}/memories_*.sqlite", "${CONFIG_ROOT}/memories_*.sqlite-wal", "${CONFIG_ROOT}/memories/**"], "category": "agent_instructions", "sensitivity": "high" },
+    { "id": "codex.logs_db", "paths": ["${CONFIG_ROOT}/logs_*.sqlite", "${CONFIG_ROOT}/logs_*.sqlite-wal"], "category": "debug_logs", "sensitivity": "medium" },
+    { "id": "codex.history", "paths": ["${CONFIG_ROOT}/history.jsonl", "${CONFIG_ROOT}/transcription-history.jsonl", "${CONFIG_ROOT}/dictation-history/**"], "category": "prompt_history", "sensitivity": "high" },
     { "id": "codex.instructions", "paths": ["${CONFIG_ROOT}/AGENTS.md", "${CONFIG_ROOT}/instructions.md"], "category": "agent_instructions", "sensitivity": "medium" },
     { "id": "codex.auth", "paths": ["${CONFIG_ROOT}/auth.json"], "category": "credentials", "sensitivity": "critical" },
     { "id": "codex.logs", "paths": ["${CONFIG_ROOT}/log/**"], "category": "debug_logs", "sensitivity": "medium" },
-    { "id": "codex.prompts", "paths": ["${CONFIG_ROOT}/prompts/**"], "category": "agent_instructions", "sensitivity": "medium" }
+    { "id": "codex.prompts", "paths": ["${CONFIG_ROOT}/prompts/**"], "category": "agent_instructions", "sensitivity": "medium" },
+    { "id": "codex.plugins", "paths": ["${CONFIG_ROOT}/plugins/**"], "category": "agent_definitions", "sensitivity": "high" },
+    { "id": "codex.app_state", "paths": ["${CONFIG_ROOT}/.codex-global-state.json", "${CONFIG_ROOT}/.codex-global-state.json.bak", "${CONFIG_ROOT}/installation_id", "${CONFIG_ROOT}/version.json", "${CONFIG_ROOT}/models_cache.json", "${CONFIG_ROOT}/chrome-native-hosts.json", "${CONFIG_ROOT}/chrome-native-hosts-v2.json"], "category": "product_state", "sensitivity": "medium" },
+    { "id": "codex.browser", "paths": ["${CONFIG_ROOT}/browser/**"], "category": "agent_session", "sensitivity": "high" },
+    { "id": "codex.computer_use", "paths": ["${CONFIG_ROOT}/computer-use/config.json"], "category": "product_config", "sensitivity": "high" },
+    { "id": "codex.ambient", "paths": ["${CONFIG_ROOT}/ambient-suggestions/**"], "category": "product_state", "sensitivity": "medium" },
+    { "id": "codex.attachments", "paths": ["${CONFIG_ROOT}/attachments/**", "${CONFIG_ROOT}/generated_images/**"], "category": "file_checkpoints", "sensitivity": "high" },
+    { "id": "codex.desktop_app_macos", "platforms": ["darwin"], "paths": ["${PROFILE_ROOT}/Library/Application Support/Codex/Local State", "${PROFILE_ROOT}/Library/Application Support/Codex/browser-sidebar-page-states.json", "${PROFILE_ROOT}/Library/Application Support/Codex/artifact-sessions/**", "${PROFILE_ROOT}/Library/Application Support/Codex/Default/Preferences", "${PROFILE_ROOT}/Library/Application Support/Codex/Default/History", "${PROFILE_ROOT}/Library/Application Support/Codex/Default/Local Storage/**", "${PROFILE_ROOT}/Library/Application Support/com.openai.codex/**"], "category": "product_state", "sensitivity": "medium" },
+    { "id": "codex.desktop_app_linux", "platforms": ["linux"], "paths": ["${PROFILE_ROOT}/.config/Codex/Local State", "${PROFILE_ROOT}/.config/Codex/Default/Preferences", "${PROFILE_ROOT}/.config/Codex/Default/History", "${PROFILE_ROOT}/.config/Codex/Default/Local Storage/**"], "category": "product_state", "sensitivity": "medium" },
+    { "id": "codex.desktop_app_windows", "platforms": ["windows"], "paths": ["${PROFILE_ROOT}/AppData/Roaming/Codex/Local State", "${PROFILE_ROOT}/AppData/Roaming/Codex/Default/Preferences", "${PROFILE_ROOT}/AppData/Roaming/Codex/Default/History", "${PROFILE_ROOT}/AppData/Roaming/Codex/Default/Local Storage/**"], "category": "product_state", "sensitivity": "medium" },
+    { "id": "codex.chatgpt_app_macos", "platforms": ["darwin"], "paths": ["${PROFILE_ROOT}/Library/Application Support/com.openai.chat/codex-*/**", "${PROFILE_ROOT}/Library/Application Support/com.openai.chat/connectors-*/**", "${PROFILE_ROOT}/Library/Application Support/com.openai.chat/connector-plugins-*/**", "${PROFILE_ROOT}/Library/Application Support/com.openai.chat/automation-repository-*/**"], "category": "agent_session", "sensitivity": "high" }
   ]
 }

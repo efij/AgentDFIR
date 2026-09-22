@@ -437,7 +437,7 @@ func identityMismatch(res *schema.Normalized) []schema.Finding {
 	sessions := map[string]map[string]bool{}
 	sample := map[string]schema.Event{}
 	for _, ev := range res.Events {
-		if ev.SessionID == "" || ev.SourceArtifact == "" {
+		if ev.SessionID == "" || ev.SourceArtifact == "" || multiSessionStore(ev) {
 			continue
 		}
 		if sessions[ev.SourceArtifact] == nil {
@@ -468,6 +468,17 @@ func identityMismatch(res *schema.Normalized) []schema.Finding {
 	return out
 }
 
+// multiSessionStore reports events read out of a product database rather
+// than a transcript file. A database holds every thread of the product in
+// b-tree order, so "many session ids in one artifact" and "timestamps run
+// backwards" are its normal shape, not splicing: the Codex state store
+// alone fired AGENT_IDENTITY_MISMATCH (30 sessions) and SESSION_TAMPERING
+// on every machine that had used the desktop app. Per-artifact integrity
+// rules only make sense for single-session, append-only files.
+func multiSessionStore(ev schema.Event) bool {
+	return ev.TimestampSrc == "database"
+}
+
 // SESSION_TAMPERING — chain breaks + backward timestamps per artifact.
 func sessionTampering(res *schema.Normalized) []schema.Finding {
 	type stats struct {
@@ -480,7 +491,7 @@ func sessionTampering(res *schema.Normalized) []schema.Finding {
 	per := map[string]*stats{}
 	order := []string{}
 	for _, ev := range res.Events {
-		if ev.SourceArtifact == "" {
+		if ev.SourceArtifact == "" || multiSessionStore(ev) {
 			continue
 		}
 		st, ok := per[ev.SourceArtifact]

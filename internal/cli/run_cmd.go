@@ -374,6 +374,8 @@ func canonicalProductID(name string) string {
 		return "claude-code"
 	case "codex":
 		return "codex-cli"
+	case "cowork":
+		return "claude-cowork"
 	case "cursor":
 		return "cursor-cli"
 	case "gemini":

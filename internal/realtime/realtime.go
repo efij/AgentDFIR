@@ -94,6 +94,8 @@ func (e *Engine) newParser(product string) lineParser {
 	switch product {
 	case "claude-code":
 		return claudejsonl.NewLive(e.Host, sink)
+	case "claude-cowork":
+		return claudejsonl.NewLiveProduct("claude-cowork", e.Host, sink)
 	case "codex-cli":
 		return codexjsonl.NewLive(e.Host, sink)
 	default:
@@ -160,6 +162,8 @@ func (e *Engine) productFor(path string, raw []byte) string {
 	}
 	p := strings.ReplaceAll(clean, "\\", "/")
 	switch {
+	case strings.Contains(p, "/local-agent-mode-sessions/"):
+		return "claude-cowork"
 	case strings.Contains(p, "/.claude/"):
 		return "claude-code"
 	case strings.Contains(p, "/.codex/"):
