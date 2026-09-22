@@ -25,18 +25,19 @@ AI coding agents execute shell commands, edit files, spawn subagents, call MCP s
 
 ## ⚖️ Evidence vs. claims — the core principle
 
-AI-generated text is **never** automatically treated as proof of execution. Every action gets a corroboration state:
+AI-generated text is **never** automatically treated as proof of execution. Every action gets an evidence state, and **enriching** a case with a second witness is what moves it up:
 
 | State | Meaning |
 |---|---|
-| `REQUESTED` | a human asked for it |
-| `REPORTED` | the model *said* it happened — narrative, not proof |
-| `OBSERVED` | a tool-call record exists in the transcript |
-| `CORROBORATED` | independent endpoint/network evidence confirms it |
-| `CONTRADICTED` | endpoint evidence shows it did **not** occur |
+| `ASKED` | a human asked for it |
+| `CLAIMED` | the model *said* it happened — narrative, not proof |
+| `RECORDED` | a tool-call record exists in the transcript |
+| `PARTLY CONFIRMED` | part of it matched a second source |
+| `CONFIRMED` | independent endpoint/network evidence confirms it |
+| `DISPROVED` | endpoint evidence shows it did **not** occur |
 | `UNKNOWN` | insufficient evidence |
 
-An agent claiming *"I executed curl example.com"* with no matching tool call stays `REPORTED` — and AgentDFIR shows you exactly that.
+An agent claiming *"I executed curl example.com"* with no matching tool call stays `CLAIMED` — and AgentDFIR shows you exactly that.
 
 ## ⚡ Quick start — one command
 
@@ -114,7 +115,7 @@ HIGH — Unexpected Agent Activity [ORPHAN_AGENT]
   Finding: Agent appeared without a verified parent invocation.
   Related: SendMessage/resume interaction with agent a7c3f19b
   Evidence: .claude/projects/…/agent-adad4e2c.jsonl:1 (artifact 6443bed58e63)
-  Status: OBSERVED    Endpoint corroboration: UNKNOWN
+  Evidence: RECORDED    Second witness: UNKNOWN
 ```
 
 No auto-escalation to "compromise" or "exfiltration" — findings state exactly what the evidence shows, with clickable references to the raw artifact behind every claim.
@@ -215,7 +216,7 @@ Ships with wrappers for tools IR teams already run:
 | ✅ | `simulate` — synthetic incident generation (adversary emulation for AI agents): `orphan-agent`, `toxic-chain` |
 | ✅ | [Attack chains](docs/attack-chains.md), session cards, investigation tree, whole-case search and the hash-chained analyst case file in the [explorer](docs/serve.md) (v1.0) |
 | ✅ | Full parsers for 12 products: Claude Code, Codex, Gemini CLI, Cursor, Copilot CLI, Copilot Chat (VS Code), Cline, Roo, OpenClaw, OpenCode, Aider, Warp |
-| ✅ | [Endpoint corroboration](docs/endpoint-corroboration.md) — auditd, Sysmon XML, Velociraptor/osquery/eslogger/EDR exports: tool calls → CORROBORATED / CONTRADICTED, unlogged agent processes and connections surfaced |
+| ✅ | [Enrich with a second witness](docs/endpoint-corroboration.md) — auditd, Sysmon XML, Velociraptor/osquery/eslogger/EDR exports: tool calls → CONFIRMED / DISPROVED, unlogged agent processes and connections surfaced |
 | ✅ | Reports: network-silent HTML, self-contained PDF (stdlib writer, no renderer deps), JSON, CSV, STIX 2.1, OTel · [OCSF 1.3, SARIF 2.1, Sigma export](docs/siem-interop.md) for SIEM/SOC pipelines |
 | ✅ | [`serve`](docs/serve.md) — local browser case explorer: agent tree, density-scrubber timeline, raw evidence pane, findings, topology; loopback-only, zero external resources |
 | ✅ | `monitor` live watch · [`--detect --alert`](docs/realtime-detection.md) real-time sensor (webhook / syslog / file) · `replay` session step-through · `investigate` explorer |
@@ -223,7 +224,7 @@ Ships with wrappers for tools IR teams already run:
 | ✅ | Package signing (ed25519), full-package encryption (AES-256-GCM) |
 | ✅ | Injection-surface detections: prompt-injection indicators, invisible-Unicode smuggling, honeytokens |
 | ✅ | [Instruction provenance](docs/provenance.md) — per-line attribution of CLAUDE.md / AGENTS.md / rules / settings to the session, agent, tool and trigger (human prompt vs tool output) that wrote it |
-| ✅ | [MCP supply-chain audit](docs/mcp-audit.md) — inventory of every MCP server across 9 hosts (JSON/JSONC/TOML), unpinned packages, plaintext transports, auto-approve, tool-description poisoning, baseline drift, gateway-log corroboration |
+| ✅ | [MCP supply-chain audit](docs/mcp-audit.md) — inventory of every MCP server across 9 hosts (JSON/JSONC/TOML), unpinned packages, plaintext transports, auto-approve, tool-description poisoning, baseline drift, gateway-log enrichment |
 | ✅ | [Product packs](docs/product-packs.md) — add any new AI agent with one signed JSON file (detect + collect + parse), no Go |
 | 🔜 | Raw-NTFS/VSS locked-file fallback, EDR/DNS adapters, fleet integrations |
 

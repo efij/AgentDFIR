@@ -38,16 +38,24 @@ func listRules(packDir string) ([]listedRule, error) {
 		out = append(out, listedRule{ID: r.ID, Source: "builtin", Surface: r.Surface, Severity: r.MaxSeverity,
 			Title: r.Title, MitreATTACK: r.MitreATTACK, MitreATLAS: r.MitreATLAS, ATLASName: rulepack.ATLASName(r.MitreATLAS)})
 	}
+	// The packs shipped inside the binary are part of the rule set by
+	// default, so what `rules list` reports is what an analysis runs.
+	packs, _, err := rulepack.Embedded()
+	if err != nil {
+		return nil, err
+	}
 	if packDir != "" {
-		packs, err := rulepack.LoadDir(packDir)
+		extra, err := rulepack.LoadDir(packDir)
 		if err != nil {
 			return nil, err
 		}
-		for _, p := range packs {
-			for _, r := range p.Rules {
-				out = append(out, listedRule{ID: r.ID, Source: p.Pack, Surface: r.Match.Type, Severity: r.Severity,
-					Title: r.Title, MitreATTACK: r.MitreATTACK, MitreATLAS: r.MitreATLAS, ATLASName: rulepack.ATLASName(r.MitreATLAS)})
-			}
+		packs = append(packs, extra...)
+	}
+	packs, _ = rulepack.Dedupe(packs)
+	for _, p := range packs {
+		for _, r := range p.Rules {
+			out = append(out, listedRule{ID: r.ID, Source: p.Pack, Surface: r.Match.Type, Severity: r.Severity,
+				Title: r.Title, MitreATTACK: r.MitreATTACK, MitreATLAS: r.MitreATLAS, ATLASName: rulepack.ATLASName(r.MitreATLAS)})
 		}
 	}
 	sort.SliceStable(out, func(i, j int) bool {

@@ -41,6 +41,8 @@ func cmdRun(args []string) int {
 	var endpointLogs multiFlag
 	fs.Var(&endpointLogs, "endpoint", "OS telemetry log (auditd, Sysmon XML, JSONL/CSV export); repeatable")
 	gwLog := fs.String("gateway-log", "", "MCP gateway log (JSONL) to check MCP calls against")
+	rulesDir := fs.String("rules", "", "directory of extra JSON rule packs (added to the packs shipped in the binary)")
+	noPacks := fs.Bool("no-builtin-packs", false, "skip the rule packs shipped in the binary; run built-in Go rules only")
 	port := fs.Int("port", 0, "TCP port on 127.0.0.1 (default: ephemeral)")
 	noOpen := fs.Bool("no-open", false, "print the URL but do not open the browser")
 	noServe := fs.Bool("no-serve", false, "stop after analysis and print the findings (scripts, CI)")
@@ -54,8 +56,10 @@ func cmdRun(args []string) int {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
 	}
+	runStart := time.Now()
 
 	// 1. detect
+	stepStart := time.Now()
 	fmt.Println("Step 1/4  Detect — which AI agents are on this machine (none is executed)")
 	var targets []string
 	if *product != "" {
@@ -80,6 +84,7 @@ func cmdRun(args []string) int {
 			targets = append(targets, d.Product.ID)
 		}
 	}
+	stepDone("detected "+fmt.Sprint(len(targets))+" agent(s)", time.Since(stepStart))
 	if len(targets) == 0 {
 		fmt.Fprintln(os.Stderr, "no AI agents found for this user. Evidence somewhere else? agentdfir collect --path <copied home> | --import <tree> | --docker <container> | --archive <zip>")
 		return 1
@@ -133,15 +138,40 @@ func cmdRun(args []string) int {
 	} else {
 		fmt.Printf("\nStep 2/4  Collect — sealed evidence package %s\n", sanitize.Terminal(dest))
 	}
+	stepStart = time.Now()
+	tune := collectTuning{MaxFileMB: *maxFileMB, Jobs: *jobs, Recollect: *recollect, FullContent: *fullPlugins}
+
+	// Metadata-only pre-walk: one or two seconds buys an honest percentage
+	// and time-remaining instead of a spinner with no end in sight.
+	prog := newProgress()
+	prog.Start("  sizing the collection")
+	var plan collector.Survey
+	for _, pid := range targets {
+		s, err := surveyCurrentUser(pid, home, host, osUser, tune)
+		if err == nil {
+			plan.Files += s.Files
+			plan.Bytes += s.Bytes
+			plan.Skipped += s.Skipped
+		}
+	}
+	prog.Stop()
+	if plan.Files > 0 {
+		fmt.Printf("  %d files · %s to acquire\n", plan.Files, humanBytes(plan.Bytes))
+	}
+
 	var total collector.Stats
 	var collectErr error
-	prog := newProgress()
 	for _, pid := range targets {
 		prog.Start(fmt.Sprintf("  %-16s collecting", pid))
-		st, err := collectCurrentUser(b, pid, home, host, osUser, collectTuning{
-			MaxFileMB: *maxFileMB, Jobs: *jobs, Recollect: *recollect, FullContent: *fullPlugins,
-		}, func(s collector.Stats) {
-			prog.Set(fmt.Sprintf("%d new · %d carried · %s", s.Acquired, s.Carried, humanBytes(s.TotalBytes)))
+		st, err := collectCurrentUser(b, pid, home, host, osUser, tune, func(s collector.Stats) {
+			done := total.TotalBytes + s.TotalBytes
+			line := fmt.Sprintf("%d new · %d carried · %s", s.Acquired, s.Carried, humanBytes(s.TotalBytes))
+			if plan.Bytes > 0 {
+				line = fmt.Sprintf("%d%% · %s/%s · %d new · %d carried",
+					min(100, int(100*done/plan.Bytes)), humanBytes(done), humanBytes(plan.Bytes), s.Acquired, s.Carried)
+				line += eta(done, plan.Bytes, time.Since(stepStart))
+			}
+			prog.Set(line)
 		})
 		prog.Stop()
 		total.Acquired += st.Acquired
@@ -157,9 +187,16 @@ func cmdRun(args []string) int {
 			}
 			continue
 		}
-		if st.Carried > 0 {
+		switch {
+		case st.Acquired == 0 && st.Carried == 0:
+			// Detected but empty. Printing a bare "0 artifacts" tells an
+			// analyst nothing about whether the product stores nothing or
+			// the collector is aimed at the wrong path.
+			fmt.Printf("  %-16s nothing collected — %d manifest path(s) checked, none present on this host\n", pid, st.NotPresent)
+			fmt.Printf("  %-16s   the paths are recorded as NOT_PRESENT in the manifest; `agentdfir inspect <pkg>` lists them\n", "")
+		case st.Carried > 0:
 			fmt.Printf("  %-16s %d new · %d carried forward · %s\n", pid, st.Acquired, st.Carried, humanBytes(st.TotalBytes))
-		} else {
+		default:
 			fmt.Printf("  %-16s %d artifacts · %s\n", pid, st.Acquired, humanBytes(st.TotalBytes))
 		}
 	}
@@ -183,11 +220,19 @@ func cmdRun(args []string) int {
 		fmt.Print(" — partial evidence, see errors above")
 	}
 	fmt.Println()
+	stepDone("collected", time.Since(stepStart))
 
 	// 3. analyze
+	stepStart = time.Now()
 	fmt.Println("\nStep 3/4  Analyze — detections, MCP audit, provenance")
 	prog.Start("  analyzing")
-	res, err := analysis.Run(dest, analysis.Options{EndpointLogs: endpointLogs, GatewayLog: *gwLog, Log: prog})
+	res, err := analysis.Run(dest, analysis.Options{
+		EndpointLogs: endpointLogs, GatewayLog: *gwLog,
+		RulesDir: *rulesDir, NoBuiltinPacks: *noPacks, Log: prog,
+		Stage: func(n, total int, name string) {
+			prog.Set(fmt.Sprintf("stage %d/%d · %s", n, total, name))
+		},
+	})
 	prog.Stop()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
@@ -196,14 +241,17 @@ func cmdRun(args []string) int {
 	for _, n := range res.StageNotes {
 		fmt.Fprintln(os.Stderr, "note:", n)
 	}
+	stepDone("analyzed", time.Since(stepStart))
 	fmt.Printf("  %s\n", severitySummary(res.Findings))
 	if *noServe {
+		fmt.Printf("  Total %s\n", elapsed(time.Since(runStart)))
 		printTriageFindings(res.Findings)
 		fmt.Printf("\nPackage: %s   (open it later: agentdfir serve %s)\n", dest, dest)
 		return exitFor(res.Findings)
 	}
 
 	// 4. serve
+	stepStart = time.Now()
 	fmt.Println("\nStep 4/4  Look — case explorer in your browser")
 	prog.Start("  loading the explorer")
 	s, err := serve.Load(dest, serve.Options{Port: *port})
@@ -217,6 +265,7 @@ func cmdRun(args []string) int {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
 	}
+	fmt.Printf("  Ready in %s (total %s)\n", elapsed(time.Since(stepStart)), elapsed(time.Since(runStart)))
 	fmt.Printf("  Open %s   (127.0.0.1 only · read-only · Ctrl+C to stop)\n", url)
 	fmt.Printf("  Package: %s   (later: agentdfir serve %s)\n", dest, dest)
 	if !*noOpen {
@@ -237,22 +286,36 @@ type collectTuning struct {
 	FullContent bool
 }
 
+// surveyCurrentUser measures what collectCurrentUser would acquire, using
+// the same manifest, overrides and bounds, so the progress total matches
+// the work that follows.
+func surveyCurrentUser(productID, home, host, osUser string, tune collectTuning) (collector.Survey, error) {
+	man, opts, err := collectPlan(productID, home, host, osUser, tune)
+	if err != nil {
+		return collector.Survey{}, err
+	}
+	return collector.SurveyRun(man, opts), nil
+}
+
 // collectCurrentUser acquires one product from the current user's home into
 // an open package, exactly as `collect --product` does for the live host.
-func collectCurrentUser(b *casepkg.Builder, productID, home, host, osUser string, tune collectTuning, progress func(collector.Stats)) (*collector.Stats, error) {
+// collectPlan resolves the manifest and options for one product. The
+// survey and the acquisition share it so the progress total describes
+// exactly the work that follows.
+func collectPlan(productID, home, host, osUser string, tune collectTuning) (*products.CollectorManifest, collector.Options, error) {
 	man, err := products.Manifest(productID)
 	if err != nil {
-		return &collector.Stats{}, err
+		return nil, collector.Options{}, err
 	}
 	if man == nil {
-		return &collector.Stats{}, fmt.Errorf("no collector implemented yet for product %q", productID)
+		return nil, collector.Options{}, fmt.Errorf("no collector implemented yet for product %q", productID)
 	}
 	if override, _, oErr := products.LoadOverride(productID, seal.VerifyFileSig); oErr == nil && override != nil {
 		man = override
 	}
 	prodDef, err := products.ByID(productID)
 	if err != nil {
-		return &collector.Stats{}, err
+		return nil, collector.Options{}, err
 	}
 	configRoot := filepath.Join(home, prodDef.ConfigDirs[0])
 	if prodDef.ConfigEnv != "" {
@@ -262,12 +325,22 @@ func collectCurrentUser(b *casepkg.Builder, productID, home, host, osUser string
 	}
 	opts := collector.Options{
 		ProfileRoot: home, ConfigRoot: configRoot, SystemRoot: "/", Host: host, User: osUser,
-		Product: productID, Progress: progress,
-		Jobs: tune.Jobs, Recollect: tune.Recollect, FullContent: tune.FullContent,
+		Product: productID,
+		Jobs:    tune.Jobs, Recollect: tune.Recollect, FullContent: tune.FullContent,
 	}
 	if tune.MaxFileMB > 0 {
 		opts.MaxFileBytes = tune.MaxFileMB << 20
 	}
+	return man, opts, nil
+}
+
+func collectCurrentUser(b *casepkg.Builder, productID, home, host, osUser string, tune collectTuning, progress func(collector.Stats)) (*collector.Stats, error) {
+	man, opts, err := collectPlan(productID, home, host, osUser, tune)
+	if err != nil {
+		return &collector.Stats{}, err
+	}
+	opts.Progress = progress
+	configRoot := opts.ConfigRoot
 	start := time.Now()
 	_ = b.Log("collection_run_started", map[string]any{"product": productID, "profile_root": home, "config_root": configRoot})
 	st, runErr := collector.Run(b, man, opts)

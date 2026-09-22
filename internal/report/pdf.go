@@ -317,7 +317,7 @@ func WritePDF(c *Case, custody []CustodyRecord, signature string, path string, o
 
 	d.h1("AgentDFIR Report")
 	d.text("F1", pdfBodySize, 0, "Case "+caseID+"  ·  generated "+time.Now().UTC().Format(time.RFC3339)+"  ·  agentdfir "+version.Version)
-	d.text("F1", 8.5, 0, "Findings state what the evidence shows. Corroboration states: REQUESTED / REPORTED / OBSERVED / PARTIALLY_CORROBORATED / CORROBORATED / CONTRADICTED / UNKNOWN. Model text is never treated as proof of execution.")
+	d.text("F1", 8.5, 0, "Findings state what the evidence shows. Evidence strength: ASKED / CLAIMED / RECORDED / PARTLY CONFIRMED / CONFIRMED / DISPROVED / UNKNOWN. Model text is never treated as proof of execution.")
 
 	// --- Case summary
 	d.h2("1. Case summary")
@@ -382,7 +382,7 @@ func WritePDF(c *Case, custody []CustodyRecord, signature string, path string, o
 		d.ensure(60)
 		d.text("F2", pdfBodySize, 0, fmt.Sprintf("%d. [%s] %s — %s", i+1, f.Severity, f.RuleID, f.Title))
 		d.text("F1", pdfBodySize, 8, f.Description)
-		meta := "Status: " + f.Status + "  ·  Endpoint corroboration: " + f.Endpoint
+		meta := "Evidence: " + schema.Label(f.Status) + "  ·  Second witness: " + schema.Label(f.Endpoint)
 		if f.SessionID != "" {
 			meta += "  ·  Session: " + f.SessionID
 		}
@@ -490,7 +490,7 @@ func WritePDF(c *Case, custody []CustodyRecord, signature string, path string, o
 		if e.Summary != "" {
 			what += " — " + e.Summary
 		}
-		line := fmt.Sprintf("%-24s %-7s %-11s %s", e.Timestamp, shortState(e.Corroboration), shortID(e.AgentID), what)
+		line := fmt.Sprintf("%-24s %-7s %-11s %s", e.Timestamp, shortState(schema.Label(e.Corroboration)), shortID(e.AgentID), what)
 		if r := []rune(line); len(r) > 220 {
 			line = string(r[:220]) + "…"
 		}

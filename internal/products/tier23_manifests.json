@@ -420,7 +420,8 @@
             "darwin"
           ],
           "paths": [
-            "${PROFILE_ROOT}/Library/Application Support/dev.warp.Warp-Stable/warp.sqlite"
+            "${PROFILE_ROOT}/Library/Application Support/dev.warp.Warp-Stable/warp.sqlite",
+            "${PROFILE_ROOT}/Library/Application Support/dev.warp.Warp-Stable/*/warp.sqlite"
           ],
           "category": "agent_session",
           "sensitivity": "high"
@@ -431,7 +432,8 @@
             "linux"
           ],
           "paths": [
-            "${PROFILE_ROOT}/.local/state/warp-terminal/warp.sqlite"
+            "${PROFILE_ROOT}/.local/state/warp-terminal/warp.sqlite",
+            "${PROFILE_ROOT}/.local/state/warp-terminal/*/warp.sqlite"
           ],
           "category": "agent_session",
           "sensitivity": "high"
@@ -442,7 +444,8 @@
             "windows"
           ],
           "paths": [
-            "${PROFILE_ROOT}/AppData/Local/warp/Warp/data/warp.sqlite"
+            "${PROFILE_ROOT}/AppData/Local/warp/Warp/data/warp.sqlite",
+            "${PROFILE_ROOT}/AppData/Local/warp/Warp/data/*/warp.sqlite"
           ],
           "category": "agent_session",
           "sensitivity": "high"
@@ -465,6 +468,28 @@
           ],
           "paths": [
             "${PROFILE_ROOT}/.local/share/warp-terminal/**"
+          ],
+          "category": "debug_logs",
+          "sensitivity": "medium"
+        },
+        {
+          "id": "warp.telemetry",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/dev.warp.Warp-Stable/telemetry_events.json"
+          ],
+          "category": "product_state",
+          "sensitivity": "medium"
+        },
+        {
+          "id": "warp.network_log",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/dev.warp.Warp-Stable/warp_network.log"
           ],
           "category": "debug_logs",
           "sensitivity": "medium"

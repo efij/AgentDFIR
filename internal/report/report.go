@@ -76,9 +76,9 @@ func WriteTimelineCSV(c *Case, path string) error {
 	defer f.Close()
 	w := csv.NewWriter(f)
 	defer w.Flush()
-	_ = w.Write([]string{"timestamp", "corroboration", "actor", "event_type", "tool", "command", "summary", "evidence_path", "evidence_line", "artifact"})
+	_ = w.Write([]string{"timestamp", "state", "evidence", "actor", "event_type", "tool", "command", "summary", "evidence_path", "evidence_line", "artifact"})
 	for _, e := range sortedEvents(c.Events) {
-		_ = w.Write([]string{e.Timestamp, e.Corroboration, e.ActorType, e.EventType, e.Tool,
+		_ = w.Write([]string{e.Timestamp, e.Corroboration, schema.Label(e.Corroboration), e.ActorType, e.EventType, e.Tool,
 			e.Command, e.Summary, e.SourcePath, fmt.Sprint(e.SourceLine), e.SourceArtifact})
 	}
 	return nil
@@ -258,7 +258,7 @@ func WriteHTML(c *Case, path string) error {
 			w(kv("Parent", fd.ParentAgentID))
 		}
 		w(kv("Status", fd.Status))
-		w(kv("Endpoint corroboration", fd.Endpoint))
+		w(kv("Second witness", schema.Label(fd.Endpoint)))
 		atlas := fd.MitreATLAS
 		if atlas == "" {
 			atlas = "not mapped"
@@ -305,7 +305,7 @@ func WriteHTML(c *Case, path string) error {
 		if e.Tool != "" {
 			label += ":" + e.Tool
 		}
-		w(`<tr><td class="mono">` + safe(e.Timestamp) + `</td><td><span class="st st-` + e.Corroboration + `">` + safe(e.Corroboration) + `</span></td><td>` + safe(e.ActorType) + `</td><td class="mono">` + safe(label) + `</td><td>` + safe(detail) + `</td><td class="mono ev">` + safe(fmt.Sprintf("%s:%d", e.SourcePath, e.SourceLine)) + `</td></tr>`)
+		w(`<tr><td class="mono">` + safe(e.Timestamp) + `</td><td><span class="st st-` + e.Corroboration + `">` + safe(schema.Label(e.Corroboration)) + `</span></td><td>` + safe(e.ActorType) + `</td><td class="mono">` + safe(label) + `</td><td>` + safe(detail) + `</td><td class="mono ev">` + safe(fmt.Sprintf("%s:%d", e.SourcePath, e.SourceLine)) + `</td></tr>`)
 	}
 	w(`</tbody></table>`)
 	if len(tlEvents) > MaxHTMLRows {

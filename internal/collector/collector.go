@@ -59,13 +59,30 @@ const (
 // hundreds of megabytes of third-party content that the agent did not
 // author and that no detection reads.
 //
-// They are excluded, not ignored: each excluded subtree gets a
-// SKIPPED_BY_POLICY manifest record naming it with its file count and
-// byte total, so the exclusion is visible in the evidence and reversible
-// with --full-plugins. Evidence that was never collected cannot be
-// examined later, so the decision has to be recorded where an analyst
-// will see it.
-var excludedDirs = map[string]bool{"node_modules": true, ".git": true}
+// Deliberately NOT the whole .git tree. Excluding it wholesale — as this
+// first did — also removes .git/hooks and .git/config, which are exactly
+// the artifacts a hook-installation detection needs to check, and a
+// poisoned plugin marketplace repo can ship a hook. Only the object stores
+// go, because that is where the megabytes are.
+//
+// Excluded, not ignored: each excluded subtree gets a SKIPPED_BY_POLICY
+// manifest record naming it with its file count and byte total, so the
+// exclusion is visible in the evidence and reversible with --full-plugins.
+// Evidence that was never collected cannot be examined later, so the
+// decision has to be recorded where an analyst will see it.
+var excludedDirs = map[string]bool{"node_modules": true}
+
+// excludedPaths are excluded by their position rather than their name:
+// git object storage, wherever it sits.
+func isExcludedPath(path string) bool {
+	p := filepath.ToSlash(path)
+	for _, suffix := range []string{"/.git/objects", "/.git/lfs", "/.git/modules"} {
+		if strings.HasSuffix(p, suffix) || strings.Contains(p, suffix+"/") {
+			return true
+		}
+	}
+	return false
+}
 
 // Stats summarizes a collection run.
 type Stats struct {
@@ -74,6 +91,7 @@ type Stats struct {
 	Symlinks   int
 	Skipped    int
 	Failed     int
+	NotPresent int   // manifest paths checked that do not exist on this host
 	TotalBytes int64 // plaintext bytes the package now accounts for
 }
 
@@ -214,6 +232,8 @@ func (r *runner) commit(res result) {
 		r.st.TotalBytes += rec.Size
 	case rec.Status == casepkg.StatusSymlink:
 		r.st.Symlinks++
+	case rec.Status == casepkg.StatusNotPresent:
+		r.st.NotPresent++
 	case rec.Status == casepkg.StatusSkippedType,
 		rec.Status == casepkg.StatusSkippedBound,
 		rec.Status == casepkg.StatusSkippedPolicy:
@@ -307,7 +327,12 @@ func (r *runner) collectPattern(entry products.ManifestEntry, pattern string) er
 	default:
 		if _, err := os.Lstat(pattern); err != nil {
 			if os.IsNotExist(err) {
-				return nil // absent artifact: normal, not recorded as failure
+				// "We looked here and it was not there" is a finding about
+				// the host, and the only thing that distinguishes a product
+				// that stores nothing from a collector aimed at the wrong
+				// path. Recorded, not discarded.
+				r.recordAbsent(entry, pattern)
+				return nil
 			}
 			r.recordFailure(entry, pattern, err)
 			return nil
@@ -320,6 +345,7 @@ func (r *runner) collectPattern(entry products.ManifestEntry, pattern string) er
 func (r *runner) walkTree(entry products.ManifestEntry, base string) error {
 	if _, err := os.Lstat(base); err != nil {
 		if os.IsNotExist(err) {
+			r.recordAbsent(entry, base)
 			return nil
 		}
 		r.recordFailure(entry, base, err)
@@ -335,7 +361,7 @@ func (r *runner) walkTree(entry products.ManifestEntry, base string) error {
 			return nil
 		}
 		if d.IsDir() {
-			if !r.opts.FullContent && excludedDirs[d.Name()] && path != base {
+			if !r.opts.FullContent && path != base && (excludedDirs[d.Name()] || isExcludedPath(path)) {
 				r.recordExcludedTree(entry, path)
 				return fs.SkipDir
 			}
@@ -425,6 +451,14 @@ func (r *runner) recordCarried(prev casepkg.ArtifactRecord, rec casepkg.Artifact
 	r.issued++
 }
 
+// recordAbsent notes a manifest path that does not exist on this host.
+func (r *runner) recordAbsent(entry products.ManifestEntry, path string) {
+	rec := r.baseRecord(entry, path)
+	rec.Status = casepkg.StatusNotPresent
+	rec.Method = casepkg.MethodMetadataOnly
+	r.record(rec)
+}
+
 func (r *runner) recordFailure(entry products.ManifestEntry, path string, cause error) {
 	rec := r.baseRecord(entry, path)
 	if os.IsPermission(cause) {
@@ -497,4 +531,107 @@ func IngestLooseSessions(b *casepkg.Builder, root string, opts Options) (*Stats,
 		return st, err
 	}
 	return st, r.stop()
+}
+
+// Survey walks the same patterns Run would, using only lstat, and reports
+// how much there is to acquire.
+//
+// It exists so `run` can show a real percentage and a real time remaining
+// instead of a spinner. A metadata-only pass over ~22,000 files costs one
+// or two seconds against the minutes the acquisition itself takes, and an
+// honest ETA is worth that. Nothing is read, hashed or opened.
+//
+// The numbers describe what Run *would* acquire under the same options:
+// symlinks, irregular files, over-bound files and policy-excluded subtrees
+// are counted as skipped, not as work.
+type Survey struct {
+	Files   int   // regular files that would be read
+	Bytes   int64 // their total size
+	Skipped int   // symlinks, irregular, bound-exceeded, policy-excluded
+}
+
+// SurveyRun measures a collection without performing it.
+func SurveyRun(man *products.CollectorManifest, opts Options) Survey {
+	if opts.MaxFileBytes == 0 {
+		opts.MaxFileBytes = DefaultMaxFileBytes
+	}
+	if opts.MaxTotalBytes == 0 {
+		opts.MaxTotalBytes = DefaultMaxTotalBytes
+	}
+	s := &surveyor{opts: opts}
+	for _, entry := range man.Entries {
+		for _, pattern := range entry.Paths {
+			resolved := expand(pattern, opts)
+			if resolved == "" {
+				continue
+			}
+			s.walk(resolved)
+		}
+	}
+	return s.out
+}
+
+type surveyor struct {
+	opts Options
+	out  Survey
+}
+
+func (s *surveyor) walk(pattern string) {
+	switch {
+	case strings.HasSuffix(pattern, string(filepath.Separator)+"**") || strings.HasSuffix(pattern, "/**"):
+		base := strings.TrimSuffix(strings.TrimSuffix(pattern, "**"), string(filepath.Separator))
+		base = strings.TrimSuffix(base, "/")
+		if strings.ContainsAny(base, "*?[") {
+			matches, _ := filepath.Glob(base)
+			for _, m := range matches {
+				s.tree(m)
+			}
+			return
+		}
+		s.tree(base)
+	case strings.ContainsAny(pattern, "*?["):
+		matches, _ := filepath.Glob(pattern)
+		for _, m := range matches {
+			s.file(m)
+		}
+	default:
+		s.file(pattern)
+	}
+}
+
+func (s *surveyor) tree(base string) {
+	_ = filepath.WalkDir(base, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			if d != nil && d.IsDir() {
+				return fs.SkipDir
+			}
+			return nil
+		}
+		if d.IsDir() {
+			if !s.opts.FullContent && path != base && (excludedDirs[d.Name()] || isExcludedPath(path)) {
+				return fs.SkipDir
+			}
+			return nil
+		}
+		s.file(path)
+		return nil
+	})
+}
+
+func (s *surveyor) file(path string) {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return
+	}
+	switch {
+	case info.Mode()&os.ModeSymlink != 0, info.IsDir(), !info.Mode().IsRegular(),
+		info.Size() > s.opts.MaxFileBytes,
+		s.out.Bytes+info.Size() > s.opts.MaxTotalBytes:
+		if !info.IsDir() {
+			s.out.Skipped++
+		}
+		return
+	}
+	s.out.Files++
+	s.out.Bytes += info.Size()
 }

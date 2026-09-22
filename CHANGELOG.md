@@ -7,6 +7,63 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.6.0] — 2026-09-22
+
+Ships the rules that were never running, says what it means in plain words,
+and shows real time. No detection logic changed; one packaging bug did more
+damage than any rule.
+
+### Fixed
+- **The shipped rule packs never ran.** `rules/*.json` was not embedded,
+  `analysis.Options.RulesDir` only came from `analyze --rules <dir>`, `run`
+  had no such flag at all, and the release archives contain only the binary.
+  On any installed copy the whole declarative rule set was inert: a real run
+  producing 1,519 findings had generated every one of them from the built-in
+  Go rules, with **80 of 140 declared rules idle**. The packs are now
+  `go:embed`-ed and load by default for `run` and `analyze`.
+  `--rules <dir>` still adds packs on top; `--no-builtin-packs` restores the
+  old behaviour. `run` gains `--rules` too.
+- **`CURL_PIPE_SHELL` shipped in two packs**, so loading both reported it
+  twice on the same evidence. Pack loading now de-duplicates by rule ID,
+  first pack wins, and drops are recorded in the analysis notes.
+- **`.git` was excluded wholesale** by the v1.5.0 collection policy, which
+  also removed `.git/hooks` and `.git/config` — the artifacts a
+  hook-installation detection exists to read, and exactly where a poisoned
+  plugin marketplace repo would put one. Only `.git/objects`, `.git/lfs`
+  and `.git/modules/*/objects` are skipped now.
+- **Warp AI was detected and collected nothing, silently.** The manifest
+  expected `warp.sqlite` at a fixed path; on a real machine it was not
+  there. Paths now glob the per-install directory, and
+  `telemetry_events.json` and `warp_network.log` are collected.
+
+### Added
+- **Absence is evidence.** A manifest path that was checked and does not
+  exist is recorded as `NOT_PRESENT` with the path, instead of being
+  discarded. A detected product that collects nothing now says how many
+  paths it checked rather than printing `0 artifacts · 0 B`.
+- **Rule-set provenance.** `analysis.json` records the name, version and
+  SHA-256 of every pack that contributed, plus the AgentDFIR version, so
+  "which rules decided this" stays answerable after the binary is replaced.
+- **Real timing.** Every step of `run` reports how long it took, with a
+  total. Acquisition shows a true percentage and time remaining, from a
+  metadata-only pre-walk that costs a second or two and reads nothing.
+  Analysis shows named stage progress (`stage 3/7 · detections`) and
+  deliberately **no** ETA — stage costs differ by an order of magnitude and
+  a fabricated number is worse than none.
+
+### Changed
+- **Plain words for evidence states**, everywhere a human reads them:
+  `ASKED` · `CLAIMED` · `RECORDED` · `PARTLY CONFIRMED` · `CONFIRMED` ·
+  `DISPROVED` · `UNKNOWN`. The feature that produces them is called
+  **enrich**, or a second witness.
+  "Enriched" is deliberately not one of the states: enrichment is the
+  action, and the state has to say whether the host confirmed or disproved
+  the claim, or it carries no information.
+  **The stored values and the JSON are unchanged** — `.adfir` is a published
+  format, packages exist in the wild, and OCSF/SARIF/STIX exports feed other
+  systems. The timeline CSV now carries both: the stored state and the plain
+  word beside it.
+
 ## [1.5.0] — 2026-09-19
 
 The evidence-store release. Collecting the same machine twice used to mean

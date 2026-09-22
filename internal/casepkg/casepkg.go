@@ -54,8 +54,13 @@ const (
 	StatusSkippedBound  = "SKIPPED_BOUND_EXCEEDED"
 	StatusSkippedType   = "SKIPPED_IRREGULAR_TYPE"
 	StatusSkippedPolicy = "SKIPPED_BY_POLICY"
-	StatusSymlink       = "SYMLINK_NOT_FOLLOWED"
-	StatusError         = "ERROR"
+	// StatusNotPresent records a manifest path that was checked and did not
+	// exist. Absence is evidence: it separates "this product stores nothing
+	// here" from "the collector looked in the wrong place", and it is the
+	// only way a detected-but-empty product can explain itself.
+	StatusNotPresent = "NOT_PRESENT"
+	StatusSymlink    = "SYMLINK_NOT_FOLLOWED"
+	StatusError      = "ERROR"
 )
 
 // Collection methods recorded on a manifest record.
@@ -704,6 +709,10 @@ func (b *Builder) CommitPending(p *Pending) error {
 		b.stats.Carried++
 	case p.rec.Status == StatusOK:
 		b.stats.OK++
+	case p.rec.Status == StatusNotPresent, p.rec.Status == StatusSkippedPolicy,
+		p.rec.Status == StatusSkippedBound, p.rec.Status == StatusSkippedType,
+		p.rec.Status == StatusSymlink:
+		// Recorded outcomes, not acquisition failures.
 	default:
 		b.stats.Failed++
 	}
@@ -937,7 +946,7 @@ func (b *Builder) RecordNonFile(rec ArtifactRecord) error {
 	if rec.Round == 0 {
 		rec.Round = b.round
 	}
-	if rec.Status != StatusOK {
+	if rec.Status != StatusOK && rec.Status != StatusNotPresent {
 		b.stats.Failed++
 	}
 	return b.record(rec)
@@ -1154,6 +1163,7 @@ type VerifyResult struct {
 	CustodyRecs     int
 	ArtifactsOK     int
 	ArtifactsFailed int
+	NotPresent      int
 	Carried         int
 	Rounds          int
 	Depth           string // "quick" or "full"
@@ -1266,6 +1276,8 @@ func verify(dir string, full bool) (*VerifyResult, error) {
 				if err := verifyContentAddress(store, a); err != nil {
 					res.Problems = append(res.Problems, a.LogicalPath+": "+err.Error())
 				}
+			case StatusNotPresent:
+				res.NotPresent++
 			default:
 				res.ArtifactsFailed++
 			}

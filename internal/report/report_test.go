@@ -85,7 +85,12 @@ func TestCSVOutputs(t *testing.T) {
 		t.Fatal(err)
 	}
 	data, _ := os.ReadFile(filepath.Join(dir, "t.csv"))
+	// The stored state stays in the CSV for machine consumers; the plain
+	// word is added beside it for whoever opens the file.
 	if !strings.Contains(string(data), "REPORTED") {
-		t.Fatal("timeline CSV missing corroboration state")
+		t.Error("timeline CSV dropped the stored evidence state")
+	}
+	if !strings.Contains(string(data), "CLAIMED") {
+		t.Error("timeline CSV missing the plain-English evidence label")
 	}
 }

@@ -26,6 +26,7 @@ import (
 	"github.com/efij/AgentDFIR/internal/provenance"
 	"github.com/efij/AgentDFIR/internal/rulepack"
 	"github.com/efij/AgentDFIR/internal/schema"
+	"github.com/efij/AgentDFIR/internal/version"
 )
 
 // Options are the optional inputs an analyst may add.
@@ -38,11 +39,16 @@ type Options struct {
 	GatewayMap     string
 	GatewayServers []string
 	RulesDir       string
+	NoBuiltinPacks bool // skip the packs embedded in the binary (built-in Go rules only)
 	Honeytokens    []string
 	SpawnThreshold int
 	KnownDests     []string
 	Renormalize    bool      // force re-parse even if the overlay is current
 	Log            io.Writer // progress lines; nil = silent
+	// Stage is called as each stage begins, for a caller that wants to show
+	// which one is running. Deliberately no time estimate: stage costs
+	// differ by an order of magnitude and a guessed ETA is worse than none.
+	Stage func(n, total int, name string)
 }
 
 // Result summarizes one run.
@@ -55,7 +61,17 @@ type Result struct {
 	MCPServers   int
 	Provenance   int // instruction files attributed
 	Chains       int // attack-chain findings
+	Packs        []rulepack.PackSource
 	StageNotes   []string
+}
+
+// stages are announced in the order Run executes them.
+const analysisStages = 7
+
+func (o *Options) stage(n int, name string) {
+	if o.Stage != nil {
+		o.Stage(n, analysisStages, name)
+	}
 }
 
 func (o *Options) logf(format string, a ...any) {
@@ -102,6 +118,7 @@ func Run(pkg string, o Options) (*Result, error) {
 		}
 	}
 
+	o.stage(1, "normalize")
 	// ---- 1. normalize (streaming) — only when the overlay is missing/stale.
 	evPath := filepath.Join(dir, "events.jsonl")
 	needNorm := o.Renormalize
@@ -138,6 +155,7 @@ func Run(pkg string, o Options) (*Result, error) {
 	}
 	res.Entities = len(entities)
 
+	o.stage(2, "second witness")
 	// ---- 2. second witness (runs BEFORE detection so findings carry the states).
 	var findings []schema.Finding
 	if len(o.EndpointLogs) > 0 || o.ShellHistory != "" {
@@ -191,6 +209,7 @@ func Run(pkg string, o Options) (*Result, error) {
 		}
 	}
 
+	o.stage(3, "detections")
 	// ---- 3. detections (streaming over the overlay).
 	det, err := detect.RunStream(pkg, entities, detect.Options{Honeytokens: o.Honeytokens, SpawnThreshold: o.SpawnThreshold, KnownDestinations: o.KnownDests})
 	if err != nil {
@@ -198,20 +217,53 @@ func Run(pkg string, o Options) (*Result, error) {
 	}
 	findings = append(findings, det...)
 
+	o.stage(4, "rule packs")
 	// ---- 4. declarative rule packs.
+	//
+	// The packs shipped with the binary run by default. They used to load
+	// only from --rules, which nothing set, so on an installed copy the
+	// whole declarative rule set was inert.
+	var packs []rulepack.Pack
+	var packSrcs []rulepack.PackSource
+	if !o.NoBuiltinPacks {
+		ep, es, err := rulepack.Embedded()
+		if err != nil {
+			return nil, fmt.Errorf("embedded rule packs: %w", err)
+		}
+		packs, packSrcs = ep, es
+	}
 	if o.RulesDir != "" {
-		packs, err := rulepack.LoadDir(o.RulesDir)
+		extraPacks, err := rulepack.LoadDir(o.RulesDir)
 		if err != nil {
 			return nil, fmt.Errorf("rule packs: %w", err)
+		}
+		for _, ep := range extraPacks {
+			packSrcs = append(packSrcs, rulepack.PackSource{
+				Pack: ep.Pack, Version: ep.Version, Rules: len(ep.Rules), Origin: o.RulesDir,
+			})
+		}
+		packs = append(packs, extraPacks...)
+	}
+	if len(packs) > 0 {
+		var dropped []string
+		packs, dropped = rulepack.Dedupe(packs)
+		for _, d := range dropped {
+			res.StageNotes = append(res.StageNotes, "duplicate rule id: "+d)
 		}
 		extra, err := rulepack.Apply(packs, &schema.Normalized{Events: LoadEvents(pkg)}, pkg)
 		if err != nil {
 			return nil, fmt.Errorf("rule packs: %w", err)
 		}
 		findings = append(findings, extra...)
-		o.logf("Rule packs: %d pack(s), %d finding(s)", len(packs), len(extra))
+		n := 0
+		for _, p := range packs {
+			n += len(p.Rules)
+		}
+		o.logf("Rule packs: %d pack(s), %d rule(s), %d finding(s)", len(packs), n, len(extra))
 	}
+	res.Packs = packSrcs
 
+	o.stage(5, "MCP audit")
 	// ---- 5. MCP supply-chain audit (+ gateway corroboration).
 	inv, mcpExtra, err := mcpaudit.ScanPackage(pkg)
 	if err == nil {
@@ -245,6 +297,7 @@ func Run(pkg string, o Options) (*Result, error) {
 		res.StageNotes = append(res.StageNotes, "mcp audit skipped: "+err.Error())
 	}
 
+	o.stage(6, "provenance")
 	// ---- 6. instruction & memory provenance.
 	if prov, err := provenance.Run(pkg, LoadEvents(pkg), ""); err == nil {
 		res.Provenance = len(prov.Files)
@@ -255,9 +308,10 @@ func Run(pkg string, o Options) (*Result, error) {
 		res.StageNotes = append(res.StageNotes, "provenance skipped: "+err.Error())
 	}
 
+	o.stage(7, "attack chains")
 	// ---- 7. attack chains: toxic combinations across the findings above.
 	chains := append([]chain.Chain(nil), chain.Builtin...)
-	if o.RulesDir != "" {
+	if o.RulesDir != "" { //nolint:dupl // embedded chain packs are not shipped yet
 		extra, err := chain.LoadDir(o.RulesDir)
 		if err != nil {
 			return nil, fmt.Errorf("chain packs: %w", err)
@@ -278,6 +332,9 @@ func Run(pkg string, o Options) (*Result, error) {
 		"analyzed_utc": time.Now().UTC().Format(time.RFC3339), "events": res.Events, "renormalized": res.Renormalized,
 		"findings": len(findings), "endpoint_logs": o.EndpointLogs, "gateway_log": o.GatewayLog, "rules_dir": o.RulesDir,
 		"honeytokens": len(o.Honeytokens), "chains": res.Chains, "notes": res.StageNotes,
+		// Which rule set decided this, by name, version and content hash —
+		// so the question stays answerable after the binary is replaced.
+		"rule_packs": packSrcs, "agentdfir_version": version.Version,
 	})
 	return res, nil
 }

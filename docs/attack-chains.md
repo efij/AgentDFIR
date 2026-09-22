@@ -33,7 +33,7 @@ All eight are in `internal/catalog`, `agentdfir rules list` and [detection-cover
 - For each occurrence of step 1, the engine takes the **first later** event satisfying step 2, then step 3, and so on. Order is strict: the same events in a different order do not match.
 - `window_minutes` bounds the span from the first to the last step; `0` means unlimited.
 - After a full match, matching resumes after the last matched event, so one session can yield several instances (capped at 20 per chain per group).
-- The finding's status is the worst corroboration state among its steps: CONTRADICTED if any step is, CORROBORATED if all observed steps have an OS witness, otherwise OBSERVED.
+- The finding's evidence state is the worst among its steps: DISPROVED if any step is, CONFIRMED if every recorded step has an OS witness, otherwise RECORDED.
 
 ## Step predicates
 

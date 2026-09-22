@@ -355,7 +355,8 @@ func rowOf(e schema.Event) map[string]any {
 	return map[string]any{
 		"id": e.EventID, "ts": e.Timestamp, "type": e.EventType, "actor": e.ActorType, "session": e.SessionID,
 		"agent": e.AgentID, "parent": e.ParentAgentID, "tool": sanitize.Terminal(e.Tool), "mcp": sanitize.Terminal(e.MCPServer),
-		"what": sanitize.Terminal(trimTo(what, 240)), "state": e.Corroboration, "dest": sanitize.Terminal(e.NetworkDest),
+		"what": sanitize.Terminal(trimTo(what, 240)), "state": e.Corroboration, "state_label": schema.Label(e.Corroboration),
+		"dest": sanitize.Terminal(e.NetworkDest),
 		"path": sanitize.Terminal(e.SourcePath), "line": e.SourceLine, "artifact": e.SourceArtifact, "offset": e.SourceOffset,
 		"product": e.Product,
 	}
@@ -451,7 +452,9 @@ func (s *Server) findingRow(i int, f schema.Finding) map[string]any {
 	row := map[string]any{
 		"index": i, "rule_id": f.RuleID, "severity": f.Severity, "title": sanitize.Terminal(f.Title),
 		"description": sanitize.Terminal(f.Description), "session": f.SessionID, "agent": f.AgentID, "parent": f.ParentAgentID,
-		"status": f.Status, "endpoint": f.Endpoint, "mitre_attack": f.MitreATTACK, "mitre_atlas": f.MitreATLAS,
+		"status": f.Status, "endpoint": f.Endpoint,
+		"status_label": schema.Label(f.Status), "endpoint_label": schema.Label(f.Endpoint),
+		"mitre_attack": f.MitreATTACK, "mitre_atlas": f.MitreATLAS,
 		"evidence": sanitizeAll(f.EvidenceRefs), "related": sanitizeAll(f.Related), "false_positive": sanitize.Terminal(f.FalsePositive),
 		"event_id": evID, "key": notes.FindingKey(f.RuleID, f.EvidenceRefs), "chain": len(f.ChainSteps) > 0,
 	}
@@ -556,7 +559,7 @@ func (s *Server) apiBuckets(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) apiExtras(w http.ResponseWriter, r *http.Request) {
 	out := map[string]any{}
-	for name, file := range map[string]string{"mcp": "mcp-audit.json", "corroboration": "corroboration.json", "provenance": "provenance.json"} {
+	for name, file := range map[string]string{"mcp": "mcp-audit.json", "enrich": "corroboration.json", "provenance": "provenance.json"} {
 		data, err := os.ReadFile(filepath.Join(s.pkg, "detections", file))
 		if err != nil {
 			continue

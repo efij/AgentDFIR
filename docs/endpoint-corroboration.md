@@ -1,4 +1,4 @@
-# Endpoint corroboration — the second witness
+# Enrich — the second witness
 
 An agent's transcript is witness #1: the agent's own diary. It can be wrong (the model narrated something that never ran), incomplete (a hidden subprocess), or edited. `agentdfir correlate` brings in witness #2 — the operating system's own telemetry — and re-labels every tool call by how much proof exists:
 
@@ -19,7 +19,7 @@ agentdfir correlate CASE-42.adfir procs.jsonl netconns.csv             # Velocir
 agentdfir analyze   CASE-42.adfir --endpoint audit.log                 # same, inside the one-shot analysis
 ```
 
-Format is sniffed per file (`--format auditd|sysmon-xml|jsonl|csv` to override). `--window 3s` sets the match window. Results are written back to `normalized/events.jsonl` (states + an evidence note naming the corroborating record) and to `detections/corroboration.json`; `triage` merges the findings so every downstream report, OCSF/SARIF export and PDF carries the upgraded states.
+Format is sniffed per file (`--format auditd|sysmon-xml|jsonl|csv` to override). `--window 3s` sets the match window. Results are written back to `normalized/events.jsonl` (states + an evidence note naming the confirming record) and to `detections/corroboration.json`; `triage` merges the findings so every downstream report, OCSF/SARIF export and PDF carries the upgraded states.
 
 ## Supported telemetry
 

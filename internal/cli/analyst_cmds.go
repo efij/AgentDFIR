@@ -273,7 +273,7 @@ func cmdExplain(args []string) int {
 	}
 	fmt.Println("Case digest (deterministic — no AI involved):")
 	fmt.Printf("  events: %d across %d agent(s)\n", len(res.Events), len(agents))
-	fmt.Printf("  corroboration: OBSERVED=%d REPORTED=%d CORROBORATED=%d UNKNOWN=%d\n",
+	fmt.Printf("  evidence: RECORDED=%d CLAIMED=%d CONFIRMED=%d UNKNOWN=%d\n",
 		byState[schema.StateObserved], byState[schema.StateReported],
 		byState[schema.StateCorroborated], byState[schema.StateUnknown])
 	fmt.Printf("  tool calls: %d, model responses (claims): %d, trace gaps: %d\n",
@@ -300,7 +300,7 @@ func cmdExplain(args []string) int {
 			if ev.EventType == schema.EventSessionMeta {
 				continue
 			}
-			b.WriteString(fmt.Sprintf("- %s [%s] %s %s: %s\n", ev.Timestamp, ev.Corroboration,
+			b.WriteString(fmt.Sprintf("- %s [%s] %s %s: %s\n", ev.Timestamp, schema.Label(ev.Corroboration),
 				ev.ActorType, ev.EventType, sanitize.Terminal(firstNonEmpty(ev.Command, ev.Summary))))
 		}
 		if err := os.WriteFile(*promptOut, []byte(b.String()), 0o600); err != nil {
@@ -406,12 +406,12 @@ func printEventLine(ev schema.Event) {
 		detail = ev.Summary
 	}
 	fmt.Printf("  %-9s %-20s %-13s %-9s %-20s %s\n", ev.EventID, ev.Timestamp,
-		"["+ev.Corroboration+"]", ev.ActorType, sanitize.Terminal(ev.EventType),
+		"["+schema.Label(ev.Corroboration)+"]", ev.ActorType, sanitize.Terminal(ev.EventType),
 		sanitize.Terminal(detail))
 }
 
 func printEventDetail(ev schema.Event) {
-	fmt.Printf("\n%s  %s  [%s]\n", ev.EventID, ev.Timestamp, ev.Corroboration)
+	fmt.Printf("\n%s  %s  [%s]\n", ev.EventID, ev.Timestamp, schema.Label(ev.Corroboration))
 	fmt.Printf("  %s / %s  session=%s agent=%s\n", ev.ActorType, ev.EventType,
 		sanitize.Terminal(ev.SessionID), sanitize.Terminal(ev.AgentID))
 	if ev.Tool != "" {
