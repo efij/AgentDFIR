@@ -1,0 +1,4 @@
+{
+  "note": "Family emoji (zero-width joiners) and Hebrew text (bidi controls) in ordinary conversation. INVISIBLE_UNICODE_INSTRUCTION hard-coded HIGH regardless of which characters were found; on a real machine every one of the 43 HIGH findings had tag=0, i.e. none contained the Unicode tag characters that can actually smuggle instructions.",
+  "allow": {}
+}

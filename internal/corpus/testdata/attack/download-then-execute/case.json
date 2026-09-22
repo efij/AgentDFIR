@@ -1,0 +1,4 @@
+{
+  "note": "Remote script fetched and piped straight into a shell — the classic download-and-execute path, and the shape CURL_PIPE_SHELL was defined for.",
+  "expect": ["CURL_PIPE_SHELL"]
+}

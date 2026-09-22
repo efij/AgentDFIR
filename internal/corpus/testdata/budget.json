@@ -1,0 +1,22 @@
+{
+  "note": "False positives each rule is allowed across the whole benign corpus. Zero means the rule must not fire on benign activity at all. Baselined against the behaviour at the time the harness landed, so every later change shows up as a measured delta rather than an opinion. Lower a number when a fix lands; never raise one without saying why in the same commit. AGENT_CONFIG_DISCOVERY is here because `ls ~/.claude/skills` is how an agent uses its own skills, not reconnaissance \u2014 it became visible the moment the packs started running and is on the v1.8.0 list.",
+  "total": 40,
+  "rules": {
+    "AGENT_SELF_MODIFICATION": 3,
+    "INVISIBLE_UNICODE_INSTRUCTION": 2,
+    "DESTRUCTIVE_COMMAND": 2,
+    "LOG_DELETION": 1,
+    "TOOL_POISONING_INDICATOR": 4,
+    "PROMPT_INJECTION_INDICATOR": 6,
+    "UNEXPECTED_NETWORK_DESTINATION": 3,
+    "SESSION_TAMPERING": 2,
+    "INSTRUCTION_FROM_TOOL_RESULT": 3,
+    "INSTRUCTION_FILE_WRITTEN_BY_AGENT": 3,
+    "ORPHAN_AGENT": 2,
+    "SENSITIVE_FILE_READ": 2,
+    "AGENT_GENERATED_COMMIT": 4,
+    "SHELL_EXECUTION": 4,
+    "POTENTIAL_SECRET_EXPOSURE": 2,
+    "AGENT_CONFIG_DISCOVERY": 2
+  }
+}

@@ -1,0 +1,4 @@
+{
+  "note": "A transcript containing stop_hook_summary and attachment records. Any dangling parentUuid was treated as a broken chain, but dangling parents come from attachment lines, and timestamp regressions come from hook records carrying the hook's own start time. 49 SESSION_TAMPERING findings on a real machine.",
+  "allow": {}
+}

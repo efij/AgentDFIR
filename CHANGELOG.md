@@ -7,6 +7,36 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.7.0] — 2026-09-22
+
+A measurement harness for detection precision. **No behaviour changes**, no
+rule edits, no new detections — this exists so that every change after it can
+be judged instead of argued about.
+
+### Added
+- **`internal/corpus`** — corpus cases are collected into a real sealed
+  package and run through the real analysis pipeline, nothing mocked.
+  - `testdata/benign/` — seven cases, each reproducing a shape that caused a
+    real false positive on a real machine: read-only skill inspection
+    (`sed -n`, `ls`), emoji ZWJ and Hebrew bidi, scratchpad cleanup, a
+    security plugin's own injection signature list, netcat value-flags and
+    `git@` remotes, hook and attachment transcript lines, and a `.gitignore`
+    in a plugin cache. Written rather than copied: real transcripts carry
+    live secrets.
+  - `testdata/attack/` — cases that must keep firing, so a change that
+    quietens a rule by breaking it fails the build.
+  - `testdata/budget.json` — a per-rule false-positive allowance, baselined
+    against today. A rule over budget fails CI even when the total looks
+    fine; a lost detection fails it from the other side.
+- `go test ./internal/corpus -run TestCorpus -v` prints a per-rule
+  false-positive table, worst first.
+
+The harness found a real false positive on its first run:
+`AGENT_CONFIG_DISCOVERY` fires on `ls ~/.claude/skills`, which is how an
+agent uses its own skills rather than reconnaissance. It was invisible until
+v1.6.0 started running the packs, and it is recorded in the budget with a
+note rather than quietly excused.
+
 ## [1.6.0] — 2026-09-22
 
 Ships the rules that were never running, says what it means in plain words,
