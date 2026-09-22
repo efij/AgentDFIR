@@ -7,9 +7,14 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing release tag to re-verify (e.g. v0.12.1). Skips build."
+        description: "Release tag (e.g. v2.3.0)."
         required: true
         type: string
+      build:
+        description: "Build, sign and publish. Leave off to only re-verify an already-published tag."
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -21,7 +26,15 @@ env:
 jobs:
   # ------------------------------------------------------------------ build
   build:
-    if: github.event_name == 'push'
+    # A tag push is the normal trigger. The dispatch-with-build path is how
+    # auto-release.yml starts a release: a tag pushed by GITHUB_TOKEN does not
+    # trigger a `push` workflow (GitHub blocks that to stop recursion), so the
+    # tag is created there and this is dispatched against it. Dispatching
+    # against the tag ref keeps the Sigstore certificate identity exactly what
+    # a tag push produces — `release.yml@refs/tags/vX.Y.Z` — so the
+    # verification command in docs/install.md stays true for every release
+    # however it was started.
+    if: github.event_name == 'push' || inputs.build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

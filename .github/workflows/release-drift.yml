@@ -1,0 +1,86 @@
+name: Release drift
+
+# The version on main and the version people can install must be the same
+# thing. This checks that they are, every day, and fails loudly when they are
+# not.
+#
+# auto-release.yml is what stops the two diverging. This is what notices if it
+# ever does anyway — because that is precisely what happened for v2.1.0,
+# v2.2.0 and v2.2.1: they were merged, main said 2.2.1, and the newest release
+# anyone could install was v2.0.1. There was no signal of any kind. A release
+# workflow that dies half way leaves exactly the same silent gap (the v2.3.0
+# build hit a transient Sigstore outage and stopped one step before
+# publishing), so "the workflow was started" is not the thing worth checking —
+# "the release is out and it is the latest one" is.
+#
+# Scheduled rather than on push, deliberately: for the few minutes between a
+# version bump landing and its release finishing, the two genuinely disagree,
+# and a job that goes red every release would be trained away within a month.
+
+on:
+  schedule:
+    - cron: "17 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # tags
+
+      - name: The version on main must be the version people can install
+        run: |
+          set -euo pipefail
+          V=$(sed -n 's/^var Version = "\(.*\)"$/\1/p' internal/version/version.go)
+          if [ -z "$V" ]; then
+            echo "::error::could not read Version from internal/version/version.go"
+            exit 1
+          fi
+          if ! printf '%s' "$V" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "main carries the unreleased version $V; nothing to compare"
+            exit 0
+          fi
+          TAG="v$V"
+          fail=0
+          note() { echo "::error::$*"; fail=1; }
+
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "ok   tag $TAG exists"
+          else
+            note "main is at $V but there is no $TAG tag — release.yml never ran. Start it: gh workflow run auto-release.yml"
+          fi
+
+          if rel=$(gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json isDraft,assets 2>/dev/null); then
+            if [ "$(printf '%s' "$rel" | jq -r .isDraft)" = "true" ]; then
+              note "release $TAG exists but is still a draft — the publish step did not finish, so no install path can see it"
+            else
+              echo "ok   release $TAG is published"
+            fi
+            n=$(printf '%s' "$rel" | jq '.assets|length')
+            if [ "$n" -lt 20 ]; then
+              note "release $TAG has only $n assets — the upload did not finish"
+            else
+              echo "ok   release $TAG carries $n assets"
+            fi
+          else
+            note "main is at $V but no release $TAG exists — every install path is serving something older"
+          fi
+
+          # What install.sh and `brew` actually resolve. A published release
+          # that is not the latest one is still invisible to the one-liner in
+          # the README.
+          latest=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name 2>/dev/null || echo "")
+          if [ "$latest" = "$TAG" ]; then
+            echo "ok   $TAG is the latest release"
+          else
+            note "the latest release is ${latest:-none}, not $TAG — install.sh serves ${latest:-nothing}"
+          fi
+
+          exit "$fail"
