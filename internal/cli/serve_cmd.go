@@ -34,6 +34,7 @@ func cmdServe(args []string) int {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
 	}
+	defer s.Close()
 	ln, url, err := s.Listen(*port)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)

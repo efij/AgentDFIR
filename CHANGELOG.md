@@ -7,6 +7,35 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+- **`serve` never released the event overlay, and CI was red on `main`
+  because of it.** The index keeps `normalized/events.jsonl` open so events
+  can be read back by byte offset — that is the point of it — but nothing
+  ever closed it. On Windows a file with an open handle cannot be unlinked,
+  so every `internal/serve` test failed in teardown with *The process
+  cannot access the file because it is being used by another process*, and
+  a case directory served in-process could not be deleted afterwards.
+
+  `serve.Server` gains a `Close`, `index.Index.Close` is idempotent, and
+  the `serve` command and tests use them. Windows CI on `main` went red at
+  v2.2.0, where the index landed, and stayed red through v2.4.0 — the
+  assertions passed and only the cleanup failed, which is the kind of red
+  that gets explained away.
+
+- **The v2.3.0 overlay migration could not finish on Windows.**
+  `overlay.Decompress` restores `normalized/events.jsonl` from the `.gz` a
+  2.1.0–2.2.1 binary left behind, then removes the compressed form — but it
+  still held the `.gz` open on a deferred close, and Windows will not unlink
+  an open file. The removal failed, the `.gz` stayed, and readers prefer it,
+  so the migration undid itself on the one platform where the case was
+  hardest to open to begin with. The handles are now closed before the
+  unlink, as `overlay.Compress` already did.
+
+- A host-witness test asserted nothing on Windows: its fixture wrote a
+  claimed path of `/Users/dev/...`, and `filepath.IsAbs` rejects a POSIX
+  path there, so `witness.Apply` skipped it and the stage under test never
+  ran. The fixture now builds an absolute path in the platform's own shape.
+
 ## [2.4.0] — 2026-09-22
 
 ### Added

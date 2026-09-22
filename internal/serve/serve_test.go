@@ -68,6 +68,7 @@ func TestServeAPI(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer s.Close()
 	if s.idx.Len() < 4 || len(s.findings) == 0 {
 		t.Fatalf("loaded events=%d findings=%d", s.idx.Len(), len(s.findings))
 	}
@@ -226,6 +227,12 @@ func TestServesEveryEventPastTheOldCap(t *testing.T) {
 		t.Fatal(err)
 	}
 	n0 := base.idx.Len()
+	// Closed before the package is written to again: the index holds
+	// events.jsonl open, and on Windows that alone stops the file being
+	// replaced or the case directory removed.
+	if err := base.Close(); err != nil {
+		t.Fatal(err)
+	}
 
 	const pad = 520001 // one past the cap, with room to spare
 	f, err := os.OpenFile(filepath.Join(pkg, "normalized", "events.jsonl"), os.O_APPEND|os.O_WRONLY, 0o600)
@@ -251,6 +258,7 @@ func TestServesEveryEventPastTheOldCap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer s.Close()
 	srv := httptest.NewServer(s.Handler())
 	defer srv.Close()
 
@@ -297,5 +305,40 @@ func TestServesEveryEventPastTheOldCap(t *testing.T) {
 	_ = json.Unmarshal(body, &page)
 	if page.Total != 1 || len(page.Items) != 1 || page.Items[0]["id"] != last {
 		t.Fatalf("text filter over the tail: total=%d %v", page.Total, page.Items)
+	}
+}
+
+// The index keeps normalized/events.jsonl open so events can be read back by
+// byte offset, which means a Server owns a file handle for as long as it
+// lives. Nothing released it until v2.3.1, and on Windows a file with an open
+// handle cannot be unlinked — so every serve test failed in cleanup
+// ("The process cannot access the file because it is being used by another
+// process") and CI was red on main from v2.2.0 onward. The assertions all
+// passed; only the teardown failed, which is exactly the kind of red that
+// gets explained away.
+func TestServerReleasesTheOverlayHandle(t *testing.T) {
+	pkg := buildPkg(t)
+	s, err := Load(pkg, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.idx == nil {
+		t.Fatal("no index was opened; this test would prove nothing")
+	}
+	if err := s.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	if s.idx != nil {
+		t.Fatal("the index outlived Close")
+	}
+	// Deferred in one place and called explicitly in another is the normal
+	// shape; a second Close must not turn that into an error.
+	if err := s.Close(); err != nil {
+		t.Fatalf("second Close: %v", err)
+	}
+	// What Windows actually enforces. It passes trivially on Unix, where an
+	// open file can be unlinked, so the Windows leg of CI is what proves it.
+	if err := os.RemoveAll(pkg); err != nil {
+		t.Fatalf("case directory still held open after Close: %v", err)
 	}
 }

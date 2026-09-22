@@ -72,7 +72,11 @@ func TestOverlayStaysPlaintextAfterRewritingStages(t *testing.T) {
 // The same, through the host witness, which needs no endpoint log and so
 // fires on ordinary cases.
 func TestOverlayStaysPlaintextAfterHostWitness(t *testing.T) {
-	pkg := buildPkgWithWitness(t, "/Users/dev/.claude/CLAUDE.md")
+	// An absolute path in this platform's own shape. witness.claimedWrite
+	// drops anything filepath.IsAbs rejects, and on Windows that is every
+	// POSIX path — which is how a hardcoded "/Users/..." made this test
+	// assert nothing there for as long as Windows CI was red.
+	pkg := buildPkgWithWitness(t, filepath.Join(t.TempDir(), "CLAUDE.md"))
 	res, err := Run(pkg, Options{})
 	if err != nil {
 		t.Fatal(err)

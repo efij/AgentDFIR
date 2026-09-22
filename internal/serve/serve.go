@@ -151,6 +151,24 @@ func Load(pkg string, opts Options) (*Server, error) {
 	return s, nil
 }
 
+// Close releases what Load opened. The index keeps normalized/events.jsonl
+// open for the whole life of the server — that is the point of it, events
+// are read back by byte offset on demand — so a caller that finishes with a
+// Server has to say so.
+//
+// It matters beyond tidiness on Windows, where a file with an open handle
+// cannot be unlinked: a leaked index makes the case directory itself
+// undeletable. That is the same defect casepkg.Builder.Close was written to
+// fix, in a different package.
+func (s *Server) Close() error {
+	if s.idx == nil {
+		return nil
+	}
+	err := s.idx.Close()
+	s.idx = nil
+	return err
+}
+
 // ListenAndServe binds loopback and serves until the listener fails.
 // The returned URL is printed by the caller.
 func (s *Server) Listen(port int) (net.Listener, string, error) {
