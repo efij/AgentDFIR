@@ -421,24 +421,36 @@ func Decompress(p string) error {
 	if err != nil {
 		return nil // nothing to migrate
 	}
-	defer src.Close()
 	zr, err := gzip.NewReader(src)
 	if err != nil {
+		src.Close()
 		return fmt.Errorf("%s: %w", filepath.Base(p)+Suffix, err)
 	}
-	defer zr.Close()
 	tmp, err := os.CreateTemp(filepath.Dir(p), filepath.Base(p)+"-*.tmp")
 	if err != nil {
+		zr.Close()
+		src.Close()
 		return err
 	}
 	name := tmp.Name()
 	// Bounded like every other read of a compressed overlay file: this one
 	// writes to disk rather than memory, which makes an unbounded copy
 	// worse, not better.
-	if _, err := io.Copy(tmp, &boundedReader{zr: zr, f: src, rem: bound(src), name: filepath.Base(p) + Suffix}); err != nil {
+	_, cErr := io.Copy(tmp, &boundedReader{zr: zr, f: src, rem: bound(src), name: filepath.Base(p) + Suffix})
+	// The source is closed here rather than deferred, and before the
+	// compressed form is removed below: on Windows a file with an open
+	// handle cannot be unlinked, so a deferred close would leave the .gz
+	// behind — and readers prefer it, which would undo the whole migration
+	// on the one platform where the case was hardest to open in the first
+	// place. Compress() has the same note for the same reason.
+	zr.Close()
+	if sErr := src.Close(); cErr == nil {
+		cErr = sErr
+	}
+	if cErr != nil {
 		tmp.Close()
 		os.Remove(name)
-		return err
+		return cErr
 	}
 	if err := tmp.Close(); err != nil {
 		os.Remove(name)

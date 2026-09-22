@@ -15,6 +15,7 @@ func TestSessionsChainSearchNotes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer s.Close()
 	srv := httptest.NewServer(s.Handler())
 	defer srv.Close()
 

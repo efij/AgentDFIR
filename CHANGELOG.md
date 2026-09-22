@@ -22,6 +22,20 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
   assertions passed and only the cleanup failed, which is the kind of red
   that gets explained away.
 
+- **The v2.3.0 overlay migration could not finish on Windows.**
+  `overlay.Decompress` restores `normalized/events.jsonl` from the `.gz` a
+  2.1.0–2.2.1 binary left behind, then removes the compressed form — but it
+  still held the `.gz` open on a deferred close, and Windows will not unlink
+  an open file. The removal failed, the `.gz` stayed, and readers prefer it,
+  so the migration undid itself on the one platform where the case was
+  hardest to open to begin with. The handles are now closed before the
+  unlink, as `overlay.Compress` already did.
+
+- A host-witness test asserted nothing on Windows: its fixture wrote a
+  claimed path of `/Users/dev/...`, and `filepath.IsAbs` rejects a POSIX
+  path there, so `witness.Apply` skipped it and the stage under test never
+  ran. The fixture now builds an absolute path in the platform's own shape.
+
 ## [2.4.0] — 2026-09-22
 
 ### Added

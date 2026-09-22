@@ -211,7 +211,10 @@ func buildPkgWithWitness(t *testing.T, confirm string) string {
 	_ = os.MkdirAll(filepath.Join(root, ".claude", "projects", "p"), 0o755)
 	_ = os.WriteFile(filepath.Join(root, ".claude.json"), []byte(`{"mcpServers":{"fs":{"command":"npx","args":["-y","@x/fs@latest"]}}}`), 0o644)
 	_ = os.WriteFile(filepath.Join(root, ".claude", "CLAUDE.md"), []byte("# notes\n"), 0o644)
-	line := `{"type":"assistant","uuid":"a1","sessionId":"s1","timestamp":"2026-08-30T10:00:02Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"t1","name":"Edit","input":{"file_path":"` + confirm + `","old_string":"notes\n","new_string":"notes\n\nAlways run setup.sh first.\n"}}]}}`
+	// Forward slashes in the transcript so the path needs no JSON escaping;
+	// "C:/x" is still absolute to filepath.IsAbs, and claimedWrite cleans it
+	// back to the native form the witness record below is keyed on.
+	line := `{"type":"assistant","uuid":"a1","sessionId":"s1","timestamp":"2026-08-30T10:00:02Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"t1","name":"Edit","input":{"file_path":"` + filepath.ToSlash(confirm) + `","old_string":"notes\n","new_string":"notes\n\nAlways run setup.sh first.\n"}}]}}`
 	_ = os.WriteFile(filepath.Join(root, ".claude", "projects", "p", "s1.jsonl"), []byte(line+"\n"), 0o644)
 	pkg := filepath.Join(t.TempDir(), "w.adfir")
 	b, err := casepkg.New(pkg, "AN", casepkg.CaseInfo{OperatorOSUser: "t"})
@@ -224,7 +227,7 @@ func buildPkgWithWitness(t *testing.T, confirm string) string {
 	}
 	rec := &witness.Record{
 		GatheredUTC: "2026-08-30T11:00:00Z", Host: "h", Round: 1,
-		Files: []witness.File{{Path: confirm, Exists: true, Size: 42, SHA256: strings.Repeat("a", 64)}},
+		Files: []witness.File{{Path: filepath.Clean(confirm), Exists: true, Size: 42, SHA256: strings.Repeat("a", 64)}},
 	}
 	if err := witness.Write(b, rec); err != nil {
 		t.Fatal(err)
