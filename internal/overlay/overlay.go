@@ -180,6 +180,22 @@ type Writer struct {
 }
 
 // Create opens the compressed form of p for writing.
+// CreatePlain writes the file uncompressed. Used for the one overlay file
+// that must stay randomly addressable: internal/index records a byte offset
+// per event so the explorer can open a single event without loading the
+// rest, and a gzip stream cannot be seeked. Everything else in the overlay
+// is read whole and is compressed.
+func CreatePlain(p string) (*Writer, error) {
+	// Remove a compressed form left by an earlier version, so the two
+	// cannot disagree about which is current.
+	_ = os.Remove(p + Suffix)
+	f, err := os.OpenFile(p, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		return nil, err
+	}
+	return &Writer{f: f, path: p}, nil
+}
+
 func Create(p string) (*Writer, error) {
 	f, err := os.OpenFile(p+Suffix, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
@@ -188,9 +204,17 @@ func Create(p string) (*Writer, error) {
 	return &Writer{zw: gzip.NewWriter(f), f: f, path: p}, nil
 }
 
-func (w *Writer) Write(p []byte) (int, error) { return w.zw.Write(p) }
+func (w *Writer) Write(p []byte) (int, error) {
+	if w.zw == nil {
+		return w.f.Write(p)
+	}
+	return w.zw.Write(p)
+}
 
 func (w *Writer) Close() error {
+	if w.zw == nil {
+		return w.f.Close()
+	}
 	err := w.zw.Close()
 	if cErr := w.f.Close(); err == nil {
 		err = cErr

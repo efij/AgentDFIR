@@ -1,7 +1,9 @@
 package serve
 
 import (
+	"bufio"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -66,8 +68,8 @@ func TestServeAPI(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(s.events) < 4 || len(s.findings) == 0 {
-		t.Fatalf("loaded events=%d findings=%d", len(s.events), len(s.findings))
+	if s.idx.Len() < 4 || len(s.findings) == 0 {
+		t.Fatalf("loaded events=%d findings=%d", s.idx.Len(), len(s.findings))
 	}
 	if !overlay.Exists(filepath.Join(pkg, "normalized", "events.jsonl")) {
 		t.Fatal("overlay not written on load")
@@ -201,5 +203,99 @@ func TestServeAPI(t *testing.T) {
 	defer ln.Close()
 	if !strings.HasPrefix(url, "http://127.0.0.1:") {
 		t.Fatalf("listener not loopback: %s", url)
+	}
+}
+
+// TestServesEveryEventPastTheOldCap is the regression this index exists
+// for. The explorer used to read the overlay into memory and stop at
+// MaxEvents (500,000); past that it set a "truncated" flag and the rest of
+// the case was simply not in the UI — an analyst could scroll to the end of
+// the timeline and never learn what the agent did after event 500,000. The
+// overlay here is padded past that cap, MaxEvents is set to a value that
+// would once have thrown nearly all of it away, and every event is still
+// served, paginated and openable by id.
+func TestServesEveryEventPastTheOldCap(t *testing.T) {
+	if testing.Short() {
+		t.Skip("pads the overlay past the old 500,000-event cap")
+	}
+	pkg := buildPkg(t)
+	// The first load normalizes and analyzes; the padding goes on top of the
+	// finished overlay, and the load after it must not renormalize.
+	base, err := Load(pkg, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	n0 := base.idx.Len()
+
+	const pad = 520001 // one past the cap, with room to spare
+	f, err := os.OpenFile(filepath.Join(pkg, "normalized", "events.jsonl"), os.O_APPEND|os.O_WRONLY, 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := bufio.NewWriterSize(f, 1<<20)
+	for i := 0; i < pad; i++ {
+		fmt.Fprintf(w, `{"event_id":"pad%d","timestamp":"2026-08-31T%02d:%02d:%02dZ","event_type":"tool_call",`+
+			`"actor_type":"agent","session_id":"pad","agent_id":"main:pad","product":"claude-code","tool":"Bash",`+
+			`"command":"echo pad%d","summary":"padding %d","source_logical_path":"pad/t.jsonl","source_line":%d,`+
+			`"source_offset":%d,"corroboration_state":"RECORDED"}`+"\n",
+			i, i%24, (i/60)%60, i%60, i, i, i+1, int64(i)*64)
+	}
+	if err := w.Flush(); err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+
+	// MaxEvents is what the old cap came in through: it must no longer be
+	// able to hide anything.
+	s, err := Load(pkg, Options{MaxEvents: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(s.Handler())
+	defer srv.Close()
+
+	want := n0 + pad
+	_, body := get(t, srv, "/api/case", "127.0.0.1")
+	var c struct {
+		Events    int  `json:"events"`
+		Truncated bool `json:"truncated"`
+	}
+	if err := json.Unmarshal(body, &c); err != nil {
+		t.Fatal(err)
+	}
+	if c.Events != want || c.Truncated {
+		t.Fatalf("case: events=%d (want %d) truncated=%v", c.Events, want, c.Truncated)
+	}
+
+	// The tail of the case — the part the cap used to drop — is paginated
+	// and openable like anything else.
+	last := "pad" + strconv.Itoa(pad-1)
+	_, body = get(t, srv, "/api/events?offset="+strconv.Itoa(want-1)+"&limit=1", "127.0.0.1")
+	var page struct {
+		Total int              `json:"total"`
+		Items []map[string]any `json:"items"`
+	}
+	if err := json.Unmarshal(body, &page); err != nil {
+		t.Fatal(err)
+	}
+	if page.Total != want || len(page.Items) != 1 || page.Items[0]["id"] != last {
+		t.Fatalf("last page: total=%d items=%d %v", page.Total, len(page.Items), page.Items)
+	}
+	resp, body := get(t, srv, "/api/event/"+last, "127.0.0.1")
+	if resp.StatusCode != 200 || !strings.Contains(string(body), "echo "+last) {
+		t.Fatalf("last event: %d %s", resp.StatusCode, body)
+	}
+
+	// A filtered query still counts the whole case, and the free-text one
+	// reaches the tail too.
+	_, body = get(t, srv, "/api/events?session=pad&limit=1", "127.0.0.1")
+	_ = json.Unmarshal(body, &page)
+	if page.Total != pad {
+		t.Fatalf("session filter: %d, want %d", page.Total, pad)
+	}
+	_, body = get(t, srv, "/api/events?q=echo+"+last+"&limit=5", "127.0.0.1")
+	_ = json.Unmarshal(body, &page)
+	if page.Total != 1 || len(page.Items) != 1 || page.Items[0]["id"] != last {
+		t.Fatalf("text filter over the tail: total=%d %v", page.Total, page.Items)
 	}
 }

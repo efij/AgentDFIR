@@ -16,7 +16,11 @@ func cmdServe(args []string) int {
 	fs := flag.NewFlagSet("serve", flag.ContinueOnError)
 	port := fs.Int("port", 0, "TCP port on 127.0.0.1 (default: ephemeral)")
 	open := fs.Bool("open", false, "open the URL in the default browser")
-	maxEvents := fs.Int("max-events", 500000, "events held in memory")
+	// Still parsed so existing invocations and scripts keep working, and
+	// deliberately without effect: the explorer indexes the overlay and
+	// reads events by offset, so there is no in-memory set to bound and no
+	// cap that can hide the end of a case.
+	maxEvents := fs.Int("max-events", 0, "deprecated: no longer bounds anything; the whole case is indexed")
 	pkg, rest := splitPositional(args)
 	if err := fs.Parse(rest); err != nil || (pkg == "" && fs.NArg() != 1) || (pkg != "" && fs.NArg() != 0) {
 		fmt.Fprintln(os.Stderr, "usage: agentdfir serve <package-dir> [--port N] [--open]")

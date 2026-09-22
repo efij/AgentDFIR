@@ -45,6 +45,6 @@ Verdicts, notes, pins and tags are appended to `<pkg>/notes/notes.jsonl` as a ha
 
 ## API
 
-All JSON, loopback only: `/api/case`, `/api/sessions`, `/api/events?session=&agent=&type=&state=&q=&from=&to=&offset=&limit=`, `/api/event/{id}`, `/api/raw?artifact=&offset=`, `/api/findings`, `/api/chain?finding=<i>` | `?event=<id>`, `/api/search?q=&mode=text|regex&case=1&scope=events,findings,raw&limit=`, `/api/notes` (GET; POST as above), `/api/graph`, `/api/buckets`, `/api/extras`. Events are held in memory (`--max-events`, default 500 000; a truncation flag is shown in the header when exceeded).
+All JSON, loopback only: `/api/case`, `/api/sessions`, `/api/events?session=&agent=&type=&state=&q=&from=&to=&offset=&limit=`, `/api/event/{id}`, `/api/raw?artifact=&offset=`, `/api/findings`, `/api/chain?finding=<i>` | `?event=<id>`, `/api/search?q=&mode=text|regex&case=1&scope=events,findings,raw&limit=`, `/api/notes` (GET; POST as above), `/api/graph`, `/api/buckets`, `/api/extras`. Events are not held in memory: `<pkg>/index/events.idx` records each event's byte offset in `normalized/events.jsonl` plus the fields the lists filter on, and the full event is read by offset when a detail view asks for it. The index is derived data — outside the sealed zone, not covered by `SHA256SUMS`, safe to delete, rebuilt on load when missing or stale. There is no event cap; `--max-events` is accepted and ignored.
 
 Multi-user, hosted or remote access is deliberately out of scope for the open-source tool.

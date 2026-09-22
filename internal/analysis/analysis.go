@@ -20,6 +20,7 @@ import (
 	"github.com/efij/AgentDFIR/v2/internal/correlate"
 	"github.com/efij/AgentDFIR/v2/internal/detect"
 	"github.com/efij/AgentDFIR/v2/internal/endpoint"
+	"github.com/efij/AgentDFIR/v2/internal/index"
 	"github.com/efij/AgentDFIR/v2/internal/mcpaudit"
 	"github.com/efij/AgentDFIR/v2/internal/normalize"
 	"github.com/efij/AgentDFIR/v2/internal/overlay"
@@ -133,10 +134,12 @@ func Run(pkg string, o Options) (*Result, error) {
 	}
 	var entities []schema.Entity
 	if needNorm {
-		// The sink is the compressed overlay writer: events are encoded
-		// straight into the gzip stream, so the 178 MB plaintext form is
-		// never written to disk even transiently.
-		f, err := overlay.Create(evPath)
+		// events.jsonl is the one overlay file written uncompressed:
+		// internal/index records a byte offset per event so the explorer can
+		// open one without holding all of them, and a gzip stream cannot be
+		// seeked. Everything else in the overlay is read whole and is
+		// compressed.
+		f, err := overlay.CreatePlain(evPath)
 		if err != nil {
 			return nil, err
 		}
@@ -164,7 +167,7 @@ func Run(pkg string, o Options) (*Result, error) {
 		// forced a re-parse. Migrate it once, here, where the files are about
 		// to be read anyway.
 		var reclaimed int64
-		for _, name := range []string{"events.jsonl", "entities.jsonl", "relationships.jsonl"} {
+		for _, name := range []string{"entities.jsonl", "relationships.jsonl"} {
 			n, err := overlay.Compress(filepath.Join(dir, name))
 			if err != nil {
 				return nil, err
@@ -388,6 +391,15 @@ func Run(pkg string, o Options) (*Result, error) {
 		// so the question stays answerable after the binary is replaced.
 		"rule_packs": packSrcs, "agentdfir_version": version.Version,
 	})
+	// The explorer's offset index over the finished overlay, built here so
+	// opening a case is instant instead of re-parsing hundreds of MB of
+	// JSON. It is derived data: it sits in <pkg>/index/, outside the sealed
+	// zone and outside SHA256SUMS, and anything that can go wrong writing
+	// it (a read-only evidence share, a full disk) costs nothing, because
+	// serve rebuilds a missing index by itself.
+	if err := index.Refresh(pkg); err != nil {
+		res.StageNotes = append(res.StageNotes, "event index skipped: "+err.Error())
+	}
 	return res, nil
 }
 
