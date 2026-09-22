@@ -57,10 +57,10 @@ curl -fsSL https://raw.githubusercontent.com/efij/AgentDFIR/main/install.sh | sh
 irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex; agentdfir run
 ```
 
-Already installed: `agentdfir run`. Homebrew: `brew install efij/agentdfir/agentdfir && agentdfir run`.
+Already installed: `agentdfir run`. Homebrew: `brew install efij/agentdfir/agentdfir && agentdfir run`. Scoop: `scoop bucket add agentdfir https://github.com/efij/scoop-agentdfir; scoop install agentdfir`.
 
 <details>
-<summary><b>Other ways to install</b> — portable binary, Homebrew, go install, from source</summary>
+<summary><b>Other ways to install</b> — portable binary, Homebrew, Scoop, go install, from source</summary>
 
 One static binary, zero runtime dependencies. Full guide with air-gap,
 checksum and Sigstore verification steps: [docs/install.md](docs/install.md).
@@ -76,6 +76,9 @@ curl -fsSL https://raw.githubusercontent.com/efij/AgentDFIR/main/install.sh | sh
 
 # Homebrew
 brew install efij/agentdfir/agentdfir
+
+# Scoop (Windows)
+scoop bucket add agentdfir https://github.com/efij/scoop-agentdfir; scoop install agentdfir
 
 # Go toolchain
 go install github.com/efij/AgentDFIR/v2/cmd/agentdfir@latest
@@ -215,7 +218,7 @@ Ships with wrappers for tools IR teams already run:
 | ✅ | [140 deterministic detections](docs/detection-coverage.md) (59 built-in incl. 8 attack chains + 81 pack rules; 96 HIGH/CRITICAL, every one mapped to MITRE ATLAS 5.6 / ATT&CK — 27 ATLAS and 65 ATT&CK techniques): rogue/orphan agents, exfiltration via tool invocation, context/memory/tool/MCP poisoning, agent credential-store theft, agent config modification, jailbreak & system-prompt extraction, secret & sensitive-file access, persistence (rc files, services, run keys, git hooks), credential dumping, bulk encryption, self-modification, log deletion, timestomping, session tampering… `agentdfir rules list` prints the matrix |
 | ✅ | `simulate` — synthetic incident generation (adversary emulation for AI agents): `orphan-agent`, `toxic-chain` |
 | ✅ | [Attack chains](docs/attack-chains.md), session cards, investigation tree, whole-case search and the hash-chained analyst case file in the [explorer](docs/serve.md) (v1.0) |
-| ✅ | Full parsers for 12 products: Claude Code, Codex, Gemini CLI, Cursor, Copilot CLI, Copilot Chat (VS Code), Cline, Roo, OpenClaw, OpenCode, Aider, Warp |
+| ✅ | Full parsers for 12 products: Claude Code, Codex, Gemini CLI, Cursor, Copilot CLI, Copilot Chat (VS Code), Cline, Roo, OpenClaw, OpenCode, Aider, Warp — plus Kiro (steering, specs, MCP, powers, skills and extension state; no transcript store to parse) |
 | ✅ | [Enrich with a second witness](docs/endpoint-corroboration.md) — auditd, Sysmon XML, Velociraptor/osquery/eslogger/EDR exports: tool calls → CONFIRMED / DISPROVED, unlogged agent processes and connections surfaced |
 | ✅ | Reports: network-silent HTML, self-contained PDF (stdlib writer, no renderer deps), JSON, CSV, STIX 2.1, OTel · [OCSF 1.3, SARIF 2.1, Sigma export](docs/siem-interop.md) for SIEM/SOC pipelines |
 | ✅ | [`serve`](docs/serve.md) — local browser case explorer: agent tree, density-scrubber timeline, raw evidence pane, findings, topology; loopback-only, zero external resources |

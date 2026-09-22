@@ -207,7 +207,7 @@ jobs:
   homebrew:
     needs: verify
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'push' && needs.verify.result == 'success' && !contains(github.ref_name, '-') }}
+    if: ${{ (github.event_name == 'push' || inputs.build) && needs.verify.result == 'success' && !contains(github.ref_name, '-') }}
     steps:
       - uses: actions/checkout@v4
       - name: Update tap formula
@@ -231,3 +231,35 @@ jobs:
             echo "::error::tap formula points at ${got:-nothing}, expected $RELEASE_TAG"; exit 1
           fi
           echo "tap formula at $RELEASE_TAG"
+
+  # ------------------------------------------------------------------ scoop
+  # Refreshes efij/scoop-agentdfir (Windows). Same contract as homebrew:
+  # SCOOP_BUCKET_SSH_KEY (write deploy key on the bucket repo) or
+  # SCOOP_BUCKET_TOKEN; without either the release FAILS visibly.
+  scoop:
+    needs: verify
+    runs-on: ubuntu-latest
+    if: ${{ (github.event_name == 'push' || inputs.build) && needs.verify.result == 'success' && !contains(github.ref_name, '-') }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update bucket manifest
+        env:
+          BUCKET_SSH_KEY: ${{ secrets.SCOOP_BUCKET_SSH_KEY }}
+          BUCKET_TOKEN: ${{ secrets.SCOOP_BUCKET_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${BUCKET_SSH_KEY:-}" ] && [ -z "${BUCKET_TOKEN:-}" ]; then
+            echo "::error::neither SCOOP_BUCKET_SSH_KEY nor SCOOP_BUCKET_TOKEN is set — Scoop users would stay on the previous version."
+            echo "Fix: add a write deploy key on efij/scoop-agentdfir and store its private key as repo secret SCOOP_BUCKET_SSH_KEY,"
+            echo "then re-run this job, or publish by hand: scripts/update-scoop.sh $RELEASE_TAG"
+            exit 1
+          fi
+          scripts/update-scoop.sh "$RELEASE_TAG"
+      - name: Verify bucket serves this version
+        run: |
+          set -euo pipefail
+          got=$(curl -fsSL "https://raw.githubusercontent.com/efij/scoop-agentdfir/main/bucket/agentdfir.json" | python3 -c 'import json,sys; print("v"+json.load(sys.stdin)["version"])')
+          if [ "$got" != "$RELEASE_TAG" ]; then
+            echo "::error::bucket manifest at ${got:-nothing}, expected $RELEASE_TAG"; exit 1
+          fi
+          echo "bucket manifest at $RELEASE_TAG"

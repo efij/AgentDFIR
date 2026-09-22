@@ -7,6 +7,33 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [2.4.0] — 2026-09-22
+
+### Added
+- **Kiro is detected and collected.** `agentdfir detect` / `run` now report
+  Kiro (`dev.kiro.desktop`, the VS Code-based agent IDE) and collect its
+  agent surface: global `~/.kiro/steering/**` (auto-loaded instructions),
+  `settings/mcp.json`, `skills/**`, the `powers/` and `extensions/`
+  inventories, the Kiro SSO token at `~/.aws/sso/cache/kiro-auth-token.json`
+  (recorded as `credentials`, critical), and — where a host has them — the
+  VS Code `globalStorage` / `workspaceStorage/*/state.vscdb`, `History` and
+  logs on macOS, Linux and Windows. Third-party source trees under `powers/`
+  and `extensions/` stay behind `--full-plugins`, like every other product.
+
+  Nothing new to parse: the manifest routes each file to the category the
+  existing rules already read, so steering files get injection scanning,
+  `mcp.json` gets the MCP audit (unpinned packages, `autoApprove`), and
+  provenance and baseline cover them. Per-repository `.kiro/` directories
+  (specs and steering inside a project) are reachable with
+  `agentdfir collect --import <tree>`, as with per-repo `CLAUDE.md`.
+
+- **Scoop bucket for Windows.** `scoop bucket add agentdfir
+  https://github.com/efij/scoop-agentdfir; scoop install agentdfir`. The
+  manifest carries both Windows zips (x64, ARM64) with their SHA256 from the
+  release's `SHA256SUMS.txt` and is refreshed by the release workflow the same
+  way the Homebrew tap is (`scripts/update-scoop.sh`, write deploy key); a
+  release whose bucket did not update fails visibly.
+
 ## [2.3.0] — 2026-09-22
 
 ### Fixed
