@@ -27,6 +27,7 @@ that fits the machine you are on. Every path ends with the same file, and
 | on an online macOS / Linux box | [`install.sh`](#2-installsh-macos--linux) | none |
 | on an online Windows box | [`install.ps1`](#2b-installps1-windows) | none |
 | a Homebrew user | [`brew install`](#3-homebrew-macos--linux) | none |
+| a Scoop user on Windows | [`scoop install`](#3b-scoop-windows) | none |
 | a Go developer | [`go install`](#4-go-install) | none |
 
 All release assets are checksummed (`SHA256SUMS.txt`) and signed with Sigstore.
@@ -158,6 +159,18 @@ brew install efij/agentdfir/agentdfir
 Formula lives in <https://github.com/efij/homebrew-agentdfir> and builds the
 tagged source with the Homebrew Go toolchain. `brew upgrade agentdfir` follows
 new releases.
+
+## 3b. Scoop (Windows)
+
+```powershell
+scoop bucket add agentdfir https://github.com/efij/scoop-agentdfir
+scoop install agentdfir
+```
+
+Bucket lives in <https://github.com/efij/scoop-agentdfir>. The manifest points
+at the release's Windows zips (x64 and ARM64) with their SHA256 from
+`SHA256SUMS.txt`, so Scoop verifies what it downloads. `scoop update agentdfir`
+follows new releases; files Scoop installs carry no mark-of-the-web.
 
 ---
 

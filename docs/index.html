@@ -220,7 +220,7 @@ footer{border-top:1px solid var(--border);padding:44px 0;font-size:14px;color:va
         <code id="one-cmd-win"><span class="t-p">&gt;</span>irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex; agentdfir run</code>
         <button type="button" data-copy="irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex; agentdfir run" data-target="one-cmd-win" aria-label="Copy the Windows install-and-run command">Copy</button>
       </div>
-      <p class="one-note">SHA256-verified, nothing else installed · Homebrew: <code>brew install efij/agentdfir/agentdfir &amp;&amp; agentdfir run</code> · <a href="https://github.com/efij/AgentDFIR/blob/main/docs/install.md">portable binaries for USB / air-gap</a></p>
+      <p class="one-note">SHA256-verified, nothing else installed · Homebrew: <code>brew install efij/agentdfir/agentdfir &amp;&amp; agentdfir run</code> · Scoop: <code>scoop bucket add agentdfir https://github.com/efij/scoop-agentdfir; scoop install agentdfir</code> · <a href="https://github.com/efij/AgentDFIR/blob/main/docs/install.md">portable binaries for USB / air-gap</a></p>
       <div class="cta-row" style="margin-top:22px">
         <a class="btn btn-primary" href="#quickstart">How it works</a>
         <a class="btn btn-ghost" href="https://github.com/efij/AgentDFIR">
@@ -383,7 +383,7 @@ footer{border-top:1px solid var(--border);padding:44px 0;font-size:14px;color:va
 <span class="cm"># Windows (PowerShell, x64 or ARM64)</span>
 <span class="cmd">irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex; agentdfir run</span>
 
-<span class="cm"># already installed, or Homebrew (brew install efij/agentdfir/agentdfir)</span>
+<span class="cm"># already installed, or Homebrew (brew install efij/agentdfir/agentdfir) / Scoop (scoop install agentdfir)</span>
 <span class="cmd">agentdfir run</span>
 <span class="cmd">agentdfir run --no-serve</span>        <span class="cm"># print the findings and stop (scripts, CI)</span></pre>
     </div>

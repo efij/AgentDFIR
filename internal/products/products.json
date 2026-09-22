@@ -145,6 +145,17 @@
       ]
     },
     {
+      "id": "kiro",
+      "name": "Kiro",
+      "config_dirs": [
+        ".kiro"
+      ],
+      "config_files": [],
+      "binaries": [
+        "kiro"
+      ]
+    },
+    {
       "id": "ci-archive",
       "name": "CI / archive agent logs",
       "config_dirs": [],

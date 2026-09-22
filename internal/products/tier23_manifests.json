@@ -497,6 +497,128 @@
       ]
     },
     {
+      "product": "kiro",
+      "entries": [
+        {
+          "id": "kiro.steering",
+          "paths": [
+            "${CONFIG_ROOT}/steering/**"
+          ],
+          "category": "agent_instructions",
+          "sensitivity": "medium"
+        },
+        {
+          "id": "kiro.mcp",
+          "paths": [
+            "${CONFIG_ROOT}/settings/mcp.json"
+          ],
+          "category": "product_config",
+          "sensitivity": "high"
+        },
+        {
+          "id": "kiro.settings",
+          "paths": [
+            "${CONFIG_ROOT}/argv.json",
+            "${CONFIG_ROOT}/settings/*.json"
+          ],
+          "category": "product_config",
+          "sensitivity": "medium"
+        },
+        {
+          "id": "kiro.skills",
+          "paths": [
+            "${CONFIG_ROOT}/skills/**"
+          ],
+          "category": "agent_definitions",
+          "sensitivity": "medium"
+        },
+        {
+          "id": "kiro.powers",
+          "paths": [
+            "${CONFIG_ROOT}/powers/installed.json",
+            "${CONFIG_ROOT}/powers/registry.json",
+            "${CONFIG_ROOT}/powers/installed/**"
+          ],
+          "category": "agent_definitions",
+          "sensitivity": "high"
+        },
+        {
+          "id": "kiro.extensions",
+          "paths": [
+            "${CONFIG_ROOT}/extensions/extensions.json"
+          ],
+          "category": "agent_definitions",
+          "sensitivity": "medium"
+        },
+        {
+          "id": "kiro.auth",
+          "paths": [
+            "${PROFILE_ROOT}/.aws/sso/cache/kiro-auth-token.json"
+          ],
+          "category": "credentials",
+          "sensitivity": "critical"
+        },
+        {
+          "id": "kiro.state_macos",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/Kiro/User/globalStorage/**",
+            "${PROFILE_ROOT}/Library/Application Support/Kiro/User/workspaceStorage/*/state.vscdb"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        },
+        {
+          "id": "kiro.state_linux",
+          "platforms": [
+            "linux"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/.config/Kiro/User/globalStorage/**",
+            "${PROFILE_ROOT}/.config/Kiro/User/workspaceStorage/*/state.vscdb"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        },
+        {
+          "id": "kiro.state_windows",
+          "platforms": [
+            "windows"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/AppData/Roaming/Kiro/User/globalStorage/**",
+            "${PROFILE_ROOT}/AppData/Roaming/Kiro/User/workspaceStorage/*/state.vscdb"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        },
+        {
+          "id": "kiro.history_macos",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/Kiro/User/History/**"
+          ],
+          "category": "file_checkpoints",
+          "sensitivity": "high"
+        },
+        {
+          "id": "kiro.logs_macos",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/Kiro/logs/**"
+          ],
+          "category": "debug_logs",
+          "sensitivity": "medium"
+        }
+      ]
+    },
+    {
       "product": "host-shell",
       "entries": [
         {
