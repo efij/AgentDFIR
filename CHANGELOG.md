@@ -7,6 +7,33 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [2.2.0] — 2026-09-22
+
+### Added
+- **A derived event index bounds `serve` memory.** The explorer read the
+  whole of `normalized/events.jsonl` into memory and capped it at 500,000
+  events — a real 206,896-event case cost **181 MB of live heap**, and a
+  larger one silently lost evidence from the UI.
+
+  `internal/index` writes `index/events.idx` after the overlay is final: a
+  fixed-width record per event carrying its byte offset and fifteen interned
+  summary fields. Every list, filter, bucket and graph query runs off those
+  summaries with no disk reads; a full event is read by offset only when a
+  detail view asks for it.
+
+  **Live heap after load: 181 MB → 58 MB. Opening a case: 1.7 s → 0.4 s.
+  The cap is gone.** `--max-events` is accepted and ignored.
+
+  `index/` is derived and outside the sealed zone, so deleting it is
+  allowed; it is rebuilt on open when missing, stale, corrupt, or written by
+  an older version.
+
+### Changed
+- `normalized/events.jsonl` is the one overlay file written **uncompressed**,
+  because the index addresses it by byte offset and a gzip stream cannot be
+  seeked. Entities, relationships and detections are read whole and stay
+  compressed.
+
 ## [2.1.0] — 2026-09-22
 
 ### Added
