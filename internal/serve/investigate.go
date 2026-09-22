@@ -49,6 +49,11 @@ type sessionCard struct {
 	Tags        []string       `json:"tags"`
 	FirstPrompt string         `json:"first_prompt"`
 	Risk        int            `json:"risk"`
+	// CaseLevel marks the one card that holds findings no session claims
+	// (package-level rules: configs, MCP inventories, instruction files).
+	// Without it the Findings tab showed CRITICALs the Sessions tab never
+	// mentioned, and "worst first" looked wrong.
+	CaseLevel bool `json:"case_level,omitempty"`
 }
 
 func (s *Server) apiSessions(w http.ResponseWriter, r *http.Request) {
@@ -114,10 +119,29 @@ func (s *Server) apiSessions(w http.ResponseWriter, r *http.Request) {
 			mcps[e.SessionID][e.MCPServer] = true
 		}
 	}
+	caseLevel := &sessionCard{ID: "case-level", Product: "case", Tools: map[string]int{}, States: map[string]int{}, Findings: map[string]int{}, CaseLevel: true}
 	for _, f := range s.findings {
-		c := cards[f.SessionID]
+		sid := f.SessionID
+		if sid == "" {
+			// A finding raised on an event carries the event's session even
+			// when the rule did not fill the field in.
+			for _, ref := range f.EvidenceRefs {
+				if id := chain.EventForRef(s.byRef, ref); id != "" {
+					if ev, ok := x.EventByID(id); ok && ev.SessionID != "" {
+						sid = ev.SessionID
+						break
+					}
+				}
+			}
+			if sid == "" && len(f.ChainSteps) > 0 {
+				if ev, ok := x.EventByID(f.ChainSteps[len(f.ChainSteps)-1].EventID); ok {
+					sid = ev.SessionID
+				}
+			}
+		}
+		c := cards[sid]
 		if c == nil {
-			continue
+			c = caseLevel
 		}
 		c.Findings[f.Severity]++
 		c.FindTotal++
@@ -135,7 +159,14 @@ func (s *Server) apiSessions(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	st, _ := s.notes.Load()
-	out := make([]*sessionCard, 0, len(cards))
+	if caseLevel.FindTotal > 0 {
+		caseLevel.Risk = sevRank(caseLevel.Worst)*1000 + caseLevel.Chains*300 + caseLevel.Findings["CRITICAL"]*50 + caseLevel.Findings["HIGH"]*10
+		caseLevel.Tags = st.Tags[caseLevel.ID]
+	}
+	out := make([]*sessionCard, 0, len(cards)+1)
+	if caseLevel.FindTotal > 0 {
+		out = append(out, caseLevel)
+	}
 	for id, c := range cards {
 		// Host and user, like the first prompt, cost one read per session
 		// rather than a field on every event in the case.

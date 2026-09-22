@@ -66,6 +66,23 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
   cross-compiles as before. Checked against the sqlite3 CLI on a real
   57 MB store — identical row counts on every table.
 
+### Changed
+- **Explorer: findings are sorted by severity, then confidence,** on the
+  server and again in the tab, and the "attack chains only" checkbox is
+  replaced by a **confidence filter** (any / HIGH / MEDIUM / LOW); each
+  finding row shows its confidence. The overview's single "critical + high
+  findings" tile is **split into "critical findings" and "high findings"**.
+  The **time span tile is a button** that opens the timeline with new
+  **from / to date pickers** (UTC, to the minute) beside the existing
+  filters; a scrubber click fills them in, Clear empties them.
+- **Sessions tab is honest about "worst first".** Findings that no session
+  claims — package-level rules on configs, MCP inventories and instruction
+  files — used to be invisible there, so the Findings tab could show
+  CRITICALs the Sessions tab never ranked. They now get one dashed
+  "Findings not tied to a session" card, ranked with the rest and opening
+  the Findings tab; findings raised on an event are attributed to that
+  event's session when the rule left the field empty.
+
 ### Fixed
 - **Codex rollout parser dropped the output of every desktop-app tool
   call.** The app writes `custom_tool_call` / `custom_tool_call_output`
