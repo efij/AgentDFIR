@@ -269,6 +269,33 @@ func WriteJSONL(p string, n int, get func(int) any) error {
 	return w.Close()
 }
 
+// WriteJSONLPlain rewrites a JSONL overlay file uncompressed, in the form
+// CreatePlain produced. It exists for events.jsonl, which later stages
+// rewrite in place (the second witness and endpoint correlation stamp
+// corroboration states onto the events they checked) and which must stay
+// byte-addressable for internal/index. Using the compressing WriteJSONL
+// there would silently swap the file for a .gz, and the index — and with
+// it `agentdfir serve` — would stop being able to open the case.
+func WriteJSONLPlain(p string, n int, get func(int) any) error {
+	w, err := CreatePlain(p)
+	if err != nil {
+		return err
+	}
+	bw := bufio.NewWriterSize(w, 256<<10)
+	enc := json.NewEncoder(bw)
+	for i := 0; i < n; i++ {
+		if err := enc.Encode(get(i)); err != nil {
+			w.f.Close()
+			return err
+		}
+	}
+	if err := bw.Flush(); err != nil {
+		w.f.Close()
+		return err
+	}
+	return w.Close()
+}
+
 // Scan calls fn for each line of a JSONL overlay file without holding the
 // file in memory. The buffer bound is the same 16 MiB the streaming
 // readers used before: one pathological line must not be able to allocate
@@ -373,6 +400,63 @@ func Compress(p string) (int64, error) {
 		return 0, err
 	}
 	return fi.Size() - out.Size(), nil
+}
+
+// Decompress converts a compressed overlay file back to plaintext in
+// place. It is the inverse of Compress and a no-op when the plaintext form
+// is already the current one.
+//
+// This is the migration for events.jsonl. Versions 2.1.0 through 2.2.1
+// rewrote it with the compressing writer after the second witness or
+// endpoint correlation ran, which left the case with events.jsonl.gz and
+// no plaintext. Nothing detected that as stale — Stat accepts either form
+// — so the index could never be built again and serve refused to open the
+// package. Restoring the plaintext form costs one streaming copy of a file
+// the caller is about to read anyway.
+func Decompress(p string) error {
+	if _, err := os.Stat(p); err == nil {
+		return nil // plaintext is already current
+	}
+	src, err := os.Open(p + Suffix)
+	if err != nil {
+		return nil // nothing to migrate
+	}
+	defer src.Close()
+	zr, err := gzip.NewReader(src)
+	if err != nil {
+		return fmt.Errorf("%s: %w", filepath.Base(p)+Suffix, err)
+	}
+	defer zr.Close()
+	tmp, err := os.CreateTemp(filepath.Dir(p), filepath.Base(p)+"-*.tmp")
+	if err != nil {
+		return err
+	}
+	name := tmp.Name()
+	// Bounded like every other read of a compressed overlay file: this one
+	// writes to disk rather than memory, which makes an unbounded copy
+	// worse, not better.
+	if _, err := io.Copy(tmp, &boundedReader{zr: zr, f: src, rem: bound(src), name: filepath.Base(p) + Suffix}); err != nil {
+		tmp.Close()
+		os.Remove(name)
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		os.Remove(name)
+		return err
+	}
+	if err := os.Chmod(name, 0o600); err != nil {
+		os.Remove(name)
+		return err
+	}
+	if err := os.Rename(name, p); err != nil {
+		os.Remove(name)
+		return err
+	}
+	// Only now is it safe to drop the compressed form.
+	if err := os.Remove(p + Suffix); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
 }
 
 // Remove deletes both forms of an overlay file.

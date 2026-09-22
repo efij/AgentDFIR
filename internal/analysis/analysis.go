@@ -194,7 +194,7 @@ func Run(pkg string, o Options) (*Result, error) {
 		events := LoadEvents(pkg)
 		wres, wf := witness.Apply(events, wrec)
 		if wres.Checked > 0 {
-			if err := overlay.WriteJSONL(evPath, len(events), func(i int) any { return events[i] }); err != nil {
+			if err := overlay.WriteJSONLPlain(evPath, len(events), func(i int) any { return events[i] }); err != nil {
 				return nil, err
 			}
 			findings = append(findings, wf...)
@@ -231,7 +231,7 @@ func Run(pkg string, o Options) (*Result, error) {
 			o.logf("Endpoint correlation: %d checked — %d CORROBORATED, %d CONTRADICTED, %d outside coverage; %d unlogged agent records",
 				cres.ToolCalls, cres.Corroborated, cres.Contradicted, cres.OutsideCover, cres.Unlogged)
 		}
-		if err := overlay.WriteJSONL(evPath, len(events), func(i int) any { return events[i] }); err != nil {
+		if err := overlay.WriteJSONLPlain(evPath, len(events), func(i int) any { return events[i] }); err != nil {
 			return nil, err
 		}
 	}
