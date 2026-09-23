@@ -28,6 +28,7 @@ that fits the machine you are on. Every path ends with the same file, and
 | on an online Windows box | [`install.ps1`](#2b-installps1-windows) | none |
 | a Homebrew user | [`brew install`](#3-homebrew-macos--linux) | none |
 | a Scoop user on Windows | [`scoop install`](#3b-scoop-windows) | none |
+| a Chocolatey user on Windows | [`choco install`](#3c-chocolatey-windows) | none |
 | a Go developer | [`go install`](#4-go-install) | none |
 
 All release assets are checksummed (`SHA256SUMS.txt`) and signed with Sigstore.
@@ -171,6 +172,20 @@ Bucket lives in <https://github.com/efij/scoop-agentdfir>. The manifest points
 at the release's Windows zips (x64 and ARM64) with their SHA256 from
 `SHA256SUMS.txt`, so Scoop verifies what it downloads. `scoop update agentdfir`
 follows new releases; files Scoop installs carry no mark-of-the-web.
+
+## 3c. Chocolatey (Windows)
+
+```powershell
+choco install agentdfir
+```
+
+Package source lives in <https://github.com/efij/chocolatey-agentdfir>; the
+release workflow renders it, pushes the package to the community feed and
+commits the rendered source there for every release. The install script
+downloads the release's Windows zip (x64, or ARM64 on ARM machines) and
+verifies its SHA256 from `SHA256SUMS.txt` before installing `agentdfir.exe`.
+`choco upgrade agentdfir` follows new releases. A new version appears after
+Chocolatey's moderation, which can take days for a first submission.
 
 ---
 

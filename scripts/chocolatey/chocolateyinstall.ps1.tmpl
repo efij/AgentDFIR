@@ -1,0 +1,25 @@
+# Rendered by scripts/update-choco.sh at release time.
+$ErrorActionPreference = 'Stop'
+$toolsDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
+
+# The release ships x64 and ARM64 zips; Chocolatey has one 64-bit slot, so pick
+# by the machine's architecture. Each zip holds a single agentdfir.exe, which
+# Chocolatey shims onto PATH from the tools directory.
+$arch = $env:PROCESSOR_ARCHITEW6432
+if (-not $arch) { $arch = $env:PROCESSOR_ARCHITECTURE }
+if ($arch -eq 'ARM64') {
+  $url = 'https://github.com/efij/AgentDFIR/releases/download/@TAG@/agentdfir-@TAG@-windows-arm64.zip'
+  $sha = '@SHA_ARM64@'
+} else {
+  $url = 'https://github.com/efij/AgentDFIR/releases/download/@TAG@/agentdfir-@TAG@-windows-amd64.zip'
+  $sha = '@SHA_AMD64@'
+}
+
+$packageArgs = @{
+  packageName    = 'agentdfir'
+  unzipLocation  = $toolsDir
+  url64bit       = $url
+  checksum64     = $sha
+  checksumType64 = 'sha256'
+}
+Install-ChocolateyZipPackage @packageArgs

@@ -15,6 +15,11 @@ on:
         required: false
         default: false
         type: boolean
+      chocolatey:
+        description: "Publish this already-released tag to Chocolatey only (no rebuild); for seeding or retrying the feed."
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -263,3 +268,86 @@ jobs:
             echo "::error::bucket manifest at ${got:-nothing}, expected $RELEASE_TAG"; exit 1
           fi
           echo "bucket manifest at $RELEASE_TAG"
+
+  # ------------------------------------------------------------- chocolatey
+  # Publishes the package to the Chocolatey community feed. Only choco.exe can
+  # pack and push, so this runs on Windows; the rendered package source is
+  # committed to efij/chocolatey-agentdfir by the next job, from Linux, with
+  # the same deploy-key contract as the tap and the bucket. The feed API key
+  # (secret CHOCO_API_KEY) is read by `choco push` alone and never written to
+  # disk or to the log. Without the key the release FAILS visibly, like the
+  # other channels. First-time submissions sit in Chocolatey moderation before
+  # `choco install agentdfir` resolves them; that is the feed's rule, not a
+  # failure here.
+  chocolatey:
+    needs: verify
+    runs-on: windows-latest
+    if: ${{ (github.event_name == 'push' || inputs.build || inputs.chocolatey) && (needs.verify.result == 'success' || needs.verify.result == 'skipped') && !contains(github.ref_name, '-') }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Render package source
+        shell: bash
+        run: scripts/update-choco.sh "$RELEASE_TAG" --render-only pkg
+      - name: Pack
+        shell: pwsh
+        run: |
+          choco pack pkg/agentdfir.nuspec --outputdirectory pkg
+          Get-ChildItem pkg/*.nupkg
+      - name: Push to the community feed
+        shell: pwsh
+        env:
+          CHOCO_API_KEY: ${{ secrets.CHOCO_API_KEY }}
+        run: |
+          if (-not $env:CHOCO_API_KEY) {
+            Write-Host "::error::CHOCO_API_KEY is not set - Chocolatey users would stay on the previous version."
+            Write-Host "Fix: store the community-feed API key as repo secret CHOCO_API_KEY and re-run this job, or dispatch this workflow with chocolatey=true."
+            exit 1
+          }
+          $ver = $env:RELEASE_TAG.TrimStart('v')
+          $pkg = "pkg/agentdfir.$ver.nupkg"
+          $out = & choco push $pkg --source https://push.chocolatey.org/ --api-key $env:CHOCO_API_KEY 2>&1 | Out-String
+          $code = $LASTEXITCODE
+          # Never echo the command line; the key is in it. The output itself is safe.
+          Write-Host $out
+          if ($code -ne 0) {
+            if ($out -match 'already exists|409') { Write-Host "agentdfir $ver is already on the feed"; exit 0 }
+            Write-Host "::error::choco push failed with exit code $code"
+            exit $code
+          }
+      - name: Verify the feed knows this version
+        shell: pwsh
+        run: |
+          $ver = $env:RELEASE_TAG.TrimStart('v')
+          $url = "https://community.chocolatey.org/api/v2/Packages()?`$filter=Id%20eq%20'agentdfir'%20and%20Version%20eq%20'$ver'"
+          try {
+            $body = (Invoke-WebRequest -UseBasicParsing -Uri $url).Content
+            if ($body -match '<entry>') { Write-Host "feed lists agentdfir $ver" } else { Write-Host "::warning::agentdfir $ver accepted by the push endpoint but not yet listed (moderation queue)" }
+          } catch { Write-Host "::warning::feed query failed: $_" }
+
+  chocolatey-source:
+    needs: chocolatey
+    runs-on: ubuntu-latest
+    if: ${{ needs.chocolatey.result == 'success' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Commit rendered package source
+        env:
+          CHOCO_REPO_SSH_KEY: ${{ secrets.CHOCO_REPO_SSH_KEY }}
+          CHOCO_REPO_TOKEN: ${{ secrets.CHOCO_REPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CHOCO_REPO_SSH_KEY:-}" ] && [ -z "${CHOCO_REPO_TOKEN:-}" ]; then
+            echo "::error::neither CHOCO_REPO_SSH_KEY nor CHOCO_REPO_TOKEN is set — the published package would have no auditable source."
+            echo "Fix: add a write deploy key on efij/chocolatey-agentdfir and store its private key as repo secret CHOCO_REPO_SSH_KEY,"
+            echo "then re-run this job, or publish by hand: scripts/update-choco.sh $RELEASE_TAG"
+            exit 1
+          fi
+          scripts/update-choco.sh "$RELEASE_TAG"
+      - name: Verify source repo serves this version
+        run: |
+          set -euo pipefail
+          got=$(curl -fsSL "https://raw.githubusercontent.com/efij/chocolatey-agentdfir/main/agentdfir.nuspec" | grep -oE '<version>[^<]+' | sed 's/<version>/v/')
+          if [ "$got" != "$RELEASE_TAG" ]; then
+            echo "::error::package source at ${got:-nothing}, expected $RELEASE_TAG"; exit 1
+          fi
+          echo "package source at $RELEASE_TAG"

@@ -7,6 +7,18 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+- **Chocolatey package.** `choco install agentdfir` joins Homebrew and Scoop.
+  The release workflow renders `scripts/chocolatey/` for the tag, packs and
+  pushes it to the community feed from a Windows runner (secret
+  `CHOCO_API_KEY`, read by `choco push` alone), and commits the rendered
+  package source to <https://github.com/efij/chocolatey-agentdfir> with a
+  write deploy key, so the published package is auditable. The install
+  script downloads the release's Windows zip (x64 or ARM64) and verifies
+  its SHA256 from `SHA256SUMS.txt`. Missing secrets fail the release
+  visibly, as for the other channels. `workflow_dispatch` gains a
+  `chocolatey` switch to seed or retry the feed for an already-released tag.
+
 ## [2.5.1] — 2026-09-23
 
 ### Fixed
