@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Rendered by scripts/update-choco.sh at release time; do not edit the copy
+     in efij/chocolatey-agentdfir by hand. -->
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>agentdfir</id>
+    <version>@VERSION@</version>
+    <packageSourceUrl>https://github.com/efij/chocolatey-agentdfir</packageSourceUrl>
+    <owners>efij</owners>
+    <title>AgentDFIR</title>
+    <authors>Efi Jeremiah</authors>
+    <projectUrl>https://github.com/efij/AgentDFIR</projectUrl>
+    <licenseUrl>https://github.com/efij/AgentDFIR/blob/main/LICENSE</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <projectSourceUrl>https://github.com/efij/AgentDFIR</projectSourceUrl>
+    <docsUrl>https://github.com/efij/AgentDFIR/blob/main/docs/install.md</docsUrl>
+    <bugTrackerUrl>https://github.com/efij/AgentDFIR/issues</bugTrackerUrl>
+    <releaseNotes>https://github.com/efij/AgentDFIR/releases/tag/@TAG@</releaseNotes>
+    <tags>agentdfir dfir forensics incident-response ai-agents claude-code codex cursor copilot mcp security cli</tags>
+    <summary>Digital forensics and incident response for AI coding agents</summary>
+    <description><![CDATA[
+AgentDFIR collects, preserves, reconstructs and investigates the activity of AI
+coding agents (Claude Code, Claude Cowork, Codex, Cursor, Gemini CLI, Copilot
+and others) on a machine: sealed, hash-chained evidence packages, a unified
+timeline, deterministic detections mapped to MITRE ATLAS and ATT&CK, and a
+local browser-based case explorer. Single static binary, no runtime
+dependencies, never phones home.
+
+This package downloads the signed release archive from the GitHub release and
+verifies its SHA-256 before installing `agentdfir.exe`.
+]]></description>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>

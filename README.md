@@ -57,7 +57,7 @@ curl -fsSL https://raw.githubusercontent.com/efij/AgentDFIR/main/install.sh | sh
 irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex; agentdfir run
 ```
 
-Already installed: `agentdfir run`. Homebrew: `brew install efij/agentdfir/agentdfir && agentdfir run`. Scoop: `scoop bucket add agentdfir https://github.com/efij/scoop-agentdfir; scoop install agentdfir`.
+Already installed: `agentdfir run`. Homebrew: `brew install efij/agentdfir/agentdfir && agentdfir run`. Scoop: `scoop bucket add agentdfir https://github.com/efij/scoop-agentdfir; scoop install agentdfir`. Chocolatey: `choco install agentdfir`.
 
 <details>
 <summary><b>Other ways to install</b> — portable binary, Homebrew, Scoop, go install, from source</summary>
