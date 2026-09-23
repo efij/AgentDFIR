@@ -1,0 +1,4 @@
+{
+  "note": "Same self-written scratch cache as pickle-own-scratch-cache, but the command is long enough that the normalizer's 300-character trim cuts the path before its closing quote. The target must still be recognised as scratch space from what survived.",
+  "allow": {}
+}

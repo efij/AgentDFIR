@@ -83,6 +83,10 @@ func (s *secretAcc) feed(chunk []byte, base int64) {
 			if base > 0 && start < scanOverlap {
 				continue // already counted in previous chunk
 			}
+			m := p.re.Find(chunk[start:])
+			if isPlaceholderSecret(m) || (p.name == "PRIVATE_KEY_BLOCK" && !privateKeyHasBody(chunk[start+len(m):])) {
+				continue // documentation example or an elided key, not a credential
+			}
 			s.counts[p.name]++
 			if _, seen := s.first[p.name]; !seen {
 				s.first[p.name] = base + int64(start)

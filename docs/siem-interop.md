@@ -24,7 +24,7 @@ Writes `events.ocsf.jsonl` and `findings.ocsf.jsonl` — one [OCSF](https://sche
 Converts declarative rule packs (the shipped `rules/` directory or [agentdfir-rules](https://github.com/efij/agentdfir-rules)) to one Sigma YAML per rule:
 
 - `match.type: command` → `logsource.category: process_creation`, field `CommandLine` — **portable to EDR/Sysmon/auditd process telemetry**, so a behavior first seen in an agent transcript becomes a fleet-wide hunt through sigmac/pySigma.
-- `summary`, `config`, `transcript` → `logsource.product: agentdfir` — run against the OCSF/OTel feed above.
+- `summary`, `config`, `instructions`, `transcript` → `logsource.product: agentdfir` — run against the OCSF/OTel feed above.
 - `contains` → `|contains`, `regex` → `|re`; ATT&CK IDs become `attack.tXXXX` tags; severity maps to Sigma `level`.
 
 Built-in Go rules (orphan agents, session tampering, exfiltration sequences…) are stateful and multi-event; they are not expressible as Sigma selections and are not exported.

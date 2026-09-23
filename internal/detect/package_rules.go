@@ -4,6 +4,7 @@
 package detect
 
 import (
+	"bytes"
 	"fmt"
 	"regexp"
 	"strings"
@@ -161,6 +162,78 @@ var secretPatterns = []secretPattern{
 	{"GOOGLE_API_KEY", "AIza", regexp.MustCompile(`\bAIza[0-9A-Za-z_-]{35}\b`)},
 	{"PRIVATE_KEY_BLOCK", "-----BEGIN ", regexp.MustCompile(`-----BEGIN [A-Z ]*PRIVATE KEY-----`)},
 	{"JWT", "eyJ", regexp.MustCompile(`\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b`)},
+}
+
+// placeholderMarks are the substrings vendors and docs use for example
+// credentials. On a real machine 92 of 95 HIGH secret findings were the
+// AWS documentation key `AKIAIOSFODNN7EXAMPLE`, `AKIAFAKE…`, `xoxb-123…XXXX`
+// and the like: text that passed through the model, but not a secret.
+var placeholderMarks = []string{"EXAMPLE", "FAKE", "XXXX", "SAMPLE", "PLACEHOLDER", "DUMMY", "TEST", "1234567890", "ABCDEF", "REDACTED"}
+
+// isPlaceholderSecret reports whether a matched credential-shaped value is
+// a documented example rather than key material. Private-key headers are
+// never placeholders by this test: the header alone says nothing.
+func isPlaceholderSecret(m []byte) bool {
+	if len(m) == 0 || bytes.HasPrefix(m, []byte("-----BEGIN")) {
+		return false
+	}
+	up := strings.ToUpper(string(m))
+	for _, mark := range placeholderMarks {
+		if strings.Contains(up, mark) {
+			return true
+		}
+	}
+	return hasRepeatedRun(m, 6)
+}
+
+// privateKeyHasBody reports whether PEM material follows a private-key
+// header: a run of base64 before the END marker. Summaries and docs write
+// `-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----`;
+// 25 of 27 remaining HIGH private-key findings on a real machine had that
+// shape. A header at the very end of the window is kept: unknown is not
+// benign.
+func privateKeyHasBody(after []byte) bool {
+	if len(after) > 400 {
+		after = after[:400]
+	}
+	if len(after) < 24 {
+		return true
+	}
+	end := bytes.Index(after, []byte("-----END"))
+	body := after
+	if end >= 0 {
+		body = after[:end]
+	}
+	run := 0
+	for _, c := range body {
+		switch {
+		case c >= 'A' && c <= 'Z', c >= 'a' && c <= 'z', c >= '0' && c <= '9', c == '+', c == '/', c == '=':
+			run++
+			if run >= 20 {
+				return true
+			}
+		default:
+			run = 0
+		}
+	}
+	return end < 0 && len(body) < 40 // header ran into the window edge: keep it
+}
+
+// hasRepeatedRun reports whether m contains n identical bytes in a row
+// (`XXXXXX`, `000000`), the way placeholder keys pad their bodies.
+func hasRepeatedRun(m []byte, n int) bool {
+	run := 1
+	for i := 1; i < len(m); i++ {
+		if m[i] == m[i-1] {
+			run++
+			if run >= n {
+				return true
+			}
+		} else {
+			run = 1
+		}
+	}
+	return false
 }
 
 // SecretKind classifies a value against the well-known credential formats

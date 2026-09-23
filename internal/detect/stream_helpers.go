@@ -2,6 +2,7 @@ package detect
 
 import (
 	"fmt"
+	"github.com/efij/AgentDFIR/v2/internal/shellshape"
 	"strings"
 
 	"github.com/efij/AgentDFIR/v2/internal/netdest"
@@ -62,6 +63,11 @@ func oneToolCallRules(ev schema.Event, p *streamPass2) []schema.Finding {
 				Status: ev.Corroboration, Endpoint: schema.StateUnknown,
 				FalsePositive: "Expected in coding-agent sessions; informational.",
 			})
+		}
+		// DOWNLOAD_THEN_EXECUTE — the executed token must be the file the
+		// download saved. Any interpreter after any curl is not enough.
+		if shellshape.DownloadThenExecute(ev.Command) {
+			out = append(out, downloadThenExecuteFinding(ev))
 		}
 		// LOG_DELETION — the log path must be an argument of the delete
 		// itself. `rm -rf $S/perf && mkdir -p $S/perf/.claude/projects/-big`
@@ -209,13 +215,15 @@ func selfModified(ev schema.Event) bool {
 		if subj == "" {
 			subj = ev.Command
 		}
-		return selfCfgRe.MatchString(subj)
+		// A test fixture under a scratchpad that spells `.claude.json` is
+		// not the agent's own configuration.
+		return selfCfgRe.MatchString(subj) && !IsScratchPath(subj)
 	case "shell_execution":
 		if IsReadOnlyCommand(ev.Command) {
 			return false
 		}
-		for _, t := range WriteTargets(ev.Command) {
-			if selfCfgRe.MatchString(t) {
+		for _, t := range WriteTargets(shellshape.ExpandVars(ev.Command)) {
+			if selfCfgRe.MatchString(t) && !IsScratchPath(t) {
 				return true
 			}
 		}

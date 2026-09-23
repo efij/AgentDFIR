@@ -1,0 +1,6 @@
+{
+  "note": "A commit message quoting the project's own `curl \u2026 | sh` one-liner. CURL_PIPE_SHELL matched the text inside `git commit -m \"\u2026\"`; on a real machine two of four HIGH hits were commit messages, not pipelines. Command-shape rules must see the command with quoted strings and heredoc bodies removed.",
+  "allow": {
+    "UNEXPECTED_NETWORK_DESTINATION": "LOW; destination extraction still reads the full text on purpose (python heredocs contact hosts)"
+  }
+}

@@ -1,0 +1,4 @@
+{
+  "note": "The session pickles an in-memory object to its scratchpad, then loads it back in the next command. UNSAFE_MODEL_ARTIFACT_LOAD fired 20 times in one real session on `pickle.load` of the file that session had just written; an artifact you created a minute ago is not an untrusted model.",
+  "allow": {}
+}

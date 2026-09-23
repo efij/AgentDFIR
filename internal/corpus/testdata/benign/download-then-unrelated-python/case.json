@@ -1,0 +1,6 @@
+{
+  "note": "curl saves a PDF, then python runs an unrelated snippet in the same line. DOWNLOAD_THEN_EXECUTE fired on any interpreter after any download; the payload was never executed. The executed token must reference the downloaded file.",
+  "allow": {
+    "UNEXPECTED_NETWORK_DESTINATION": "LOW; arxiv is a real destination of this command"
+  }
+}

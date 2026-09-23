@@ -1,0 +1,4 @@
+{
+  "note": "Documentation and test output quoting the AWS documentation example key and Slack's placeholder token. POTENTIAL_SECRET_EXPOSURE has no placeholder allowlist; on a real machine 92 of 95 HIGH hits were `AKIAIOSFODNN7EXAMPLE`, `AKIAFAKE\u2026`, `xoxb-123\u2026XXXX` and fixture key headers.",
+  "allow": {}
+}

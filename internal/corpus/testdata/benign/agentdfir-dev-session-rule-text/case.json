@@ -1,0 +1,4 @@
+{
+  "note": "A development session of agentdfir itself, writing the rules that look for `<<SYS>>` markers and prompt-worm phrasing. The Go injection rules already skip self-referential paths; the pack transcript rules did not, so PROMPT_SELF_REPLICATION and ROLE_MARKER_SMUGGLING fired HIGH on the transcripts that authored them.",
+  "allow": {}
+}

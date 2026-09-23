@@ -1,0 +1,4 @@
+{
+  "note": "The agent appends to `.gitignore` in the repository it is working in, right after a Bash result. Provenance matched the bare basename against every collected `.gitignore`, including a plugin's, and raised INSTRUCTION_FROM_TOOL_RESULT (and on a real machine the CRITICAL CHAIN_CONTEXT_POISON_TO_EXEC) against a file the agent never touched. Relative write paths resolve against the event's cwd; a bare basename never matches by suffix.",
+  "allow": {}
+}

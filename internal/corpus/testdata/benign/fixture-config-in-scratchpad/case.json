@@ -1,0 +1,4 @@
+{
+  "note": "A test builds a fake victim profile under the session scratchpad, including a `.claude.json`. AGENT_SELF_MODIFICATION matched the path anywhere; a scratchpad fixture that spells `.claude.json` is not the agent's own configuration. LOG_DELETION already has the scratch-path exception; this rule did not.",
+  "allow": {}
+}

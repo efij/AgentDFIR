@@ -1,6 +1,10 @@
 package detect
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/efij/AgentDFIR/v2/internal/shellshape"
+)
 
 // Shell-shape helpers shared by the precision-sensitive rules.
 //
@@ -156,13 +160,4 @@ func DeleteTargets(cmd string) []string {
 
 // IsScratchPath reports whether a path is a temporary or build location,
 // where deletion and writing are routine rather than notable.
-func IsScratchPath(p string) bool {
-	l := strings.ToLower(p)
-	for _, frag := range []string{"/tmp/", "/private/tmp/", "/var/folders/", "scratchpad",
-		"node_modules", "/dist/", "/build/", "/.cache/", "/target/", "/.next/", "/coverage/"} {
-		if strings.Contains(l, frag) {
-			return true
-		}
-	}
-	return strings.HasPrefix(l, "/tmp") || strings.HasSuffix(l, "/dist") || strings.HasSuffix(l, "/build")
-}
+func IsScratchPath(p string) bool { return shellshape.IsScratchPath(p) }
