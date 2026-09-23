@@ -71,6 +71,10 @@ type Server struct {
 	notes    *notes.Store
 	mu       sync.RWMutex
 
+	accounts   map[string]*Account // profile key → the AI login it ran under
+	acctOf     []string            // index position → profile key
+	claudeUUID map[string]string   // profile key → Claude accountUuid (Cowork match only)
+
 	// Timeline queries that carry free text have to read the candidate
 	// events back off disk, so the last few result sets are kept: the UI
 	// pages through one screen at a time and re-scanning the case for every
@@ -148,6 +152,7 @@ func Load(pkg string, opts Options) (*Server, error) {
 		}
 	}
 	s.notes = notes.Open(pkg)
+	s.loadAccounts()
 	return s, nil
 }
 
@@ -197,6 +202,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/chain", s.apiChain)
 	mux.HandleFunc("/api/search", s.apiSearch)
 	mux.HandleFunc("/api/notes", s.apiNotes)
+	mux.HandleFunc("/api/accounts", s.apiAccounts)
 	return guard(mux)
 }
 
@@ -264,6 +270,7 @@ func writeJSON(w http.ResponseWriter, v any) {
 func (s *Server) apiCase(w http.ResponseWriter, r *http.Request) {
 	types := map[string]int{}
 	states := map[string]int{}
+	mcp := map[string]int{} // MCP server → events that name it
 	sessions := map[string]bool{}
 	agents := map[string]bool{}
 	var first, last string
@@ -271,6 +278,9 @@ func (s *Server) apiCase(w http.ResponseWriter, r *http.Request) {
 		e := s.idx.At(i)
 		types[e.EventType]++
 		states[e.Corroboration]++
+		if e.MCPServer != "" {
+			mcp[sanitize.Terminal(e.MCPServer)]++
+		}
 		if e.SessionID != "" {
 			sessions[e.SessionID] = true
 		}
@@ -315,6 +325,7 @@ func (s *Server) apiCase(w http.ResponseWriter, r *http.Request) {
 		"severity":  sev,
 		"types":     types,
 		"states":    states,
+		"mcp":       mcp,
 		"first":     first,
 		"last":      last,
 	}
@@ -333,10 +344,15 @@ func (s *Server) apiEvents(w http.ResponseWriter, r *http.Request) {
 	if limit <= 0 || limit > 500 {
 		limit = 200
 	}
-	matched := s.match(filter{
+	flt := filter{
 		session: q.Get("session"), agent: q.Get("agent"), typ: q.Get("type"), state: q.Get("state"),
-		text: strings.ToLower(q.Get("q")), from: q.Get("from"), to: q.Get("to"),
-	})
+		text: strings.ToLower(q.Get("q")), from: q.Get("from"), to: q.Get("to"), flagged: q.Get("flagged") == "1",
+		account: q.Get("account"), mcp: q.Get("mcp"), nometa: q.Get("nometa") == "1",
+	}
+	matched := s.match(flt)
+	if q.Get("sort") == "time" {
+		matched = s.byTime(matched, "time\x00"+flt.key())
+	}
 	total := len(matched)
 	if offset > total {
 		offset = total
@@ -351,16 +367,33 @@ func (s *Server) apiEvents(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			continue
 		}
-		items = append(items, rowOf(ev))
+		row := rowOf(ev)
+		row["account"] = s.acctOf[i]
+		row["mcp_tool"] = sanitize.Terminal(ev.MCPTool)
+		if ev.MCPServer != "" && ev.EventType == schema.EventToolCall {
+			// A plugin call's input is not a normalized field; it is in the
+			// sealed line. So is the plugin's answer, one event later.
+			row["sent"], row["answer"] = s.mcpExchange(i, ev)
+		}
+		if rules := s.flagged[ev.EventID]; len(rules) > 0 {
+			row["flags"] = rules
+		}
+		items = append(items, row)
 	}
 	writeJSON(w, map[string]any{"total": total, "offset": offset, "items": items})
 }
 
 // filter is one timeline query.
-type filter struct{ session, agent, typ, state, text, from, to string }
+type filter struct {
+	session, agent, typ, state, text, from, to string
+	flagged                                    bool   // only events a finding cites
+	account                                    string // one AI login's profile key
+	mcp                                        string // "1": any MCP call; otherwise one server's name
+	nometa                                     bool   // leave out session bookkeeping records
+}
 
 func (f filter) key() string {
-	return strings.Join([]string{f.session, f.agent, f.typ, f.state, f.text, f.from, f.to}, "\x00")
+	return strings.Join([]string{f.session, f.agent, f.typ, f.state, f.text, f.from, f.to, strconv.FormatBool(f.flagged), f.account, f.mcp, strconv.FormatBool(f.nometa)}, "\x00")
 }
 
 // match returns the positions of the events a query selects, in overlay
@@ -400,6 +433,18 @@ func (s *Server) match(f filter) []int {
 			continue
 		}
 		if f.to != "" && e.Timestamp > f.to {
+			continue
+		}
+		if f.flagged && len(s.flagged[e.EventID]) == 0 {
+			continue
+		}
+		if f.nometa && e.EventType == schema.EventSessionMeta {
+			continue
+		}
+		if f.account != "" && s.acctOf[i] != f.account {
+			continue
+		}
+		if f.mcp != "" && (e.MCPServer == "" || f.mcp != "1" && e.MCPServer != f.mcp) {
 			continue
 		}
 		if f.text != "" {
@@ -559,6 +604,12 @@ func (s *Server) findingRow(i int, f schema.Finding) map[string]any {
 	if evID == "" && len(f.ChainSteps) > 0 {
 		evID = f.ChainSteps[len(f.ChainSteps)-1].EventID
 	}
+	account := ""
+	if i, ok := s.idx.Lookup(evID); ok && evID != "" {
+		account = s.acctOf[i]
+	} else if len(f.EvidenceRefs) > 0 {
+		account = s.accountForRef(f.EvidenceRefs[0], "")
+	}
 	row := map[string]any{
 		"index": i, "rule_id": f.RuleID, "severity": f.Severity, "title": sanitize.Terminal(f.Title),
 		"description": sanitize.Terminal(f.Description), "session": f.SessionID, "agent": f.AgentID, "parent": f.ParentAgentID,
@@ -568,6 +619,7 @@ func (s *Server) findingRow(i int, f schema.Finding) map[string]any {
 		"mitre_attack": f.MitreATTACK, "mitre_atlas": f.MitreATLAS,
 		"evidence": sanitizeAll(f.EvidenceRefs), "related": sanitizeAll(f.Related), "false_positive": sanitize.Terminal(f.FalsePositive),
 		"event_id": evID, "key": notes.FindingKey(f.RuleID, f.EvidenceRefs), "chain": len(f.ChainSteps) > 0,
+		"account": account,
 	}
 	if len(f.ChainSteps) > 0 {
 		steps := make([]map[string]any, 0, len(f.ChainSteps))

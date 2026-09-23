@@ -7,6 +7,66 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [2.6.0] — 2026-09-23
+
+The case explorer, redesigned for someone who is not a security analyst.
+Opened on a real machine (811 conversations, 260,469 recorded actions,
+1,237 findings), the old explorer gave six tabs of jargon — RECORDED,
+second witness UNKNOWN, ATLAS, building_block — a flat wall of 1,237 cards,
+and an indented text tree for "how it happened". It answered none of the
+questions an owner asks first: is something wrong, what, where did it
+start, under which account, what do I do. The new one does, and it was
+iterated against a non-technical reviewer until it did.
+
+### Changed
+- **`agentdfir serve` is a new UI** (`internal/serve/ui.html`), four
+  screens instead of six tabs:
+  - **Overview** — the answer first ("4 alerts need action now"), four
+    tiers (Act now · Serious · Worth a look · Minor or routine), *Start
+    here*, the accounts in the case, evidence integrity in words.
+  - **Findings** — grouped by kind of issue (rule × severity; 1,237 → ~60),
+    each with a plain title and *what happened · why it matters · ask
+    yourself · what to do*, written for every built-in and community rule.
+    Severity and confidence read as one line ("Act now if real · Needs your
+    check"), so a red badge never sits next to "harmless".
+  - **The story** — a swimlane diagram (*You · The AI agent · Tools &
+    outside world*), one card per evidence line in time order, arrows for
+    each hand-off, the flagged steps in red and numbered, the outside
+    addresses they reach, an *In short* line, and the **most likely start**
+    (your request, an automatic skill message, injected text the agent
+    read, or a helper agent) marked on its card. Every card opens the sealed
+    log line.
+  - **Activity** — conversations named by what the person first asked
+    (skill and harness text skipped), time-ordered, background bookkeeping
+    records left out, *Only flagged* view.
+  - **More** — search, plugin (MCP) activity, plugins installed, memory
+    files, cross-check, agent map and evidence each on their own tab (the
+    old "MCP · Provenance · Corroboration" tab stacked unrelated tables).
+  - Verdicts read *Real problem · Expected · Detection mistake · Not sure
+    yet* (stored values unchanged) and can be applied to every other time
+    the same thing happened; *Copy a note for your IT contact*; a *What
+    stands out* box on the raw line (safety prompts off, helper agent,
+    tool error or refused login, invisible characters); light and dark
+    themes; phone layout. Still loopback-only, no external resources, CSP
+    unchanged. Old deep links keep working.
+
+### Added
+- **Accounts.** Every record, conversation, finding and plugin now carries
+  the AI login it ran under. The identity is read from each collected
+  profile's own settings — `~/.claude.json` `oauthAccount` (email,
+  organisation), `<CODEX_HOME>/auth.json` `id_token` claims (email, ChatGPT
+  plan) — and an event belongs to the profile directory its transcript sits
+  in; Cowork sessions stored under a Claude account id match that account.
+  Tokens and keys are never read out. `GET /api/accounts`; rows, sessions
+  and findings gain `account`.
+- **Plugin (MCP) activity timeline.** Every MCP call in time order with the
+  account, plugin, tool, what the agent sent (read out of the call's sealed
+  line) and what came back (the matching tool result).
+- `/api/events` gains `account=`, `mcp=1|<server>`, `flagged=1`,
+  `nometa=1` and `sort=time` (undated records last); rows carry `flags`.
+  `/api/chain` nodes carry `dest`, the outside addresses a step names.
+  `/api/case` gains per-server MCP event counts.
+
 ## [2.5.2] — 2026-09-23
 
 Precision release. Every CRITICAL and HIGH rule was checked against the

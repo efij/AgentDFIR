@@ -95,7 +95,7 @@ go build -trimpath -o agentdfir ./cmd/agentdfir
 agentdfir detect                                   # 1. what AI agents are on this machine (never runs them)
 agentdfir collect --product claude                 # 2. sealed, hash-chained evidence package
 agentdfir analyze CASE-2026-042.adfir              # 3. every analysis stage, one command
-agentdfir serve   CASE-2026-042.adfir --open       # 4. browse: sessions, attack chains, timeline, search, case notes
+agentdfir serve   CASE-2026-042.adfir --open       # 4. browse: overview, findings as stories, activity, MCP, search
 ```
 
 Add a second witness and the same commands upgrade every finding from *the agent says* to *the OS confirms*:
@@ -127,9 +127,10 @@ No auto-escalation to "compromise" or "exfiltration" — findings state exactly 
 
 A list of 700 findings is not an answer. The explorer (`agentdfir serve`) turns it into one:
 
-- **Sessions first.** One card per session, worst first: what was asked, how long it ran, how many tool calls, agents, files, destinations, MCP servers, how much of it the OS confirms, and which attack chains hit. Click a card, get that session's timeline with its metadata on top.
+- **The answer first, in plain words.** *"4 alerts need action now"*, then the few kinds of issue to start with. Findings are grouped by kind (1,237 → ~60 on a real machine), and each reads *what happened · why it matters · ask yourself · what to do*, with one verdict line (*"Act now if real · Needs your check"*) and the **account** it ran under — for people who are not security analysts.
 - **Attack chains (toxic combinations).** Individually unremarkable steps that together are an attack: *injection in a tool result → agent rewrites its own instructions → shell runs*, *secret read → upload*, *orphan agent → config change → tool use*, *poisoned MCP result → destructive command*, *injection → commit → push*, *action → log deletion*… Eight ship built in, matched inside one session or one agent's lineage within a time window, mapped to MITRE ATLAS / ATT&CK. Add your own as `*.chains.json` ([docs](docs/attack-chains.md)).
-- **How it happened.** Select any finding and see the tree behind it: the steps in order, and under each step what led there — the human prompt before it, the tool result the agent had just consumed, the spawn that created the agent. Every node is a real transcript line you can open. "What led here" walks further back.
+- **How it happened, as a story.** Every finding opens to a swimlane diagram — *You · The AI agent · Tools & outside world* — one card per evidence line in time order, the flagged steps in red, the outside addresses they reach, and the **most likely start** (your request, an automatic skill message, injected text the agent read, or a helper agent) marked on its card. Every card opens the exact sealed log line.
+- **Plugin (MCP) activity.** Every MCP call in time order with the account, plugin, what the agent sent and what came back.
 - **Search everything.** `Ctrl+K`: every event field, every finding, and the raw bytes of every sealed artifact, live, in seconds, regex or literal.
 - **Case file.** Mark findings true / false positive / needs review, pin key evidence, tag sessions, write notes. Saved as a hash-chained log outside the sealed evidence, attributed to you, and rendered as an *Analyst Investigation* section in the PDF and HTML reports.
 
