@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/efij/AgentDFIR/v2/internal/chain"
+	"github.com/efij/AgentDFIR/v2/internal/netdest"
 	"github.com/efij/AgentDFIR/v2/internal/notes"
 	"github.com/efij/AgentDFIR/v2/internal/sanitize"
 	"github.com/efij/AgentDFIR/v2/internal/schema"
@@ -48,12 +49,28 @@ type sessionCard struct {
 	ChainTitles []string       `json:"chain_titles"`
 	Tags        []string       `json:"tags"`
 	FirstPrompt string         `json:"first_prompt"`
+	Account     string         `json:"account,omitempty"` // profile key; /api/accounts has the label
 	Risk        int            `json:"risk"`
 	// CaseLevel marks the one card that holds findings no session claims
 	// (package-level rules: configs, MCP inventories, instruction files).
 	// Without it the Findings tab showed CRITICALs the Sessions tab never
 	// mentioned, and "worst first" looked wrong.
 	CaseLevel bool `json:"case_level,omitempty"`
+
+	namedByPerson bool
+	promptsRead   int
+}
+
+// IsAutoPrompt reports text that arrives as a user message but was not typed
+// by a person: skill bodies, slash-command wrappers, harness context blocks.
+func IsAutoPrompt(t string) bool {
+	for _, p := range []string{"Base directory for this skill", "<command-", "<local-command", "Caveat: ", "<system-reminder>",
+		"[Request interrupted", "This session is being continued", "<environment_context>", "<user_instructions>", "[MESSAGE FROM", "# AGENTS.md", "<permissions instructions>", "A session-scoped", "Stop hook feedback", "<task-notification>"} {
+		if strings.HasPrefix(t, p) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Server) apiSessions(w http.ResponseWriter, r *http.Request) {
@@ -89,11 +106,18 @@ func (s *Server) apiSessions(w http.ResponseWriter, r *http.Request) {
 		switch e.EventType {
 		case schema.EventHumanPrompt:
 			c.Prompts++
-			// The opening line of the session is not in the index summary;
-			// it is one read, for the first prompt of each session.
-			if c.FirstPrompt == "" {
+			// The session's name is the first thing a person asked in it.
+			// Text a skill, a plugin or the harness injects as a "user"
+			// message is not that, so up to six prompts are read to find it.
+			if !c.namedByPerson && c.promptsRead < 6 {
+				c.promptsRead++
 				if ev, err := x.Event(i); err == nil {
-					c.FirstPrompt = sanitize.Terminal(trimTo(ev.Summary, 160))
+					text := strings.TrimSpace(ev.Summary)
+					if text != "" && !IsAutoPrompt(text) {
+						c.FirstPrompt, c.namedByPerson = sanitize.Terminal(trimTo(text, 160)), true
+					} else if c.FirstPrompt == "" {
+						c.FirstPrompt = sanitize.Terminal(trimTo(text, 160))
+					}
 				}
 			}
 		case schema.EventModelResponse:
@@ -173,6 +197,7 @@ func (s *Server) apiSessions(w http.ResponseWriter, r *http.Request) {
 		if ev, err := x.Event(first[id]); err == nil {
 			c.Host, c.User = ev.Host, ev.User
 		}
+		c.Account = s.acctOf[first[id]]
 		c.Files = len(files[id])
 		c.Dests = topKeys(dests[id], 5)
 		c.MCPServers = topKeys(mcps[id], 6)
@@ -240,6 +265,7 @@ type treeNode struct {
 	State    string      `json:"state,omitempty"`
 	Findings []string    `json:"findings,omitempty"`
 	Pinned   bool        `json:"pinned,omitempty"`
+	Dest     []string    `json:"dest,omitempty"` // outside addresses the step names, when any
 	Children []*treeNode `json:"children,omitempty"`
 	More     bool        `json:"more,omitempty"` // context can be expanded further via ?event=
 }
@@ -330,6 +356,18 @@ func (s *Server) eventNode(e schema.Event, kind, role string, pinned map[string]
 	}
 	n := &treeNode{ID: "event:" + e.EventID, Kind: kind, Role: role, Label: sanitize.Terminal(trimTo(label, 200)), TS: e.Timestamp,
 		EventID: e.EventID, Type: e.EventType, Agent: e.AgentID, State: e.Corroboration, Pinned: pinned["event:"+e.EventID], More: true}
+	// Where the step reached out to, so the story can say where data went
+	// instead of leaving the reader to parse the command.
+	if e.NetworkDest != "" {
+		n.Dest = []string{sanitize.Terminal(e.NetworkDest)}
+	} else if e.Command != "" {
+		for _, d := range netdest.Extract(e.Command) {
+			if len(n.Dest) == 3 {
+				break
+			}
+			n.Dest = append(n.Dest, sanitize.Terminal(d))
+		}
+	}
 	if rules := s.flagged[e.EventID]; len(rules) > 0 {
 		n.Findings = append(n.Findings, rules...)
 	}
