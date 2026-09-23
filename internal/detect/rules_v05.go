@@ -4,6 +4,7 @@ package detect
 
 import (
 	"fmt"
+	"github.com/efij/AgentDFIR/v2/internal/shellshape"
 	"regexp"
 	"sort"
 	"strings"
@@ -37,6 +38,7 @@ func behavioralRules(res *schema.Normalized, man *casepkg.Manifest, opts Options
 	out = append(out, gitActivity(res)...)
 	out = append(out, spawnExplosion(res, opts)...)
 	out = append(out, logDeletion(res)...)
+	out = append(out, downloadThenExecute(res)...)
 	out = append(out, agentSelfModification(res)...)
 	return out
 }
@@ -383,6 +385,30 @@ func logDeletion(res *schema.Normalized) []schema.Finding {
 	return out
 }
 
+// DOWNLOAD_THEN_EXECUTE — a download whose saved file is then run.
+func downloadThenExecute(res *schema.Normalized) []schema.Finding {
+	var out []schema.Finding
+	for _, ev := range res.Events {
+		if ev.EventType != schema.EventToolCall || ev.Command == "" {
+			continue
+		}
+		if shellshape.DownloadThenExecute(ev.Command) {
+			out = append(out, downloadThenExecuteFinding(ev))
+		}
+	}
+	return out
+}
+
+func downloadThenExecuteFinding(ev schema.Event) schema.Finding {
+	return schema.Finding{
+		RuleID: "DOWNLOAD_THEN_EXECUTE", Severity: "HIGH", Title: "Downloaded File Executed",
+		Description: "curl/wget saved a file and the same command line then made it executable or ran it. Unlike a pipe-to-shell, the payload touched disk first.",
+		SessionID:   ev.SessionID, AgentID: ev.AgentID, EvidenceRefs: []string{ref(ev)},
+		Status: ev.Corroboration, Endpoint: schema.StateUnknown, MitreATTACK: "T1105", MitreATLAS: "AML.T0011.001",
+		FalsePositive: "Installers and toolchain bootstraps download and run scripts on purpose; check the URL and the prompt that asked for it.",
+	}
+}
+
 // AGENT_SELF_MODIFICATION — agent edits its own configuration.
 func agentSelfModification(res *schema.Normalized) []schema.Finding {
 	var out []schema.Finding
@@ -407,8 +433,8 @@ func agentSelfModification(res *schema.Normalized) []schema.Finding {
 				continue
 			}
 			wrote := false
-			for _, t := range WriteTargets(ev.Command) {
-				if selfCfgRe.MatchString(t) {
+			for _, t := range WriteTargets(shellshape.ExpandVars(ev.Command)) {
+				if selfCfgRe.MatchString(t) && !IsScratchPath(t) {
 					wrote = true
 					break
 				}
@@ -416,7 +442,7 @@ func agentSelfModification(res *schema.Normalized) []schema.Finding {
 			if !wrote {
 				continue
 			}
-		} else if !selfCfgRe.MatchString(subject) {
+		} else if !selfCfgRe.MatchString(subject) || IsScratchPath(subject) {
 			continue
 		}
 		out = append(out, schema.Finding{

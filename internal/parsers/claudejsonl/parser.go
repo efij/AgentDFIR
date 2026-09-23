@@ -424,7 +424,7 @@ func (p *parser) handleLine(tl transcriptLine, art casepkg.ArtifactRecord, off i
 	p.touchSession(tl, agentID)
 
 	base := schema.Event{
-		Timestamp: tl.Timestamp, TimestampSrc: "transcript",
+		Timestamp: tl.Timestamp, TimestampSrc: "transcript", Cwd: tl.CWD,
 		SessionID: tl.SessionID, AgentID: agentID,
 		ProductVersion: tl.Version,
 	}

@@ -1,0 +1,4 @@
+node_modules/
+
+# Local Claude Code worktrees/session data
+.claude/

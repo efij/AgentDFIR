@@ -10,7 +10,8 @@
       "confidence": "high",
       "match": {
         "type": "command",
-        "regex": "(curl|wget)[^|;&]*\\|\\s*(ba|z|da)?sh"
+        "regex": "(curl|wget)[^|;&]*\\|\\s*(ba|z|da)?sh",
+        "scope": "shell"
       },
       "false_positive_notes": "Common in legitimate installers (brew, rustup); verify the source domain.",
       "references": [
@@ -53,7 +54,7 @@
     {
       "id": "CLOUD_METADATA_ACCESS",
       "title": "Cloud Metadata Endpoint",
-      "description": "Command targets the instance metadata service \u2014 a common cloud credential-theft path.",
+      "description": "Command targets the instance metadata service — a common cloud credential-theft path.",
       "severity": "HIGH",
       "confidence": "high",
       "match": {
@@ -73,7 +74,7 @@
     {
       "id": "SSH_KEY_WRITE",
       "title": "Write to authorized_keys",
-      "description": "Command appends to an SSH authorized_keys file \u2014 a persistence mechanism.",
+      "description": "Command appends to an SSH authorized_keys file — a persistence mechanism.",
       "severity": "HIGH",
       "confidence": "medium",
       "match": {
@@ -99,7 +100,7 @@
     {
       "id": "HISTORY_CLEARING",
       "title": "Shell History Cleared",
-      "description": "Command clears or disables shell history \u2014 an anti-forensic action.",
+      "description": "Command clears or disables shell history — an anti-forensic action.",
       "severity": "HIGH",
       "confidence": "high",
       "match": {
@@ -138,7 +139,7 @@
     {
       "id": "PACKAGE_PUBLISH",
       "title": "Package Published to Registry",
-      "description": "Command publishes a package (npm/pip/cargo/gem) \u2014 supply-chain relevance.",
+      "description": "Command publishes a package (npm/pip/cargo/gem) — supply-chain relevance.",
       "severity": "MEDIUM",
       "confidence": "medium",
       "match": {
@@ -185,7 +186,7 @@
     {
       "id": "BIND_SHELL_LISTENER",
       "title": "Bind Shell / Listener Opened",
-      "description": "Command opens a network listener that spawns a shell (bind shell) \u2014 inbound remote access.",
+      "description": "Command opens a network listener that spawns a shell (bind shell) — inbound remote access.",
       "severity": "HIGH",
       "confidence": "high",
       "match": {
@@ -202,7 +203,7 @@
     {
       "id": "SUDOERS_NOPASSWD_PERSIST",
       "title": "Passwordless Sudo Granted",
-      "description": "Command grants passwordless sudo or writes to the sudoers configuration \u2014 privilege persistence.",
+      "description": "Command grants passwordless sudo or writes to the sudoers configuration — privilege persistence.",
       "severity": "HIGH",
       "confidence": "high",
       "match": {
@@ -215,7 +216,7 @@
     {
       "id": "NEW_ACCOUNT_CREATED",
       "title": "Local Account Created",
-      "description": "Command creates a new local user account \u2014 a common persistence/backdoor step.",
+      "description": "Command creates a new local user account — a common persistence/backdoor step.",
       "severity": "HIGH",
       "confidence": "medium",
       "match": {
@@ -337,7 +338,7 @@
     {
       "id": "CREDENTIAL_DIR_ARCHIVE",
       "title": "Credential Directory Archived",
-      "description": "Command archives a directory of secrets (.ssh, .aws, .gnupg, .kube) \u2014 staging for exfiltration.",
+      "description": "Command archives a directory of secrets (.ssh, .aws, .gnupg, .kube) — staging for exfiltration.",
       "severity": "HIGH",
       "confidence": "high",
       "match": {
@@ -386,7 +387,7 @@
     {
       "id": "DNS_TUNNEL_TOOL",
       "title": "DNS Tunneling Tool",
-      "description": "Command invokes a known DNS-tunneling utility \u2014 covert channel / exfiltration.",
+      "description": "Command invokes a known DNS-tunneling utility — covert channel / exfiltration.",
       "severity": "HIGH",
       "confidence": "high",
       "match": {
@@ -416,7 +417,7 @@
     {
       "id": "NETWORK_PORT_SCAN",
       "title": "Network Port Scan",
-      "description": "Command runs a network/port scanner \u2014 reconnaissance.",
+      "description": "Command runs a network/port scanner — reconnaissance.",
       "severity": "MEDIUM",
       "confidence": "medium",
       "match": {
@@ -504,7 +505,7 @@
     {
       "id": "KEY_MATERIAL_GENERATION",
       "title": "Attacker Key Material Generated",
-      "description": "Command generates a new SSH key or certificate non-interactively into a standard path \u2014 often precedes authorized_keys persistence.",
+      "description": "Command generates a new SSH key or certificate non-interactively into a standard path — often precedes authorized_keys persistence.",
       "severity": "MEDIUM",
       "confidence": "low",
       "match": {
@@ -517,7 +518,7 @@
     {
       "id": "MCP_INSECURE_TRANSPORT",
       "title": "MCP Server Over Insecure Transport",
-      "description": "Configuration points an MCP server at a plaintext http:// endpoint \u2014 traffic and tool results are interceptable.",
+      "description": "Configuration points an MCP server at a plaintext http:// endpoint — traffic and tool results are interceptable.",
       "severity": "MEDIUM",
       "confidence": "medium",
       "match": {
@@ -556,7 +557,7 @@
     {
       "id": "CONFIG_HOOK_REMOTE_FETCH",
       "title": "Config Hook Fetches Remote Code",
-      "description": "A settings/hook value runs a downloader piped into a shell \u2014 remote code execution on agent lifecycle events.",
+      "description": "A settings/hook value runs a downloader piped into a shell — remote code execution on agent lifecycle events.",
       "severity": "HIGH",
       "confidence": "medium",
       "match": {
@@ -661,7 +662,7 @@
       "severity": "HIGH",
       "confidence": "medium",
       "match": {
-        "type": "config",
+        "type": "instructions",
         "regex": "(?i)\\b(always|whenever|before (each|every) (task|response|commit|answer)|on (every|each) (session|start|startup|prompt)|at the start of (every|each))\\b[^\\n]{0,120}\\b(curl|wget|ncat|\\bnc\\b|ssh|scp|rsync|base64|https?://|webhook|pastebin|discord\\.com/api|telegram)"
       },
       "false_positive_notes": "Legitimate instructions may say 'always run tests before committing' with no network verb; this rule requires a network verb or URL in the same sentence. Review the full line.",
@@ -714,7 +715,7 @@
           "act as an unrestricted",
           "no longer bound by",
           "stay in character no matter what",
-          "[\ud83d\udd13jailbreak]",
+          "[🔓jailbreak]",
           "respond as both classic and jailbreak"
         ]
       },
@@ -727,7 +728,7 @@
     {
       "id": "PROMPT_SELF_REPLICATION",
       "title": "Prompt Asks to Be Copied Into Every File/Repo/Session",
-      "description": "Content instructs the agent to copy, insert or propagate a block of instructions into every file, repository, project, session, README or pull request \u2014 the propagation step of a prompt worm.",
+      "description": "Content instructs the agent to copy, insert or propagate a block of instructions into every file, repository, project, session, README or pull request — the propagation step of a prompt worm.",
       "severity": "HIGH",
       "confidence": "medium",
       "match": {
@@ -761,14 +762,14 @@
     {
       "id": "AGENT_CONFIG_DISCOVERY",
       "title": "Agent Configuration and Tool Definitions Enumerated",
-      "description": "Command lists or reads AI agent settings, hooks, MCP server definitions or agent/skill directories \u2014 reconnaissance of what the agent can do and which servers it trusts.",
+      "description": "Command lists or reads AI agent settings, hooks, MCP server definitions or agent/skill directories — reconnaissance of what the agent can do and which servers it trusts.",
       "severity": "MEDIUM",
       "confidence": "low",
       "match": {
         "type": "command",
         "regex": "(?i)(\\b(cat|less|more|head|tail|find|grep|rg|jq|type|Get-Content)\\b[^|;&]*(\\.claude/settings(\\.local)?\\.json|(^|/|~|\\s)\\.mcp\\.json|\\.cursor/mcp\\.json|claude_desktop_config\\.json|\\.codex/config\\.toml|\\.gemini/settings\\.json)|\\bclaude\\s+mcp\\s+(list|get)\\b)"
       },
-      "false_positive_notes": "Agents read their own skills, agents and commands directories constantly, so those paths are deliberately not matched and `ls` is not a listed verb; only the settings and MCP config files count. A developer inspecting their own configuration still matches \u2014 check the preceding prompt.",
+      "false_positive_notes": "Agents read their own skills, agents and commands directories constantly, so those paths are deliberately not matched and `ls` is not a listed verb; only the settings and MCP config files count. A developer inspecting their own configuration still matches — check the preceding prompt.",
       "references": [
         "https://atlas.mitre.org/techniques/AML.T0084",
         "https://attack.mitre.org/techniques/T1083/"
@@ -815,12 +816,13 @@
     {
       "id": "CURL_FILE_UPLOAD",
       "title": "curl Uploads a Local File",
-      "description": "curl is invoked with an upload form (-T/--upload-file, -F @file, --data-binary @file, -d @file) \u2014 a local file leaves the host.",
+      "description": "curl is invoked with an upload form (-T/--upload-file, -F @file, --data-binary @file, -d @file) — a local file leaves the host.",
       "severity": "HIGH",
       "confidence": "medium",
       "match": {
         "type": "command",
-        "regex": "(?i)\\bcurl\\b[^|;&]*(\\s-T\\s|--upload-file\\b|\\s-F\\s+\\S*@|--form\\s+\\S*@|--data-binary\\s+@|\\s-d\\s+@|--data(-raw|-urlencode)?\\s+@)"
+        "regex": "(?i)\\bcurl\\b[^|;&]*(\\s-T\\s|--upload-file\\b|\\s-F\\s+\\S*@|--form\\s+\\S*@|--data-binary\\s+@|\\s-d\\s+@|--data(-raw|-urlencode)?\\s+@)",
+        "scope": "shell"
       },
       "false_positive_notes": "Uploading build artifacts or test fixtures to internal services is legitimate; look at the destination host and the file.",
       "references": [
@@ -833,7 +835,7 @@
     {
       "id": "GIT_PUSH_TO_URL",
       "title": "git push Directly to a URL Remote",
-      "description": "Agent pushes to a remote given as a URL rather than a configured remote name \u2014 code or data leaves to a repository that was never part of the project configuration.",
+      "description": "Agent pushes to a remote given as a URL rather than a configured remote name — code or data leaves to a repository that was never part of the project configuration.",
       "severity": "HIGH",
       "confidence": "medium",
       "match": {
@@ -865,27 +867,9 @@
       "mitre_attack": "T1567.001"
     },
     {
-      "id": "DOWNLOAD_THEN_EXECUTE",
-      "title": "Download Followed by Execution",
-      "description": "curl/wget fetches a file and the same command line then makes it executable or runs it (chmod +x, sh, bash, python, ./). Unlike a pipe-to-shell, the payload touches disk first.",
-      "severity": "HIGH",
-      "confidence": "medium",
-      "match": {
-        "type": "command",
-        "regex": "(?i)\\b(curl|wget)\\b[^|;&]*(&&|;)\\s*(chmod\\s+\\+x|sh\\s|bash\\s|zsh\\s|python[0-9.]*\\s|perl\\s|node\\s|\\./)"
-      },
-      "false_positive_notes": "Installer scripts from vendors follow this exact shape; the download URL and its integrity checks decide.",
-      "references": [
-        "https://attack.mitre.org/techniques/T1105/",
-        "https://atlas.mitre.org/techniques/AML.T0050"
-      ],
-      "mitre_attack": "T1105",
-      "mitre_atlas": "AML.T0050"
-    },
-    {
       "id": "SHELL_RC_PERSISTENCE",
       "title": "Shell Startup File Modified",
-      "description": "Command appends to a shell startup file (.bashrc, .zshrc, .profile, /etc/profile.d, fish config). Content there runs on every new shell \u2014 a classic user-level persistence point.",
+      "description": "Command appends to a shell startup file (.bashrc, .zshrc, .profile, /etc/profile.d, fish config). Content there runs on every new shell — a classic user-level persistence point.",
       "severity": "HIGH",
       "confidence": "medium",
       "match": {
@@ -917,7 +901,7 @@
     {
       "id": "SUID_BIT_SET",
       "title": "setuid/setgid Bit Set",
-      "description": "chmod grants the setuid or setgid bit (+s, 4xxx/2xxx/6xxx). A setuid binary runs with the owner's privileges \u2014 a privilege-escalation foothold.",
+      "description": "chmod grants the setuid or setgid bit (+s, 4xxx/2xxx/6xxx). A setuid binary runs with the owner's privileges — a privilege-escalation foothold.",
       "severity": "HIGH",
       "confidence": "high",
       "match": {
@@ -949,7 +933,7 @@
     {
       "id": "WINDOWS_SCHEDULED_TASK",
       "title": "Windows Scheduled Task Created",
-      "description": "schtasks /create or the ScheduledTasks PowerShell cmdlets register a task \u2014 persistence on Windows hosts.",
+      "description": "schtasks /create or the ScheduledTasks PowerShell cmdlets register a task — persistence on Windows hosts.",
       "severity": "HIGH",
       "confidence": "medium",
       "match": {
@@ -965,7 +949,7 @@
     {
       "id": "WINDOWS_RUN_KEY",
       "title": "Windows Run/RunOnce Registry Key Written",
-      "description": "Registry write under CurrentVersion\\Run or RunOnce \u2014 the program runs at every logon.",
+      "description": "Registry write under CurrentVersion\\Run or RunOnce — the program runs at every logon.",
       "severity": "HIGH",
       "confidence": "high",
       "match": {
@@ -1033,7 +1017,7 @@
     {
       "id": "BULK_FILE_ENCRYPTION",
       "title": "Bulk File Encryption Loop",
-      "description": "A find -exec or shell loop encrypts many files with openssl enc, gpg -c, ccrypt or age, or an encrypt-then-delete pair \u2014 the shape of ransomware.",
+      "description": "A find -exec or shell loop encrypts many files with openssl enc, gpg -c, ccrypt or age, or an encrypt-then-delete pair — the shape of ransomware.",
       "severity": "CRITICAL",
       "confidence": "medium",
       "match": {
@@ -1180,7 +1164,7 @@
     {
       "id": "KUBE_PRIVILEGED_WORKLOAD",
       "title": "Privileged Kubernetes Workload or Node Debug Shell",
-      "description": "kubectl runs/creates a privileged or host-namespace pod, or debugs a node with chroot/nsenter \u2014 container-escape shapes.",
+      "description": "kubectl runs/creates a privileged or host-namespace pod, or debugs a node with chroot/nsenter — container-escape shapes.",
       "severity": "HIGH",
       "confidence": "medium",
       "match": {
@@ -1196,7 +1180,7 @@
     {
       "id": "TIMESTOMP_COMMAND",
       "title": "File Timestamp Manipulation Command",
-      "description": "touch -r/-t/-d, SetFile -d/-m or PowerShell timestamp property writes alter file times \u2014 anti-forensics at the command level.",
+      "description": "touch -r/-t/-d, SetFile -d/-m or PowerShell timestamp property writes alter file times — anti-forensics at the command level.",
       "severity": "MEDIUM",
       "confidence": "medium",
       "match": {
@@ -1212,7 +1196,7 @@
     {
       "id": "SECRET_IN_URL",
       "title": "Credential Embedded in a URL",
-      "description": "A URL in an agent-run command carries an api_key, token, secret, password or SAS parameter \u2014 the secret is now in the transcript and any proxy log.",
+      "description": "A URL in an agent-run command carries an api_key, token, secret, password or SAS parameter — the secret is now in the transcript and any proxy log.",
       "severity": "MEDIUM",
       "confidence": "medium",
       "match": {
@@ -1230,12 +1214,14 @@
     {
       "id": "UNSAFE_MODEL_ARTIFACT_LOAD",
       "title": "Unsafe AI Artifact Deserialization",
-      "description": "A command deserializes a model or data artifact with pickle-based loaders (torch.load, pickle.load, joblib.load, dill.load) or enables trust_remote_code \u2014 arbitrary code execution from an untrusted artifact.",
+      "description": "A command deserializes a model or data artifact with pickle-based loaders (torch.load, pickle.load, joblib.load, dill.load) or enables trust_remote_code — arbitrary code execution from an untrusted artifact.",
       "severity": "HIGH",
       "confidence": "medium",
       "match": {
         "type": "command",
-        "regex": "(?i)(torch\\.load\\(|pickle\\.loads?\\(|joblib\\.load\\(|dill\\.loads?\\(|trust_remote_code\\s*=\\s*True)"
+        "regex": "(?i)(torch\\.load\\(|pickle\\.loads?\\(|joblib\\.load\\(|dill\\.loads?\\(|trust_remote_code\\s*=\\s*True)",
+        "target_regex": "(?i)(?:load|loads)\\(\\s*(?:open\\(\\s*)?['\"]([^'\"\\n]+?)(?:['\"]|…|$)",
+        "skip_scratch_target": true
       },
       "false_positive_notes": "Loading models from a trusted, pinned source is normal ML work; the concern is artifacts fetched from arbitrary URLs or hubs without a hash.",
       "references": [

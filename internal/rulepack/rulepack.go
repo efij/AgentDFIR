@@ -11,6 +11,7 @@ package rulepack
 
 import (
 	"fmt"
+	"github.com/efij/AgentDFIR/v2/internal/shellshape"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -36,7 +37,8 @@ type Rule struct {
 	MitreATLAS    string   `json:"mitre_atlas,omitempty"`
 	MitreATTACK   string   `json:"mitre_attack,omitempty"`
 
-	re *regexp.Regexp
+	re       *regexp.Regexp
+	targetRe *regexp.Regexp
 }
 
 // Match declares what a rule inspects.
@@ -49,6 +51,15 @@ type Match struct {
 	Type     string   `json:"type"`
 	Contains []string `json:"contains,omitempty"` // any-of, case-insensitive
 	Regex    string   `json:"regex,omitempty"`
+	// Scope "shell" matches command rules against the command as the shell
+	// runs it: heredoc bodies and quoted strings removed. A pipe-to-shell
+	// quoted inside `git commit -m` is a message, not a pipeline.
+	Scope string `json:"scope,omitempty"`
+	// TargetRegex captures (group 1) the file a matched command acts on;
+	// with SkipScratchTarget the rule stays quiet when every captured
+	// target is scratch space the session itself owns.
+	TargetRegex       string `json:"target_regex,omitempty"`
+	SkipScratchTarget bool   `json:"skip_scratch_target,omitempty"`
 }
 
 // Pack is a versioned collection of rules.
@@ -61,7 +72,17 @@ type Pack struct {
 const maxRegexLen = 2048 // hostile-pack guard
 
 var validSev = map[string]bool{"INFO": true, "LOW": true, "MEDIUM": true, "HIGH": true, "CRITICAL": true}
-var validType = map[string]bool{"command": true, "summary": true, "config": true, "transcript": true}
+
+// Match types and the artifacts they read:
+//
+//	command / summary  normalized events
+//	config             product_config, managed_config — settings and MCP files
+//	instructions       agent_instructions — CLAUDE.md, memory, rules
+//	transcript         agent_session, prompt_history
+//
+// `config` used to include agent_definitions too, so a plugin's README that
+// documented `"hooks": "curl … | sh"` was reported as a hook that runs it.
+var validType = map[string]bool{"command": true, "summary": true, "config": true, "instructions": true, "transcript": true}
 
 // LoadDir loads and validates every *.json pack in dir.
 func LoadDir(dir string) ([]Pack, error) {
@@ -123,6 +144,16 @@ func validatePack(p *Pack) error {
 			}
 			r.re = re
 		}
+		if r.Match.TargetRegex != "" {
+			tre, err := regexp.Compile(r.Match.TargetRegex)
+			if err != nil || tre.NumSubexp() < 1 {
+				return fmt.Errorf("rule %s: target_regex must compile and capture the target", r.ID)
+			}
+			r.targetRe = tre
+		}
+		if r.Match.Scope != "" && r.Match.Scope != "shell" {
+			return fmt.Errorf("rule %s: invalid match.scope %q", r.ID, r.Match.Scope)
+		}
 	}
 	return nil
 }
@@ -155,7 +186,7 @@ func Apply(packs []Pack, res *schema.Normalized, pkgDir string) ([]schema.Findin
 			switch r.Match.Type {
 			case "command", "summary":
 				out = append(out, matchEvents(r, res)...)
-			case "config", "transcript":
+			case "config", "instructions", "transcript":
 				artRules = append(artRules, r)
 			}
 		}
@@ -177,10 +208,16 @@ func matchEvents(r *Rule, res *schema.Normalized) []schema.Finding {
 		switch r.Match.Type {
 		case "command":
 			subject = ev.Command
+			if r.Match.Scope == "shell" {
+				subject = shellshape.Strip(shellshape.ExpandVars(subject))
+			}
 		case "summary":
 			subject = ev.Summary
 		}
 		if subject == "" || !matches(r, subject) {
+			continue
+		}
+		if r.Match.SkipScratchTarget && r.targetRe != nil && onlyScratchTargets(r.targetRe, shellshape.ExpandVars(ev.Command)) {
 			continue
 		}
 		out = append(out, finding(r, ev.SessionID, ev.AgentID, ev.Corroboration,
@@ -189,11 +226,29 @@ func matchEvents(r *Rule, res *schema.Normalized) []schema.Finding {
 	return out
 }
 
+// onlyScratchTargets reports whether every target the rule's target_regex
+// captures is scratch space — a cache the session wrote a minute earlier is
+// not an untrusted artifact.
+func onlyScratchTargets(re *regexp.Regexp, cmd string) bool {
+	ms := re.FindAllStringSubmatch(cmd, -1)
+	if len(ms) == 0 {
+		return false
+	}
+	for _, m := range ms {
+		if !shellshape.IsScratchPath(m[1]) {
+			return false
+		}
+	}
+	return true
+}
+
 // artifactClass names the match type whose rules inspect this artifact.
 func artifactClass(a casepkg.ArtifactRecord) string {
 	switch a.ArtifactType {
-	case "product_config", "managed_config", "agent_definitions", "agent_instructions":
+	case "product_config", "managed_config":
 		return "config"
+	case "agent_instructions":
+		return "instructions"
 	case "agent_session", "prompt_history":
 		return "transcript"
 	}
@@ -237,7 +292,9 @@ func matchOneArtifact(rules []*Rule, a casepkg.ArtifactRecord, store *casepkg.St
 		return nil
 	}
 	class := artifactClass(a)
-	if class == "" {
+	if class == "" || shellshape.SelfReferentialPath(a.LogicalPath) {
+		// agentdfir's own rules, fixtures and development transcripts
+		// contain every phrase and marker the rules look for.
 		return nil
 	}
 	var applicable []*Rule

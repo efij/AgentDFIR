@@ -7,6 +7,16 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [2.5.2] — 2026-09-23
+
+Precision release. Every CRITICAL and HIGH rule was checked against the
+commands and files behind its findings on a real 1,087-artifact case. About
+half of the 312 CRITICAL+HIGH findings were the analyzer's mistakes, not the
+agent's. A CRITICAL that turns out to be a port probe or a documentation
+example costs more trust than the finding was ever worth, so these are
+fixed as bugs, each with a benign corpus case that fails without the fix
+and an attack case that still detects with it.
+
 ### Added
 - **Chocolatey package.** `choco install agentdfir` joins Homebrew and Scoop.
   The release workflow renders `scripts/chocolatey/` for the tag, packs and
@@ -18,6 +28,100 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
   its SHA256 from `SHA256SUMS.txt`. Missing secrets fail the release
   visibly, as for the other channels. `workflow_dispatch` gains a
   `chocolatey` switch to seed or retry the feed for an already-released tag.
+
+### Fixed
+- **Command-shape rules read heredoc bodies and quoted text as commands.**
+  `CURL_PIPE_SHELL` fired on `curl … | sh` inside a `git commit -m "…"`
+  message; the "data left the host" step of `CHAIN_SECRET_TO_EXFIL`
+  (CRITICAL) matched a URL inside a Python docstring written through a
+  heredoc — nine of fifteen CRITICAL chains on the real case had such a
+  step. New `internal/shellshape.Strip` returns the command as the shell
+  parses it (heredoc bodies gone, quoted strings emptied, a `bash -c '…'`
+  script kept); pack rules opt in with `match.scope: "shell"`, and the
+  chain's outbound step now requires a network verb the shell runs
+  (`netdest.IsOutbound`) instead of a `https?://` anywhere in the text.
+- **`nc -z` reachability probes counted as uploads.** 7 of 11 HIGH
+  `POTENTIAL_DATA_EXFILTRATION` were `nc -z host port` and `scutil` VPN
+  checks. `nc` is an upload only when data is fed into it (`… | nc`, `nc
+  host port < file`) and never with `-z`.
+- **`config` rule-pack rules scanned every plugin and skill file.**
+  `CONFIG_HOOK_REMOTE_FETCH` ×6 and `MCP_INSECURE_TRANSPORT` ×10 were all a
+  plugin's `SIGNATURES.md`, test script and skill docs quoting the shapes
+  they warn about; `MEMORY_INSTRUCTION_CALLOUT` matched `Priority.ALWAYS` in
+  a JavaFX CSV within 120 characters of a javadoc URL. `config` now means
+  product and managed configuration only; a new match type `instructions`
+  covers `agent_instructions` (CLAUDE.md, memory, rules). Pack rules of
+  every artifact type skip agentdfir's own rules, fixtures and development
+  transcripts, as the built-in injection rules already did — which also
+  removes `PROMPT_SELF_REPLICATION` and `ROLE_MARKER_SMUGGLING` firing on
+  the sessions that wrote those rules.
+- **`POTENTIAL_SECRET_EXPOSURE` had no placeholder allowlist.** 92 of 95
+  HIGH findings were `AKIAIOSFODNN7EXAMPLE` (the AWS documentation key),
+  `AKIAFAKE…`, `xoxb-123…XXXX` and similar. Values carrying `EXAMPLE`,
+  `FAKE`, `SAMPLE`, `TEST`, `XXXX`, `1234567890`, `ABCDEF` or a run of six
+  identical characters are documentation, not credentials, and are no
+  longer reported. Private-key headers are unaffected: a header alone
+  cannot be judged.
+- **`UNSAFE_MODEL_ARTIFACT_LOAD` fired on `pickle.load` of a file the same
+  session had just written to its scratchpad** (20 findings, one session).
+  Pack rules can now name the file a command acts on (`match.target_regex`)
+  and stay quiet when every target is scratch space
+  (`match.skip_scratch_target`).
+- **`AGENT_SELF_MODIFICATION` matched `.claude.json` inside a scratchpad
+  test fixture.** The write target is checked against `IsScratchPath`, as
+  `LOG_DELETION` already did, after expanding the command's own `VAR=…`
+  assignments (`S=/tmp/…/scratchpad; … > $S/home/.claude.json`).
+- **Provenance matched relative write paths by basename.** `printf … >>
+  .gitignore` in one repository was attributed to a plugin's `.gitignore`
+  collected from `~/.claude/plugins`, producing `INSTRUCTION_FROM_TOOL_RESULT`
+  and, chained with agentdfir's own test output, the case's only
+  `CHAIN_CONTEXT_POISON_TO_EXEC` (CRITICAL). Events now carry the transcript's
+  `cwd`; relative write paths resolve against it, and a path without a
+  directory component never matches another file by suffix.
+- **`DOWNLOAD_THEN_EXECUTE` fired on any interpreter after any download.**
+  `curl -o paper.pdf … && python3 -c "count pages"` never executed the
+  PDF. The rule moved from a pack regex to Go (`shellshape.DownloadThenExecute`):
+  the executed or `chmod +x`-ed token must be the file the download saved.
+
+- **A private-key header with an elided body counted as key material.**
+  Summaries and reviews write `-----BEGIN RSA PRIVATE KEY-----\n...\n-----END
+  RSA PRIVATE KEY-----`; 25 of the 27 private-key findings left on the real
+  case had `...` for a body. The header now needs PEM material after it (a
+  run of base64 before the END marker). A header at the edge of the scan
+  window is still reported: unknown is not benign.
+- **`skip_scratch_target` missed paths the 300-character command trim cut
+  before their closing quote.** The captured target may now end at the
+  trim marker; 12 more `pickle.load` findings on the session's own
+  scratch cache went away.
+- **A localhost health check satisfied the chain's outbound step.** `curl
+  http://localhost:3000/api/health` after masking a `.env` was a CRITICAL
+  `CHAIN_SECRET_TO_EXFIL`. Requests whose every destination is loopback are
+  not data leaving the host.
+
+### Changed
+- Rule-pack schema: `match.type` gains `instructions`; `match.scope`,
+  `match.target_regex` and `match.skip_scratch_target` are new and
+  optional. Packs that use none of them are unchanged.
+- Normalized events gain `cwd` when the transcript records it.
+
+On the real case (1,087 artifacts, 2.7 GB), 2.4.3 → 2.5.2:
+
+| | before | after |
+|---|---|---|
+| CRITICAL | 16 | 4 — every survivor has a network verb with a visible remote destination as its second step |
+| HIGH | 295 | 167 |
+| CHAIN_SECRET_TO_EXFIL | 15 | 4 |
+| CHAIN_CONTEXT_POISON_TO_EXEC | 1 | 0 |
+| POTENTIAL_SECRET_EXPOSURE | 95 | 21 |
+| UNSAFE_MODEL_ARTIFACT_LOAD | 20 | 1 |
+| POTENTIAL_DATA_EXFILTRATION | 11 | 3 |
+| MEMORY_INSTRUCTION_CALLOUT · CONFIG_HOOK_REMOTE_FETCH · MCP_INSECURE_TRANSPORT · DOWNLOAD_THEN_EXECUTE | 10 · 6 · 10 · 2 | 0 |
+| INSTRUCTION_FROM_TOOL_RESULT | 90 | 88 |
+
+Twelve new benign corpus cases, one per defect, each seen failing before its
+fix; every attack case still detects. The real chains kept: a hard-coded PAT
+followed by `curl` to an internal TFS API, a keychain GitHub token followed
+by `curl api.github.com`, and two more with a real remote destination.
 
 ## [2.5.1] — 2026-09-23
 

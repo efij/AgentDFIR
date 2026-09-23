@@ -11,6 +11,7 @@
 package detect
 
 import (
+	"github.com/efij/AgentDFIR/v2/internal/shellshape"
 	"strings"
 )
 
@@ -95,15 +96,4 @@ func severityFor(rule string) string {
 // On a real machine TOOL_POISONING_INDICATOR fired on a security plugin's
 // SIGNATURES.md and on its prompt-injection-context.regex — the file that
 // exists to catch exactly that phrase.
-func selfReferentialPath(p string) bool {
-	l := strings.ToLower(p)
-	for _, frag := range []string{
-		"signatures", "/rules/", "rule-pack", "rulepack", "prompt-injection",
-		"/detect/", "/fixtures/", "/testdata/", "_test.", "agentdfir", "runwall",
-	} {
-		if strings.Contains(l, frag) {
-			return true
-		}
-	}
-	return false
-}
+func selfReferentialPath(p string) bool { return shellshape.SelfReferentialPath(p) }

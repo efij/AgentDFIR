@@ -1,0 +1,4 @@
+{
+  "note": "A code review quoting a PEM header with the body elided (`-----BEGIN RSA PRIVATE KEY-----\\n...\\n-----END RSA PRIVATE KEY-----`), the shape claude-mem summaries and docs use. POTENTIAL_SECRET_EXPOSURE counted the header alone; 25 of 27 remaining HIGH private-key findings on a real machine had `...` for a body.",
+  "allow": {}
+}

@@ -62,6 +62,7 @@ type Event struct {
 	MCPServer      string `json:"mcp_server,omitempty"`
 	MCPTool        string `json:"mcp_tool,omitempty"`
 	Command        string `json:"command,omitempty"`
+	Cwd            string `json:"cwd,omitempty"` // working directory the tool ran in, when the transcript records it
 	File           string `json:"file,omitempty"`
 	NetworkDest    string `json:"network_destination,omitempty"`
 	Action         string `json:"action,omitempty"`

@@ -456,8 +456,20 @@ func pathsMatchNorm(a, b string) bool {
 	if a == b {
 		return true
 	}
-	a1, b1 := strings.TrimPrefix(a, "/"), strings.TrimPrefix(b, "/")
-	return strings.HasSuffix(a1, "/"+b1) || strings.HasSuffix(b1, "/"+a1) || a1 == b1
+	w, art := strings.TrimPrefix(a, "/"), strings.TrimPrefix(b, "/")
+	if w == art {
+		return true
+	}
+	// An absolute or directory-qualified write path may end in the
+	// collected file's logical path (`/Users/d/.claude/CLAUDE.md` ends in
+	// `.claude/CLAUDE.md`; `C:/Users/d/.cursorrules` ends in `.cursorrules`).
+	if strings.HasSuffix(w, "/"+art) {
+		return true
+	}
+	// The other way round only when the write path has a directory
+	// component: a bare relative `.gitignore` or `README.md` names one of
+	// thousands of collected files and must not match by suffix.
+	return strings.Contains(w, "/") && strings.HasSuffix(art, "/"+w)
 }
 
 func looksText(b []byte) bool {

@@ -195,6 +195,12 @@ func readRawLine(store *casepkg.Store, ev schema.Event) ([]byte, bool) {
 }
 
 func mk(ev schema.Event, path, content string) Write {
+	// A relative path means "in the directory the agent was in"; resolve
+	// it there so `printf … >> .gitignore` in one repository is never
+	// matched against a `.gitignore` collected from somewhere else.
+	if path != "" && ev.Cwd != "" && !strings.HasPrefix(path, "/") && !strings.HasPrefix(path, "~") && !strings.HasPrefix(path, "$") {
+		path = strings.TrimSuffix(ev.Cwd, "/") + "/" + strings.TrimPrefix(path, "./")
+	}
 	return Write{Event: ev, Path: path, Content: content, Snippet: trimTo(strings.ReplaceAll(content, "\n", " "), 160)}
 }
 

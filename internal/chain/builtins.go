@@ -32,7 +32,10 @@ var Builtin = []Chain{
 		Description: "The agent read credential material and, shortly after, ran an upload-shaped command or contacted a network destination.",
 		Steps: []Step{
 			{Name: "secret or credential file accessed", FindingRules: []string{"SECRET_ACCESS", "POTENTIAL_SECRET_EXPOSURE", "SENSITIVE_FILE_READ"}},
-			{Name: "upload or outbound connection", EventTypes: []string{"tool_call"}, TextRegex: `(^|\s)(curl|wget|nc|ncat|scp|rsync|sftp|aws s3 cp|gsutil cp|git push)(\s|$)|https?://`},
+			// A network verb the shell actually runs — not a URL inside a
+			// heredoc or a quoted string, and not an `nc -z` probe. Nine of
+			// fifteen CRITICAL chains on a real machine had such a step.
+			{Name: "upload or outbound connection", EventTypes: []string{"tool_call"}, Outbound: true},
 		},
 		MitreATLAS: "AML.T0086", MitreATTACK: "T1048",
 		FalsePositive: "Legitimate deploys read a token and push. Confirm the destination against the allowlist (analyze --known-destinations).",
@@ -99,7 +102,7 @@ var Builtin = []Chain{
 		Steps: []Step{
 			{Name: "subagent spawned", EventTypes: []string{"agent_spawn"}},
 			{Name: "cross-session message", FindingRules: []string{"CROSS_SESSION_MESSAGE", "UNEXPECTED_AGENT_RESUME"}},
-			{Name: "outbound transfer", EventTypes: []string{"tool_call"}, TextRegex: `(^|\s)(curl|wget|scp|rsync|aws s3 cp|git push)(\s|$)|https?://`},
+			{Name: "outbound transfer", EventTypes: []string{"tool_call"}, Outbound: true},
 		},
 		MitreATLAS: "AML.T0086", MitreATTACK: "T1048",
 	},

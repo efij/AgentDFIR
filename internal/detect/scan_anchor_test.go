@@ -62,10 +62,10 @@ func referenceScan(data []byte) (first map[string]int64, counts map[string]int) 
 // the Anthropic and OpenAI patterns claim, and one straddling a chunk
 // boundary.
 func TestAnchoredSecretScanMatchesReference(t *testing.T) {
-	aws := "AKIAIOSFODNN7EXAMPLE"
-	ghp := "ghp_" + strings.Repeat("a", 36)
-	ant := "sk-ant-" + strings.Repeat("b", 30)
-	jwt := "eyJ" + strings.Repeat("c", 12) + "." + strings.Repeat("d", 12) + "." + strings.Repeat("e", 12)
+	aws := "AKIAJ4QX7ZK2M9P3B5TQ"
+	ghp := "ghp_" + "q8Zt3vLm2Xk9Rp1Ws7Yh4Nj6Bc0Fd5Gu2Ea8"
+	ant := "sk-ant-" + "Rk7mP2xQ9vL4tZ8nW3yH6jB1cF5gU0"
+	jwt := "eyJ" + "hbGciOiJIUzI1" + "." + "zdWIiOiIxMjM0" + "." + "SflKxwRJSMeKK"
 	var b bytes.Buffer
 	b.WriteString(aws)                         // offset 0: leading \b with no preceding byte
 	b.WriteString(" x" + aws)                  // glued to a word char: no match

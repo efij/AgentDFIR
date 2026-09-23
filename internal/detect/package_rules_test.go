@@ -27,7 +27,7 @@ func TestPackageRulesBypassAndSecrets(t *testing.T) {
 	write(".claude/settings.json", `{"defaultMode": "bypassPermissions"}`)
 	// Transcript carrying a synthetic AWS key.
 	write(".claude/projects/-x/s1.jsonl",
-		`{"type":"user","sessionId":"s1","timestamp":"2026-08-30T10:00:00Z","message":{"role":"user","content":"use key AKIAIOSFODNN7EXAMPLE for the deploy"}}`)
+		`{"type":"user","sessionId":"s1","timestamp":"2026-08-30T10:00:00Z","message":{"role":"user","content":"use key AKIAJ4QX7ZK2M9P3B5TQ for the deploy"}}`)
 
 	pkg := filepath.Join(t.TempDir(), "p.adfir")
 	b, err := casepkg.New(pkg, "PR-1", casepkg.CaseInfo{OperatorOSUser: "t"})
@@ -60,7 +60,7 @@ func TestPackageRulesBypassAndSecrets(t *testing.T) {
 			secret = true
 			// The secret VALUE must never appear in the finding.
 			joined := f.Title + f.Description + strings.Join(f.EvidenceRefs, " ")
-			if strings.Contains(joined, "AKIAIOSFODNN7EXAMPLE") {
+			if strings.Contains(joined, "AKIAJ4QX7ZK2M9P3B5TQ") {
 				t.Fatal("secret value leaked into finding output")
 			}
 			if !strings.Contains(f.Description, "[REDACTED]") {

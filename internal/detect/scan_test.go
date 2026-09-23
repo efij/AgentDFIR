@@ -25,7 +25,7 @@ func TestStreamingScanFindsSecretPastOldLimit(t *testing.T) {
 	for b.Len() < 20<<20 {
 		b.WriteString(filler)
 	}
-	b.WriteString(`{"type":"user","sessionId":"s","timestamp":"2026-08-30T10:00:01Z","message":{"role":"user","content":"key AKIAIOSFODNN7EXAMPLE"}}` + "\n")
+	b.WriteString(`{"type":"user","sessionId":"s","timestamp":"2026-08-30T10:00:01Z","message":{"role":"user","content":"key AKIAJ4QX7ZK2M9P3B5TQ"}}` + "\n")
 	if err := os.WriteFile(filepath.Join(dir, "big.jsonl"), []byte(b.String()), 0o644); err != nil {
 		t.Fatal(err)
 	}

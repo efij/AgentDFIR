@@ -1,0 +1,4 @@
+{
+  "note": "Plugin documentation and a data CSV under the plugin/skill trees. CONFIG_HOOK_REMOTE_FETCH and MCP_INSECURE_TRANSPORT fired on a Markdown file that documents the shapes (`\"hooks\": \"curl \u2026 | sh\"`, `\"url\": \"http://\u2026\"`), and MEMORY_INSTRUCTION_CALLOUT on a JavaFX CSV where `Priority.ALWAYS` sits within 120 chars of a javadoc URL. `config` rules must only read product/managed config; instruction rules must only read instruction files.",
+  "allow": {}
+}

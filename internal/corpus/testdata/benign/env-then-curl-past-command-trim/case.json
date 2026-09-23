@@ -1,0 +1,6 @@
+{
+  "note": "Same localhost health check as env-then-localhost-health-check, but the command line is long enough that the normalizer's 300-character trim removes the URL. A `curl` whose destination cannot be seen is not evidence that data left the host; on a real machine it was the second step of a CRITICAL chain.",
+  "allow": {
+    "SENSITIVE_FILE_READ": "reading .env.local is a sensitive read by design"
+  }
+}

@@ -1,0 +1,2 @@
+id,snippet,fix,priority,ref
+1,"GridPane.setHgrow(nameField, Priority.ALWAYS); column.setPercentWidth(50);",field.setPrefWidth(328);,High,https://openjfx.io/javadoc/21/javafx.graphics/javafx/scene/layout/Priority.html
