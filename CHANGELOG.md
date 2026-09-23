@@ -7,6 +7,51 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [2.5.1] — 2026-09-23
+
+### Fixed
+- **`analyze` took 13 minutes on a 2.1 GB case; three stages were doing
+  the same work many times over.** Profiled on that case (v2.4.1, 843 s of
+  CPU): provenance 375 s, the secret-exposure scan 197 s, rule packs 116 s.
+  - **Provenance re-decompressed large transcripts once per tool call.** It
+    opened each tool call's source artifact at the event's byte offset. On a
+    plaintext blob that is a seek; on a gzip blob above the store's 32 MB
+    seek cache it is a decompress-from-zero. Four transcripts over 32 MB held
+    4,143 tool calls, which came to 107 GB of gunzip and 288 s. Each artifact
+    is now opened once and read forward in offset order; the lines returned
+    are byte-identical (a test compares the two paths, including reversed
+    and repeated offsets).
+  - **`POTENTIAL_SECRET_EXPOSURE` ran nine regexes over every megabyte of
+    every transcript.** Go's regexp uses its slow NFA on inputs that size,
+    and it was 197 s of the run. Every credential format starts with a
+    literal (`AKIA`, `ghp_`, `sk-ant-`, `eyJ`, …), so the scan now byte-searches
+    for that literal and runs the regex only around each occurrence.
+    Offsets and counts equal a whole-blob `FindAllIndex` (tested: offset 0,
+    glued to a word character, adjacent, two patterns on one token, across a
+    chunk boundary).
+  - **Rule packs read the whole store once per artifact-scoped rule.** Ten
+    such rules ship embedded: ten full passes, each lowercasing every
+    artifact again. One pass now reads each artifact once and evaluates all
+    rules of its class against it; the lowercase copy is made once. Binaries
+    are skipped, as the other content rules already do since 2.4.3.
+  - **Provenance compared every instruction file against every write.**
+    5,698 files × 3,291 writes, normalizing both paths each time: 18.7
+    million comparisons, 72 s. Two paths that match share their last path
+    element, so writes are indexed by it (tested against the brute force).
+  - **The four content rules each streamed every transcript.** Credential
+    formats, injection phrases, invisible Unicode and honeytokens now read
+    each artifact once and share the chunks; findings keep their order.
+  - **Artifacts are scanned in parallel.** The detection, rule-pack and
+    provenance loops run on up to eight workers; output stays in manifest
+    order, so results are identical to the sequential run. The two pack
+    regexes that remain expensive (`ROLE_MARKER_SMUGGLING`,
+    `PROMPT_SELF_REPLICATION`: 95 s of CPU over 984 MB of transcripts) are
+    engine-bound and unchanged in meaning.
+  Same case, same finding counts at every stage: 843 s → 50 s.
+  The `0 reused from the overlay` on a first run after upgrading is by
+  design: normalized segments are keyed on the binary version, and that
+  stage took 13 s.
+
 ## [2.5.0] — 2026-09-23
 
 ### Added

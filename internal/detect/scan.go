@@ -2,11 +2,8 @@ package detect
 
 import (
 	"bufio"
+	"bytes"
 	"io"
-	"regexp"
-	"strings"
-	"unicode"
-	"unicode/utf8"
 
 	"github.com/efij/AgentDFIR/v2/internal/casepkg"
 )
@@ -72,122 +69,68 @@ func streamChunks(b blobReader, fn func(chunk []byte, base int64) bool) error {
 	}
 }
 
-// scanRegex returns the first hit per pattern (and a count) across the
-// whole artifact, streaming.
-func scanRegex(b blobReader, patterns []struct {
-	name string
-	re   *regexp.Regexp
-}) (hits []scanHit, counts map[string]int) {
-	counts = map[string]int{}
-	first := map[string]int64{}
-	_ = streamChunks(b, func(chunk []byte, base int64) bool {
-		for _, p := range patterns {
-			for _, loc := range p.re.FindAllIndex(chunk, -1) {
-				off := base + int64(loc[0])
-				if base > 0 && loc[0] < scanOverlap {
-					continue // already counted in previous chunk
-				}
-				counts[p.name]++
-				if _, seen := first[p.name]; !seen {
-					first[p.name] = off
-				}
-			}
+// anchorWindow bounds the text a pattern is matched against once its
+// literal anchor has been found. It equals the chunk overlap, which the
+// scan already relies on being longer than any credential we match.
+const anchorWindow = scanOverlap
+
+// anchoredMatches returns the start offsets of p's non-overlapping matches
+// in chunk — the same offsets FindAllIndex would return — by searching for
+// the literal anchor and matching the regex only around each occurrence.
+// A match must start at an anchor occurrence, so the leftmost match at or
+// after the previous match's end is the first anchor occurrence there
+// that the regex accepts. One byte before the anchor is included so the
+// leading word boundary is judged against real context. Anchors do not
+// overlap themselves at shift one (a test pins this), so a match found in
+// the window either starts at the anchor or does not exist.
+func anchoredMatches(chunk []byte, p secretPattern) []int {
+	var out []int
+	next := 0
+	for i := 0; i < len(chunk); {
+		j := bytes.Index(chunk[i:], []byte(p.lit))
+		if j < 0 {
+			break
 		}
-		return true
-	})
-	for name, off := range first {
-		hits = append(hits, scanHit{name: name, offset: off})
+		at := i + j
+		if at < next {
+			i = at + 1
+			continue
+		}
+		lo, hi := at-1, at+anchorWindow
+		if lo < 0 {
+			lo = 0
+		}
+		if hi > len(chunk) {
+			hi = len(chunk)
+		}
+		loc := p.re.FindIndex(chunk[lo:hi])
+		if loc == nil || lo+loc[0] != at || lo+loc[1] <= at {
+			i = at + 1
+			continue
+		}
+		out = append(out, at)
+		next = lo + loc[1]
+		i = next
 	}
-	return hits, counts
+	return out
 }
 
-// scanPhrases finds the first occurrence (case-insensitive) of any phrase.
-func scanPhrases(b blobReader, phrases []string) (phrase string, offset int64, found bool) {
-	lower := make([]string, len(phrases))
-	for i, p := range phrases {
-		lower[i] = strings.ToLower(p)
-	}
+// scanRegex returns the first hit per pattern (and a count) across the
+// whole artifact, streaming.
+func scanRegex(b blobReader, patterns []secretPattern) (hits []scanHit, counts map[string]int) {
+	acc := newSecretAcc(patterns)
 	_ = streamChunks(b, func(chunk []byte, base int64) bool {
-		low := strings.ToLower(string(chunk))
-		for i, p := range lower {
-			if idx := strings.Index(low, p); idx >= 0 {
-				if base > 0 && idx < scanOverlap {
-					continue
-				}
-				phrase, offset, found = phrases[i], base+int64(idx), true
-				return false
-			}
-		}
+		acc.feed(chunk, base)
 		return true
 	})
-	return
+	return acc.hits(), acc.counts
 }
 
 // scanContains reports the first occurrence of any exact marker.
 func scanContains(b blobReader, markers []string) (marker string, offset int64, found bool) {
+	acc := newContainsAcc(markers)
 	_ = streamChunks(b, func(chunk []byte, base int64) bool {
-		s := string(chunk)
-		for _, m := range markers {
-			if m == "" {
-				continue
-			}
-			if idx := strings.Index(s, m); idx >= 0 {
-				if base > 0 && idx < scanOverlap {
-					continue
-				}
-				marker, offset, found = m, base+int64(idx), true
-				return false
-			}
-		}
-		return true
+		return !acc.feed(chunk, base)
 	})
-	return
-}
-
-// invisibleStats counts invisible/reordering runes across an artifact.
-func invisibleStats(b blobReader) (tags, bidi, zw int, firstOff int64) {
-	firstOff = -1
-	_ = streamChunks(b, func(chunk []byte, base int64) bool {
-		start := 0
-		if base > 0 {
-			start = scanOverlap
-		}
-		// Decode in place. This runs over every byte of every artifact, so
-		// it stays on the byte slice: ranging over string(chunk) would copy
-		// a megabyte per chunk, and every non-ASCII rune would allocate
-		// again to measure its width. Single-byte runes — nearly all of
-		// transcript evidence — never reach the Unicode tables.
-		for off := start; off < len(chunk); {
-			c := chunk[off]
-			if c < utf8.RuneSelf {
-				off++
-				continue
-			}
-			r, size := utf8.DecodeRune(chunk[off:])
-			hit := false
-			switch {
-			case r >= 0xE0000 && r <= 0xE007F:
-				tags++
-				hit = true
-			case (r >= 0x202A && r <= 0x202E) || (r >= 0x2066 && r <= 0x2069):
-				bidi++
-				hit = true
-			case r >= 0x200B && r <= 0x200F, r == 0xFEFF:
-				zw++
-				hit = true
-			case unicode.Is(unicode.Cf, r) && r != '\u00ad':
-				zw++
-				hit = true
-			}
-			if hit && firstOff == -1 {
-				firstOff = base + int64(off)
-			}
-			off += size
-		}
-		return true
-	})
-	if firstOff == -1 {
-		firstOff = 0
-	}
-	return
+	return acc.marker, acc.offset, acc.found
 }

@@ -14,7 +14,10 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
+	"sync"
+	"sync/atomic"
 
 	"github.com/efij/AgentDFIR/v2/internal/casepkg"
 	"github.com/efij/AgentDFIR/v2/internal/schema"
@@ -124,10 +127,28 @@ func validatePack(p *Pack) error {
 	return nil
 }
 
+// artifactReads counts artifacts read by Apply. A test pins it to one per
+// artifact: the store used to be read once per artifact-scoped rule, ten
+// full passes with the shipped packs.
+var artifactReads atomic.Int64
+
+// matchWorkers bounds the artifacts matched at once. Each holds one
+// artifact (16 MB at most) and its lowercase copy.
+func matchWorkers() int {
+	n := runtime.GOMAXPROCS(0)
+	if n > 8 {
+		n = 8
+	}
+	if n < 1 {
+		n = 1
+	}
+	return n
+}
+
 // Apply evaluates packs against a normalized result + sealed package.
 func Apply(packs []Pack, res *schema.Normalized, pkgDir string) ([]schema.Finding, error) {
 	var out []schema.Finding
-	var man *casepkg.Manifest
+	var artRules []*Rule
 	for _, p := range packs {
 		for i := range p.Rules {
 			r := &p.Rules[i]
@@ -135,16 +156,16 @@ func Apply(packs []Pack, res *schema.Normalized, pkgDir string) ([]schema.Findin
 			case "command", "summary":
 				out = append(out, matchEvents(r, res)...)
 			case "config", "transcript":
-				if man == nil {
-					m, err := readManifest(pkgDir)
-					if err != nil {
-						return out, err
-					}
-					man = m
-				}
-				out = append(out, matchArtifacts(r, man, casepkg.NewStore(pkgDir, man))...)
+				artRules = append(artRules, r)
 			}
 		}
+	}
+	if len(artRules) > 0 {
+		man, err := readManifest(pkgDir)
+		if err != nil {
+			return out, err
+		}
+		out = append(out, matchArtifacts(artRules, man, casepkg.NewStore(pkgDir, man))...)
 	}
 	return out, nil
 }
@@ -168,27 +189,79 @@ func matchEvents(r *Rule, res *schema.Normalized) []schema.Finding {
 	return out
 }
 
-func matchArtifacts(r *Rule, man *casepkg.Manifest, store *casepkg.Store) []schema.Finding {
-	wantTypes := map[string]bool{}
-	if r.Match.Type == "config" {
-		wantTypes["product_config"] = true
-		wantTypes["managed_config"] = true
-		wantTypes["agent_definitions"] = true
-		wantTypes["agent_instructions"] = true
-	} else {
-		wantTypes["agent_session"] = true
-		wantTypes["prompt_history"] = true
+// artifactClass names the match type whose rules inspect this artifact.
+func artifactClass(a casepkg.ArtifactRecord) string {
+	switch a.ArtifactType {
+	case "product_config", "managed_config", "agent_definitions", "agent_instructions":
+		return "config"
+	case "agent_session", "prompt_history":
+		return "transcript"
 	}
+	return ""
+}
+
+// matchArtifacts reads each artifact once and evaluates every rule of its
+// class against it. The lowercased copy for "contains" rules is made once
+// per artifact too, not once per rule. Binaries are skipped: a content
+// rule's phrase or regex inside a .pptx or a node_modules blob is noise,
+// and the other content rules already stay off them.
+func matchArtifacts(rules []*Rule, man *casepkg.Manifest, store *casepkg.Store) []schema.Finding {
+	cur := man.Current()
+	results := make([][]schema.Finding, len(cur))
+	var wg sync.WaitGroup
+	next := make(chan int)
+	for w := 0; w < matchWorkers(); w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := range next {
+				results[i] = matchOneArtifact(rules, cur[i], store)
+			}
+		}()
+	}
+	for i := range cur {
+		next <- i
+	}
+	close(next)
+	wg.Wait()
 	var out []schema.Finding
-	for _, a := range man.Current() {
-		if a.Status != casepkg.StatusOK || !wantTypes[a.ArtifactType] {
-			continue
+	for _, r := range results {
+		out = append(out, r...)
+	}
+	return out
+}
+
+// matchOneArtifact evaluates every rule of the artifact's class against it.
+func matchOneArtifact(rules []*Rule, a casepkg.ArtifactRecord, store *casepkg.Store) []schema.Finding {
+	if a.Status != casepkg.StatusOK {
+		return nil
+	}
+	class := artifactClass(a)
+	if class == "" {
+		return nil
+	}
+	var applicable []*Rule
+	for _, r := range rules {
+		if r.Match.Type == class {
+			applicable = append(applicable, r)
 		}
-		data, err := store.ReadAll(a.ArtifactID, 16<<20)
-		if err != nil {
-			continue
+	}
+	if len(applicable) == 0 || !store.IsText(a) {
+		return nil
+	}
+	data, err := store.ReadAll(a.ArtifactID, 16<<20)
+	if err != nil {
+		return nil
+	}
+	artifactReads.Add(1)
+	s := string(data)
+	low := ""
+	var out []schema.Finding
+	for _, r := range applicable {
+		if len(r.Match.Contains) > 0 && low == "" {
+			low = strings.ToLower(s)
 		}
-		if !matches(r, string(data)) {
+		if !matchesPrepared(r, s, low) {
 			continue
 		}
 		out = append(out, finding(r, "", "", schema.StateObserved,
@@ -198,10 +271,19 @@ func matchArtifacts(r *Rule, man *casepkg.Manifest, store *casepkg.Store) []sche
 }
 
 func matches(r *Rule, s string) bool {
+	low := ""
+	if len(r.Match.Contains) > 0 {
+		low = strings.ToLower(s)
+	}
+	return matchesPrepared(r, s, low)
+}
+
+// matchesPrepared is matches with the lowercased subject supplied by the
+// caller, so one artifact is lowercased once for all its rules.
+func matchesPrepared(r *Rule, s, low string) bool {
 	if r.re != nil && r.re.MatchString(s) {
 		return true
 	}
-	low := strings.ToLower(s)
 	for _, c := range r.Match.Contains {
 		if strings.Contains(low, strings.ToLower(c)) {
 			return true

@@ -11,11 +11,7 @@
 package detect
 
 import (
-	"fmt"
 	"strings"
-
-	"github.com/efij/AgentDFIR/v2/internal/casepkg"
-	"github.com/efij/AgentDFIR/v2/internal/schema"
 )
 
 // injectionPhrases are common instruction-override formulations.
@@ -75,37 +71,7 @@ var injectionSurfaces = []surfaceRule{
 		"AML.T0110"},
 }
 
-func promptInjectionIndicator(man *casepkg.Manifest, pkgDir string) []schema.Finding {
-	var out []schema.Finding
-	store := casepkg.NewStore(pkgDir, man)
-	for _, a := range man.Current() {
-		if selfReferentialPath(a.LogicalPath) || !store.IsText(a) {
-			continue
-		}
-		for _, sr := range injectionSurfaces {
-			if !isType(a, sr.types...) {
-				continue
-			}
-			phrase, off, ok := scanPhrases(blobReader{store, a.ArtifactID}, injectionPhrases)
-			if !ok {
-				continue
-			}
-			out = append(out, schema.Finding{
-				RuleID:        sr.ruleID,
-				Severity:      severityFor(sr.ruleID),
-				Title:         sr.title,
-				Description:   fmt.Sprintf(sr.desc, phrase),
-				EvidenceRefs:  []string{artRef(a, off)},
-				Status:        schema.StateObserved,
-				Endpoint:      schema.StateUnknown,
-				MitreATLAS:    sr.atlas,
-				FalsePositive: "Security discussions, test fixtures and documentation legitimately contain these phrases; review the surrounding context at the referenced offset.",
-			})
-			break
-		}
-	}
-	return out
-}
+// The surfaces are matched by contentScans, one read per artifact.
 
 func severityFor(rule string) string {
 	switch rule {
@@ -116,75 +82,10 @@ func severityFor(rule string) string {
 	}
 }
 
-// INVISIBLE_UNICODE_INSTRUCTION — tag characters, bidi overrides and
-// zero-width runs inside agent-facing content.
-func invisibleUnicodeInstruction(man *casepkg.Manifest, pkgDir string) []schema.Finding {
-	var out []schema.Finding
-	store := casepkg.NewStore(pkgDir, man)
-	for _, a := range man.Current() {
-		if !isType(a, "agent_session", "prompt_history", "agent_instructions", "agent_definitions") || !store.IsText(a) {
-			continue
-		}
-		tags, bidi, zw, firstOff := invisibleStats(blobReader{store, a.ArtifactID})
-		if tags == 0 && bidi < 3 && zw < 8 {
-			continue
-		}
-		// Severity follows which characters were found. Unicode tag
-		// characters (U+E0000–U+E007F) have no legitimate use in prompts and
-		// can carry a whole instruction invisibly. Bidi controls occur in
-		// every right-to-left language and zero-width joiners in ordinary
-		// emoji — on a real machine all 43 HIGH findings had tags == 0.
-		sev := "INFO"
-		switch {
-		case tags > 0:
-			sev = "HIGH"
-		case bidi >= 3:
-			sev = "MEDIUM"
-		}
-		out = append(out, schema.Finding{
-			RuleID:   "INVISIBLE_UNICODE_INSTRUCTION",
-			Severity: sev,
-			Title:    "Invisible Unicode in Agent-Facing Content",
-			Description: fmt.Sprintf("Invisible characters detected (tag: %d, bidi controls: %d, zero-width: %d). Unicode tag characters can smuggle instructions invisible to a human reviewer but readable by the model.",
-				tags, bidi, zw),
-			EvidenceRefs:  []string{artRef(a, firstOff)},
-			Status:        schema.StateObserved,
-			Endpoint:      schema.StateUnknown,
-			MitreATLAS:    "AML.T0068", // LLM Prompt Obfuscation
-			FalsePositive: "Bidi controls occur in legitimate RTL text; zero-width joiners in some scripts and emoji. Tag characters (U+E0000–U+E007F) have no legitimate use in prompts.",
-		})
-	}
-	return out
-}
-
-// HoneytokenFindings flags planted canary markers appearing in agent
-// conversations (killer feature #8).
-func HoneytokenFindings(man *casepkg.Manifest, pkgDir string, markers []string) []schema.Finding {
-	var out []schema.Finding
-	store := casepkg.NewStore(pkgDir, man)
-	for _, a := range man.Current() {
-		if !isType(a, "agent_session", "prompt_history") {
-			continue
-		}
-		_, off, ok := scanContains(blobReader{store, a.ArtifactID}, markers)
-		if !ok {
-			continue
-		}
-		out = append(out, schema.Finding{
-			RuleID:        "SECRET_ACCESS",
-			Severity:      "HIGH",
-			Title:         "Honeytoken Accessed by Agent",
-			Description:   "A planted canary marker appears inside an agent conversation. The agent read the bait content; treat any network activity in the same session as a potential transmission path. Marker value: [REDACTED]",
-			EvidenceRefs:  []string{artRef(a, off)},
-			Status:        schema.StateObserved,
-			Endpoint:      schema.StateUnknown,
-			MitreATTACK:   "T1552",
-			MitreATLAS:    "AML.T0055", // Unsecured Credentials
-			FalsePositive: "Low: honeytokens are planted precisely so that any access is signal. Verify the marker was not legitimately referenced by the operator.",
-		})
-	}
-	return out
-}
+// INVISIBLE_UNICODE_INSTRUCTION (tag characters, bidi overrides and
+// zero-width runs inside agent-facing content) and SECRET_ACCESS (planted
+// canary markers appearing in agent conversations, killer feature #8) are
+// raised by contentScans in content_scan.go.
 
 // selfReferentialPath reports whether an artifact is a security tool's own
 // rule material, a test fixture or this project's own sources.

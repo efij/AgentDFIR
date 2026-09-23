@@ -2,9 +2,11 @@ package provenance
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"io"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/efij/AgentDFIR/v2/internal/schema"
@@ -22,8 +24,14 @@ import (
 //	Generic       tool input with {path|file_path|filePath|target_file} and {content|contents|code_edit|new_string|text}
 //	Shell         echo/printf … > path  ·  >> path  ·  cat <<EOF > path … EOF  ·  tee path
 func extractWrite(store *casepkg.Store, ev schema.Event) (Write, bool) {
-	raw, ok := readRawLine(store, ev)
-	if !ok {
+	raw, _ := readRawLine(store, ev)
+	return extractFromRaw(raw, ev)
+}
+
+// extractFromRaw is extractWrite given the raw transcript line already in
+// hand; raw is nil when the line could not be read.
+func extractFromRaw(raw []byte, ev schema.Event) (Write, bool) {
+	if raw == nil {
 		// Fall back to the normalized command for shell redirects.
 		if ev.Command != "" {
 			if p, c, ok := shellWrite(ev.Command); ok {
@@ -56,11 +64,116 @@ func extractWrite(store *casepkg.Store, ev schema.Event) (Write, bool) {
 	return Write{}, false
 }
 
-func mk(ev schema.Event, path, content string) Write {
-	return Write{Event: ev, Path: path, Content: content, Snippet: trimTo(strings.ReplaceAll(content, "\n", " "), 160)}
+// maxRawLine is the longest transcript line provenance will look at.
+const maxRawLine = 16 << 20
+
+// rawLines calls fn once for every tool_call event with the raw transcript
+// line behind it (nil when there is none to read). Each source artifact is
+// opened once and read forward in offset order.
+//
+// The per-event way — open the artifact at the event's offset — is a seek
+// on a plaintext blob but a decompress-from-zero on a gzip blob too large
+// for the store's seek cache. On one real machine four transcripts over
+// 32 MB held 4,143 tool calls, which came to 107 GB of gunzip and 288 s
+// of the analysis. Reading each artifact once is the size of the
+// evidence, whatever its shape on disk.
+func rawLines(store *casepkg.Store, events []schema.Event, fn func(idx int, line []byte)) {
+	type ref struct {
+		idx int
+		off int64
+	}
+	byArtifact := map[string][]ref{}
+	var order []string
+	for i, ev := range events {
+		if ev.EventType != schema.EventToolCall {
+			continue
+		}
+		if ev.SourceArtifact == "" || ev.SourceArtifact == "live" {
+			fn(i, nil)
+			continue
+		}
+		if _, seen := byArtifact[ev.SourceArtifact]; !seen {
+			order = append(order, ev.SourceArtifact)
+		}
+		byArtifact[ev.SourceArtifact] = append(byArtifact[ev.SourceArtifact], ref{i, ev.SourceOffset})
+	}
+	for _, id := range order {
+		refs := byArtifact[id]
+		sort.SliceStable(refs, func(a, b int) bool { return refs[a].off < refs[b].off })
+		c := lineCursor{store: store, id: id}
+		for _, r := range refs {
+			line, _ := c.lineAt(r.off)
+			fn(r.idx, line)
+		}
+		c.close()
+	}
 }
 
-// readRawLine returns the transcript line an event points at.
+// lineCursor reads lines out of one artifact at increasing offsets with a
+// single forward pass, reopening only if asked to go backwards.
+type lineCursor struct {
+	store   *casepkg.Store
+	id      string
+	rc      io.ReadCloser
+	r       *bufio.Reader
+	pos     int64 // plaintext offset the reader stands at
+	last    []byte
+	lastOff int64
+}
+
+func (c *lineCursor) reopen() bool {
+	c.close()
+	rc, err := c.store.Open(c.id)
+	if err != nil {
+		return false
+	}
+	c.rc, c.r, c.pos = rc, bufio.NewReaderSize(rc, 1<<20), 0
+	return true
+}
+
+func (c *lineCursor) close() {
+	if c.rc != nil {
+		c.rc.Close()
+		c.rc, c.r = nil, nil
+	}
+}
+
+// lineAt returns the line starting at off, exactly as OpenAt(off) followed
+// by one ReadBytes('\n') would, or false when it cannot be read or is
+// blank. A repeated offset is served from the previous answer.
+func (c *lineCursor) lineAt(off int64) ([]byte, bool) {
+	if off < 0 {
+		off = 0
+	}
+	if c.last != nil && off == c.lastOff {
+		return c.last, true
+	}
+	if c.r == nil || off < c.pos {
+		if !c.reopen() {
+			return nil, false
+		}
+	}
+	if off > c.pos {
+		n, err := c.r.Discard(int(off - c.pos))
+		c.pos += int64(n)
+		if err != nil {
+			return nil, false
+		}
+	}
+	line, err := c.r.ReadBytes('\n')
+	c.pos += int64(len(line))
+	if err != nil && err != io.EOF {
+		return nil, false
+	}
+	if len(line) > maxRawLine || len(bytes.TrimSpace(line)) == 0 {
+		return nil, false
+	}
+	c.last, c.lastOff = line, off
+	return line, true
+}
+
+// readRawLine returns the transcript line an event points at, opening the
+// artifact at the event's offset. rawLines is the bulk form.
 func readRawLine(store *casepkg.Store, ev schema.Event) ([]byte, bool) {
 	if ev.SourceArtifact == "" || ev.SourceArtifact == "live" {
 		return nil, false
@@ -75,10 +188,14 @@ func readRawLine(store *casepkg.Store, ev schema.Event) ([]byte, bool) {
 	if err != nil && err != io.EOF {
 		return nil, false
 	}
-	if len(line) > 16<<20 {
+	if len(line) > maxRawLine {
 		return nil, false
 	}
 	return line, len(strings.TrimSpace(string(line))) > 0
+}
+
+func mk(ev schema.Event, path, content string) Write {
+	return Write{Event: ev, Path: path, Content: content, Snippet: trimTo(strings.ReplaceAll(content, "\n", " "), 160)}
 }
 
 // ---- Claude Code ----

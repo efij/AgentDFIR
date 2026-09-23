@@ -37,12 +37,7 @@ func RunAll(res *schema.Normalized, pkgDir string, opts Options) []schema.Findin
 	if err == nil {
 		findings = append(findings, permissionBypass(man, pkgDir)...)
 		findings = append(findings, permissionEscalation(man, pkgDir)...)
-		findings = append(findings, secretExposure(man, pkgDir)...)
-		findings = append(findings, promptInjectionIndicator(man, pkgDir)...)
-		findings = append(findings, invisibleUnicodeInstruction(man, pkgDir)...)
-		if len(opts.Honeytokens) > 0 {
-			findings = append(findings, HoneytokenFindings(man, pkgDir, opts.Honeytokens)...)
-		}
+		findings = append(findings, contentScans(man, pkgDir, opts.Honeytokens)...)
 		findings = append(findings, behavioralRules(res, man, opts)...)
 		findings = append(findings, integrityRules(res, man)...)
 	}
@@ -142,21 +137,30 @@ func permissionEscalation(man *casepkg.Manifest, pkgDir string) []schema.Finding
 	return out
 }
 
+// secretPattern is one well-known credential format. lit is a literal
+// that every match contains at its start (after the leading word
+// boundary); the streaming scan looks for it with a byte search and runs
+// the regex only around each occurrence. Go's regexp falls back to its
+// NFA on megabyte chunks, and on a 2 GB transcript set that was 197 s of
+// CPU for this one rule.
+type secretPattern struct {
+	name string
+	lit  string
+	re   *regexp.Regexp
+}
+
 // secretPatterns match well-known credential formats. Values are NEVER
 // included in findings — category, artifact and offset only (plan §18).
-var secretPatterns = []struct {
-	name string
-	re   *regexp.Regexp
-}{
-	{"AWS_ACCESS_KEY", regexp.MustCompile(`\bAKIA[0-9A-Z]{16}\b`)},
-	{"GITHUB_TOKEN", regexp.MustCompile(`\bghp_[A-Za-z0-9]{36}\b`)},
-	{"GITHUB_FINE_GRAINED_TOKEN", regexp.MustCompile(`\bgithub_pat_[A-Za-z0-9_]{22,}\b`)},
-	{"SLACK_TOKEN", regexp.MustCompile(`\bxox[bpars]-[A-Za-z0-9-]{10,}\b`)},
-	{"ANTHROPIC_API_KEY", regexp.MustCompile(`\bsk-ant-[A-Za-z0-9_-]{20,}\b`)},
-	{"OPENAI_API_KEY", regexp.MustCompile(`\bsk-[A-Za-z0-9_-]{20,}\b`)},
-	{"GOOGLE_API_KEY", regexp.MustCompile(`\bAIza[0-9A-Za-z_-]{35}\b`)},
-	{"PRIVATE_KEY_BLOCK", regexp.MustCompile(`-----BEGIN [A-Z ]*PRIVATE KEY-----`)},
-	{"JWT", regexp.MustCompile(`\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b`)},
+var secretPatterns = []secretPattern{
+	{"AWS_ACCESS_KEY", "AKIA", regexp.MustCompile(`\bAKIA[0-9A-Z]{16}\b`)},
+	{"GITHUB_TOKEN", "ghp_", regexp.MustCompile(`\bghp_[A-Za-z0-9]{36}\b`)},
+	{"GITHUB_FINE_GRAINED_TOKEN", "github_pat_", regexp.MustCompile(`\bgithub_pat_[A-Za-z0-9_]{22,}\b`)},
+	{"SLACK_TOKEN", "xox", regexp.MustCompile(`\bxox[bpars]-[A-Za-z0-9-]{10,}\b`)},
+	{"ANTHROPIC_API_KEY", "sk-ant-", regexp.MustCompile(`\bsk-ant-[A-Za-z0-9_-]{20,}\b`)},
+	{"OPENAI_API_KEY", "sk-", regexp.MustCompile(`\bsk-[A-Za-z0-9_-]{20,}\b`)},
+	{"GOOGLE_API_KEY", "AIza", regexp.MustCompile(`\bAIza[0-9A-Za-z_-]{35}\b`)},
+	{"PRIVATE_KEY_BLOCK", "-----BEGIN ", regexp.MustCompile(`-----BEGIN [A-Z ]*PRIVATE KEY-----`)},
+	{"JWT", "eyJ", regexp.MustCompile(`\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b`)},
 }
 
 // SecretKind classifies a value against the well-known credential formats
@@ -172,33 +176,8 @@ func SecretKind(value string) (string, bool) {
 }
 
 // POTENTIAL_SECRET_EXPOSURE — credential material inside agent
-// conversations (it passed through the model provider).
-func secretExposure(man *casepkg.Manifest, pkgDir string) []schema.Finding {
-	var out []schema.Finding
-	store := casepkg.NewStore(pkgDir, man)
-	for _, a := range man.Current() {
-		if !isType(a, "agent_session", "prompt_history") {
-			continue
-		}
-		hits, counts := scanRegex(blobReader{store, a.ArtifactID}, secretPatterns)
-		for _, h := range hits {
-			out = append(out, schema.Finding{
-				RuleID:   "POTENTIAL_SECRET_EXPOSURE",
-				Severity: "HIGH",
-				Title:    "Credential Material in Agent Conversation",
-				Description: fmt.Sprintf("%s detected %d time(s) inside an agent transcript/history — content of this type passes through the model provider. Value: [REDACTED]",
-					h.name, counts[h.name]),
-				EvidenceRefs:  []string{artRef(a, h.offset)},
-				Status:        schema.StateObserved,
-				Endpoint:      schema.StateUnknown,
-				MitreATLAS:    "AML.T0057", // LLM Data Leakage
-				MitreATTACK:   "T1552",     // Unsecured Credentials
-				FalsePositive: "Pattern matches can hit synthetic/test keys; verify at the referenced offset with inspect --reveal-sensitive.",
-			})
-		}
-	}
-	return out
-}
+// conversations (it passed through the model provider) — is raised by
+// contentScans, which streams each transcript once for every content rule.
 
 // sensitivePathRe flags reads of well-known credential/config locations.
 var sensitivePathRe = regexp.MustCompile(`(?i)(\.ssh/|id_rsa|id_ed25519|authorized_keys|\.aws/credentials|\.netrc|\.kube/config|/etc/shadow|\.gnupg/|\.npmrc|\.pypirc|\.docker/config\.json|\.env\b|keychain|wallet\.dat|\.gcloud/|\.azure/|credentials\.json|token\.json)`)
