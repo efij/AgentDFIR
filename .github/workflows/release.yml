@@ -282,7 +282,11 @@ jobs:
   chocolatey:
     needs: verify
     runs-on: windows-latest
-    if: ${{ (github.event_name == 'push' || inputs.build || inputs.chocolatey) && (needs.verify.result == 'success' || needs.verify.result == 'skipped') && !contains(github.ref_name, '-') }}
+    # !cancelled() is load-bearing: without a status function GitHub prepends
+    # success(), which is false whenever any job in the needs chain was
+    # skipped - and on a chocolatey-only dispatch `build` is skipped. Every
+    # probe without it was skipped even with verify green.
+    if: ${{ !cancelled() && (github.event_name == 'push' || inputs.build || inputs.chocolatey) && (needs.verify.result == 'success' || needs.verify.result == 'skipped') && !contains(github.ref_name, '-') }}
     steps:
       - uses: actions/checkout@v4
       - name: Render package source
@@ -327,7 +331,7 @@ jobs:
   chocolatey-source:
     needs: chocolatey
     runs-on: ubuntu-latest
-    if: ${{ needs.chocolatey.result == 'success' }}
+    if: ${{ !cancelled() && needs.chocolatey.result == 'success' }}
     steps:
       - uses: actions/checkout@v4
       - name: Commit rendered package source
