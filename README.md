@@ -15,6 +15,8 @@
 
 </div>
 
+<p align="center"><img src="docs/img/hero-app.webp" width="900" alt="The AgentDFIR case explorer: the finding “The agent read a password or key, then sent data out”, with what happened, why it matters, the most likely start and the step-by-step story. Demo case from agentdfir simulate."></p>
+
 ---
 
 AI coding agents execute shell commands, edit files, spawn subagents, call MCP servers and push code. When something goes wrong — a prompt injection, a poisoned MCP tool, a rogue subagent, quiet data exfiltration — the transcripts and configs they leave on the endpoint are **primary forensic evidence**. Almost no tooling exists to acquire and analyze them properly.
