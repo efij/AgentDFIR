@@ -25,10 +25,10 @@ const (
 
 // fixRules fire on the present state of a config file this package edits.
 var fixRules = map[string]string{
-	"UNPINNED_MCP_PACKAGE":      "mcp-pin",
-	"MCP_UNPINNED_PACKAGE":      "mcp-pin",
-	"MCP_AUTO_APPROVE":          "mcp-autoapprove",
-	"MCP_AUTO_APPROVE_ALL":      "mcp-autoapprove",
+	"UNPINNED_MCP_PACKAGE": "mcp-pin",
+	"MCP_UNPINNED_PACKAGE": "mcp-pin",
+	"MCP_AUTO_APPROVE":     "mcp-autoapprove",
+	"MCP_AUTO_APPROVE_ALL": "mcp-autoapprove",
 }
 
 // noneRules describe the evidence, not the agent. No config removes an
