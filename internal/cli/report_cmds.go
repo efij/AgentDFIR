@@ -161,17 +161,24 @@ func cmdReport(args []string) int {
 // cmdExport handles `export --support`.
 func cmdExport(args []string) int {
 	fs := flag.NewFlagSet("export", flag.ContinueOnError)
-	support := fs.Bool("support", false, "produce a redacted support package")
-	out := fs.String("out", "", "output package path")
-	if err := fs.Parse(args); err != nil || fs.NArg() != 1 {
+	support := fs.Bool("support", false, "produce a redacted support package instead of a portable case file")
+	out := fs.String("out", "", "output path")
+	pos, rest := splitPositional(args)
+	if err := fs.Parse(rest); err != nil || fs.NArg() > 1 || (pos != "" && fs.NArg() != 0) {
+		fmt.Fprintln(os.Stderr, "usage: agentdfir export [<case.adfir>] [--out case.adfir.tgz]      one file to open on another computer\n       agentdfir export --support <case.adfir> [--out support.adfir]   redacted package for vendor support")
+		return 2
+	}
+	if pos == "" {
+		pos = fs.Arg(0)
+	}
+	if !*support {
+		return cmdExportCase(pos, *out)
+	}
+	if pos == "" {
 		fmt.Fprintln(os.Stderr, "usage: agentdfir export --support <package-dir> [--out support.adfir]")
 		return 2
 	}
-	if !*support {
-		fmt.Fprintln(os.Stderr, "export currently supports only --support")
-		return 2
-	}
-	src := fs.Arg(0)
+	src := pos
 	dst := *out
 	if dst == "" {
 		dst = src + ".support"

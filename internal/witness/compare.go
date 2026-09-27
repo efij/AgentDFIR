@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/efij/AgentDFIR/v2/internal/schema"
 )
@@ -77,12 +78,35 @@ func Apply(events []schema.Event, rec *Record) (Result, []schema.Finding) {
 }
 
 // appendNote adds a witness line to an event's evidence note without
-// losing what was already there.
+// losing what was already there. A note from an earlier witness pass on the
+// same file is replaced, not repeated: analysis re-runs on the same overlay,
+// and appending made the note grow by one copy per run (#46).
 func appendNote(existing, add string) string {
 	if existing == "" {
 		return add
 	}
-	return existing + "; " + add
+	key := witnessKey(add)
+	var keep []string
+	for _, seg := range strings.Split(existing, "; ") {
+		if seg == "" || seg == add || (key != "" && witnessKey(seg) == key) {
+			continue
+		}
+		keep = append(keep, seg)
+	}
+	return strings.Join(append(keep, add), "; ")
+}
+
+// witnessKey is "host witness: <file>" for a witness segment, else "".
+func witnessKey(seg string) string {
+	const p = "host witness: "
+	if !strings.HasPrefix(seg, p) {
+		return ""
+	}
+	rest := seg[len(p):]
+	if i := strings.Index(rest, " "); i > 0 {
+		return p + rest[:i]
+	}
+	return ""
 }
 
 // ContentHash is exported for tests that need to build an expectation.

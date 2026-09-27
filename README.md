@@ -125,6 +125,37 @@ HIGH — Unexpected Agent Activity [ORPHAN_AGENT]
 
 No auto-escalation to "compromise" or "exfiltration" — findings state exactly what the evidence shows, with clickable references to the raw artifact behind every claim.
 
+## 🛡️ Stop it happening again — `agentdfir mitigate` (v2.7)
+
+Findings become guardrails in the agents' own settings: `permissions.deny`/`ask`
+for Claude Code, a rules file for Codex, `permissions.deny` for Cursor, pinned
+MCP packages and cleared auto-approve lists. Two packs are on by default and
+never get in the way of legitimate work — **keep the agents' own logs** (a
+`PreToolUse` guard that refuses transcript deletion) and **keep credential files
+away from the agent**. Six more are opt-in, each with its friction stated.
+
+```sh
+agentdfir mitigate                 # the plan — nothing is written
+agentdfir mitigate --apply         # asks per file; backed up, ledgered, reversible
+agentdfir mitigate --status        # verified against the files now: in place / drifted
+agentdfir mitigate --revert-all    # every file back, byte-exact
+```
+
+This is the only command that changes files outside a case, and it never runs
+from `run` or `serve`. The explorer's **Protect** tab builds the command for
+you. Full rules: [docs/mitigate.md](docs/mitigate.md).
+
+## 📤 Look at another computer's case
+
+```sh
+agentdfir export                   # on the suspect machine: one file, IR.adfir.tgz, + SHA-256
+agentdfir open IR.adfir.tgz        # on yours: unpacked, seal verified, analyzed, open in the browser
+```
+
+The file carries the sealed evidence and the case notes; the analysis is rebuilt
+by the receiving machine's binary, so nobody has to trust someone else's
+conclusions. `open` also takes a package directory or an `encrypt`ed `.enc` file.
+
 ## 🔎 From findings to a story — the investigation layer (v1.0)
 
 A list of 700 findings is not an answer. The explorer (`agentdfir serve`) turns it into one:

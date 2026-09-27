@@ -203,6 +203,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/search", s.apiSearch)
 	mux.HandleFunc("/api/notes", s.apiNotes)
 	mux.HandleFunc("/api/accounts", s.apiAccounts)
+	mux.HandleFunc("/api/mitigations", s.apiMitigations)
 	return guard(mux)
 }
 

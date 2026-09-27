@@ -61,6 +61,15 @@ LOOK — same results, different views
   agentdfir replay <pkg>                  step through one session
   agentdfir explain <pkg>                 plain-language case digest (no AI, nothing sent anywhere)
 
+MOVE A CASE — look at another computer's case here
+  agentdfir export [<pkg>]                one file (<case>.adfir.tgz) + its SHA-256; default: this machine's case
+  agentdfir open <file|pkg>               unpack, verify the seal, analyze and open the explorer
+
+PROTECT — stop it happening again (the only command that changes files outside a case)
+  agentdfir mitigate                      plan: guardrails for your agents' settings + fixes, nothing written
+  agentdfir mitigate --apply              apply the default packs and fixes (asks per file; backed up, reversible)
+  agentdfir mitigate --status | --revert <id> | --revert-all | --export managed
+
 EXPORT — hand results to other tools
   agentdfir report <pkg> --format pdf|html|json|csv|stix|otel|ocsf|sarif|timesketch|l2tcsv|all
   agentdfir export --support <pkg>        redacted package for vendor support
@@ -150,6 +159,12 @@ func Main(args []string) int {
 		return cmdCompact(args[1:])
 	case "rules":
 		return cmdRules(args[1:])
+	case "mitigate":
+		return cmdMitigate(args[1:])
+	case "guard":
+		return cmdGuard(args[1:])
+	case "open", "import":
+		return cmdOpen(args[1:])
 	case "version", "--version", "-v":
 		fmt.Printf("agentdfir %s (adfir format %s)\n", version.Version, version.ADFIRVersion)
 		return 0
