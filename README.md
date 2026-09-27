@@ -11,7 +11,7 @@
 [![Go](https://img.shields.io/badge/Go-%E2%89%A51.22-00ADD8?logo=go&logoColor=white)](go.mod)
 [![Zero deps](https://img.shields.io/badge/runtime%20deps-zero-brightgreen)](go.mod)
 
-[Website](https://agentdfir.com/) · [Install](docs/install.md) · [Quick start](#-quick-start) · [Evidence format](#-the-adfir-evidence-package) · [Contributing](CONTRIBUTING.md)
+[Website](https://efij.github.io/AgentDFIR/) · [Install](docs/install.md) · [Quick start](#-quick-start) · [Evidence format](#-the-adfir-evidence-package) · [Contributing](CONTRIBUTING.md)
 
 </div>
 
