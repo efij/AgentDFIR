@@ -3,7 +3,7 @@
 *Investigating Model Context Protocol (MCP) server configuration and tool
 activity in AI-agent incidents. Verified 2026-09-01.*
 
-Part of [AgentDFIR](https://efij.github.io/AgentDFIR/), open-source DFIR
+Part of [AgentDFIR](https://agentdfir.com/), open-source DFIR
 for AI agents.
 
 ## Why MCP matters forensically

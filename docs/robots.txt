@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://efij.github.io/AgentDFIR/sitemap.xml
+Sitemap: https://agentdfir.com/sitemap.xml
