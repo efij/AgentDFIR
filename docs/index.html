@@ -336,13 +336,14 @@ footer a:hover{color:var(--text)}
     <nav class="nav-links" aria-label="Main">
       <a href="#evidence">Evidence</a>
       <a href="#chains">Attack chains</a>
+      <a href="#protect">Protect</a>
       <a href="#custody">Chain of custody</a>
       <a href="#coverage">Coverage</a>
       <a href="#install">Install</a>
       <a href="#docs">Docs</a>
     </nav>
     <div class="nav-r">
-      <a class="ver" href="https://github.com/efij/AgentDFIR/releases/latest">v2.6.0</a>
+      <a class="ver" href="https://github.com/efij/AgentDFIR/releases/latest">v2.7.0</a>
       <a class="btn" href="https://github.com/efij/AgentDFIR">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55v-2.17c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.75 2.69 1.25 3.35.95.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.79 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.12 3.05.74.81 1.18 1.83 1.18 3.09 0 4.41-2.69 5.38-5.25 5.66.41.35.77 1.05.77 2.12v3.15c0 .3.21.66.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></svg>
         GitHub
@@ -356,7 +357,7 @@ footer a:hover{color:var(--text)}
   <div class="wrap">
     <div class="hero-grid">
       <div>
-        <a class="status" href="https://github.com/efij/AgentDFIR/blob/main/CHANGELOG.md"><i aria-hidden="true"></i>v2.6.0 released — per-account attribution, MCP timeline</a>
+        <a class="status" href="https://github.com/efij/AgentDFIR/blob/main/CHANGELOG.md"><i aria-hidden="true"></i>v2.7.0 — mitigate: turn findings into guardrails</a>
         <h1>Incident response for <span class="a">AI agents</span>.</h1>
         <p class="sub">Claude Code, Codex, Cursor and eleven other agents run shell commands, read credentials and call MCP servers with your privileges. AgentDFIR acquires what they leave on disk into sealed, hash-chained evidence, reconstructs the attack chain, and puts the exact log line behind every finding.</p>
         <div class="ctas">
@@ -472,6 +473,63 @@ footer a:hover{color:var(--text)}
       </ul>
     </div>
     <figure class="rv pic"><img src="img/pr-line.webp" width="720" height="740" loading="lazy" alt="Proof drawer: every finding the step triggered, from Act now to Minor, then the exact line from the sealed log with its path and line number."></figure>
+  </div>
+</section>
+
+<section id="protect" class="band">
+  <div class="wrap split">
+    <div class="rv">
+      <h2>Then make sure it cannot happen again.</h2>
+      <p class="sub" style="margin-top:18px"><code>agentdfir mitigate</code> turns findings into guardrails in the agents' own settings: Claude Code permissions and a log-guard hook, a Codex rules file, Cursor CLI denies, pinned MCP packages. It shows the plan first, backs up every file, records each change in a hash-chained ledger and can put every byte back.</p>
+      <ul class="stg points">
+        <li><b>Two packs with zero friction, on by default.</b> The agent cannot delete its own transcripts or read cloud keys, SSH keys and browser password stores.</li>
+        <li><b>Six more, opt-in, each with its cost stated.</b> Ask before uploads, downloaded scripts, persistence, self-modification and destructive commands.</li>
+        <li><b>Drift detection.</b> <code>--status</code> re-reads every file and flags a guardrail an agent removed after it went in.</li>
+      </ul>
+      <div class="panel" style="margin-top:28px">
+        <div class="ph"><span>$ agentdfir mitigate --apply --yes</span><span class="ok">exit 0</span></div>
+<pre>  applied  ~/.claude.json                   id e4fbd3c91cda
+  applied  ~/.claude/settings.json          id 9bf8598b55aa
+  applied  ~/.codex/rules/agentdfir.rules   id 24715a787929
+  applied  ~/.cursor/cli-config.json        id 5a7b3ee2eb39
+
+<span class="c"># the next scan counts only what happens after this</span>
+$ agentdfir mitigate --status
+e4fbd3c91cda <span class="ok">in place</span>  ~/.claude.json            fix
+9bf8598b55aa <span class="ok">in place</span>  ~/.claude/settings.json   log-protect,secret-paths</pre>
+      </div>
+    </div>
+    <figure class="rv pic"><img src="img/protect.webp" width="1080" height="1240" loading="lazy" alt="Protect tab of the case explorer: guardrail packs with level, friction and the findings each covers, two packs pre-selected, and the agentdfir mitigate command to copy."></figure>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="rv head">
+      <h2>Collected on one machine, investigated on yours.</h2>
+      <p class="sub">One file moves a case. The seal is verified on arrival, and the analysis is rebuilt by the receiving binary, so nobody has to trust someone else's conclusions.</p>
+    </div>
+    <div class="rv pair">
+      <div class="panel">
+        <div class="ph"><span>suspect machine</span><span>$ agentdfir export</span></div>
+<pre>Exported IR-7.adfir → IR-7.adfir.tgz (7 KB, 2ms)
+SHA-256  916c715f4e0f1e0e289789ebc51c6094…
+Sealed evidence and case notes are inside; the
+analysis is rebuilt on the other computer.
+
+<span class="c"># on the other computer:</span>
+<b>agentdfir open IR-7.adfir.tgz</b></pre>
+      </div>
+      <div class="panel">
+        <div class="ph"><span>analyst workstation</span><span>$ agentdfir open IR-7.adfir.tgz</span></div>
+<pre>Unpacking IR-7.adfir.tgz (SHA-256 916c715f4e0f1e0e…)
+<span class="ok">Verified: 6 artifacts, 26 collection and 3 custody
+records, seal intact.</span>
+Attack chains: 8 chain(s) evaluated, 3 matched
+AgentDFIR case explorer — 28 events, 21 findings
+Open http://127.0.0.1:54222/</pre>
+      </div>
+    </div>
   </div>
 </section>
 
