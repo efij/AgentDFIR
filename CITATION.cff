@@ -6,7 +6,7 @@ authors:
   - family-names: "Jeremiah"
     given-names: "Efi"
 repository-code: "https://github.com/efij/AgentDFIR"
-url: "https://efij.github.io/AgentDFIR/"
+url: "https://agentdfir.com/"
 license: MIT
 keywords:
   - digital-forensics
