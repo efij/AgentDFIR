@@ -200,6 +200,23 @@ details.tech summary{cursor:pointer;font-weight:600;color:var(--ink-2)}
 dl.kv{display:grid;grid-template-columns:150px 1fr;gap:6px 14px;margin:12px 0 0;font-size:13.5px}
 dl.kv dt{color:var(--muted)} dl.kv dd{margin:0;font-family:var(--mono);font-size:12.5px;word-break:break-all}
 
+
+/* ---- protect */
+.pk{width:100%;border-collapse:collapse;border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;background:var(--surface);margin-bottom:12px}
+.pk td,.pk th{padding:12px 14px;border-top:1px solid var(--line);text-align:left;vertical-align:top;font-size:14px}
+.pk thead th{border-top:0;font-size:12.5px;color:var(--muted);font-weight:600;background:var(--surface-2)}
+.pk .t{font-weight:650;font-size:15px}
+.pk .w{color:var(--ink-2);font-size:13.5px;margin-top:2px}
+.pk .c{color:var(--muted);font-size:12.5px;margin-top:4px}
+.pk input[type=checkbox]{width:18px;height:18px;margin-top:2px}
+.pk select{font:inherit;font-size:13px;padding:4px 6px;border:1px solid var(--line-2);border-radius:var(--r-sm);background:var(--surface);color:var(--ink)}
+.fr{display:inline-flex;gap:3px}.fr i{width:10px;height:10px;border-radius:2px;background:var(--line-2)}.fr i.on{background:var(--serious)}
+.cmdbox{display:flex;gap:10px;align-items:center;border:1px solid var(--line-2);border-radius:var(--r);background:var(--surface-2);padding:10px 12px;margin:4px 0 36px}
+.cmdbox code{flex:1;min-width:0;font-family:var(--mono);font-size:13px;overflow-x:auto;white-space:nowrap}
+.since{font-size:12.5px;color:var(--ok);font-weight:650}
+.drift{color:var(--act);font-weight:650}
+.steps-l{margin:6px 0 0;padding-left:18px;color:var(--ink-2);font-size:13.5px}
+@media (max-width:760px){.pk .hide-s{display:none}}
 /* ---- story (swimlane) — the one loud element on the page */
 .story{border:1px solid var(--line);border-radius:var(--r-lg);background:var(--surface);padding:0 0 12px;overflow:hidden}
 .lanes{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--line);background:var(--surface-2)}
@@ -365,6 +382,7 @@ pre.raw{margin:0;padding:12px 14px;border-radius:var(--r-sm);background:var(--su
       <button role="tab" data-view="overview" aria-selected="true">Overview</button>
       <button role="tab" data-view="findings" aria-selected="false">Findings <span class="n" id="tabn" hidden></span></button>
       <button role="tab" data-view="activity" aria-selected="false">Activity</button>
+      <button role="tab" data-view="protect" aria-selected="false">Protect</button>
       <button role="tab" data-view="more" aria-selected="false">More</button>
     </nav>
     <div class="right">
@@ -373,6 +391,7 @@ pre.raw{margin:0;padding:12px 14px;border-radius:var(--r-sm);background:var(--su
     </div>
   </header>
   <main id="main">
+    <section class="view" id="v-protect" role="tabpanel" aria-label="Protect"><div class="scroll"><div class="ov" id="pv"><div class="loading">Working out what can be done…</div></div></div></section>
     <section class="view on" id="v-overview" role="tabpanel" aria-label="Overview"><div class="scroll"><div class="ov" id="ov"><div class="loading">Reading the case…</div></div></div></section>
     <section class="view" id="v-findings" role="tabpanel" aria-label="Findings">
       <div class="fx">
@@ -994,6 +1013,64 @@ function storyCard(it,isStart){
   c.append(foot); return c;
 }
 
+
+// ================= PROTECT =================
+// What can be done about the findings. The page never changes the machine:
+// it builds the `agentdfir mitigate` command and the person runs it.
+let protectData=null;
+function renderProtect(){
+  const box=$('#pv');
+  const ready=protectData?Promise.resolve(protectData):api('/api/mitigations').then(d=>protectData=d);
+  Promise.all([ready,findReady]).then(([d])=>{
+    box.replaceChildren();
+    const A=d.assessment, rows=A.rules||[];
+    const byMode=m=>rows.filter(r=>r.mode===m&&r.total>0);
+    const sum=l=>l.reduce((a,r)=>a+r.total,0);
+    const prev=byMode('prevent'), fix=byMode('fix'), man=byMode('manual'), none=byMode('none');
+    const titleOf=r=>{ const f=S.findings.find(x=>x.rule_id===r.rule); return f?plain(f).title:(r.title||r.rule); };
+    box.append(h('h1',{class:'verdict-line'},sum(prev)+sum(fix)?'Stop it happening again':'Nothing here can be prevented by settings'));
+    box.append(h('p',{class:'lede'},d.same_machine
+      ? plural(sum(prev),'finding')+' can be prevented by guardrails in your AI agents’ own settings'+(sum(fix)?', and '+plural(sum(fix),'finding')+' can be fixed in the config right now':'')+'. This page does not change anything: pick what you want, copy the command, and run it in a terminal. It shows every change first, backs up each file and can undo all of it.'
+      : 'This case was collected on '+(d.host||'another computer')+'. The guardrails below have to be applied there: run the command on that computer.'));
+    if(d.ledger_error) box.append(h('div',{class:'panel',style:'border-color:var(--act);margin-bottom:24px'},h('b',{class:'drift'},'The mitigation ledger does not verify: '),d.ledger_error));
+    if(A.last_apply) box.append(h('p',{class:'since',style:'margin:-12px 0 24px'},'Guardrails last applied on this machine '+day(A.last_apply)+'. Counts marked “since” only include what happened after.'));
+
+    // guardrail packs with a live command
+    const pick={}, deny={};
+    (A.packs||[]).forEach(p=>{ pick[p.id]=p.state==='not_applied'?(p.default_on||false):false; });
+    const cmd=h('code');
+    const upd=()=>{ const sel=Object.keys(pick).filter(k=>pick[k]); if(fix.length) sel.push('fix'); const dn=Object.keys(deny).filter(k=>deny[k]&&pick[k]);
+      cmd.textContent=sel.length?'agentdfir mitigate --select '+sel.join(',')+(dn.length?' --deny '+dn.join(','):'')+' --apply':'agentdfir mitigate --status'; };
+    box.append(h('div',{class:'sec-h'},h('h2',null,'Guardrails'),h('span',{class:'muted',style:'font-size:13px'},'Friction: how often it gets in the way of normal work')));
+    const tb=h('tbody');
+    (A.packs||[]).forEach(p=>{
+      const cb=h('input',{type:'checkbox','aria-label':'Select '+p.title}); cb.checked=pick[p.id]; cb.disabled=p.state==='in_place'; cb.onchange=()=>{pick[p.id]=cb.checked; upd();};
+      let lvl;
+      if(p.level==='ask'){ lvl=h('select',{'aria-label':'Level for '+p.title},h('option',{value:'ask'},'Ask first'),h('option',{value:'deny'},'Block')); lvl.onchange=()=>{deny[p.id]=lvl.value==='deny'; upd();}; }
+      else lvl=h('span',null,'Block');
+      const fr=h('span',{class:'fr',title:'Friction '+p.friction+' of 3'},[1,2,3].map(i=>h('i',{class:i<=p.friction?'on':''})));
+      const state=p.state==='in_place'?h('span',{class:'chip ok'},'In place'):p.state==='drifted'?h('span',{class:'chip act'},'Removed since'):p.findings?h('span',{class:'chip plain'},plural(p.findings,'finding')):h('span',{class:'muted'},'—');
+      tb.append(h('tr',null,h('td',null,cb),h('td',null,h('div',{class:'t'},p.title),h('div',{class:'w'},p.why),h('div',{class:'c'},'Cost: '+p.cost)),h('td',null,lvl),h('td',{class:'hide-s'},fr),h('td',null,state)));
+    });
+    box.append(h('table',{class:'pk'},h('thead',null,h('tr',null,h('th',null,''),h('th',null,'Guardrail'),h('th',null,'Level'),h('th',{class:'hide-s'},'Friction'),h('th',null,'This case'))),tb));
+    upd();
+    const cp=h('button',{class:'btn sm primary',onclick:()=>copyText(cmd.textContent).then(()=>{cp.textContent='Copied';setTimeout(()=>cp.textContent='Copy',1500);})},'Copy');
+    box.append(h('div',{class:'cmdbox'},cmd,cp));
+
+    const ruleList=(title,list,extra)=>{ if(!list.length) return; box.append(h('div',{class:'sec-h'},h('h2',null,title)));
+      const l=h('div',{class:'start'});
+      list.forEach(r=>{ const f=S.findings.find(x=>x.rule_id===r.rule); const g=f&&S.groups.find(x=>x.rule===r.rule);
+        l.append(h('button',{class:'srow',onclick:()=>g&&openGroup(g.key)},sevChip(r.severity),
+          h('span',null,h('span',{class:'t'},titleOf(r)),h('br'),h('span',{class:'d'},plural(r.total,'finding')+(r.excluded?' · '+r.excluded+' marked expected':'')),extra(r)),
+          r.since!=null?h('span',{class:'since'},r.since+' since '+day(r.since_ts)):h('span',{class:'go'},'Review',icon('i-chev','sm')))); });
+      box.append(l); };
+    ruleList('Fix now',fix,r=>h('span',{class:'d',style:'display:block'},r.control==='mcp-pin'?'Pins the MCP package to the version already installed here.':r.control==='mcp-autoapprove'?'Turns the approval prompt back on for that MCP server.':'Turns off skipping every permission check.'));
+    ruleList('Prevented by the guardrails above',prev,r=>h('span',{class:'d',style:'display:block'},'Guardrail: '+r.packs.map(id=>((A.packs||[]).find(p=>p.id===id)||{}).title||id).join(' or ')));
+    ruleList('Needs a person',man,r=>h('ul',{class:'steps-l'},(r.steps||[]).map(s=>h('li',null,s))));
+    ruleList('Not fixable by settings',none,r=>h('ul',{class:'steps-l'},(r.steps||[]).map(s=>h('li',null,s))));
+  }).catch(err=>box.replaceChildren(h('div',{class:'empty'},h('b',null,'Could not work out the mitigations'),err.message)));
+}
+
 // ================= PROOF DRAWER =================
 function openDrawer(title){ $('#dtitle').textContent=title; $('#drawer').classList.add('on'); $('#scrim').classList.add('on'); $('#dclose').focus(); }
 function closeDrawer(){ $('#drawer').classList.remove('on'); $('#scrim').classList.remove('on'); }
@@ -1229,7 +1306,7 @@ function renderEvidence(box){
 }
 
 // ================= NAV =================
-const VIEWS=['overview','findings','activity','more'];
+const VIEWS=['overview','findings','activity','protect','more'];
 function go(name,quiet){
   $$('.tabs button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.view===name)));
   VIEWS.forEach(v=>$('#v-'+v).classList.toggle('on',v===name));
@@ -1238,6 +1315,7 @@ function go(name,quiet){
   if(name==='findings'){ renderGroups(); if(!quiet||!S.group) renderFinding(); }
   if(name==='activity'&&!quiet){ renderSessions(); renderActHead(); loadEvents(); }
   if(name==='more'&&!quiet) renderMore();
+  if(name==='protect') renderProtect();
 }
 $$('.tabs button').forEach(b=>b.addEventListener('click',()=>go(b.dataset.view)));
 $('#gq').addEventListener('keydown',e=>{ if(e.key==='Enter'&&e.target.value.trim()){ const q=e.target.value.trim(); moreTab='search'; go('more',true); $$('#moreseg button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.m==='search'))); const box=$('#more'); box.replaceChildren(); renderSearch(box,q); } });

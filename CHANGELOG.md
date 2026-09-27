@@ -7,6 +7,57 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [2.7.0] — 2026-09-27
+
+Findings now lead somewhere: `agentdfir mitigate` writes guardrails into the
+AI agents' own settings so what a case found cannot happen again, and a case
+moves to another computer in two commands.
+
+### Added
+- **`agentdfir mitigate`** (`internal/mitigate`) — the only command that
+  changes files outside a case. Plan first (exit 3 when there is something to
+  apply), `--apply` per file or `--yes`, `--status`, `--revert <id>`,
+  `--revert-all`, `--export managed`. Eight guardrail packs — `log-protect`
+  and `secret-paths` on by default (friction 0), `outbound-upload`,
+  `download-exec`, `persistence`, `self-modify`, `no-bypass`, `destructive`
+  opt-in — rendered natively per agent: Claude Code `permissions.deny`/`ask`,
+  one `PreToolUse` hook and `disableBypassPermissionsMode`; Codex
+  `~/.codex/rules/agentdfir.rules` (`forbidden`/`prompt`); Cursor CLI
+  `permissions.deny`. Fix-now controls pin `npx pkg@latest` MCP servers to the
+  version in the local npx cache (nothing executed or fetched) and clear
+  auto-approve lists, across `~/.claude.json` (including per-project servers),
+  Cursor, Kiro, Gemini and Claude desktop configs.
+- **`agentdfir guard log`** — the log-protect hook. Refuses Bash commands and
+  file writes that delete, truncate or overwrite agent transcripts and history;
+  Claude memory files are not covered; malformed input is allowed.
+- **Safety model**: every file re-read and the change recomputed immediately
+  before writing; byte-exact backup; atomic write; key order, number text and
+  unknown keys preserved (ordered JSON editor); symlinks, other users' files,
+  managed settings and invalid JSON refused; no agent binary executed.
+- **Ledger** `~/.agentdfir/mitigations/ledger.jsonl`, hash-chained like the
+  custody log; `--status` verifies each change against the file now (in
+  place / drifted / file gone / reverted); `--revert` refuses to discard a
+  later edit without `--force`. Collected by the next `run`
+  (`agentdfir.mitigations` in the Claude manifest).
+- **Protect tab** in the explorer (`/api/mitigations`, read-only): findings
+  grouped into fix now / prevented / needs a person / not fixable by
+  settings, analyst-cleared findings excluded, "N since <date>" once a
+  guardrail is in, pack table with level and friction, and the command to run.
+  A case from another machine says to run it there.
+- **`agentdfir export [<case>]`** — one portable file, `<case>.adfir.tgz`, and
+  its SHA-256: sealed evidence and case notes, no analysis overlay. Blobs
+  hardlinked from the shared store are written as content. Without an
+  argument it exports this machine's case.
+- **`agentdfir open <file|dir|.enc>`** (alias `import`) — unpacks into
+  `$AGENTDFIR_HOME/imported/`, verifies the seal (and says loudly when it does
+  not), rebuilds the analysis with this binary and opens the explorer.
+  Opening the same file again reuses the import.
+
+### Fixed
+- `witness_note` no longer grows by one "host witness" segment on every
+  re-analysis of the same overlay; a newer witness result replaces the old one
+  for the same file (#46).
+
 ## [2.6.0] — 2026-09-23
 
 The case explorer, redesigned for someone who is not a security analyst.
