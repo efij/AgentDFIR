@@ -3,7 +3,7 @@
 *Where Claude Code stores evidence, what each artifact means, and how to
 acquire it. Verified against Claude Code 2.x on 2026-09-01.*
 
-Part of [AgentDFIR](https://agentdfir.com/), open-source DFIR
+Part of [AgentDFIR](https://efij.github.io/AgentDFIR/), open-source DFIR
 for AI agents.
 
 ## Artifact locations
