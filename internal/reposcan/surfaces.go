@@ -676,7 +676,7 @@ func (s *scanner) gitDir(gd string) {
 	})
 	if b, ok := readRegular(filepath.Join(gd, "packed-refs"), 16<<20); ok {
 		for _, l := range strings.Split(string(b), "\n") {
-			if f := strings.Fields(l); len(f) == 2 && strings.HasPrefix(f[1], "refs/") {
+			if f := strings.SplitN(strings.TrimSpace(l), " ", 2); len(f) == 2 && strings.HasPrefix(f[1], "refs/") {
 				refs = append(refs, strings.TrimPrefix(f[1], "refs/"))
 			}
 		}
