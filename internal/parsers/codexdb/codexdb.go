@@ -28,11 +28,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v2/internal/casepkg"
-	"github.com/efij/AgentDFIR/v2/internal/parsers/segment"
-	"github.com/efij/AgentDFIR/v2/internal/parsers/sqlitero"
-	"github.com/efij/AgentDFIR/v2/internal/schema"
-	"github.com/efij/AgentDFIR/v2/internal/version"
+	"github.com/efij/AgentDFIR/v3/internal/casepkg"
+	"github.com/efij/AgentDFIR/v3/internal/parsers/segment"
+	"github.com/efij/AgentDFIR/v3/internal/parsers/sqlitero"
+	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v3/internal/version"
 )
 
 // Collector rules whose artifacts this parser reads.
@@ -426,6 +426,7 @@ func (p *parser) item(it item, thread, ts string, art casepkg.ArtifactRecord, ro
 		ev.Corroboration = schema.StateObserved
 		ev.Tool, ev.Action = "shell", "shell_execution"
 		ev.Command = trim(it.Command, 300)
+		ev.KeepFull(it.Command)
 		ev.Result = it.Status
 		ev.Summary = trim("cwd="+it.CWD, 200)
 		p.emit(ev, art, rowid, ordinal)

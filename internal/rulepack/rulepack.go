@@ -11,7 +11,7 @@ package rulepack
 
 import (
 	"fmt"
-	"github.com/efij/AgentDFIR/v2/internal/shellshape"
+	"github.com/efij/AgentDFIR/v3/internal/shellshape"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -20,8 +20,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/efij/AgentDFIR/v2/internal/casepkg"
-	"github.com/efij/AgentDFIR/v2/internal/schema"
+	"github.com/efij/AgentDFIR/v3/internal/casepkg"
+	"github.com/efij/AgentDFIR/v3/internal/schema"
 )
 
 // Rule is one declarative detection.
@@ -54,6 +54,8 @@ type Match struct {
 	// Scope "shell" matches command rules against the command as the shell
 	// runs it: heredoc bodies and quoted strings removed. A pipe-to-shell
 	// quoted inside `git commit -m` is a message, not a pipeline.
+	// Scope "no_heredoc" removes only heredoc bodies, for rules whose
+	// payload is a quoted argument (SQL passed to psql -c).
 	Scope string `json:"scope,omitempty"`
 	// TargetRegex captures (group 1) the file a matched command acts on;
 	// with SkipScratchTarget the rule stays quiet when every captured
@@ -151,7 +153,7 @@ func validatePack(p *Pack) error {
 			}
 			r.targetRe = tre
 		}
-		if r.Match.Scope != "" && r.Match.Scope != "shell" {
+		if r.Match.Scope != "" && r.Match.Scope != "shell" && r.Match.Scope != "no_heredoc" {
 			return fmt.Errorf("rule %s: invalid match.scope %q", r.ID, r.Match.Scope)
 		}
 	}
@@ -180,17 +182,19 @@ func matchWorkers() int {
 func Apply(packs []Pack, res *schema.Normalized, pkgDir string) ([]schema.Finding, error) {
 	var out []schema.Finding
 	var artRules []*Rule
+	dec := decodeEvents(res.Events)
 	for _, p := range packs {
 		for i := range p.Rules {
 			r := &p.Rules[i]
 			switch r.Match.Type {
 			case "command", "summary":
-				out = append(out, matchEvents(r, res)...)
+				out = append(out, matchEvents(r, res, dec)...)
 			case "config", "instructions", "transcript":
 				artRules = append(artRules, r)
 			}
 		}
 	}
+	out = append(out, dec.findings(res.Events)...)
 	if len(artRules) > 0 {
 		man, err := readManifest(pkgDir)
 		if err != nil {
@@ -201,27 +205,59 @@ func Apply(packs []Pack, res *schema.Normalized, pkgDir string) ([]schema.Findin
 	return out, nil
 }
 
-func matchEvents(r *Rule, res *schema.Normalized) []schema.Finding {
+func matchEvents(r *Rule, res *schema.Normalized, dec *decoded) []schema.Finding {
 	var out []schema.Finding
-	for _, ev := range res.Events {
+	for i := range res.Events {
+		ev := &res.Events[i]
 		var subject string
 		switch r.Match.Type {
 		case "command":
-			subject = ev.Command
-			if r.Match.Scope == "shell" {
+			// The full command, not the 300-character display copy: the
+			// flag or payload that matters is often past the cut.
+			subject = ev.FullCommand()
+			switch r.Match.Scope {
+			case "shell":
 				subject = shellshape.Strip(shellshape.ExpandVars(subject))
+			case "no_heredoc":
+				// Quoted arguments stay (SQL in `psql -c '…'` is the
+				// command); heredoc bodies — files being written — go.
+				subject = shellshape.StripHeredocs(subject)
 			}
 		case "summary":
 			subject = ev.Summary
 		}
-		if subject == "" || !matches(r, subject) {
+		if subject == "" {
 			continue
 		}
-		if r.Match.SkipScratchTarget && r.targetRe != nil && onlyScratchTargets(r.targetRe, shellshape.ExpandVars(ev.Command)) {
+		evidence := fmt.Sprintf("%s:%d (artifact %.12s)", ev.SourcePath, ev.SourceLine, ev.SourceArtifact)
+		if matches(r, subject) {
+			if r.Match.SkipScratchTarget && r.targetRe != nil && onlyScratchTargets(r.targetRe, shellshape.ExpandVars(ev.FullCommand())) {
+				continue
+			}
+			out = append(out, finding(r, ev.SessionID, ev.AgentID, ev.Corroboration, evidence))
+			dec.rawHit(i, r)
 			continue
 		}
-		out = append(out, finding(r, ev.SessionID, ev.AgentID, ev.Corroboration,
-			fmt.Sprintf("%s:%d (artifact %.12s)", ev.SourcePath, ev.SourceLine, ev.SourceArtifact)))
+		if r.Match.Type != "command" {
+			continue
+		}
+		// Second look: what the command decodes to. The rule ID stays the
+		// rule's own; the description says it only matched after decoding.
+		for _, d := range dec.byEvent[i] {
+			text := d.Text
+			if r.Match.Scope == "shell" {
+				text = shellshape.Strip(shellshape.ExpandVars(text))
+			}
+			if !matches(r, text) {
+				continue
+			}
+			f := finding(r, ev.SessionID, ev.AgentID, ev.Corroboration, evidence)
+			f.Description += fmt.Sprintf(" Matched only after decoding the command's payload (%s, decoded sha256 %s); the command line as written does not show it.", d.ChainString(), shortSum(d.Text))
+			f.Related = append(f.Related, "decoded: "+d.ChainString())
+			out = append(out, f)
+			dec.decodedHit(i, r, d)
+			break
+		}
 	}
 	return out
 }

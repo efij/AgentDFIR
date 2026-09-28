@@ -65,3 +65,34 @@ func TestIsOutboundJudgesWhatTheShellRuns(t *testing.T) {
 		}
 	}
 }
+
+func TestCategory(t *testing.T) {
+	for dest, want := range map[string]string{
+		"bit.ly":                              "shortener",
+		"pkg-metrics.official334.workers.dev": "serverless-edge",
+		"eth.llamarpc.com":                    "blockchain-rpc",
+		"webhook.site":                        "request-bin",
+		"abc.trycloudflare.com:443":           "tunnel",
+		"s.wordpress.com":                     "screenshot",
+		"github.com":                          "",
+		"registry.npmjs.org":                  "",
+	} {
+		if got := Category(dest); got != want {
+			t.Errorf("Category(%q) = %q, want %q", dest, got, want)
+		}
+	}
+	if !CoveredByPack("request-bin") || CoveredByPack("shortener") {
+		t.Error("coveredByPack flags wrong")
+	}
+}
+
+func TestCloudMetadataSpellings(t *testing.T) {
+	for _, d := range []string{"169.254.169.254", "169.254.170.2", "100.100.100.200", "2852039166", "0xa9fea9fe", "metadata.google.internal:80"} {
+		if !IsCloudMetadata(d) {
+			t.Errorf("%s not recognised as metadata", d)
+		}
+	}
+	if IsCloudMetadata("169.254.1.1") {
+		t.Error("link-local non-metadata flagged")
+	}
+}

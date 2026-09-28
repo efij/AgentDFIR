@@ -3,20 +3,20 @@ package cli
 import (
 	"flag"
 	"fmt"
-	"github.com/efij/AgentDFIR/v2/internal/analysis"
-	"github.com/efij/AgentDFIR/v2/internal/schema"
+	"github.com/efij/AgentDFIR/v3/internal/analysis"
+	"github.com/efij/AgentDFIR/v3/internal/schema"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v2/internal/casepkg"
-	"github.com/efij/AgentDFIR/v2/internal/encrypt"
-	"github.com/efij/AgentDFIR/v2/internal/export"
-	"github.com/efij/AgentDFIR/v2/internal/notes"
-	"github.com/efij/AgentDFIR/v2/internal/report"
-	"github.com/efij/AgentDFIR/v2/internal/sanitize"
-	"github.com/efij/AgentDFIR/v2/internal/seal"
-	"github.com/efij/AgentDFIR/v2/internal/supportpkg"
+	"github.com/efij/AgentDFIR/v3/internal/casepkg"
+	"github.com/efij/AgentDFIR/v3/internal/encrypt"
+	"github.com/efij/AgentDFIR/v3/internal/export"
+	"github.com/efij/AgentDFIR/v3/internal/notes"
+	"github.com/efij/AgentDFIR/v3/internal/report"
+	"github.com/efij/AgentDFIR/v3/internal/sanitize"
+	"github.com/efij/AgentDFIR/v3/internal/seal"
+	"github.com/efij/AgentDFIR/v3/internal/supportpkg"
 )
 
 // cmdReport renders HTML/JSON/CSV/STIX/OTel outputs for a package.

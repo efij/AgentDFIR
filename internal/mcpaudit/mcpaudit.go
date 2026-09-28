@@ -19,9 +19,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v2/internal/detect"
+	"github.com/efij/AgentDFIR/v3/internal/detect"
 
-	"github.com/efij/AgentDFIR/v2/internal/casepkg"
+	"github.com/efij/AgentDFIR/v3/internal/casepkg"
 )
 
 func secretKind(v string) (string, bool)   { return detect.SecretKind(v) }
@@ -44,6 +44,9 @@ type Server struct {
 	Resolved   string   `json:"resolved_path,omitempty"`
 	SHA256     string   `json:"resolved_sha256,omitempty"`
 	EnvKeys    []string `json:"env_keys,omitempty"` // names only — values are never recorded
+	// EnvSHA256 fingerprints the env values without recording them, so a
+	// swap to NODE_OPTIONS=--require /tmp/x.js shows up against a baseline.
+	EnvSHA256  string   `json:"env_sha256,omitempty"`
 	HeaderKeys []string `json:"header_keys,omitempty"`
 	SecretEnv  []string `json:"secret_env,omitempty"` // env keys whose inline value matches a credential pattern
 	AutoAllow  []string `json:"auto_allow,omitempty"` // autoApprove / alwaysAllow / trust lists
@@ -55,6 +58,37 @@ type Server struct {
 type Tool struct {
 	Name        string `json:"name"`
 	Description string `json:"description,omitempty"`
+	// DefSHA256 is the SHA-256 of the whole tool definition as declared
+	// (description, inputSchema, annotations — canonical JSON). Poisoning
+	// that hides in a parameter description changes it; a baseline compares
+	// it to catch a rug-pull.
+	DefSHA256 string `json:"definition_sha256,omitempty"`
+}
+
+// UnmarshalJSON keeps the fingerprint of the full declaration. A tool read
+// back from a baseline already carries definition_sha256 and keeps it.
+func (t *Tool) UnmarshalJSON(b []byte) error {
+	var m map[string]any
+	if err := json.Unmarshal(b, &m); err != nil {
+		return err
+	}
+	*t = toolFromMap(m)
+	return nil
+}
+
+func toolFromMap(m map[string]any) Tool {
+	t := Tool{}
+	t.Name, _ = m["name"].(string)
+	t.Description, _ = m["description"].(string)
+	if h, ok := m["definition_sha256"].(string); ok {
+		t.DefSHA256 = h
+		return t
+	}
+	if canon, err := json.Marshal(m); err == nil { // map keys marshal sorted
+		sum := sha256.Sum256(canon)
+		t.DefSHA256 = hex.EncodeToString(sum[:])
+	}
+	return t
 }
 
 // HostSettings captures host-level MCP trust switches (not per server).
@@ -331,6 +365,7 @@ func parseInto(inv *Inventory, host, scope, path, logical string, f format, data
 					s.Command, s.Args = e.Command[0], e.Command[1:]
 				}
 				s.EnvKeys, s.SecretEnv = envKeys(e.Env)
+				s.EnvSHA256 = envHash(e.Env)
 				s.HeaderKeys = sortedKeys(e.Headers)
 				s.Disabled = e.Enabled != nil && !*e.Enabled
 				enrich(&s, inv.Mode == "live")
@@ -387,6 +422,7 @@ func addServerMap(inv *Inventory, raw json.RawMessage, host, scope, display, pro
 		s.URL = firstNonEmpty(g.URL, g.ServerURL, g.HTTPURL)
 		s.Transport = strings.ToLower(firstNonEmpty(g.Type, g.Transport))
 		s.EnvKeys, s.SecretEnv = envKeys(g.Env)
+		s.EnvSHA256 = envHash(g.Env)
 		s.HeaderKeys = sortedKeys(g.Headers)
 		s.AutoAllow = append(append([]string{}, g.AutoApprove...), g.AlwaysAllow...)
 		if g.Trust {
@@ -479,11 +515,52 @@ func enrich(s *Server, live bool) {
 // packageRef extracts the package spec from package-runner args and
 // reports whether it is pinned to an exact version.
 func packageRef(mgr string, args []string) (string, bool) {
+	// An explicit package flag names what is installed, whatever the
+	// positional argument says: `npx --package=evil legit` runs evil's
+	// `legit` binary, `uvx --from git+https://… tool` installs the repo.
+	for i, a := range args {
+		var spec string
+		switch {
+		case strings.HasPrefix(a, "--package="):
+			spec = strings.TrimPrefix(a, "--package=")
+		case (a == "--package" || a == "-p") && mgr != "uvx" && mgr != "pipx" && i+1 < len(args):
+			spec = args[i+1]
+		case strings.HasPrefix(a, "--from="):
+			spec = strings.TrimPrefix(a, "--from=")
+		case a == "--from" && i+1 < len(args):
+			spec = args[i+1]
+		}
+		if spec != "" {
+			return pinOf(mgr, spec)
+		}
+	}
+	skip := false
 	for _, a := range args {
+		if skip {
+			skip = false
+			continue
+		}
+		if a == "--registry" || a == "--cache" || a == "--userconfig" || a == "--python" || a == "--index-url" {
+			skip = true // flag takes a value; the value is not the package
+			continue
+		}
 		if strings.HasPrefix(a, "-") || a == "" {
 			continue
 		}
+		return pinOf(mgr, a)
+	}
+	return "", false
+}
+
+// pinOf reports the spec and whether it is pinned to an exact version.
+func pinOf(mgr, a string) (string, bool) {
+	{
 		// first non-flag token is the package
+		if strings.HasPrefix(a, "git+") || strings.HasPrefix(a, "https://") || strings.HasPrefix(a, "file:") {
+			// pinned only to a full commit: …#<40 hex> or …@<40 hex> (not user@host)
+			i := strings.LastIndexAny(a, "#@")
+			return a, i > 0 && len(a)-i-1 == 40 && isHex(a[i+1:])
+		}
 		switch mgr {
 		case "uvx", "pipx":
 			if m := pypiPinRe.FindStringSubmatch(a); m != nil {
@@ -497,7 +574,6 @@ func packageRef(mgr string, args []string) (string, bool) {
 			return a, false
 		}
 	}
-	return "", false
 }
 
 func isExactVersion(v string) bool {
@@ -509,6 +585,18 @@ func isExactVersion(v string) bool {
 		return false
 	}
 	return regexp.MustCompile(`^\d+\.\d+\.\d+([-+][0-9A-Za-z.-]+)?$`).MatchString(v)
+}
+
+// envHash fingerprints env values (sorted k=v), "" for no env.
+func envHash(env map[string]string) string {
+	if len(env) == 0 {
+		return ""
+	}
+	h := sha256.New()
+	for _, k := range sortedKeys(env) {
+		h.Write([]byte(k + "=" + env[k] + "\x00"))
+	}
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 func envKeys(env map[string]string) (keys, secret []string) {
@@ -598,3 +686,13 @@ func stripJSONC(b []byte) []byte {
 }
 
 func injectionPhrase(text string) (string, bool) { return detect.InjectionPhrase(text) }
+
+func isHex(s string) bool {
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f' || c >= 'A' && c <= 'F') {
+			return false
+		}
+	}
+	return s != ""
+}

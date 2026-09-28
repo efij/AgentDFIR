@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v2/internal/casepkg"
+	"github.com/efij/AgentDFIR/v3/internal/casepkg"
 )
 
 // scanFixtureStore ingests one blob and returns a store plus its artifact id.

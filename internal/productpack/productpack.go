@@ -23,8 +23,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v2/internal/parsers/genericchat"
-	"github.com/efij/AgentDFIR/v2/internal/products"
+	"github.com/efij/AgentDFIR/v3/internal/parsers/genericchat"
+	"github.com/efij/AgentDFIR/v3/internal/products"
 )
 
 // Format is the pack schema version this build understands.

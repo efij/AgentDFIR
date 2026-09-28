@@ -69,3 +69,28 @@ Any vendor's export fits: the log is JSON lines, and `--gateway-map map.json` re
 ## Output
 
 Console table + findings; `--json` for machines; on a package, `detections/mcp-audit.json` holds inventory, findings and the gateway summary. Baselines are plain JSON keyed by `host/scope/name`.
+
+## v3.0 additions
+
+- **Rug-pull detection.** Baselines now fingerprint each server's env
+  values (hashed, never recorded) and every declared tool's full
+  definition — description, `inputSchema`, parameter descriptions,
+  annotations — as canonical-JSON SHA-256. `mcp audit --baseline` adds
+  `MCP_TOOL_DEFINITION_CHANGED` (HIGH) when an approved tool's definition
+  changes and `MCP_TOOL_ADDED` (LOW); an env swap such as
+  `NODE_OPTIONS=--require /tmp/x.js` under the same keys is reported
+  under `MCP_SERVER_CHANGED`. Tool definitions exist only where a host
+  records them in its config; a baseline written before v3.0 has no
+  fingerprints and yields no tool findings.
+- **`MCP_PACKAGE_TYPOSQUAT` (HIGH).** A package one edit, a scope swap or
+  a look-alike character (`0/o`, `1/l`, `rn/m`, `-_.`) away from a
+  widely installed MCP server (npm and PyPI). Packages in the list, or in
+  their publishers' scopes, never fire. SANDWORM_MODE squatted general npm
+  packages rather than MCP servers — that campaign is covered by
+  `agentdfir hunt`.
+- **Package flags.** `npx --package=X` / `-p X` and `uvx --from X` report
+  the package actually installed, not the binary name that follows.
+- **Repository MCP configs** are audited by
+  [`agentdfir scan-repo`](scan-repo.md) before an agent loads them.
+- Known-malicious MCP packages (postmark-mcp ≥ 1.0.16) are matched by the
+  incident packs: [`agentdfir hunt`](hunt.md).

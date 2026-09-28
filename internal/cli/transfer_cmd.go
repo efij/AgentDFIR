@@ -14,11 +14,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v2/internal/casepkg"
-	"github.com/efij/AgentDFIR/v2/internal/encrypt"
-	"github.com/efij/AgentDFIR/v2/internal/sanitize"
-	"github.com/efij/AgentDFIR/v2/internal/store"
-	"github.com/efij/AgentDFIR/v2/internal/unpack"
+	"github.com/efij/AgentDFIR/v3/internal/casepkg"
+	"github.com/efij/AgentDFIR/v3/internal/encrypt"
+	"github.com/efij/AgentDFIR/v3/internal/sanitize"
+	"github.com/efij/AgentDFIR/v3/internal/store"
+	"github.com/efij/AgentDFIR/v3/internal/unpack"
 )
 
 // Moving a case to another computer is two commands:

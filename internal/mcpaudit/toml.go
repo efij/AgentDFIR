@@ -97,6 +97,7 @@ func parseCodexTOML(data []byte) ([]Server, error) {
 		s := Server{Name: n, Command: r.kv["command"], Args: r.arr["args"], URL: r.kv["url"]}
 		s.Disabled = strings.EqualFold(r.kv["enabled"], "false")
 		s.EnvKeys, s.SecretEnv = envKeys(r.env)
+		s.EnvSHA256 = envHash(r.env)
 		s.HeaderKeys = sortedKeys(r.hdr)
 		out = append(out, s)
 	}

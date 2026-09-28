@@ -30,6 +30,7 @@
     "mcp_server": {"type": "string"},
     "mcp_tool": {"type": "string"},
     "command": {"type": "string"},
+    "command_full": {"type": "string", "description": "Complete command line (at most 64 KiB) when command was cut for display"},
     "file": {"type": "string"},
     "network_destination": {"type": "string"},
     "action": {"type": "string"},

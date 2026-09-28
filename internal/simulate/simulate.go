@@ -16,7 +16,13 @@ import (
 )
 
 // Scenarios lists available scenario IDs.
-var Scenarios = []string{"orphan-agent", "toxic-chain"}
+var Scenarios = func() []string {
+	var ids []string
+	for _, s := range Catalog {
+		ids = append(ids, s.ID)
+	}
+	return ids
+}()
 
 // OrphanAgent writes the MVP acceptance scenario (plan §30):
 //
@@ -27,6 +33,9 @@ var Scenarios = []string{"orphan-agent", "toxic-chain"}
 func OrphanAgent(profileRoot string) error {
 	proj := filepath.Join(profileRoot, ".claude", "projects", "-Users-dev-app")
 	if err := os.MkdirAll(proj, 0o755); err != nil {
+		return err
+	}
+	if err := marker(profileRoot); err != nil {
 		return err
 	}
 	if err := os.WriteFile(filepath.Join(profileRoot, ".claude.json"),
@@ -97,6 +106,9 @@ func writeLines(path string, lines []string) error {
 func ToxicChain(profileRoot string) error {
 	proj := filepath.Join(profileRoot, ".claude", "projects", "-Users-dev-shop")
 	if err := os.MkdirAll(proj, 0o755); err != nil {
+		return err
+	}
+	if err := marker(profileRoot); err != nil {
 		return err
 	}
 	if err := os.WriteFile(filepath.Join(profileRoot, ".claude.json"),

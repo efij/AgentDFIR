@@ -1,0 +1,1 @@
+{"note": "An analyst asks the agent about the s1ngularity prompt, quoting it, and later asks it to add .env files to .gitignore. HEADLESS_AGENT_SECRET_HUNT must only fire on a session that opens with the instruction, not one that discusses it."}

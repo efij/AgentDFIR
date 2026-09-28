@@ -6,10 +6,10 @@ import (
 	"os/user"
 	"path/filepath"
 
-	"github.com/efij/AgentDFIR/v2/internal/mitigate"
-	"github.com/efij/AgentDFIR/v2/internal/notes"
-	"github.com/efij/AgentDFIR/v2/internal/schema"
-	"github.com/efij/AgentDFIR/v2/internal/store"
+	"github.com/efij/AgentDFIR/v3/internal/mitigate"
+	"github.com/efij/AgentDFIR/v3/internal/notes"
+	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v3/internal/store"
 )
 
 // apiMitigations is the Protect tab: what can be done about this case's

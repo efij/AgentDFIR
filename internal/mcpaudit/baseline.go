@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v2/internal/schema"
-	"github.com/efij/AgentDFIR/v2/internal/version"
+	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v3/internal/version"
 )
 
 // Baseline is a known-good snapshot of the MCP inventory. Comparing a
@@ -97,6 +98,10 @@ func Compare(inv *Inventory, b *Baseline) []schema.Finding {
 			if fmt.Sprint(cur.AutoAllow) != fmt.Sprint(old.AutoAllow) {
 				diffs = append(diffs, fmt.Sprintf("auto-allow: %v → %v", old.AutoAllow, cur.AutoAllow))
 			}
+			if cur.EnvSHA256 != "" && old.EnvSHA256 != "" && cur.EnvSHA256 != old.EnvSHA256 && fmt.Sprint(cur.EnvKeys) == fmt.Sprint(old.EnvKeys) {
+				diffs = append(diffs, "env values changed (same keys): "+short(old.EnvSHA256)+" → "+short(cur.EnvSHA256))
+			}
+			out = append(out, compareTools(cur, old, b.CreatedUTC)...)
 			if len(diffs) == 0 {
 				continue
 			}
@@ -110,6 +115,49 @@ func Compare(inv *Inventory, b *Baseline) []schema.Finding {
 			f.Related = append(f.Related, diffs...)
 			out = append(out, f)
 		}
+	}
+	return out
+}
+
+// compareTools reports tool definitions that changed or appeared since the
+// baseline — the MCP rug-pull: a server approved with one set of tool
+// descriptions later serves another. Only definitions the host recorded
+// can be compared; a baseline written before v2.8 has no fingerprints and
+// yields nothing.
+func compareTools(cur, old Server, created string) []schema.Finding {
+	if len(old.Tools) == 0 && len(cur.Tools) == 0 {
+		return nil
+	}
+	before := map[string]string{}
+	hashed := false
+	for _, t := range old.Tools {
+		before[t.Name] = t.DefSHA256
+		hashed = hashed || t.DefSHA256 != ""
+	}
+	if !hashed {
+		return nil
+	}
+	var changed, added []string
+	for _, t := range cur.Tools {
+		h, ok := before[t.Name]
+		switch {
+		case !ok:
+			added = append(added, t.Name)
+		case h != "" && t.DefSHA256 != "" && h != t.DefSHA256:
+			changed = append(changed, t.Name)
+		}
+	}
+	var out []schema.Finding
+	if len(changed) > 0 {
+		f := finding("MCP_TOOL_DEFINITION_CHANGED", "HIGH", "MCP Tool Definition Changed Since Baseline",
+			fmt.Sprintf("Server %q now declares %d tool(s) whose definition differs from the baseline of %s: %s. A tool approved once and changed later is the MCP rug-pull; read the new descriptions and parameter schemas.", cur.Name, len(changed), created, strings.Join(changed, ", ")),
+			cur, "T1195.002", "AML.T0110", "Server upgrades legitimately reword tools; diff the definitions.")
+		out = append(out, f)
+	}
+	if len(added) > 0 {
+		out = append(out, finding("MCP_TOOL_ADDED", "LOW", "MCP Server Declares New Tools Since Baseline",
+			fmt.Sprintf("Server %q declares tool(s) absent from the baseline of %s: %s.", cur.Name, created, strings.Join(added, ", ")),
+			cur, "", "", "New server versions add tools; confirm the upgrade was intended."))
 	}
 	return out
 }

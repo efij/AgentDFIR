@@ -11,7 +11,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/efij/AgentDFIR/v2/internal/schema"
+	"github.com/efij/AgentDFIR/v3/internal/schema"
 )
 
 // --- STIX 2.1 ---

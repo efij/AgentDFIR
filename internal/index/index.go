@@ -39,8 +39,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/efij/AgentDFIR/v2/internal/overlay"
-	"github.com/efij/AgentDFIR/v2/internal/schema"
+	"github.com/efij/AgentDFIR/v3/internal/overlay"
+	"github.com/efij/AgentDFIR/v3/internal/schema"
 )
 
 // Dir and File locate the index inside a package. Nothing outside this

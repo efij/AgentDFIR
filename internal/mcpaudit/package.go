@@ -8,8 +8,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v2/internal/casepkg"
-	"github.com/efij/AgentDFIR/v2/internal/schema"
+	"github.com/efij/AgentDFIR/v3/internal/casepkg"
+	"github.com/efij/AgentDFIR/v3/internal/schema"
 )
 
 // ScanPackage audits the MCP configuration captured in a sealed package:
@@ -49,7 +49,7 @@ func ScanPackage(pkgDir string) (*Inventory, []schema.Finding, error) {
 						RuleID: "MCP_TOOL_DESCRIPTION_POISONING", Severity: "CRITICAL", Title: "Instruction Payload in Cached MCP Tool Description",
 						Description:  fmt.Sprintf("Cached tool manifest declares tool %q with an instruction-override phrase (%q) in its description. Descriptions enter the model's context every session.", t.Name, ph),
 						EvidenceRefs: []string{fmt.Sprintf("%s (artifact %s)", a.LogicalPath, short(a.ArtifactID))},
-						Status:       schema.StateObserved, Endpoint: schema.StateUnknown, MitreATLAS: "AML.T0053",
+						Status:       schema.StateObserved, Endpoint: schema.StateUnknown, MitreATLAS: "AML.T0110",
 						FalsePositive: "Tools documenting prompt-injection defenses can match; read the full description.",
 						Related:       []string{"product: " + a.Product},
 					})
@@ -116,7 +116,9 @@ func extractTools(data []byte) []Tool {
 			name, _ := t["name"].(string)
 			desc, _ := t["description"].(string)
 			if _, has := t["inputSchema"]; has && name != "" {
-				out = append(out, Tool{Name: name, Description: desc})
+				tool := toolFromMap(t)
+				tool.Description = desc
+				out = append(out, tool)
 			}
 			keys := make([]string, 0, len(t))
 			for k := range t {

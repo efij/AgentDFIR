@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/efij/AgentDFIR/v2/internal/sanitize"
+	"github.com/efij/AgentDFIR/v3/internal/sanitize"
 )
 
 // overlayDirs are the directories `analyze` and `report` derive from the

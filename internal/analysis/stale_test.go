@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v2/internal/overlay"
+	"github.com/efij/AgentDFIR/v3/internal/overlay"
 )
 
 // A package analyzed by an older binary must be re-analyzed: the served

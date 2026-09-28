@@ -5,13 +5,13 @@
 package normalize
 
 import (
-	"github.com/efij/AgentDFIR/v2/internal/netdest"
-	"github.com/efij/AgentDFIR/v2/internal/parsers/claudejsonl"
-	"github.com/efij/AgentDFIR/v2/internal/parsers/codexdb"
-	"github.com/efij/AgentDFIR/v2/internal/parsers/codexjsonl"
-	"github.com/efij/AgentDFIR/v2/internal/parsers/genericchat"
-	"github.com/efij/AgentDFIR/v2/internal/parsers/segment"
-	"github.com/efij/AgentDFIR/v2/internal/schema"
+	"github.com/efij/AgentDFIR/v3/internal/netdest"
+	"github.com/efij/AgentDFIR/v3/internal/parsers/claudejsonl"
+	"github.com/efij/AgentDFIR/v3/internal/parsers/codexdb"
+	"github.com/efij/AgentDFIR/v3/internal/parsers/codexjsonl"
+	"github.com/efij/AgentDFIR/v3/internal/parsers/genericchat"
+	"github.com/efij/AgentDFIR/v3/internal/parsers/segment"
+	"github.com/efij/AgentDFIR/v3/internal/schema"
 )
 
 // registry lists all product parsers (accumulating). Order is deterministic.

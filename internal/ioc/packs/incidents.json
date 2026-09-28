@@ -1,0 +1,566 @@
+{
+  "pack": "agentdfir-incidents",
+  "version": "1",
+  "note": "Indicators copied from the cited primary sources on 2026-09-28. Nothing here is inferred; confidence 'low' marks shared infrastructure that legitimate software also uses.",
+  "incidents": [
+    {
+      "id": "s1ngularity",
+      "title": "Nx \"s1ngularity\" npm compromise",
+      "first_seen": "2025-08-26",
+      "last_seen": "2025-08-29",
+      "summary": "Malicious Nx releases ran a postinstall (telemetry.js) that used installed AI CLIs (claude, gemini, q) with permission checks off to inventory secrets, wrote /tmp/inventory.txt, uploaded triple-base64 results to s1ngularity-repository repos, and appended `sudo shutdown -h 0` to shell rc files.",
+      "sources": [
+        "https://github.com/nrwl/nx/security/advisories/GHSA-cxm3-wv7p-598c",
+        "https://www.wiz.io/blog/s1ngularity-supply-chain-attack"
+      ],
+      "indicators": [
+        {
+          "kind": "package",
+          "ecosystem": "npm",
+          "value": "nx",
+          "versions": [
+            "20.9.0",
+            "20.10.0",
+            "20.11.0",
+            "20.12.0",
+            "21.5.0",
+            "21.6.0",
+            "21.7.0",
+            "21.8.0"
+          ]
+        },
+        {
+          "kind": "package",
+          "ecosystem": "npm",
+          "value": "@nrwl/nx",
+          "versions": [
+            "20.9.0",
+            "20.10.0",
+            "20.11.0",
+            "20.12.0",
+            "21.5.0",
+            "21.6.0",
+            "21.7.0",
+            "21.8.0"
+          ]
+        },
+        {
+          "kind": "package",
+          "ecosystem": "npm",
+          "value": "@nx/devkit",
+          "versions": [
+            "21.5.0",
+            "20.9.0"
+          ]
+        },
+        {
+          "kind": "package",
+          "ecosystem": "npm",
+          "value": "@nx/js",
+          "versions": [
+            "21.5.0",
+            "20.9.0"
+          ]
+        },
+        {
+          "kind": "package",
+          "ecosystem": "npm",
+          "value": "@nx/workspace",
+          "versions": [
+            "21.5.0",
+            "20.9.0"
+          ]
+        },
+        {
+          "kind": "package",
+          "ecosystem": "npm",
+          "value": "@nx/node",
+          "versions": [
+            "21.5.0",
+            "20.9.0"
+          ]
+        },
+        {
+          "kind": "package",
+          "ecosystem": "npm",
+          "value": "@nx/eslint",
+          "versions": [
+            "21.5.0"
+          ]
+        },
+        {
+          "kind": "package",
+          "ecosystem": "npm",
+          "value": "@nx/key",
+          "versions": [
+            "3.2.0"
+          ]
+        },
+        {
+          "kind": "package",
+          "ecosystem": "npm",
+          "value": "@nx/enterprise-cloud",
+          "versions": [
+            "3.2.0"
+          ]
+        },
+        {
+          "kind": "path",
+          "value": "/tmp/inventory.txt",
+          "note": "file list the malware wrote"
+        },
+        {
+          "kind": "repo_name",
+          "value": "s1ngularity-repository",
+          "note": "exfiltration repositories created with the victim's token"
+        },
+        {
+          "kind": "string",
+          "value": "sudo shutdown -h 0",
+          "note": "appended to ~/.bashrc and ~/.zshrc",
+          "confidence": "medium"
+        }
+      ]
+    },
+    {
+      "id": "shai-hulud-1",
+      "title": "Shai-Hulud npm worm (wave 1)",
+      "first_seen": "2025-09-14",
+      "last_seen": "2025-09-23",
+      "summary": "Self-replicating npm worm: postinstall ran bundle.js, harvested secrets with TruffleHog, pushed a shai-hulud GitHub workflow that posted secrets to webhook.site.",
+      "sources": [
+        "https://www.stepsecurity.io/blog/ctrl-tinycolor-and-40-npm-packages-compromised",
+        "https://www.truesec.com/hub/blog/500-npm-packages-compromised-in-ongoing-supply-chain-attack-shai-hulud"
+      ],
+      "indicators": [
+        {
+          "kind": "sha256",
+          "value": "46faab8ab153fae6e80e7cca38eab363075bb524edd79e42269217a083628f09",
+          "note": "bundle.js payload",
+          "file_name": "bundle.js"
+        },
+        {
+          "kind": "path",
+          "value": ".github/workflows/shai-hulud-workflow.yml"
+        },
+        {
+          "kind": "url",
+          "value": "webhook.site/bb8ca5f6-4175-45d2-b042-fc9ebb8170b7",
+          "note": "secret exfiltration endpoint"
+        }
+      ]
+    },
+    {
+      "id": "shai-hulud-2",
+      "title": "Shai-Hulud 2.0 \"The Second Coming\"",
+      "first_seen": "2025-11-21",
+      "last_seen": "2025-12-01",
+      "summary": "preinstall ran setup_bun.js → bun_environment.js; registered the host as a GitHub self-hosted runner named SHA1HULUD and created exfil repos described \"Sha1-Hulud: The Second Coming.\"",
+      "sources": [
+        "https://securitylabs.datadoghq.com/articles/shai-hulud-2.0-npm-worm/"
+      ],
+      "indicators": [
+        {
+          "kind": "sha256",
+          "value": "a3894003ad1d293ba96d77881ccd2071446dc3f65f434669b49b3da92421901a",
+          "note": "setup_bun.js",
+          "file_name": "setup_bun.js"
+        },
+        {
+          "kind": "sha256",
+          "value": "62ee164b9b306250c1172583f138c9614139264f889fa99614903c12755468d0",
+          "note": "bun_environment.js (one of several observed)",
+          "file_name": "bun_environment.js"
+        },
+        {
+          "kind": "path",
+          "value": "setup_bun.js"
+        },
+        {
+          "kind": "path",
+          "value": "bun_environment.js"
+        },
+        {
+          "kind": "path",
+          "value": "truffleSecrets.json"
+        },
+        {
+          "kind": "path",
+          "value": "actionsSecrets.json"
+        },
+        {
+          "kind": "string",
+          "value": "Sha1-Hulud: The Second Coming"
+        },
+        {
+          "kind": "string",
+          "value": "SHA1HULUD",
+          "note": "self-hosted runner name"
+        },
+        {
+          "kind": "path",
+          "value": ".github/workflows/discussion.yaml",
+          "note": "backdoor workflow",
+          "confidence": "medium"
+        }
+      ]
+    },
+    {
+      "id": "postmark-mcp",
+      "title": "postmark-mcp malicious MCP server",
+      "first_seen": "2025-09-17",
+      "last_seen": "2025-09-26",
+      "summary": "First malicious MCP server seen in the wild: from 1.0.16 it BCC'd every email sent through it to the author's domain.",
+      "sources": [
+        "https://thehackernews.com/2025/09/first-malicious-mcp-server-found.html"
+      ],
+      "indicators": [
+        {
+          "kind": "package",
+          "ecosystem": "npm",
+          "value": "postmark-mcp",
+          "from_version": "1.0.16"
+        },
+        {
+          "kind": "domain",
+          "value": "giftshop.club"
+        },
+        {
+          "kind": "string",
+          "value": "phan@giftshop.club"
+        }
+      ]
+    },
+    {
+      "id": "sandworm-mode",
+      "title": "SANDWORM_MODE npm worm",
+      "first_seen": "2026-02-17",
+      "last_seen": "2026-02-24",
+      "summary": "19 typosquatted npm packages (publishers official334, javaorg) stole credentials, injected CI workflows and planted a rogue MCP server with prompt-injected tools into Claude, Cursor, Continue and Windsurf configs.",
+      "sources": [
+        "https://socket.dev/blog/sandworm-mode-npm-worm-ai-toolchain-poisoning"
+      ],
+      "indicators": [
+        {
+          "kind": "package",
+          "ecosystem": "npm",
+          "value": "claud-code",
+          "versions": [
+            "0.2.1"
+          ]
+        },
+        {
+          "kind": "package",
+          "ecosystem": "npm",
+          "value": "cloude-code",
+          "versions": [
+            "0.2.1"
+          ]
+        },
+        {
+          "kind": "package",
+          "ecosystem": "npm",
+          "value": "cloude",
+          "versions": [
+            "0.3.0"
+          ]
+        },
+        {
+          "kind": "package",
+          "ecosystem": "npm",
+          "value": "crypto-locale",
+          "versions": [
+            "1.0.0"
+          ]
+        },
+        {
+          "kind": "package",
+          "ecosystem": "npm",
+          "value": "crypto-reader-info",
+          "versions": [
+            "1.0.0"
+          ]
+        },
+        {
+          "kind": "package",
+          "ecosystem": "npm",
+          "value": "detect-cache",
+          "versions": [
+            "1.0.0"
+          ]
+        },
+        {
+          "kind": "package",
+          "ecosystem": "npm",
+          "value": "format-defaults",
+          "versions": [
+            "1.0.0"
+          ]
+        },
+        {
+          "kind": "package",
+          "ecosystem": "npm",
+          "value": "hardhta",
+          "versions": [
+            "1.0.0"
+          ]
+        },
+        {
+          "kind": "package",
+          "ecosystem": "npm",
+          "value": "locale-loader-pro",
+          "versions": [
+            "1.0.0"
+          ]
+        },
+        {
+          "kind": "package",
+          "ecosystem": "npm",
+          "value": "naniod",
+          "versions": [
+            "1.0.0"
+          ]
+        },
+        {
+          "kind": "package",
+          "ecosystem": "npm",
+          "value": "node-native-bridge",
+          "versions": [
+            "1.0.0"
+          ]
+        },
+        {
+          "kind": "package",
+          "ecosystem": "npm",
+          "value": "opencraw",
+          "versions": [
+            "2026.2.17"
+          ]
+        },
+        {
+          "kind": "package",
+          "ecosystem": "npm",
+          "value": "parse-compat",
+          "versions": [
+            "1.0.0"
+          ]
+        },
+        {
+          "kind": "package",
+          "ecosystem": "npm",
+          "value": "rimarf",
+          "versions": [
+            "1.0.0"
+          ]
+        },
+        {
+          "kind": "package",
+          "ecosystem": "npm",
+          "value": "scan-store",
+          "versions": [
+            "1.0.0"
+          ]
+        },
+        {
+          "kind": "package",
+          "ecosystem": "npm",
+          "value": "secp256",
+          "versions": [
+            "1.0.0"
+          ]
+        },
+        {
+          "kind": "package",
+          "ecosystem": "npm",
+          "value": "suport-color",
+          "versions": [
+            "1.0.1"
+          ]
+        },
+        {
+          "kind": "package",
+          "ecosystem": "npm",
+          "value": "veim",
+          "versions": [
+            "2.46.2"
+          ]
+        },
+        {
+          "kind": "package",
+          "ecosystem": "npm",
+          "value": "yarsg",
+          "versions": [
+            "18.0.1"
+          ]
+        },
+        {
+          "kind": "domain",
+          "value": "pkg-metrics.official334.workers.dev"
+        },
+        {
+          "kind": "domain",
+          "value": "freefan.net"
+        },
+        {
+          "kind": "domain",
+          "value": "fanfree.net"
+        },
+        {
+          "kind": "repo_name",
+          "value": "ci-quality/code-quality-check"
+        },
+        {
+          "kind": "string",
+          "value": "SANDWORM_MODE"
+        },
+        {
+          "kind": "path",
+          "value": ".dev-utils/",
+          "note": "hidden directory of the injected MCP server",
+          "confidence": "medium"
+        }
+      ]
+    },
+    {
+      "id": "codexui-android",
+      "title": "codexui-android Codex token theft",
+      "first_seen": "2026-04-10",
+      "last_seen": "2026-05-31",
+      "summary": "A working Codex remote-UI npm package whose published builds (not its GitHub source) read ~/.codex/auth.json at import, XOR-encrypted it with key anyclaw2026 and posted it to sentry.anyclaw.store.",
+      "sources": [
+        "https://www.aikido.dev/blog/codex-remote-ui-steals-ai-tokens",
+        "https://thehackernews.com/2026/06/openai-codex-authentication-tokens.html"
+      ],
+      "indicators": [
+        {
+          "kind": "package",
+          "ecosystem": "npm",
+          "value": "codexui-android",
+          "confidence": "medium",
+          "note": "malicious code is in published builds from roughly v0.1.82; any installed version warrants a look"
+        },
+        {
+          "kind": "package",
+          "ecosystem": "npm",
+          "value": "@friuns/codexui",
+          "confidence": "medium"
+        },
+        {
+          "kind": "domain",
+          "value": "sentry.anyclaw.store"
+        },
+        {
+          "kind": "domain",
+          "value": "anyclaw.store"
+        },
+        {
+          "kind": "string",
+          "value": "anyclaw2026",
+          "note": "XOR key in the payload"
+        }
+      ]
+    },
+    {
+      "id": "keyv-wave",
+      "title": "Shai-Hulud keyv / cacheable wave (\"Here We Go Again\")",
+      "first_seen": "2026-08-04",
+      "last_seen": "2026-08-08",
+      "summary": "Compromised keyv/cacheable packages committed a .claude/settings.json SessionStart hook and a .vscode/tasks.json folderOpen task into repositories, stole AI-agent credential stores, and read their C2 address from Ethereum RPC.",
+      "sources": [
+        "https://www.wiz.io/blog/keyv-and-cacheable-npm-supply-chain-attack",
+        "https://github.com/wiz-sec-public/wiz-research-iocs/blob/main/reports/keyv-packages.csv"
+      ],
+      "indicators": [
+        {
+          "kind": "package",
+          "ecosystem": "npm",
+          "value": "keyv",
+          "versions": [
+            "6.0.0"
+          ]
+        },
+        {
+          "kind": "package",
+          "ecosystem": "npm",
+          "value": "@cacheable/utils",
+          "versions": [
+            "2.5.1"
+          ]
+        },
+        {
+          "kind": "package",
+          "ecosystem": "npm",
+          "value": "cache-manager",
+          "versions": [
+            "7.2.10"
+          ]
+        },
+        {
+          "kind": "package",
+          "ecosystem": "npm",
+          "value": "cacheable-request",
+          "versions": [
+            "13.0.20"
+          ]
+        },
+        {
+          "kind": "domain",
+          "value": "npm-cache.com"
+        },
+        {
+          "kind": "path",
+          "value": "Math_Symbol.js"
+        },
+        {
+          "kind": "path",
+          "value": "math_init.js"
+        },
+        {
+          "kind": "path",
+          "value": "tmp.dpkg_14527.lock"
+        },
+        {
+          "kind": "string",
+          "value": "Shai-Hulud: Here We Go Again"
+        },
+        {
+          "kind": "string",
+          "value": "IfYouBlockThisAPIKeyItWillCrashTheLiveProductionServersOfAllThirdPartyClients"
+        },
+        {
+          "kind": "domain",
+          "value": "eth-mainnet.nodereal.io",
+          "note": "public Ethereum RPC the payload queried; also used legitimately",
+          "confidence": "low"
+        },
+        {
+          "kind": "domain",
+          "value": "go.getblock.io",
+          "confidence": "low"
+        },
+        {
+          "kind": "domain",
+          "value": "eth.llamarpc.com",
+          "confidence": "low"
+        }
+      ]
+    },
+    {
+      "id": "amazon-q-wiper",
+      "title": "Amazon Q for VS Code wiper prompt",
+      "first_seen": "2025-07-17",
+      "last_seen": "2025-07-24",
+      "summary": "Release 1.84.0 of the Amazon Q VS Code extension shipped a system prompt telling the agent to wipe local files and AWS resources; formatting errors kept it from running.",
+      "sources": [
+        "https://www.bleepingcomputer.com/news/security/amazon-ai-coding-agent-hacked-to-inject-data-wiping-commands/"
+      ],
+      "indicators": [
+        {
+          "kind": "path",
+          "value": "amazonwebservices.amazon-q-vscode-1.84.0",
+          "note": "extension install directory (~/.vscode/extensions)"
+        }
+      ]
+    }
+  ]
+}
