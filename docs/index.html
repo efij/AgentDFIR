@@ -833,7 +833,7 @@ Result:             <span class="bad">FAILED — 2 problem(s):</span>
 <script>
 (function(){
   var C={unix:['$','curl -fsSL https://raw.githubusercontent.com/efij/AgentDFIR/main/install.sh | sh && ~/.local/bin/agentdfir run'],
-    win:['>','irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex; agentdfir run'],
+    win:['>','$env:AGENTDFIR_RUN=1; irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex'],
     brew:['$','brew install efij/agentdfir/agentdfir && agentdfir run'],
     choco:['>','choco install agentdfir; agentdfir run'],
     go:['$','go install github.com/efij/AgentDFIR/v2/cmd/agentdfir@latest && agentdfir run']};
