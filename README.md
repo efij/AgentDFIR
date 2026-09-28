@@ -263,6 +263,8 @@ Ships with wrappers for tools IR teams already run:
 | ✅ | [Instruction provenance](docs/provenance.md) — per-line attribution of CLAUDE.md / AGENTS.md / rules / settings to the session, agent, tool and trigger (human prompt vs tool output) that wrote it |
 | ✅ | [MCP supply-chain audit](docs/mcp-audit.md) — inventory of every MCP server across 9 hosts (JSON/JSONC/TOML), unpinned packages, plaintext transports, auto-approve, tool-description poisoning, baseline drift, gateway-log enrichment |
 | ✅ | [Product packs](docs/product-packs.md) — add any new AI agent with one signed JSON file (detect + collect + parse), no Go |
+| ✅ | [`mitigate`](docs/mitigate.md) — findings become guardrails in the agents' own settings (Claude Code, Codex, Cursor CLI), MCP pins and auto-approve fixes; plan first, backed up, hash-chained ledger, drift check, byte-exact revert; **Protect** tab in the explorer (v2.7) |
+| ✅ | `export` / `open` — one file moves a case to another computer; the seal is verified and the analysis rebuilt on arrival (v2.7) |
 | 🔜 | Raw-NTFS/VSS locked-file fallback, EDR/DNS adapters, fleet integrations |
 
 ## 🤝 Contributing
