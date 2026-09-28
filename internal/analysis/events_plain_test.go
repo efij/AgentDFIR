@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v2/internal/index"
-	"github.com/efij/AgentDFIR/v2/internal/overlay"
-	"github.com/efij/AgentDFIR/v2/internal/schema"
+	"github.com/efij/AgentDFIR/v3/internal/index"
+	"github.com/efij/AgentDFIR/v3/internal/overlay"
+	"github.com/efij/AgentDFIR/v3/internal/schema"
 )
 
 // auditLog is an endpoint log that corroborates the fixture's rm, which is

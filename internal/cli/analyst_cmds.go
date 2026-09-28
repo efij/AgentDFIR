@@ -5,21 +5,24 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/efij/AgentDFIR/v2/internal/analysis"
+	"github.com/efij/AgentDFIR/v3/internal/analysis"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 
-	"github.com/efij/AgentDFIR/v2/internal/detect"
-	"github.com/efij/AgentDFIR/v2/internal/normalize"
-	"github.com/efij/AgentDFIR/v2/internal/products"
-	"github.com/efij/AgentDFIR/v2/internal/realtime"
-	"github.com/efij/AgentDFIR/v2/internal/sanitize"
-	"github.com/efij/AgentDFIR/v2/internal/schema"
-	"github.com/efij/AgentDFIR/v2/internal/seal"
-	"github.com/efij/AgentDFIR/v2/internal/watch"
+	"github.com/efij/AgentDFIR/v3/internal/detect"
+	"github.com/efij/AgentDFIR/v3/internal/journal"
+	"github.com/efij/AgentDFIR/v3/internal/normalize"
+	"github.com/efij/AgentDFIR/v3/internal/products"
+	"github.com/efij/AgentDFIR/v3/internal/realtime"
+	"github.com/efij/AgentDFIR/v3/internal/sanitize"
+	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v3/internal/seal"
+	"github.com/efij/AgentDFIR/v3/internal/watch"
 )
 
 // cmdInvestigate is an interactive, read-only explorer over a package:
@@ -151,6 +154,8 @@ func cmdMonitor(args []string) int {
 	honeyFile := fs.String("honeytokens", "", "file of planted canary markers (one per line)")
 	knownDest := fs.String("known-destinations", "", "comma-separated extra allowlisted network destinations")
 	quiet := fs.Bool("quiet", false, "print findings only, not every transcript line")
+	useJournal := fs.Bool("journal", false, "keep a hash-chained journal of every transcript append (~/.agentdfir/monitor/journal.jsonl) so later edits are provable")
+	anchorFile := fs.String("journal-anchor", "", "also append each journal seal's chain head to this file (put it somewhere the watched user cannot write)")
 	// Directories may come first or after the flags.
 	var positional []string
 	rest := args
@@ -226,6 +231,37 @@ func cmdMonitor(args []string) int {
 		}
 		defer eng.Close()
 		w.OnLine = eng.OnLine
+	}
+	if *useJournal || *anchorFile != "" {
+		home, _ := os.UserHomeDir()
+		jp := journal.DefaultPath(home)
+		jn, err := journal.Open(jp)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "journal:", err)
+			return 1
+		}
+		jn.Anchor = func(head string) {
+			fmt.Fprintf(os.Stderr, "%s journal seal head %s\n", time.Now().UTC().Format(time.RFC3339), head)
+			if *anchorFile != "" {
+				if f, err := os.OpenFile(*anchorFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600); err == nil {
+					fmt.Fprintf(f, "%s %s %s\n", time.Now().UTC().Format(time.RFC3339), jp, head)
+					f.Close()
+				}
+			}
+		}
+		defer jn.Close()
+		// Ctrl+C / SIGTERM: seal and write the stop record before exiting,
+		// or the last seal is up to ten minutes old and the next start
+		// reports a gap that was only a shutdown.
+		sig := make(chan os.Signal, 1)
+		signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
+		go func() {
+			<-sig
+			_ = jn.Close()
+			os.Exit(130)
+		}()
+		w.OnBaseline, w.OnGrow, w.OnShrink, w.OnGone = jn.Baseline, jn.Grow, jn.Shrink, jn.Gone
+		fmt.Printf("journal: %s (verify later: agentdfir journal verify --anchor <head>)\n", jp)
 	}
 	mode := "tail"
 	if *detectLive {

@@ -6,8 +6,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v2/internal/detect"
-	"github.com/efij/AgentDFIR/v2/internal/schema"
+	"github.com/efij/AgentDFIR/v3/internal/detect"
+	"github.com/efij/AgentDFIR/v3/internal/schema"
 )
 
 // Findings derived from the inventory. Rule IDs are distinct from the
@@ -54,6 +54,13 @@ func Evaluate(inv *Inventory) []schema.Finding {
 			out = append(out, finding("UNPINNED_MCP_PACKAGE", "HIGH", "MCP Server Package Not Pinned",
 				fmt.Sprintf("Server %q is launched with %s from package %q without an exact version. Every start resolves the newest publish; a compromised or hijacked package version runs with the agent's tool access.", s.Name, s.PackageMgr, s.Package),
 				s, "T1195.002", "AML.T0010", "Pin an exact version (pkg@1.2.3) and hash-verify; many docs copy the unpinned form."))
+		}
+		if s.Package != "" {
+			if like := typosquatOf(s.Package); like != "" {
+				out = append(out, finding("MCP_PACKAGE_TYPOSQUAT", "HIGH", "MCP Server Package Looks Like a Well-Known One",
+					fmt.Sprintf("Server %q runs package %q, which is one edit, a scope swap or a look-alike character away from the well-known %q. Typosquatted MCP packages run with the agent's tool access and see every tool call.", s.Name, s.Package, like),
+					s, "T1195.002", "AML.T0010.005", "Forks and org-internal republishes use similar names; confirm the publisher."))
+			}
 		}
 		if s.PackageMgr != "" && s.Package == "" {
 			out = append(out, finding("UNPINNED_MCP_PACKAGE", "MEDIUM", "MCP Server Package Runner Without Recognizable Package",

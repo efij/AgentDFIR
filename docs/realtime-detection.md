@@ -51,3 +51,46 @@ Webhook: `POST`, `Content-Type: application/json`, 5 s timeout, one retry, bound
 ## Coverage
 
 Live parsing works on JSONL transcripts: Claude Code, Codex CLI, OpenClaw, Gemini/Cursor JSONL exports and any product pack whose sessions are JSONL. Products that persist whole JSON documents or SQLite stores (Cursor `store.db`, Cline `ui_messages.json`) are covered by `collect` + `triage`, not by the tail. Existing content at startup is history and never alerts; only new lines do.
+
+## Tamper-evident transcripts: `monitor --journal` (v3.0)
+
+A transcript collected after an incident proves nothing about whether it
+was edited. The OpenAI–Hugging Face agents researched spoofing tool calls
+and rewriting their own transcripts; agents that delete production data
+and then misreport it are a recurring pattern. With `--journal` the
+monitor records, as it watches each append-only JSONL transcript grow,
+the byte range, its SHA-256, a running SHA-256 of the whole prefix and
+the file's device:inode, into a hash-chained log:
+
+```sh
+agentdfir monitor --journal --quiet
+agentdfir monitor --journal --journal-anchor /Volumes/usb/agentdfir-anchors.log
+agentdfir journal verify --anchor <head>          # later, or on another machine
+```
+
+- Existing transcripts are hashed in full when monitoring starts; every
+  later append is journaled with its range and hash.
+- Every 10 minutes (and on exit) a seal record is written and its chain
+  head goes **off the file**: to the system log (macOS unified log,
+  syslog), stderr, and `--journal-anchor` when given.
+- The journal (`~/.agentdfir/monitor/journal.jsonl`) is collected by the
+  next `agentdfir run`, and analysis checks every journaled transcript:
+
+| rule | meaning |
+|---|---|
+| `TRANSCRIPT_REWRITTEN` (CRITICAL) | journaled bytes no longer match their SHA-256 — the transcript was edited after it was written |
+| `TRANSCRIPT_TRUNCATED` (HIGH) | journaled content is missing, or the monitor saw the file shrink |
+| `TRANSCRIPT_REPLACED` (HIGH) | device:inode changed under a journaled transcript (atomic-rename rewrite) |
+| `JOURNAL_TAMPERED` (CRITICAL) | the journal's chain does not verify, or the monitor found its previous journal broken at start (it is kept as `journal.broken-<time>.jsonl`) |
+| `TRANSCRIPT_DELETED` (INFO) | a journaled transcript is not in the case — agents clean up old sessions on their own |
+| `MONITOR_GAP` (INFO) | the monitor was restarted without a stop record (killed): changes in the gap are not journaled |
+
+**Honest scope.** The journal lives on the watched host. It detects edits
+by anything that does not know it exists or cannot rewrite it
+consistently. A same-user attacker who knows about it can rebuild the
+chain; what defeats that is the head that already left the file —
+`journal verify --anchor` fails when a recorded head is no longer in the
+chain. Only append-only JSONL transcripts are journaled (Claude Code,
+Codex rollouts, Copilot CLI, Cowork audit logs); SQLite stores are
+rewritten in place by design. A rewrite that lands and is reverted
+within one poll interval (default 2 s) is not seen.

@@ -2,11 +2,11 @@ package detect
 
 import (
 	"fmt"
-	"github.com/efij/AgentDFIR/v2/internal/shellshape"
+	"github.com/efij/AgentDFIR/v3/internal/shellshape"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v2/internal/netdest"
-	"github.com/efij/AgentDFIR/v2/internal/schema"
+	"github.com/efij/AgentDFIR/v3/internal/netdest"
+	"github.com/efij/AgentDFIR/v3/internal/schema"
 )
 
 // oneToolCallRules evaluates the stateless-and-per-session tool-call rules
@@ -105,6 +105,9 @@ func oneToolCallRules(ev schema.Event, p *streamPass2) []schema.Finding {
 				FalsePositive: "Internal registries and project APIs are common; add via baseline/--known-destinations.",
 			})
 		}
+		// trusted-service egress and repo-creation exfil
+		_, sensitive := p.pendingExfil[ev.SessionID]
+		out = append(out, egressFindings(ev, sensitive, p.seenEgress)...)
 		// POTENTIAL_DATA_EXFILTRATION (per-session sequence)
 		if precursor, ok := p.pendingExfil[ev.SessionID]; ok && netdest.IsUpload(ev.Command) {
 			out = append(out, schema.Finding{

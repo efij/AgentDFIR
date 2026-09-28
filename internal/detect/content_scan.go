@@ -9,8 +9,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/efij/AgentDFIR/v2/internal/casepkg"
-	"github.com/efij/AgentDFIR/v2/internal/schema"
+	"github.com/efij/AgentDFIR/v3/internal/casepkg"
+	"github.com/efij/AgentDFIR/v3/internal/schema"
 )
 
 // The content rules — credential formats, injection phrases, invisible

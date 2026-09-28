@@ -83,7 +83,7 @@ brew install efij/agentdfir/agentdfir
 scoop bucket add agentdfir https://github.com/efij/scoop-agentdfir; scoop install agentdfir
 
 # Go toolchain
-go install github.com/efij/AgentDFIR/v2/cmd/agentdfir@latest
+go install github.com/efij/AgentDFIR/v3/cmd/agentdfir@latest
 
 # From source
 go build -trimpath -o agentdfir ./cmd/agentdfir
@@ -124,6 +124,44 @@ HIGH — Unexpected Agent Activity [ORPHAN_AGENT]
 ```
 
 No auto-escalation to "compromise" or "exfiltration" — findings state exactly what the evidence shows, with clickable references to the raw artifact behind every claim.
+
+## 🧭 The last twelve months of agent incidents, as commands (v3.0)
+
+Every capability below comes from a real 2025–2026 incident and is tested
+against a reproduction of it (`agentdfir simulate --scenario list`).
+
+```sh
+agentdfir hunt --path ~/src          # was I hit? s1ngularity, Shai-Hulud 1/2, keyv wave, SANDWORM_MODE, postmark-mcp, codexui, Amazon Q
+agentdfir scan-repo ~/src/untrusted  # before an agent opens it: committed SessionStart hooks, folderOpen tasks, repo MCP servers, injected AGENTS.md
+agentdfir decode payload.txt         # nested base64/gzip/hex/UTF-16LE payloads, offline — no model refuses to help
+agentdfir monitor --journal          # hash-chain every transcript append; a later edit becomes TRANSCRIPT_REWRITTEN
+```
+
+- **[`hunt`](docs/hunt.md)** — verified indicators from each incident's
+  primary write-up, plus STIX 2.1 / MISP feeds. Every hit says *where* it
+  was seen: a command the agent ran is OBSERVED, a shell's output is
+  SEEN_IN_OUTPUT, a question about the incident is only MENTIONED. A case
+  whose evidence starts after the incident says INCONCLUSIVE instead of a
+  false all-clear. Lockfiles, npm's hidden lockfile, shell rc files and
+  payload hashes on disk with `--path`.
+- **[`scan-repo`](docs/scan-repo.md)** — the files dependency scanners never
+  read: Claude/Cursor/Gemini hooks, `statusLine` and credential helpers,
+  committed `env` overrides, VS Code `folderOpen` tasks, devcontainer host
+  commands, project MCP configs (typosquats, remote fetch, poisoning),
+  instruction files, install scripts that launch AI CLIs headless, git
+  config and ref-name injection. SARIF for GitHub code scanning; a
+  [GitHub Action](action.yml) and a pre-commit hook.
+- **[Decoder](docs/decode.md)** — every command rule also sees what an
+  executed payload decodes to (`ENCODED_PAYLOAD_EXECUTED`).
+- **[Journal](docs/realtime-detection.md#tamper-evident-transcripts-monitor---journal-v30)** — tamper evidence
+  for transcripts, with the chain head anchored off the file.
+- **New detections** — AI CLIs run headless with approvals off
+  (`AI_CLI_HEADLESS_BYPASS`, s1ngularity), a session opened with a
+  secret-hunting prompt, exfiltration through trusted services (link
+  shorteners, screenshot services, `workers.dev`, blockchain RPC,
+  tunnels), GitHub repo creation as an exfil path, data encoded into DNS
+  labels, cloud/database destruction (Replit, PocketOS), MCP tool-definition
+  rug-pulls and typosquatted MCP packages.
 
 ## 🛡️ Stop it happening again — `agentdfir mitigate` (v2.7)
 
@@ -249,8 +287,8 @@ Ships with wrappers for tools IR teams already run:
 |---|---|
 | ✅ | Sealed `.adfir` packages, hash-chained custody, `verify` |
 | ✅ | Claude Code: detect, collect, normalize, timeline, triage |
-| ✅ | [140 deterministic detections](docs/detection-coverage.md) (59 built-in incl. 8 attack chains + 81 pack rules; 96 HIGH/CRITICAL, every one mapped to MITRE ATLAS 5.6 / ATT&CK — 27 ATLAS and 65 ATT&CK techniques): rogue/orphan agents, exfiltration via tool invocation, context/memory/tool/MCP poisoning, agent credential-store theft, agent config modification, jailbreak & system-prompt extraction, secret & sensitive-file access, persistence (rc files, services, run keys, git hooks), credential dumping, bulk encryption, self-modification, log deletion, timestomping, session tampering… `agentdfir rules list` prints the matrix |
-| ✅ | `simulate` — synthetic incident generation (adversary emulation for AI agents): `orphan-agent`, `toxic-chain` |
+| ✅ | [172 deterministic detections](docs/detection-coverage.md) (91 built-in incl. 8 attack chains + 81 pack rules; 117 HIGH/CRITICAL, all but two mapped to MITRE ATLAS 5.6 / ATT&CK — 28 ATLAS and 69 ATT&CK techniques): rogue/orphan agents, exfiltration via tool invocation, context/memory/tool/MCP poisoning, agent credential-store theft, agent config modification, jailbreak & system-prompt extraction, secret & sensitive-file access, persistence (rc files, services, run keys, git hooks), credential dumping, bulk encryption, self-modification, log deletion, timestomping, session tampering… `agentdfir rules list` prints the matrix |
+| ✅ | `simulate` — synthetic incident generation (adversary emulation for AI agents): `orphan-agent`, `toxic-chain`, and reproductions of real incidents — `keyv-hook`, `sandworm-mcp`, `s1ngularity`, `mcpoison-rugpull`, `pocketos-wipe`, `swarm-antiforensics` (v3.0) |
 | ✅ | [Attack chains](docs/attack-chains.md), session cards, investigation tree, whole-case search and the hash-chained analyst case file in the [explorer](docs/serve.md) (v1.0) |
 | ✅ | Full parsers for 13 products: Claude Code, Claude Cowork (desktop-app agent mode: HMAC audit log, in-VM transcripts, shared folders and egress allowlist per session), Codex CLI + Codex desktop app (rollout JSONL and the SQLite thread store, read with a stdlib-only reader that applies the write-ahead log), Gemini CLI, Cursor, Copilot CLI, Copilot Chat (VS Code), Cline, Roo, OpenClaw, OpenCode, Aider, Warp — plus Kiro (steering, specs, MCP, powers, skills and extension state; no transcript store to parse) |
 | ✅ | [Enrich with a second witness](docs/endpoint-corroboration.md) — auditd, Sysmon XML, Velociraptor/osquery/eslogger/EDR exports: tool calls → CONFIRMED / DISPROVED, unlogged agent processes and connections surfaced |
@@ -265,7 +303,10 @@ Ships with wrappers for tools IR teams already run:
 | ✅ | [Product packs](docs/product-packs.md) — add any new AI agent with one signed JSON file (detect + collect + parse), no Go |
 | ✅ | [`mitigate`](docs/mitigate.md) — findings become guardrails in the agents' own settings (Claude Code, Codex, Cursor CLI), MCP pins and auto-approve fixes; plan first, backed up, hash-chained ledger, drift check, byte-exact revert; **Protect** tab in the explorer (v2.7) |
 | ✅ | `export` / `open` — one file moves a case to another computer; the seal is verified and the analysis rebuilt on arrival (v2.7) |
-| 🔜 | Raw-NTFS/VSS locked-file fallback, EDR/DNS adapters, fleet integrations |
+| ✅ | [`hunt`](docs/hunt.md) — known-incident IOC packs + STIX 2.1 / MISP import, lockfile and on-disk checks, evidence-window verdicts (v3.0) |
+| ✅ | [`scan-repo`](docs/scan-repo.md) — pre-open repository check, SARIF, GitHub Action, pre-commit hook (v3.0) |
+| ✅ | [Offline decoder](docs/decode.md), MCP rug-pull fingerprints and typosquat detection, `monitor --journal` tamper-evident transcripts (v3.0) |
+| 🔜 | Raw-NTFS/VSS locked-file fallback, EDR/DNS adapters, fleet integrations, npm cache/log parsing for `hunt` |
 
 ## 🤝 Contributing
 

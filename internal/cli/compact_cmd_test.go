@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v2/internal/casepkg"
-	"github.com/efij/AgentDFIR/v2/internal/overlay"
-	"github.com/efij/AgentDFIR/v2/internal/simulate"
+	"github.com/efij/AgentDFIR/v3/internal/casepkg"
+	"github.com/efij/AgentDFIR/v3/internal/overlay"
+	"github.com/efij/AgentDFIR/v3/internal/simulate"
 )
 
 // buildAnalyzedPackage produces a real sealed package with a full analysis

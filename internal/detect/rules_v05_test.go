@@ -6,11 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v2/internal/casepkg"
-	"github.com/efij/AgentDFIR/v2/internal/collector"
-	"github.com/efij/AgentDFIR/v2/internal/normalize"
-	"github.com/efij/AgentDFIR/v2/internal/products"
-	"github.com/efij/AgentDFIR/v2/internal/schema"
+	"github.com/efij/AgentDFIR/v3/internal/casepkg"
+	"github.com/efij/AgentDFIR/v3/internal/collector"
+	"github.com/efij/AgentDFIR/v3/internal/normalize"
+	"github.com/efij/AgentDFIR/v3/internal/products"
+	"github.com/efij/AgentDFIR/v3/internal/schema"
 )
 
 // buildFromSessions collects a Claude profile with the given session

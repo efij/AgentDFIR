@@ -35,3 +35,6 @@ Thumbs.db
 # in CI.
 /.claude/
 PLAN-*.md
+
+# Private marketing kit (never published)
+/marketing/

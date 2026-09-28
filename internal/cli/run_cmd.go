@@ -8,17 +8,17 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/efij/AgentDFIR/v2/internal/analysis"
-	"github.com/efij/AgentDFIR/v2/internal/casepkg"
-	"github.com/efij/AgentDFIR/v2/internal/collector"
-	"github.com/efij/AgentDFIR/v2/internal/normalize"
-	"github.com/efij/AgentDFIR/v2/internal/products"
-	"github.com/efij/AgentDFIR/v2/internal/sanitize"
-	"github.com/efij/AgentDFIR/v2/internal/schema"
-	"github.com/efij/AgentDFIR/v2/internal/seal"
-	"github.com/efij/AgentDFIR/v2/internal/serve"
-	"github.com/efij/AgentDFIR/v2/internal/store"
-	"github.com/efij/AgentDFIR/v2/internal/witness"
+	"github.com/efij/AgentDFIR/v3/internal/analysis"
+	"github.com/efij/AgentDFIR/v3/internal/casepkg"
+	"github.com/efij/AgentDFIR/v3/internal/collector"
+	"github.com/efij/AgentDFIR/v3/internal/normalize"
+	"github.com/efij/AgentDFIR/v3/internal/products"
+	"github.com/efij/AgentDFIR/v3/internal/sanitize"
+	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v3/internal/seal"
+	"github.com/efij/AgentDFIR/v3/internal/serve"
+	"github.com/efij/AgentDFIR/v3/internal/store"
+	"github.com/efij/AgentDFIR/v3/internal/witness"
 )
 
 // cmdRun is the whole workflow in one command for the common case — this

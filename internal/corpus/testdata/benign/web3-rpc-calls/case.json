@@ -1,0 +1,6 @@
+{
+ "note": "A web3 developer's agent calls public Ethereum RPC nodes with JSON-RPC POST bodies. The keyv wave read its C2 from a contract through the same endpoints; EGRESS_VIA_TRUSTED_SERVICE only treats blockchain RPC as egress after credential access.",
+ "allow": {
+  "UNEXPECTED_NETWORK_DESTINATION": "LOW context finding: a public RPC node is not in the development allowlist; correct and benign."
+ }
+}

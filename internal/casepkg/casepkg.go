@@ -43,8 +43,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v2/internal/hashchain"
-	"github.com/efij/AgentDFIR/v2/internal/version"
+	"github.com/efij/AgentDFIR/v3/internal/hashchain"
+	"github.com/efij/AgentDFIR/v3/internal/version"
 )
 
 // Artifact acquisition status values.

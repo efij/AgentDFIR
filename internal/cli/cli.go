@@ -11,13 +11,13 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/efij/AgentDFIR/v2/internal/casepkg"
-	"github.com/efij/AgentDFIR/v2/internal/collector"
-	"github.com/efij/AgentDFIR/v2/internal/live"
-	"github.com/efij/AgentDFIR/v2/internal/products"
-	"github.com/efij/AgentDFIR/v2/internal/sanitize"
-	"github.com/efij/AgentDFIR/v2/internal/seal"
-	"github.com/efij/AgentDFIR/v2/internal/version"
+	"github.com/efij/AgentDFIR/v3/internal/casepkg"
+	"github.com/efij/AgentDFIR/v3/internal/collector"
+	"github.com/efij/AgentDFIR/v3/internal/live"
+	"github.com/efij/AgentDFIR/v3/internal/products"
+	"github.com/efij/AgentDFIR/v3/internal/sanitize"
+	"github.com/efij/AgentDFIR/v3/internal/seal"
+	"github.com/efij/AgentDFIR/v3/internal/version"
 )
 
 const usage = `agentdfir — open-source DFIR for AI agents. Evidence in, verdicts out. Nothing leaves your machine.
@@ -65,6 +65,13 @@ MOVE A CASE — look at another computer's case here
   agentdfir export [<pkg>]                one file (<case>.adfir.tgz) + its SHA-256; default: this machine's case
   agentdfir open <file|pkg>               unpack, verify the seal, analyze and open the explorer
 
+KNOWN INCIDENTS & UNTRUSTED REPOS
+  agentdfir hunt [<pkg>] [--path ~/src]   was this machine hit by s1ngularity, Shai-Hulud, keyv, SANDWORM_MODE, postmark-mcp…?
+      --incident id,… · --iocs <stix|misp|pack.json> · --list · --json      (exit 1 on a hit)
+  agentdfir scan-repo [dir]               before an agent opens it: committed hooks, folderOpen tasks, MCP servers, injected instructions
+      --sarif out.sarif · --fail-on critical|high|medium|none · --json       (CI gate; GitHub Action: efij/AgentDFIR)
+  agentdfir decode [file|-]               unwrap base64/base32/hex/gzip/zlib/bzip2/UTF-16LE payloads offline, nothing executed
+
 PROTECT — stop it happening again (the only command that changes files outside a case)
   agentdfir mitigate                      plan: guardrails for your agents' settings + fixes, nothing written
   agentdfir mitigate --apply              apply the default packs and fixes (asks per file; backed up, reversible)
@@ -78,9 +85,12 @@ EXPORT — hand results to other tools
 
 BEFORE AN INCIDENT
   agentdfir monitor --detect --alert <url|file>      live sensor: findings pushed as they happen
+  agentdfir monitor --journal [--journal-anchor f]   hash-chain every transcript append; later edits become provable
+  agentdfir journal verify [--anchor <head>]         check the journal and an off-host anchor
   agentdfir mcp audit                                MCP servers on this machine: unpinned, plaintext, poisoned
   agentdfir baseline create|check · agentdfir diff <a> <b>     known-good configs and drift
-  agentdfir simulate --scenario orphan-agent|toxic-chain   synthetic incident to train and test
+  agentdfir simulate --scenario list                 synthetic incidents: keyv-hook, sandworm-mcp, s1ngularity, mcpoison-rugpull,
+                                                     pocketos-wipe, swarm-antiforensics, toxic-chain, orphan-agent
 
 TRUST & KEYS
   agentdfir keygen · sign --key <k> <pkg> · encrypt <pkg> · decrypt <file> · inspect <pkg>
@@ -165,6 +175,14 @@ func Main(args []string) int {
 		return cmdGuard(args[1:])
 	case "open", "import":
 		return cmdOpen(args[1:])
+	case "hunt":
+		return cmdHunt(args[1:])
+	case "scan-repo":
+		return cmdScanRepo(args[1:])
+	case "decode":
+		return cmdDecode(args[1:])
+	case "journal":
+		return cmdJournal(args[1:])
 	case "version", "--version", "-v":
 		fmt.Printf("agentdfir %s (adfir format %s)\n", version.Version, version.ADFIRVersion)
 		return 0

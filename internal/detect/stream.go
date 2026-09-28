@@ -7,9 +7,9 @@ import (
 	"sort"
 	"time"
 
-	"github.com/efij/AgentDFIR/v2/internal/casepkg"
-	"github.com/efij/AgentDFIR/v2/internal/overlay"
-	"github.com/efij/AgentDFIR/v2/internal/schema"
+	"github.com/efij/AgentDFIR/v3/internal/casepkg"
+	"github.com/efij/AgentDFIR/v3/internal/overlay"
+	"github.com/efij/AgentDFIR/v3/internal/schema"
 )
 
 // RunStream evaluates the full deterministic rule set by streaming the
@@ -62,6 +62,7 @@ func RunStream(pkgDir string, entities []schema.Entity, opts Options) ([]schema.
 		agg: agg, sidechain: sidechain, opts: opts,
 		pendingExfil: map[string]schema.Event{},
 		seenDest:     map[string]bool{},
+		seenEgress:   map[string]bool{},
 		resumeFlag:   map[string]bool{},
 	}
 	if err := streamEvents(eventsPath, p2.handle); err != nil {
@@ -81,6 +82,9 @@ func RunStream(pkgDir string, entities []schema.Entity, opts Options) ([]schema.
 	findings = append(findings, permissionBypass(man, pkgDir)...)
 	findings = append(findings, permissionEscalation(man, pkgDir)...)
 	findings = append(findings, contentScans(man, pkgDir, opts.Honeytokens)...)
+	store := casepkg.NewStore(pkgDir, man)
+	findings = append(findings, shellHistoryRules(man, store)...)
+	findings = append(findings, headlessSecretHunt(man, store)...)
 	return sortBySeverity(findings), nil
 }
 
@@ -326,6 +330,7 @@ type streamPass2 struct {
 	findings     []schema.Finding
 	pendingExfil map[string]schema.Event // session -> sensitive precursor
 	seenDest     map[string]bool
+	seenEgress   map[string]bool // session+host for EGRESS_VIA_TRUSTED_SERVICE
 	resumeFlag   map[string]bool
 }
 

@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v2/internal/endpoint"
-	"github.com/efij/AgentDFIR/v2/internal/netdest"
-	"github.com/efij/AgentDFIR/v2/internal/products"
-	"github.com/efij/AgentDFIR/v2/internal/schema"
+	"github.com/efij/AgentDFIR/v3/internal/endpoint"
+	"github.com/efij/AgentDFIR/v3/internal/netdest"
+	"github.com/efij/AgentDFIR/v3/internal/products"
+	"github.com/efij/AgentDFIR/v3/internal/schema"
 )
 
 // Endpoint correlation: the transcript is witness #1, OS telemetry is

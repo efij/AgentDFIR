@@ -6,8 +6,8 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/efij/AgentDFIR/v2/internal/schema"
-	"github.com/efij/AgentDFIR/v2/internal/version"
+	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v3/internal/version"
 )
 
 // --- SARIF 2.1.0 ---

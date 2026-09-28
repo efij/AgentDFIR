@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v2/internal/casepkg"
-	"github.com/efij/AgentDFIR/v2/internal/schema"
+	"github.com/efij/AgentDFIR/v3/internal/casepkg"
+	"github.com/efij/AgentDFIR/v3/internal/schema"
 )
 
 // Cowork — the Claude desktop app's agent mode — runs Claude Code inside a

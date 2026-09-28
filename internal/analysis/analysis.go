@@ -16,21 +16,23 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v2/internal/casepkg"
-	"github.com/efij/AgentDFIR/v2/internal/chain"
-	"github.com/efij/AgentDFIR/v2/internal/correlate"
-	"github.com/efij/AgentDFIR/v2/internal/detect"
-	"github.com/efij/AgentDFIR/v2/internal/endpoint"
-	"github.com/efij/AgentDFIR/v2/internal/index"
-	"github.com/efij/AgentDFIR/v2/internal/mcpaudit"
-	"github.com/efij/AgentDFIR/v2/internal/normalize"
-	"github.com/efij/AgentDFIR/v2/internal/overlay"
-	"github.com/efij/AgentDFIR/v2/internal/provenance"
-	"github.com/efij/AgentDFIR/v2/internal/rulepack"
-	"github.com/efij/AgentDFIR/v2/internal/schema"
-	"github.com/efij/AgentDFIR/v2/internal/verify"
-	"github.com/efij/AgentDFIR/v2/internal/version"
-	"github.com/efij/AgentDFIR/v2/internal/witness"
+	"github.com/efij/AgentDFIR/v3/internal/casepkg"
+	"github.com/efij/AgentDFIR/v3/internal/chain"
+	"github.com/efij/AgentDFIR/v3/internal/correlate"
+	"github.com/efij/AgentDFIR/v3/internal/detect"
+	"github.com/efij/AgentDFIR/v3/internal/endpoint"
+	"github.com/efij/AgentDFIR/v3/internal/index"
+	"github.com/efij/AgentDFIR/v3/internal/ioc"
+	"github.com/efij/AgentDFIR/v3/internal/journal"
+	"github.com/efij/AgentDFIR/v3/internal/mcpaudit"
+	"github.com/efij/AgentDFIR/v3/internal/normalize"
+	"github.com/efij/AgentDFIR/v3/internal/overlay"
+	"github.com/efij/AgentDFIR/v3/internal/provenance"
+	"github.com/efij/AgentDFIR/v3/internal/rulepack"
+	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v3/internal/verify"
+	"github.com/efij/AgentDFIR/v3/internal/version"
+	"github.com/efij/AgentDFIR/v3/internal/witness"
 )
 
 // Options are the optional inputs an analyst may add.
@@ -47,6 +49,7 @@ type Options struct {
 	Honeytokens    []string
 	SpawnThreshold int
 	KnownDests     []string
+	IOCFiles       []string  // extra incident IOC feeds (agentdfir pack, STIX 2.1, MISP)
 	Renormalize    bool      // force re-parse even if the overlay is current
 	RetireExcluded bool      // drop records the current collection policy would not have collected (node_modules, .git objects) from the scan set
 	Log            io.Writer // progress lines; nil = silent
@@ -308,6 +311,14 @@ func Run(pkg string, o Options) (*Result, error) {
 		return nil, err
 	}
 	findings = append(findings, det...)
+	// Transcripts against the monitor journal, when one was collected.
+	if man, err := casepkg.ReadManifest(pkg); err == nil {
+		jf := journal.Check(man, casepkg.NewStore(pkg, man))
+		findings = append(findings, jf...)
+		if len(jf) > 0 {
+			o.logf("Monitor journal: %d finding(s)", len(jf))
+		}
+	}
 
 	o.stage(4, "rule packs")
 	// ---- 4. declarative rule packs.
@@ -387,6 +398,24 @@ func Run(pkg string, o Options) (*Result, error) {
 		o.logf("MCP audit: %d server(s) in %d config(s), %d finding(s)", len(inv.Servers), len(inv.Configs), len(mf))
 	} else {
 		res.StageNotes = append(res.StageNotes, "mcp audit skipped: "+err.Error())
+	}
+	// Known-incident indicators (the embedded packs, plus --iocs feeds):
+	// commands, tool output, configs, shell history, MCP packages and file
+	// hashes. Raw transcript bytes and lockfiles on disk are `agentdfir
+	// hunt`'s job; this keeps analyze at one read per small artifact.
+	if hf, notes, err := HuntCase(pkg, inv, HuntOptions{IOCFiles: o.IOCFiles}); err == nil {
+		findings = append(findings, ioc.Findings(hf)...)
+		res.StageNotes = append(res.StageNotes, notes...)
+		_ = overlay.WriteJSON(filepath.Join(detDir, "hunt.json"), hf)
+		hits := 0
+		for _, v := range hf {
+			if len(v.Hits) > 0 {
+				hits++
+			}
+		}
+		o.logf("Incident IOCs: %d incident(s) checked, %d with indicators present", len(hf), hits)
+	} else {
+		res.StageNotes = append(res.StageNotes, "incident IOC check skipped: "+err.Error())
 	}
 
 	o.stage(6, "provenance")

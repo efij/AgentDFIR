@@ -4,15 +4,15 @@ package detect
 
 import (
 	"fmt"
-	"github.com/efij/AgentDFIR/v2/internal/shellshape"
+	"github.com/efij/AgentDFIR/v3/internal/shellshape"
 	"regexp"
 	"sort"
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v2/internal/casepkg"
-	"github.com/efij/AgentDFIR/v2/internal/netdest"
-	"github.com/efij/AgentDFIR/v2/internal/schema"
+	"github.com/efij/AgentDFIR/v3/internal/casepkg"
+	"github.com/efij/AgentDFIR/v3/internal/netdest"
+	"github.com/efij/AgentDFIR/v3/internal/schema"
 )
 
 const defaultSpawnThreshold = 10
@@ -214,6 +214,7 @@ func sensitiveFileRead(res *schema.Normalized) []schema.Finding {
 func networkAndExfil(res *schema.Normalized, opts Options) []schema.Finding {
 	var out []schema.Finding
 	seenDest := map[string]bool{}
+	seenEgress := map[string]bool{}
 
 	// Per-session ordering by sequence.
 	bySession := map[string][]schema.Event{}
@@ -269,6 +270,7 @@ func networkAndExfil(res *schema.Normalized, opts Options) []schema.Finding {
 					FalsePositive: "Internal registries and project-specific APIs are common; add them via baseline/--known-destinations.",
 				})
 			}
+			out = append(out, egressFindings(ev, sensitive != nil && &evs[i] != sensitive, seenEgress)...)
 			if sensitive != nil && &evs[i] != sensitive && netdest.IsUpload(ev.Command) {
 				out = append(out, schema.Finding{
 					RuleID: "POTENTIAL_DATA_EXFILTRATION", Severity: "HIGH",

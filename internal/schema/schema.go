@@ -4,6 +4,8 @@
 // here — events reference raw evidence by artifact, offset and hash.
 package schema
 
+import "strings"
+
 // Corroboration states (evidence vs claims, plan §12). Aggregate
 // precedence: CONTRADICTED > CORROBORATED > PARTIALLY_CORROBORATED >
 // OBSERVED > REPORTED > REQUESTED > UNKNOWN.
@@ -62,6 +64,11 @@ type Event struct {
 	MCPServer      string `json:"mcp_server,omitempty"`
 	MCPTool        string `json:"mcp_tool,omitempty"`
 	Command        string `json:"command,omitempty"`
+	// CommandFull is the complete command line (at most MaxCommandFull
+	// bytes) when Command was cut for display. Encoded payloads and the
+	// flags at the end of a long `claude -p "…"` live past the cut, so the
+	// decoder, IOC matching and the agent-CLI rules read FullCommand().
+	CommandFull    string `json:"command_full,omitempty"`
 	Cwd            string `json:"cwd,omitempty"` // working directory the tool ran in, when the transcript records it
 	File           string `json:"file,omitempty"`
 	NetworkDest    string `json:"network_destination,omitempty"`
@@ -77,6 +84,29 @@ type Event struct {
 	// this event, in a sentence an analyst can read. Empty when nothing
 	// outside the transcript was consulted.
 	WitnessNote string `json:"witness_note,omitempty"`
+}
+
+// MaxCommandFull caps Event.CommandFull.
+const MaxCommandFull = 64 << 10
+
+// FullCommand returns the untruncated command when one was kept.
+func (e *Event) FullCommand() string {
+	if e.CommandFull != "" {
+		return e.CommandFull
+	}
+	return e.Command
+}
+
+// KeepFull records raw as CommandFull when Command holds a cut copy of it.
+func (e *Event) KeepFull(raw string) {
+	raw = strings.TrimSpace(raw)
+	if len(raw) <= len(e.Command) {
+		return
+	}
+	if len(raw) > MaxCommandFull {
+		raw = raw[:MaxCommandFull]
+	}
+	e.CommandFull = raw
 }
 
 // Entity is one node in the agent relationship graph.

@@ -23,10 +23,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v2/internal/casepkg"
-	"github.com/efij/AgentDFIR/v2/internal/parsers/segment"
-	"github.com/efij/AgentDFIR/v2/internal/schema"
-	"github.com/efij/AgentDFIR/v2/internal/version"
+	"github.com/efij/AgentDFIR/v3/internal/casepkg"
+	"github.com/efij/AgentDFIR/v3/internal/parsers/segment"
+	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v3/internal/version"
 )
 
 // MaxFileBytes bounds a whole session file read (hostile evidence).
@@ -423,6 +423,7 @@ func (p *parser) emitMessage(raw json.RawMessage, art casepkg.ArtifactRecord, cf
 			if m.State != nil {
 				if cmd := commandArg(m.State.Input); cmd != "" {
 					ev.Command = trim(cmd, 300)
+					ev.KeepFull(cmd)
 					ev.Action = "shell_execution"
 				}
 			}
@@ -463,6 +464,7 @@ func (p *parser) emitMessage(raw json.RawMessage, art casepkg.ArtifactRecord, cf
 			ev.Corroboration = schema.StateObserved
 			if cmd := commandArg(pt.FunctionCall.Args); cmd != "" {
 				ev.Command = trim(cmd, 300)
+				ev.KeepFull(cmd)
 				ev.Action = "shell_execution"
 			}
 			p.emit(ev, art, offset, line)
@@ -497,6 +499,7 @@ func (p *parser) emitMessage(raw json.RawMessage, art casepkg.ArtifactRecord, cf
 					ev.Corroboration = schema.StateObserved
 					if cmd := commandArg(it.Input); cmd != "" {
 						ev.Command = trim(cmd, 300)
+						ev.KeepFull(cmd)
 						ev.Action = "shell_execution"
 					}
 					p.emit(ev, art, offset, line)
@@ -536,6 +539,7 @@ func (p *parser) emitMessage(raw json.RawMessage, art casepkg.ArtifactRecord, cf
 		ev.Corroboration = schema.StateObserved
 		if cmd := commandArg(json.RawMessage(tc.Function.Arguments)); cmd != "" {
 			ev.Command = trim(cmd, 300)
+			ev.KeepFull(cmd)
 			ev.Action = "shell_execution"
 		}
 		p.emit(ev, art, offset, line)
@@ -583,6 +587,7 @@ func (p *parser) emitText(mk func() schema.Event, text string, isModel bool,
 			tc.Tool = "execute_command"
 			tc.Action = "shell_execution"
 			tc.Command = trim(cmd, 300)
+			tc.KeepFull(cmd)
 			tc.Corroboration = schema.StateObserved
 			p.emit(tc, art, offset, line)
 			p.linkTool(tc)

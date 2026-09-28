@@ -1,0 +1,45 @@
+name: "AgentDFIR scan-repo"
+description: "Check a repository for committed AI-agent hooks, auto-run tasks, MCP servers and instruction injection before an agent opens it."
+author: "efij"
+branding:
+  icon: "shield"
+  color: "gray-dark"
+inputs:
+  path:
+    description: "Directory to scan"
+    required: false
+    default: "."
+  fail-on:
+    description: "Fail when a finding is at or above: critical | high | medium | low | none"
+    required: false
+    default: "high"
+  sarif:
+    description: "Write SARIF 2.1.0 to this file (upload it with github/codeql-action/upload-sarif)"
+    required: false
+    default: ""
+runs:
+  using: "composite"
+  steps:
+    # Built from the exact commit this action is pinned to — no release
+    # download, so there is no binary to substitute. Standard library only.
+    - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      with:
+        go-version-file: ${{ github.action_path }}/go.mod
+        cache: false
+    - name: Build agentdfir
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        cd "$ACTION_PATH"
+        go build -trimpath -o "$RUNNER_TEMP/agentdfir" ./cmd/agentdfir
+    - name: scan-repo
+      shell: bash
+      env:
+        SCAN_PATH: ${{ inputs.path }}
+        FAIL_ON: ${{ inputs.fail-on }}
+        SARIF_OUT: ${{ inputs.sarif }}
+      run: |
+        args=(scan-repo "$SCAN_PATH" --fail-on "$FAIL_ON")
+        if [ -n "$SARIF_OUT" ]; then args+=(--sarif "$SARIF_OUT"); fi
+        "$RUNNER_TEMP/agentdfir" "${args[@]}"

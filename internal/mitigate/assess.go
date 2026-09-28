@@ -4,8 +4,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/efij/AgentDFIR/v2/internal/catalog"
-	"github.com/efij/AgentDFIR/v2/internal/schema"
+	"github.com/efij/AgentDFIR/v3/internal/catalog"
+	"github.com/efij/AgentDFIR/v3/internal/schema"
 )
 
 // RuleRow is one rule's findings seen through what can be done about them.

@@ -1,0 +1,8 @@
+- id: agentdfir-scan-repo
+  name: agentdfir scan-repo
+  description: Check for committed AI-agent hooks, auto-run tasks, MCP servers and instruction injection.
+  entry: agentdfir scan-repo
+  args: ["--fail-on", "high"]
+  language: golang
+  pass_filenames: false
+  always_run: true

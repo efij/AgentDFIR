@@ -4,17 +4,18 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/efij/AgentDFIR/v2/internal/analysis"
+	"github.com/efij/AgentDFIR/v3/internal/analysis"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v2/internal/normalize"
-	"github.com/efij/AgentDFIR/v2/internal/overlay"
-	"github.com/efij/AgentDFIR/v2/internal/sanitize"
-	"github.com/efij/AgentDFIR/v2/internal/schema"
-	"github.com/efij/AgentDFIR/v2/internal/simulate"
+	"github.com/efij/AgentDFIR/v3/internal/mcpaudit"
+	"github.com/efij/AgentDFIR/v3/internal/normalize"
+	"github.com/efij/AgentDFIR/v3/internal/overlay"
+	"github.com/efij/AgentDFIR/v3/internal/sanitize"
+	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v3/internal/simulate"
 )
 
 // cmdNormalize parses a sealed package into the analysis overlay:
@@ -100,7 +101,8 @@ func cmdTimeline(args []string) int {
 // findings. `triage` is the same command (kept for scripts and habit).
 func cmdAnalyze(args []string) int {
 	fs := flag.NewFlagSet("analyze", flag.ContinueOnError)
-	var endpointLogs, gwServers multiFlag
+	var endpointLogs, gwServers, iocFeeds multiFlag
+	fs.Var(&iocFeeds, "iocs", "extra incident IOC feed (agentdfir pack, STIX 2.1 bundle, MISP event); repeatable")
 	fs.Var(&endpointLogs, "endpoint", "OS telemetry log (auditd, Sysmon XML, JSONL/CSV export) to check the transcript against; repeatable")
 	fs.Var(&gwServers, "gateway-server", "transcript MCP server name routed through the gateway; repeatable")
 	shellHistory := fs.String("shell-history", "", "shell history file to check commands against")
@@ -123,7 +125,7 @@ func cmdAnalyze(args []string) int {
 	}
 	opts := analysis.Options{EndpointLogs: endpointLogs, ShellHistory: *shellHistory, GatewayLog: *gwLog, GatewayMap: *gwMap,
 		GatewayServers: gwServers, RulesDir: *rulesDir, NoBuiltinPacks: *noPacks,
-		SpawnThreshold: *spawnTh, Renormalize: *renorm, RetireExcluded: *renorm, Log: os.Stdout}
+		SpawnThreshold: *spawnTh, Renormalize: *renorm, RetireExcluded: *renorm, Log: os.Stdout, IOCFiles: iocFeeds}
 	if *honeyFile != "" {
 		data, err := os.ReadFile(*honeyFile)
 		if err != nil {
@@ -188,29 +190,56 @@ func printTriageFindings(findings []schema.Finding) {
 // cmdSimulate generates a synthetic incident profile.
 func cmdSimulate(args []string) int {
 	fs := flag.NewFlagSet("simulate", flag.ContinueOnError)
-	scenario := fs.String("scenario", "orphan-agent", "scenario id: orphan-agent | toxic-chain")
+	scenario := fs.String("scenario", "orphan-agent", "scenario id, or list: "+strings.Join(simulate.Scenarios, " | "))
 	out := fs.String("out", "simulated-profile", "output profile root")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
-	switch *scenario {
-	case "orphan-agent":
-		if err := simulate.OrphanAgent(*out); err != nil {
-			fmt.Fprintln(os.Stderr, "error:", err)
-			return 1
+	if *scenario == "list" {
+		for _, s := range simulate.Catalog {
+			fmt.Printf("%-20s %s\n", s.ID, s.Title)
+			if s.Source != "" {
+				fmt.Printf("%-20s   source: %s\n", "", s.Source)
+			}
 		}
-	case "toxic-chain":
-		if err := simulate.ToxicChain(*out); err != nil {
-			fmt.Fprintln(os.Stderr, "error:", err)
-			return 1
-		}
-	default:
-		fmt.Fprintf(os.Stderr, "unknown scenario %q; available: %v\n", *scenario, simulate.Scenarios)
+		return 0
+	}
+	sc, ok := simulate.ByID(*scenario)
+	if !ok {
+		fmt.Fprintf(os.Stderr, "unknown scenario %q; available: %v (or --scenario list)\n", *scenario, simulate.Scenarios)
 		return 2
 	}
-	fmt.Printf("Synthetic scenario %q written to %s\n", *scenario, *out)
-	fmt.Printf("Next: agentdfir collect --product claude --path %s\n", *out)
+	if err := os.MkdirAll(*out, 0o755); err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		return 1
+	}
+	if err := sc.Run(*out); err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		return 1
+	}
+	if bp := filepath.Join(*out, simulate.BaselineProfile); dirExists(bp) {
+		if err := mcpaudit.WriteBaseline(mcpaudit.ScanProfile(bp), filepath.Join(*out, "mcp-baseline.json")); err != nil {
+			fmt.Fprintln(os.Stderr, "error:", err)
+			return 1
+		}
+	}
+	fmt.Printf("Synthetic scenario %q written to %s — %s\n", sc.ID, *out, sc.Title)
+	if sc.Source != "" {
+		fmt.Printf("Reproduces the shape of: %s (synthetic data; the profile is marked simulated)\n", sc.Source)
+	}
+	fmt.Printf("Next: HOME=%s agentdfir run --no-serve --new --out %s.case   (or: agentdfir collect --product claude --path %s)\n", *out, *out, *out)
+	if sc.Explain != "" {
+		fmt.Println("Also: " + strings.ReplaceAll(sc.Explain, "<profile>", *out))
+	}
+	if len(sc.Expect) > 0 {
+		fmt.Println("Expect: " + strings.Join(sc.Expect, ", "))
+	}
 	return 0
+}
+
+func dirExists(p string) bool {
+	fi, err := os.Stat(p)
+	return err == nil && fi.IsDir()
 }
 
 // loadEvents reads back the streamed events overlay (used only by the

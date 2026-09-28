@@ -3,7 +3,7 @@ package chain
 import (
 	"testing"
 
-	"github.com/efij/AgentDFIR/v2/internal/schema"
+	"github.com/efij/AgentDFIR/v3/internal/schema"
 )
 
 func ev(id, sess, agent, typ, tool, cmd, summary, ts string, line int) schema.Event {

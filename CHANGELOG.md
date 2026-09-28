@@ -7,7 +7,94 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.0.0] — 2026-09-28
+
+Built from the incidents of the last twelve months — the Nx s1ngularity
+compromise, Shai-Hulud 1, 2 and the keyv wave, SANDWORM_MODE, postmark-mcp,
+codexui-android, Cursor MCPoison, Codex CVE-2025-61260 and branch-name
+injection, Replit and PocketOS, and the OpenAI–Hugging Face agent
+intrusion. Each capability is tested against a reproduction of the
+incident it answers.
+
+### Breaking
+- **Module path is now `github.com/efij/AgentDFIR/v3`** (Go semantic import
+  versioning). `go install github.com/efij/AgentDFIR/v3/cmd/agentdfir@latest`.
+  The `.adfir` package format (0.2) and the event schema version (0.1) are
+  unchanged; events gain an optional `command_full` field.
+- Command rules now read the full command line (up to 64 KiB) instead of
+  the 300-character display copy, so flags and payloads past the cut are
+  matched. `NESTED_AGENT_PERMISSION_BYPASS` matches on the command as the
+  shell parses it (quoted prose and heredoc bodies — files the agent
+  writes — no longer fire it).
+- `analyze` gains an incident-IOC step and a monitor-journal check; cases
+  re-analyzed with 3.0 can carry `KNOWN_INCIDENT_IOC` and `TRANSCRIPT_*`
+  findings that 2.x did not produce.
+
+### Added
+- **`agentdfir hunt`** — "was this machine hit by X?" for eight embedded
+  incidents (indicators copied from each primary write-up, source per
+  incident) plus STIX 2.1 bundles and MISP events (`--iocs`, also on
+  `analyze`). Hits are classified by where they were seen — OBSERVED
+  (command, file, configured package, lockfile, file on disk, SHA-256),
+  SEEN_IN_OUTPUT (shell output), MENTIONED (questions, prose, web pages,
+  `grep` arguments, heredocs: never findings) — and low-confidence
+  shared-infrastructure indicators are context only. Verdicts are bounded
+  by the evidence window: INCONCLUSIVE when the case starts after the
+  incident. `--path` walks lockfiles (npm, yarn, pnpm, bun, pip, poetry,
+  uv, npm's hidden lockfile), shell rc files, named payload files (hashed)
+  and extension directories. Simulated cases say SIMULATED, never HIT.
+- **`agentdfir scan-repo`** — checks a repository before an agent opens
+  it: hooks, `statusLine`, credential helpers and `env` overrides in
+  committed Claude settings; plugin, Cursor and Gemini hooks; VS Code
+  `folderOpen` tasks and workspace files; devcontainer host commands;
+  project MCP configs through the MCP audit; instruction files (injection
+  phrases, invisible Unicode, remote-instruction callouts); install
+  scripts launching AI CLIs headless; `.gitattributes` hiding agent config
+  from review; git config exec hooks and shell syntax in ref names;
+  symlinked, oversized or unparseable agent configs. Text, JSON and SARIF;
+  `--fail-on` for CI; `action.yml` (builds from the pinned commit) and a
+  pre-commit hook.
+- **Offline decoder** (`agentdfir decode`, `internal/decode`) — base64,
+  base32, hex, gzip, zlib, bzip2, UTF-16LE and `String.fromCharCode`,
+  nested four deep, bounded against bombs. When a command executes decoded
+  data every command rule also sees the decoded text;
+  `ENCODED_PAYLOAD_EXECUTED` and `ENCODED_EXEC_UNRESOLVED`.
+- **`monitor --journal`** and **`agentdfir journal verify [--anchor]`** —
+  a hash-chained journal of every transcript append (range, SHA-256,
+  running prefix hash, device:inode), sealed every 10 minutes with the
+  chain head sent to the system log / stderr / `--journal-anchor`.
+  Collected by `run`; analysis reports `TRANSCRIPT_REWRITTEN`,
+  `TRANSCRIPT_TRUNCATED`, `TRANSCRIPT_REPLACED`, `JOURNAL_TAMPERED`,
+  `TRANSCRIPT_DELETED`, `MONITOR_GAP`.
+- **MCP audit** — baselines fingerprint tool definitions (description,
+  schema, annotations) and env values: `MCP_TOOL_DEFINITION_CHANGED`,
+  `MCP_TOOL_ADDED`; `MCP_PACKAGE_TYPOSQUAT` against widely installed MCP
+  servers (npm and PyPI); `npx --package` / `uvx --from` resolved to the
+  package actually installed.
+- **Detections** — `AI_CLI_HEADLESS_BYPASS` (shell history, repo scripts),
+  `HEADLESS_AGENT_SECRET_HUNT` (first prompt of a session only),
+  `EGRESS_VIA_TRUSTED_SERVICE` (shorteners, screenshot services,
+  serverless edges, blockchain RPC, tunnels; also inside decoded
+  payloads), `GITHUB_EXFIL_REPO_CREATE`, and in the community pack (v4)
+  `DNS_EXFIL_LABELS` and `CLOUD_DATA_DESTRUCTION`. Cloud-metadata
+  detection knows the ECS, Alibaba and integer/hex spellings.
+  `AGENT_CREDENTIAL_STORE_ACCESS` covers opencode, Kiro, Amazon Q and
+  Windsurf stores. Rule packs gain `match.scope: "no_heredoc"`.
+- **`simulate`** — six reproductions: `keyv-hook`, `sandworm-mcp`,
+  `s1ngularity`, `mcpoison-rugpull`, `pocketos-wipe`,
+  `swarm-antiforensics`; `--scenario list`. Every simulated profile
+  carries `.agentdfir-simulated`, collected into the case. An end-to-end
+  test runs every scenario through collect → analyze and requires its
+  rules.
+- Benign corpus cases for the new rules (secret-hunt discussion, web3 RPC
+  calls, plain base64 decoding); the false-positive budget stays at zero.
+
 ### Fixed
+- `MCP_TOOL_DESCRIPTION_POISONING` from cached tool manifests mapped to
+  AML.T0053; it now maps to AML.T0110 like the config-declared form.
+- `docs/detection-coverage.md` regenerated (172 rules, 28 ATLAS / 69 ATT&CK
+  techniques).
+
 - Windows one-liner: `irm …/install.ps1 | iex; agentdfir run` lost its
   `agentdfir run` tail whenever it was split, wrapped or pasted as the script
   body, so the install finished and nothing started. The one-liner is now
@@ -681,12 +768,12 @@ without the change.
   its major version from v2 onward, so `go install
   github.com/efij/AgentDFIR/cmd/agentdfir@v2.0.0` failed with *module path
   must match major version*. The module is now
-  `github.com/efij/AgentDFIR/v2` and the documented command is
-  `go install github.com/efij/AgentDFIR/v2/cmd/agentdfir@latest`.
+  `github.com/efij/AgentDFIR/v3` and the documented command is
+  `go install github.com/efij/AgentDFIR/v3/cmd/agentdfir@latest`.
 
   Nothing else changes: the binary, the `.adfir` format, every command and
   the other three install paths are unaffected. Import paths inside the
-  repository moved to `github.com/efij/AgentDFIR/v2/internal/...`.
+  repository moved to `github.com/efij/AgentDFIR/v3/internal/...`.
 
 ## [2.0.0] — 2026-09-22
 

@@ -36,8 +36,8 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/efij/AgentDFIR/v2/internal/casepkg"
-	"github.com/efij/AgentDFIR/v2/internal/schema"
+	"github.com/efij/AgentDFIR/v3/internal/casepkg"
+	"github.com/efij/AgentDFIR/v3/internal/schema"
 )
 
 // Replay is one artifact's cached contribution to a parse. Events have

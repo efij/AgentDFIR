@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v2/internal/casepkg"
-	"github.com/efij/AgentDFIR/v2/internal/schema"
+	"github.com/efij/AgentDFIR/v3/internal/casepkg"
+	"github.com/efij/AgentDFIR/v3/internal/schema"
 )
 
 func hostileCase() *Case {

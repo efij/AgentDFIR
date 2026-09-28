@@ -19,11 +19,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v2/internal/casepkg"
-	"github.com/efij/AgentDFIR/v2/internal/parsers/linereader"
-	"github.com/efij/AgentDFIR/v2/internal/parsers/segment"
-	"github.com/efij/AgentDFIR/v2/internal/schema"
-	"github.com/efij/AgentDFIR/v2/internal/version"
+	"github.com/efij/AgentDFIR/v3/internal/casepkg"
+	"github.com/efij/AgentDFIR/v3/internal/parsers/linereader"
+	"github.com/efij/AgentDFIR/v3/internal/parsers/segment"
+	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v3/internal/version"
 )
 
 // MaxLineBytes bounds a single transcript line (archive-bomb defense).
@@ -574,6 +574,7 @@ func (p *parser) decorateToolCall(ev *schema.Event, it contentItem) {
 	switch {
 	case it.Name == "Bash":
 		ev.Command = trim(inputField(it.Input, "command"), 300)
+		ev.KeepFull(inputField(it.Input, "command"))
 		ev.Action = "shell_execution"
 	case it.Name == "Read" || it.Name == "Write" || it.Name == "Edit" || it.Name == "MultiEdit" || it.Name == "NotebookEdit":
 		ev.File = inputField(it.Input, "file_path")

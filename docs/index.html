@@ -482,7 +482,7 @@ footer a:hover{color:var(--text)}
 
     <div class="spec stg" role="list">
       <div role="listitem"><b>14</b><span>AI agents parsed</span></div>
-      <div role="listitem"><b>140</b><span>deterministic detections</span></div>
+      <div role="listitem"><b>172</b><span>deterministic detections</span></div>
       <div role="listitem"><b>8</b><span>attack chains</span></div>
       <div role="listitem"><b>ATLAS 5.6</b><span>+ ATT&amp;CK mapping</span></div>
       <div role="listitem"><b>SHA-256</b><span>sealed, hash-chained</span></div>
@@ -727,7 +727,7 @@ Result:             <span class="bad">FAILED — 2 problem(s):</span>
         </tbody>
       </table>
     </div>
-    <a class="more" href="https://github.com/efij/AgentDFIR/blob/main/docs/detection-coverage.md">Full matrix: 140 detections, 27 ATLAS techniques</a>
+    <a class="more" href="https://github.com/efij/AgentDFIR/blob/main/docs/detection-coverage.md">Full matrix: 172 detections, 28 ATLAS techniques</a>
 
     <div class="stg integ" style="margin-top:56px">
       <div><h3>Collect from anywhere</h3><p>this machine · --path image<br>--import KAPE/Velociraptor/CyLR<br>--docker · --archive CI</p></div>
@@ -755,7 +755,7 @@ Result:             <span class="bad">FAILED — 2 problem(s):</span>
       <div><span>Chocolatey</span><code>choco install agentdfir</code></div>
       <div><span>Scoop</span><code>scoop bucket add agentdfir https://github.com/efij/scoop-agentdfir; scoop install agentdfir</code></div>
       <div><span>Windows script</span><code>irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex</code></div>
-      <div><span>Go</span><code>go install github.com/efij/AgentDFIR/v2/cmd/agentdfir@latest</code></div>
+      <div><span>Go</span><code>go install github.com/efij/AgentDFIR/v3/cmd/agentdfir@latest</code></div>
       <div><span>Verify a release</span><span>Every asset ships a Sigstore bundle; <code>cosign verify-blob --offline</code> works air-gapped. <a class="more" style="margin:0" href="https://github.com/efij/AgentDFIR/blob/main/docs/install.md">Exact command</a></span></div>
     </div>
   </div>
@@ -773,7 +773,7 @@ Result:             <span class="bad">FAILED — 2 problem(s):</span>
       <div>
         <details open><summary>What is an attack chain?</summary><p>An ordered sequence of agent events that is unremarkable alone and an attack together: instruction-override content in a tool result, then the agent writing its own settings, then a shell command, in one session within a time window. Eight chains ship built in; you can add your own in JSON.</p></details>
         <details><summary>Does it work on a disk image or a KAPE collection?</summary><p>Yes. <code>collect --path</code> takes a copied home or a mounted image, <code>--import</code> takes a KAPE, Velociraptor or CyLR tree with every user and every agent, <code>--docker</code> snapshots a container read-only and <code>--archive</code> ingests CI artifacts and support bundles.</p></details>
-        <details><summary>What does it detect?</summary><p>140 deterministic rules: orphan agents, cross-agent messaging, destructive and exfiltrating commands, agents editing their own instructions or hooks, credentials read from agent config, poisoned or unpinned MCP servers, honeytoken hits and transcript integrity gaps. See the <a href="https://github.com/efij/AgentDFIR/blob/main/docs/detection-coverage.md">coverage matrix</a>.</p></details>
+        <details><summary>What does it detect?</summary><p>172 deterministic rules: orphan agents, cross-agent messaging, destructive and exfiltrating commands, agents editing their own instructions or hooks, credentials read from agent config, poisoned or unpinned MCP servers, honeytoken hits and transcript integrity gaps. See the <a href="https://github.com/efij/AgentDFIR/blob/main/docs/detection-coverage.md">coverage matrix</a>.</p></details>
       </div>
     </div>
   </div>
@@ -784,9 +784,11 @@ Result:             <span class="bad">FAILED — 2 problem(s):</span>
     <div class="rv head"><h2>Documentation and open schemas</h2></div>
     <div class="stg docs">
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/install.md"><b>Install</b><span>Every channel, SHA-256 and Sigstore verification, air-gapped use.</span></a>
+      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/hunt.md"><b>Hunt</b><span>Was this machine hit by a known incident? IOC packs, STIX and MISP.</span></a>
+      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/scan-repo.md"><b>Scan a repo</b><span>Committed agent hooks and auto-run tasks, before an agent opens it.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/mitigate.md"><b>Mitigate</b><span>Guardrail packs, fix-now controls, the ledger, drift and revert.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/serve.md"><b>Case explorer</b><span>Overview, findings, story diagram, activity, search, case notes.</span></a>
-      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/detection-coverage.md"><b>Detection coverage</b><span>140 detections mapped to MITRE ATLAS 5.6 and ATT&amp;CK.</span></a>
+      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/detection-coverage.md"><b>Detection coverage</b><span>172 detections mapped to MITRE ATLAS 5.6 and ATT&amp;CK.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/attack-chains.md"><b>Attack chains</b><span>The eight built-in chains and how to write your own.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/claude-code-forensic-artifacts.md"><b>Claude Code artifacts</b><span>Every on-disk location and the JSONL session schema.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/mcp-audit.md"><b>MCP supply-chain audit</b><span>Inventory, risky configuration, poisoning and drift.</span></a>
@@ -837,7 +839,7 @@ Result:             <span class="bad">FAILED — 2 problem(s):</span>
     win:['>','$env:AGENTDFIR_RUN=1; irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex'],
     brew:['$','brew install efij/agentdfir/agentdfir && agentdfir run'],
     choco:['>','choco install agentdfir; agentdfir run'],
-    go:['$','go install github.com/efij/AgentDFIR/v2/cmd/agentdfir@latest && agentdfir run']};
+    go:['$','go install github.com/efij/AgentDFIR/v3/cmd/agentdfir@latest && agentdfir run']};
   var os=/Win/.test(navigator.platform||navigator.userAgent)?'win':'unix';
   var body=document.getElementById('cmd-body'),p=document.getElementById('cmd-p'),tabs=document.querySelectorAll('.term-top button'),btn=document.getElementById('copy');
   function pick(k){os=k;p.textContent=C[k][0];body.textContent=C[k][1];tabs.forEach(function(t){t.setAttribute('aria-selected',String(t.dataset.os===k))})}

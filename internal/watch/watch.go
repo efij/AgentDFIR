@@ -19,8 +19,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v2/internal/parsers/linereader"
-	"github.com/efij/AgentDFIR/v2/internal/sanitize"
+	"github.com/efij/AgentDFIR/v3/internal/parsers/linereader"
+	"github.com/efij/AgentDFIR/v3/internal/sanitize"
 )
 
 // MaxLineBytes bounds one tailed line.
@@ -36,6 +36,12 @@ type Watcher struct {
 	OnLine func(path string, raw []byte, off int64, line int)
 	// Quiet suppresses the per-line console rendering.
 	Quiet bool
+	// Journal hooks (monitor --journal): existing files at start, growth,
+	// shrinkage and disappearance, with byte ranges.
+	OnBaseline func(path string)
+	OnGrow     func(path string, from, to int64)
+	OnShrink   func(path string, was, now int64)
+	OnGone     func(path string)
 
 	offsets map[string]int64
 	lines   map[string]int
@@ -50,28 +56,53 @@ func (w *Watcher) Run(cycles int) error {
 		w.offsets = map[string]int64{}
 		w.lines = map[string]int{}
 		// Baseline pass: existing content is history, not live activity.
-		w.scan(func(path string, size int64) { w.offsets[path] = size; w.lines[path] = countLines(path) })
+		w.scan(func(path string, size int64) {
+			w.offsets[path] = size
+			w.lines[path] = countLines(path)
+			if w.OnBaseline != nil {
+				w.OnBaseline(path)
+			}
+		})
 	}
 	for i := 0; cycles <= 0 || i < cycles; i++ {
 		if i > 0 || cycles <= 0 {
 			time.Sleep(w.Interval)
 		}
+		present := map[string]bool{}
 		w.scan(func(path string, size int64) {
+			present[path] = true
 			last, known := w.offsets[path]
 			switch {
 			case !known:
+				if w.OnGrow != nil {
+					w.OnGrow(path, 0, size)
+				}
 				w.emitNew(path, 0, size)
 				w.offsets[path] = size
 			case size > last:
+				if w.OnGrow != nil {
+					w.OnGrow(path, last, size)
+				}
 				w.emitNew(path, last, size)
 				w.offsets[path] = size
 			case size < last:
+				if w.OnShrink != nil {
+					w.OnShrink(path, last, size)
+				}
 				// Truncation/rewrite is itself a signal.
 				fmt.Fprintf(w.Out, "%s TRUNCATED  %s (was %d bytes, now %d)\n",
 					time.Now().UTC().Format(time.RFC3339), sanitize.Terminal(path), last, size)
 				w.offsets[path] = size
 			}
 		})
+		for p := range w.offsets {
+			if !present[p] {
+				if w.OnGone != nil {
+					w.OnGone(p)
+				}
+				delete(w.offsets, p)
+			}
+		}
 	}
 	return nil
 }

@@ -1,6 +1,6 @@
 {
   "pack": "agentdfir-community",
-  "version": "3",
+  "version": "4",
   "rules": [
     {
       "id": "CURL_PIPE_SHELL",
@@ -164,6 +164,25 @@
       },
       "false_positive_notes": "Legitimate during imaging; catastrophic otherwise.",
       "mitre_attack": "T1561",
+      "mitre_atlas": "AML.T0101"
+    },
+    {
+      "id": "CLOUD_DATA_DESTRUCTION",
+      "title": "Agent Destroys a Database, Volume or Cloud Resource",
+      "description": "Command drops a database or schema, deletes a managed database, volume, persistent volume claim or namespace, resets a hosted database, or runs terraform destroy. The Replit agent (Jul 2025) wiped a production database during a code freeze; a Cursor agent (Apr 2026) deleted a Railway volume and its backups in seconds.",
+      "severity": "HIGH",
+      "confidence": "medium",
+      "match": {
+        "type": "command",
+        "regex": "(?i)(\\bDROP\\s+(DATABASE|SCHEMA)\\b|\\bTRUNCATE\\s+TABLE\\b|\\bdropdb\\b|\\bFLUSHALL\\b|db\\.dropDatabase\\(|\\baws\\s+rds\\s+delete-db-(instance|cluster)\\b|\\baws\\s+dynamodb\\s+delete-table\\b|\\baws\\s+s3\\s+rb\\b[^|;&]*--force|\\bgcloud\\s+sql\\s+instances\\s+delete\\b|\\baz\\s+(sql|postgres|mysql|cosmosdb)\\b[^|;&]*\\bdelete\\b|\\brailway\\s+(volume\\s+delete|down)\\b|\\bvolumeDelete\\b|\\bsupabase\\s+db\\s+reset\\b|\\bheroku\\s+(pg:reset|apps:destroy)\\b|\\bterraform\\s+destroy\\b|\\bpulumi\\s+destroy\\b|\\bkubectl\\s+delete\\s+(pvc|pv|persistentvolume(claim)?s?|namespace|ns)\\b)",
+        "scope": "no_heredoc"
+      },
+      "false_positive_notes": "Test and scratch databases get dropped all the time; the signal is a production name, a code freeze, or no request for it.",
+      "references": [
+        "https://fortune.com/2025/07/23/ai-coding-tool-replit-wiped-database-called-it-a-catastrophic-failure/",
+        "https://attack.mitre.org/techniques/T1485/"
+      ],
+      "mitre_attack": "T1485",
       "mitre_atlas": "AML.T0101"
     },
     {
@@ -402,6 +421,25 @@
       "mitre_atlas": "AML.T0086"
     },
     {
+      "id": "DNS_EXFIL_LABELS",
+      "title": "Data Encoded Into DNS Query Names",
+      "description": "A DNS lookup whose query name carries a long encoded label (base32/hex/base64-url, 48+ characters) — data smuggled out one query at a time. The OpenAI–Hugging Face agents exfiltrated credentials as base32 DNS labels; no tunneling tool is needed for this.",
+      "severity": "HIGH",
+      "confidence": "medium",
+      "match": {
+        "type": "command",
+        "regex": "(?i)\\b(dig|nslookup|host|drill|kdig|resolvectl\\s+query|Resolve-DnsName)\\b[^|;&\\n]*?\\b[a-z0-9_-]{48,}\\.[a-z0-9.-]+",
+        "scope": "no_heredoc"
+      },
+      "false_positive_notes": "Some load-balancer and CDN hostnames carry long hashed labels; those are 32–40 hex characters and a known provider suffix.",
+      "references": [
+        "https://huggingface.co/blog/agent-intrusion-technical-timeline",
+        "https://attack.mitre.org/techniques/T1048/003/"
+      ],
+      "mitre_attack": "T1048.003",
+      "mitre_atlas": "AML.T0086"
+    },
+    {
       "id": "ANON_PROXY_ROUTING",
       "title": "Traffic Routed Through Anonymizer",
       "description": "Command routes traffic through Tor or a proxy chain, or contacts a .onion address.",
@@ -608,7 +646,13 @@
           ".aider.conf.yml",
           ".config/opencode/auth.json",
           ".openclaw/credentials",
-          "cursor/user/globalstorage/state.vscdb"
+          "cursor/user/globalstorage/state.vscdb",
+          ".local/share/opencode/auth.json",
+          "kiro-auth-token.json",
+          ".aws/amazonq/",
+          ".codeium/windsurf/",
+          ".config/claude/",
+          "claude/config.json"
         ]
       },
       "false_positive_notes": "An agent asked to debug its own login may read its own store; a command that copies, encodes or uploads another agent's store is rarely user-intended. Check the preceding human prompt.",
@@ -1234,12 +1278,13 @@
     {
       "id": "NESTED_AGENT_PERMISSION_BYPASS",
       "title": "Agent Launches Another Agent With Permission Checks Disabled",
-      "description": "An agent-run command starts an AI agent CLI in unattended/bypass mode (--dangerously-skip-permissions, --full-auto, --yolo, --yes-always, --allow-all-tools). The child inherits no human oversight.",
+      "description": "An agent-run command starts an AI agent CLI in unattended/bypass mode (--dangerously-skip-permissions, --full-auto, --yolo, --yes-always, --allow-all-tools). The child inherits no human oversight. v2.8: every documented bypass spelling (--permission-mode bypassPermissions, codex --sandbox danger-full-access / -a never / -c approval_policy=never, gemini --approval-mode yolo, q chat --trust-all-tools, npx launchers), and a '|' or '&' inside the quoted prompt no longer hides the flag.",
       "severity": "HIGH",
       "confidence": "high",
       "match": {
         "type": "command",
-        "regex": "(?i)(\\bclaude\\b[^|;&]*--dangerously-skip-permissions|\\bcodex\\b[^|;&]*(--full-auto|--dangerously-bypass-approvals-and-sandbox|--yolo|--ask-for-approval\\s+never)|\\bgemini\\b[^|;&]*(--yolo|\\s-y\\b)|\\baider\\b[^|;&]*--yes(-always)?\\b|\\bcursor-agent\\b[^|;&]*(--force|\\s-f\\b)|\\bcopilot\\b[^|;&]*--allow-all-tools|\\bopencode\\b[^|;&]*--dangerously-skip-permissions)"
+        "regex": "(?i)(\\bclaude\\b[^;\\n]*?(--dangerously-skip-permissions|--permission-mode[= ]+[\\\"']?bypassPermissions)|@anthropic-ai/claude-code\\b[^;\\n]*?--dangerously-skip-permissions|\\bcodex\\b[^;\\n]*?(--full-auto|--dangerously-bypass-approvals-and-sandbox|--yolo|--ask-for-approval[= ]+never|\\s-a[= ]+never\\b|--sandbox[= ]+danger-full-access|\\s-s[= ]+danger-full-access|approval_policy\\s*=\\s*[\\\"']?never)|\\bgemini\\b[^;\\n]*?(--yolo|\\s-y\\b|--approval-mode[= ]+yolo)|\\bq\\s+chat\\b[^;\\n]*?--trust-all-tools|\\baider\\b[^;\\n]*?--yes(-always)?\\b|\\bcursor-agent\\b[^;\\n]*?(--force|\\s-f\\b)|\\bcopilot\\b[^;\\n]*?(--allow-all-tools|--allow-all-paths)|\\bopencode\\b[^;\\n]*?--dangerously-skip-permissions)",
+        "scope": "shell"
       },
       "false_positive_notes": "CI pipelines run agents unattended by design; inside an interactive session this removes the human from the loop.",
       "references": [

@@ -22,11 +22,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v2/internal/casepkg"
-	"github.com/efij/AgentDFIR/v2/internal/parsers/linereader"
-	"github.com/efij/AgentDFIR/v2/internal/parsers/segment"
-	"github.com/efij/AgentDFIR/v2/internal/schema"
-	"github.com/efij/AgentDFIR/v2/internal/version"
+	"github.com/efij/AgentDFIR/v3/internal/casepkg"
+	"github.com/efij/AgentDFIR/v3/internal/parsers/linereader"
+	"github.com/efij/AgentDFIR/v3/internal/parsers/segment"
+	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v3/internal/version"
 )
 
 // MaxLineBytes bounds one transcript line (archive-bomb defense).
@@ -258,6 +258,7 @@ func (p *parser) handleLine(rl rolloutLine, art casepkg.ArtifactRecord, off int6
 			if pl.Name == "shell" || pl.Name == "container.exec" {
 				ev.Action = "shell_execution"
 				ev.Command = trim(shellCommand(pl.Arguments), 300)
+				ev.KeepFull(shellCommand(pl.Arguments))
 			} else if strings.Contains(pl.Name, "__") {
 				parts := strings.SplitN(pl.Name, "__", 2)
 				ev.MCPServer = parts[0]
@@ -271,6 +272,7 @@ func (p *parser) handleLine(rl rolloutLine, art casepkg.ArtifactRecord, off int6
 				if pl.Name == "exec" {
 					ev.Action = "shell_execution"
 					ev.Command = trim(pl.Input, 300)
+					ev.KeepFull(pl.Input)
 				}
 			}
 			p.emit(ev, art, off, line)
@@ -283,6 +285,7 @@ func (p *parser) handleLine(rl rolloutLine, art casepkg.ArtifactRecord, off int6
 			ev.ToolCallID = pl.CallID
 			ev.Action = "shell_execution"
 			ev.Command = trim(actionCommand(pl.Action), 300)
+			ev.KeepFull(actionCommand(pl.Action))
 			ev.Corroboration = schema.StateObserved
 			p.emit(ev, art, off, line)
 			p.linkTool(ev)

@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"io"
 
-	"github.com/efij/AgentDFIR/v2/internal/casepkg"
+	"github.com/efij/AgentDFIR/v3/internal/casepkg"
 )
 
 // Streaming content scanning. Artifacts of ANY size are scanned with

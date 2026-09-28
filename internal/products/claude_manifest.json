@@ -21,6 +21,8 @@
     { "id": "claude.stats", "paths": ["${CONFIG_ROOT}/statsig/**"], "category": "product_state", "sensitivity": "low" },
     { "id": "claude.managed_settings_macos", "platforms": ["darwin"], "paths": ["${SYSTEM_ROOT}/Library/Application Support/ClaudeCode/**"], "category": "managed_config", "sensitivity": "medium" },
     { "id": "claude.managed_settings_linux", "platforms": ["linux"], "paths": ["${SYSTEM_ROOT}/etc/claude-code/**"], "category": "managed_config", "sensitivity": "medium" },
-    { "id": "agentdfir.mitigations", "paths": ["${PROFILE_ROOT}/.agentdfir/mitigations/ledger.jsonl"], "category": "product_state", "sensitivity": "medium" }
+    { "id": "agentdfir.mitigations", "paths": ["${PROFILE_ROOT}/.agentdfir/mitigations/ledger.jsonl"], "category": "product_state", "sensitivity": "medium" },
+    { "id": "agentdfir.monitor_journal", "paths": ["${PROFILE_ROOT}/.agentdfir/monitor/journal.jsonl"], "category": "product_state", "sensitivity": "medium" },
+    { "id": "agentdfir.simulated_marker", "paths": ["${PROFILE_ROOT}/.agentdfir-simulated"], "category": "product_state", "sensitivity": "low" }
   ]
 }

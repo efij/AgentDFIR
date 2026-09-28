@@ -5,7 +5,7 @@
 package netdest
 
 import (
-	"github.com/efij/AgentDFIR/v2/internal/shellshape"
+	"github.com/efij/AgentDFIR/v3/internal/shellshape"
 	"regexp"
 	"strconv"
 	"strings"
@@ -215,9 +215,19 @@ func onlyLoopback(fields []string) bool {
 
 // IsCloudMetadata flags the cloud instance-metadata endpoint — a classic
 // credential-theft pivot inside cloud workloads.
+//
+// Beyond the AWS/GCP/Azure address it knows the ECS task-credential
+// endpoint, Alibaba's, Oracle's, the IPv6 form and the integer/hex
+// spellings of 169.254.169.254 that dodge a string match.
 func IsCloudMetadata(dest string) bool {
-	h := Host(dest)
-	return h == "169.254.169.254" || h == "metadata.google.internal" || h == "fd00:ec2::254"
+	h := strings.Trim(strings.ToLower(Host(dest)), "[]")
+	switch h {
+	case "169.254.169.254", "metadata.google.internal", "metadata", "fd00:ec2::254",
+		"169.254.170.2", "100.100.100.200", "169.254.169.253",
+		"2852039166", "0xa9fea9fe", "0xa9.0xfe.0xa9.0xfe", "0251.0376.0251.0376", "[::ffff:a9fe:a9fe]", "::ffff:a9fe:a9fe", "::ffff:169.254.169.254":
+		return true
+	}
+	return false
 }
 
 // plausibleHost rejects things that are syntactically a word but cannot be

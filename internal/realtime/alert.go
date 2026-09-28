@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/efij/AgentDFIR/v2/internal/schema"
-	"github.com/efij/AgentDFIR/v2/internal/version"
+	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v3/internal/version"
 )
 
 // Sink delivers one finding somewhere. Sends must never block the tail
