@@ -7,6 +7,13 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+- Windows one-liner: `irm …/install.ps1 | iex; agentdfir run` lost its
+  `agentdfir run` tail whenever it was split, wrapped or pasted as the script
+  body, so the install finished and nothing started. The one-liner is now
+  `$env:AGENTDFIR_RUN=1; irm …/install.ps1 | iex`: the installer starts the
+  run itself and clears the variable; without it, it prints the next command.
+
 ## [2.7.0] — 2026-09-27
 
 Findings now lead somewhere: `agentdfir mitigate` writes guardrails into the
