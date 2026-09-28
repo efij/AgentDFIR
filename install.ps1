@@ -2,7 +2,7 @@
 <#
 AgentDFIR installer for Windows (PowerShell 5.1 or 7, x64 or ARM64).
 
-  irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex
+  $env:AGENTDFIR_RUN=1; irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex
 
 What it does, in order:
   1. detects the CPU (x64 / ARM64), 2. downloads the raw release .exe and SHA256SUMS.txt,
@@ -15,6 +15,7 @@ Environment:
   AGENTDFIR_VERSION      tag to install (default: latest release), e.g. v0.16.0
   AGENTDFIR_INSTALL_DIR  target directory (default: %LOCALAPPDATA%\agentdfir\bin)
   AGENTDFIR_BASE_URL     asset base URL override (tests use file:///…/dist)
+  AGENTDFIR_RUN          1 = start `agentdfir run` when the install finishes (cleared afterwards)
 
 macOS / Linux: curl -fsSL https://raw.githubusercontent.com/efij/AgentDFIR/main/install.sh | sh
 #>
@@ -85,5 +86,18 @@ macOS / Linux: curl -fsSL https://raw.githubusercontent.com/efij/AgentDFIR/main/
     $new = if ($userPath) { "$userPath$sep$installDir" } else { $installDir }
     [Environment]::SetEnvironmentVariable('Path', $new, 'User')
     Write-Host "added $installDir to your PATH (new terminals pick it up)"
+  }
+
+  # Start the run here rather than relying on a command typed after `| iex`:
+  # that tail is lost whenever the one-liner is split, wrapped or pasted as
+  # the script body, and the install then looks like it did nothing.
+  $runNow = $env:AGENTDFIR_RUN -eq '1'
+  Remove-Item Env:\AGENTDFIR_RUN -ErrorAction SilentlyContinue
+  Write-Host ""
+  if ($runNow) {
+    Write-Host "starting: agentdfir run"
+    & $dest run
+  } else {
+    Write-Host "Next: agentdfir run    (finds every AI agent on this machine, collects, analyzes and opens the results)"
   }
 }

@@ -14,7 +14,7 @@ curl -fsSL https://raw.githubusercontent.com/efij/AgentDFIR/main/install.sh | sh
 Windows, PowerShell, x64 or ARM64 (installs to `%LOCALAPPDATA%\agentdfir\bin`, added to your PATH):
 
 ```powershell
-irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex; agentdfir run
+$env:AGENTDFIR_RUN=1; irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex
 ```
 
 AgentDFIR is a single static binary with zero runtime dependencies. Pick the path
