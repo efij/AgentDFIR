@@ -724,8 +724,12 @@ function buildGroups(){
     if(f.session) g.sessions.add(f.session); if(f.class!=='building_block') g.routine=false;
   });
   const CR={HIGH:3,MEDIUM:2,LOW:1};
-  S.groups=Object.values(m).map(g=>{ g.items.sort((a,b)=>sevOf(b.severity).r-sevOf(a.severity).r||(CR[b.confidence]||0)-(CR[a.confidence]||0)||String(b.timestamp).localeCompare(String(a.timestamp))); g.p=plain(g.items[0]); if(g.routine) g.p.kind='routine'; return g; })
-    .sort((a,b)=>sevOf(b.sev).r-sevOf(a.sev).r||(CR[b.conf]||0)-(CR[a.conf]||0)||b.items.length-a.items.length);
+  // Newest first: within a severity tier, the kind seen most recently comes
+  // first, and inside a kind the latest occurrence is shown first. Undated
+  // findings (configuration, file content) sort after dated ones.
+  const ts=x=>String(x.timestamp||'');
+  S.groups=Object.values(m).map(g=>{ g.items.sort((a,b)=>ts(b).localeCompare(ts(a))||sevOf(b.severity).r-sevOf(a.severity).r||(CR[b.confidence]||0)-(CR[a.confidence]||0)); g.latest=g.items.reduce((t,x)=>ts(x)>t?ts(x):t,''); g.p=plain(g.items[0]); if(g.routine) g.p.kind='routine'; return g; })
+    .sort((a,b)=>sevOf(b.sev).r-sevOf(a.sev).r||b.latest.localeCompare(a.latest)||(CR[b.conf]||0)-(CR[a.conf]||0)||b.items.length-a.items.length);
 }
 const tierOf=g=>g.p.kind==='routine'&&sevOf(g.sev).r<=2?'background':(g.sev==='CRITICAL'||g.sev==='HIGH')?'attention':g.sev==='MEDIUM'?'look':'background';
 const reviewed=g=>g.items.filter(f=>verdictOf(f.key)).length;
