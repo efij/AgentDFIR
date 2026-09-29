@@ -41,6 +41,7 @@ type Step struct {
 	FileRegex    string   `json:"file_regex,omitempty"`
 	TextRegex    string   `json:"text_regex,omitempty"` // over command, file, summary, result, destination
 	Outbound     bool     `json:"outbound,omitempty"`   // command opens a network connection (netdest.IsOutbound)
+	Upload       bool     `json:"upload,omitempty"`     // command sends data out (netdest.IsUpload)
 	FindingRules []string `json:"finding_rules,omitempty"`
 	Or           []Step   `json:"or,omitempty"` // alternatives: the step also matches if any of these does
 
@@ -105,7 +106,7 @@ func (c *Chain) Validate() error {
 		if s.textRe, err = compile(s.TextRegex); err != nil {
 			return fmt.Errorf("chain %s step %s: text_regex: %w", c.ID, s.Name, err)
 		}
-		if len(s.EventTypes)+len(s.Tools)+len(s.FindingRules) == 0 && !s.MCP && !s.Network && !s.Outbound && s.cmdRe == nil && s.fileRe == nil && s.textRe == nil {
+		if len(s.EventTypes)+len(s.Tools)+len(s.FindingRules) == 0 && !s.MCP && !s.Network && !s.Outbound && !s.Upload && s.cmdRe == nil && s.fileRe == nil && s.textRe == nil {
 			return fmt.Errorf("chain %s step %s: no predicate", c.ID, s.Name)
 		}
 		for j := range s.Or {
@@ -296,6 +297,9 @@ func stepMatchesOne(s *Step, e schema.Event, flagged map[string]map[string]bool)
 		return false
 	}
 	if s.Network && e.NetworkDest == "" {
+		return false
+	}
+	if s.Upload && !netdest.IsUpload(e.FullCommand()) {
 		return false
 	}
 	if s.Outbound && !netdest.IsOutbound(e.Command) {

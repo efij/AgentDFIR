@@ -12,7 +12,16 @@ var heredocRe = regexp.MustCompile(`<<(-?)\s*['"]?([A-Za-z_][A-Za-z0-9_]*)['"]?`
 // EOF` is data; a body fed to a shell or interpreter (`bash <<EOF`,
 // `python3 - <<EOF`) is code and stays. `<<` inside quotes or arithmetic
 // is not a heredoc. Strip is the stronger form (quoted prose emptied too).
-func StripHeredocs(cmd string) string {
+func StripHeredocs(cmd string) string { return stripHeredocs(cmd, false) }
+
+// StripAllHeredocs removes every heredoc body, including one fed to an
+// interpreter. For signature rules: `python3 - <<'EOF'` edit scripts are
+// string literals being written into files, and on a real machine they were
+// most of the HIGH false positives (a Go test mentioning a reverse shell,
+// a plan that names ~/.aws/credentials).
+func StripAllHeredocs(cmd string) string { return stripHeredocs(cmd, true) }
+
+func stripHeredocs(cmd string, all bool) string {
 	if !strings.Contains(cmd, "<<") {
 		return cmd
 	}
@@ -30,7 +39,7 @@ func StripHeredocs(cmd string) string {
 				continue // a shift or a quoted "<<", not a heredoc
 			}
 			marker, tabs := l[m[4]:m[5]], l[m[2]:m[3]] == "-"
-			keep := feedsInterpreter(before)
+			keep := !all && feedsInterpreter(before)
 			for i+1 < len(lines) {
 				i++
 				t := lines[i]

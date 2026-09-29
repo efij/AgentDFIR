@@ -261,7 +261,7 @@ func scanArtifactContent(store *casepkg.Store, a casepkg.ArtifactRecord, honeyto
 	wantSecret := conversation
 	wantHoney := conversation && len(honeytokens) > 0
 	var surface *surfaceRule
-	if !selfReferentialPath(a.LogicalPath) {
+	if !selfReferentialPath(a.LogicalPath) && !nonDefinitionFile(a.LogicalPath) {
 		for i := range injectionSurfaces {
 			if isType(a, injectionSurfaces[i].types...) {
 				surface = &injectionSurfaces[i]
@@ -389,4 +389,18 @@ func scanArtifactContent(store *casepkg.Store, a casepkg.ArtifactRecord, honeyto
 		})
 	}
 	return res
+}
+
+// nonDefinitionFile: files inside a plugin or skill tree that the model
+// does not load as instructions — source code, tests, bug reports. On a
+// real machine TOOL_POISONING_INDICATOR fired on a plugin's
+// verification.test.ts and docs/reports/issue-597.md.
+func nonDefinitionFile(p string) bool {
+	l := strings.ToLower(strings.ReplaceAll(p, `\`, "/"))
+	for _, ext := range []string{".ts", ".js", ".mjs", ".cjs", ".py", ".go", ".rs", ".java", ".rb", ".sh", ".lock"} {
+		if strings.HasSuffix(l, ext) {
+			return true
+		}
+	}
+	return strings.Contains(l, "/tests/") || strings.Contains(l, "/test/") || strings.Contains(l, "/__tests__/") || strings.Contains(l, "/docs/reports/") || strings.Contains(l, "/changelog")
 }
