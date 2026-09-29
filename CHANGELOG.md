@@ -10,6 +10,9 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 Lessons from the 2026 agent-driven cloud attacks: Microsoft's Storm-3168,
 Sysdig's JADEPUFFER and Sygnia's AI-assisted intrusion.
 
+Repeat runs are a true delta, every round is signed and proven before the
+next is added, and a run never chokes the machine.
+
 ### Added
 - **Cloud audit logs as a second witness.** `--endpoint` (on `analyze`,
   `run` and `correlate`) now reads AWS CloudTrail, Azure Activity Log and
@@ -46,6 +49,17 @@ Sysdig's JADEPUFFER and Sygnia's AI-assisted intrusion.
   pen-tester writes exactly that.
 - Secret formats `ALIBABA_ACCESS_KEY` (`LTAI…`) and `TENCENT_SECRET_ID`
   (`AKID…`).
+- **Every round is signed** with a per-machine key (`--sign` for another
+  key, `--no-sign` to opt out), and its digest is recorded in an anchor
+  log outside the case and printed. Before a round is added, the previous
+  signature, the anchor and the sealed files are verified
+  (`--verify-prior full` also re-hashes every blob); a failure is recorded
+  in the round (`prior_integrity: FAILED`) and the run exits 4.
+- Each round archives the previous signature to `seals/SEAL.sig.<n>` and
+  records `prev_seal_sha256`, `signer` and `prior_integrity`.
+- The reused analysis overlay is integrity-checked: segment and event
+  hashes, and a MAC over its state under the machine key. Anything that
+  does not match is rebuilt from the sealed evidence.
 
 ### Changed
 - `CLOUD_CREDENTIAL_EXPORT` also covers listing storage account keys and
@@ -54,10 +68,61 @@ Sysdig's JADEPUFFER and Sygnia's AI-assisted intrusion.
 - The Protect tab's steps for a leaked secret say that deleting it from an
   issue, pull request or commit does not remove it from edit history,
   forks or caches.
+- **The content scans remember each artifact's result** (rule packs over
+  raw transcripts and configs; credential, injection and invisible-character
+  scans), keyed on its content address, its record, the analysis code and
+  the rules, and authenticated with the machine key. An unchanged
+  transcript is not scanned again. Rule-pack regexes are also prefiltered on
+  the literals every match must contain (case-folded exactly as `(?i)`
+  folds), and each event's match subject is prepared once instead of once
+  per rule. On a real case (359,000 events) a repeat analysis went from
+  111 s to 42 s, and a repeat `run` from about 5 minutes to under 1.
+- **Repeat `run` recomputes only what changed.** Cached parses and stored
+  results are keyed on a fingerprint of the parsing and analysis code, not
+  on the release number, so a release that changes no parser or rule no
+  longer re-parses and re-analyzes every case. Staleness is decided on the
+  content of the evidence, not the manifest's modification time: a round
+  that only carried files forward rebuilds nothing, and when neither the
+  evidence nor the code changed, `run` reuses the stored results outright
+  (`--reanalyze` forces it).
+  The first run after upgrading re-parses once: caches written by earlier
+  versions carry no fingerprint and no segment hashes, so they are not
+  trusted.
+- The host-witness step at collection time refreshes the per-artifact
+  overlay instead of fully parsing every transcript; analysis then finds
+  the overlay current. Analysis decodes the events once instead of seven
+  times, and writes annotated events once.
+- **One progress display for the whole run**: an overall bar, elapsed time,
+  and a time remaining predicted from this machine's own history
+  (`perf.jsonl` in the home), corrected by today's pace and counting down
+  steadily. It never reads 0:00 while work remains.
+- **Gentle by default** (`--priority gentle|background|normal`): lowered
+  CPU priority, at most half the CPUs, a soft heap limit
+  (`--max-memory-mb`), reads capped at 200 MB/s (`--max-read-mbps`), a
+  pause while the machine is under load (`--no-governor`), and a free-disk
+  floor it never crosses (`--min-free-gb`; exit 5 when a round cannot fit).
 
 ### Fixed
 - Re-running analysis with the same endpoint log appended the same
   corroboration note to an event again on every run.
+- **Every other repeat run re-read the whole profile.** A carried-forward
+  record dropped the inode and change time it was judged unchanged on, so
+  the next round had nothing to compare and re-read those files — 2.7 GB on
+  a real machine, on alternate runs.
+- **Every analysis re-parsed the whole case** once any `node_modules`/`.git`
+  records existed: retiring them from the scan set counted every excluded
+  record (and each round's own policy placeholders) as newly retired and
+  forced a full re-parse. It now counts only newly retired content, and
+  retiring is an incremental rebuild.
+- **An interrupted round no longer damages the case.** A round that never
+  sealed (an error, Ctrl+C, a crash) left records in both hash chains that
+  no seal covered, so the case stopped verifying. Rounds are now
+  transactional: an unsealed round is rolled back to the last seal and the
+  next round records it as `round_aborted`.
+- `run --sign` signed before sealing, so its signature covered the previous
+  round's `SHA256SUMS` and never verified.
+- The collect-step time remaining collapsed to about zero on repeat runs:
+  carried-forward files counted as bytes read.
 
 ## [3.1.2] — 2026-09-29
 

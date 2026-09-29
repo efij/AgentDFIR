@@ -20,13 +20,15 @@ case.adfir/
 ├── chain-of-custody.jsonl  # sealed: hash-chained custody log
 ├── case.json               # sealed: case / operator / clock metadata, rounds
 ├── seals/SHA256SUMS.<n>    # sealed: the seal each earlier round was closed with
+├── seals/SEAL.sig.<n>      # sealed: the signature over that seal, when it was signed
 ├── SHA256SUMS              # sealed: covers the sealed zone exactly
-├── SEAL.sig                # optional: ed25519 detached signature
+├── SEAL.sig                # ed25519 signature over SHA256SUMS (every round, by default)
 ├── .lock                   # transient: held during a collect→seal cycle; not sealed
 ├── normalized/             # overlay: events / entities / relationships (JSONL)
 │   ├── events.jsonl        #   uncompressed: index/ addresses it by byte offset
 │   ├── events/<parser>/    #   per-artifact segments (.jsonl.gz), the parse cache
-│   └── state.json          #   which artifact each segment holds, and at what offset
+│   ├── state.json          #   which artifact each segment holds, at what offset, with what hash
+│   └── state.mac           #   HMAC of state.json under the machine's cache key, when it has one
 ├── detections/             # overlay: findings.json
 ├── index/                  # overlay: events.idx, the explorer's offset index
 ├── reports/                # overlay: HTML/JSON/CSV/STIX/OTel
@@ -34,8 +36,15 @@ case.adfir/
 ```
 
 `SHA256SUMS` covers exactly: `case.json`, the manifest, `collection.jsonl`,
-`chain-of-custody.jsonl`, every `seals/SHA256SUMS.<n>`, and every file in
+`chain-of-custody.jsonl`, every file in `seals/`, and every file in
 `raw/`. Regenerating the overlay never changes the seal.
+
+The overlay is derived and rebuildable, but it is reused across rounds, so
+it is not trusted blindly: `state.json` records the sha256 of every cached
+segment and of `events.jsonl`, and the code fingerprint and evidence digest
+it was built from. A segment or `events.jsonl` that no longer matches, or a
+`state.json` whose `state.mac` does not verify, is discarded and rebuilt
+from the sealed zone.
 
 Everything in the overlay is gzipped except `normalized/events.jsonl`,
 which stays plaintext because `index/events.idx` records a byte offset per
@@ -121,11 +130,26 @@ A package may be collected into more than once. Each collection is a
   verify the whole existing chain before appending: extending a broken
   chain would hide the break behind valid-looking records.
 - Before writing a new `SHA256SUMS`, the previous one is copied to
-  `seals/SHA256SUMS.<n>` where `n` is the round it closed. Earlier sealed
-  states stay provable.
-- `case.json` gains a `rounds` array summarizing each round.
+  `seals/SHA256SUMS.<n>` where `n` is the round it closed, and the previous
+  `SEAL.sig`, if any, to `seals/SEAL.sig.<n>`. Both are covered by the new
+  `SHA256SUMS`, so every seal commits to all earlier seals and signatures.
+- `case.json` gains a `rounds` array summarizing each round. A round records
+  `prev_seal_sha256` (the sha256 of the `SHA256SUMS` it replaced), `signer`
+  (the hex ed25519 public key it was sealed for) and `prior_integrity`:
+  what checking the earlier rounds found before this round was added —
+  `verified`, `unsigned`, or `FAILED` with `prior_integrity_problems`.
 - A producer MUST hold an exclusive lock (`.lock`) for a collect→seal
   cycle. `.lock` is not evidence and is not covered by `SHA256SUMS`.
+- Rounds are transactional. Before a round writes anything, the producer
+  records the sealed state it starts from (the lengths of the manifest and
+  both chains, and `case.json`) in `.round-pending.json`. A round that is
+  not sealed — abandoned or crashed — is rolled back to exactly that state,
+  by the producer on exit or by the next round before it checks or extends
+  the package; the next round records each one as a `round_aborted` custody
+  event with what was discarded. A round is sealed once its new
+  `SHA256SUMS` is in place (written atomically, last); it is never rolled
+  back after that. `.round-pending.json` and `.round-aborted.json` are not
+  evidence and are not covered by `SHA256SUMS`.
 
 A file a later round did not re-read is recorded with
 `collection_method: "carried_forward"` and the `acquired_in_round` that
@@ -133,6 +157,33 @@ did read it. Consumers MUST NOT present carried-forward evidence as freshly
 acquired. A producer MUST decide "unchanged" on properties an unprivileged
 writer cannot forge (inode plus change time); modification time alone is
 not sufficient.
+
+## Round integrity
+
+Before a producer adds a round to an existing package, and after taking
+the lock but before writing anything, it SHOULD check the earlier rounds:
+
+1. `SEAL.sig` verifies over the current `SHA256SUMS`, with the public key
+   the last signed round recorded as its `signer`;
+2. the current `SHA256SUMS` matches the producer's last recorded anchor for
+   this case (below);
+3. a quick verification (steps 1, 2, 4, 5 of the next section) passes.
+
+A failure MUST NOT stop the new round, and MUST NOT be repaired: the round
+is sealed with `prior_integrity: "FAILED"` and the problems listed, so the
+failure is part of the record from then on. A `SEAL.sig` that does not
+match when no round recorded a `signer` predates signed rounds (earlier
+`run --sign` signed before sealing); it is reported and not trusted, and it
+is not evidence of tampering.
+
+A producer SHOULD sign every round (AgentDFIR uses a per-machine key under
+its home, `keys/seal.ed25519`, unless `--sign` names another or `--no-sign`
+is given) and SHOULD record each sealed round's `SHA256SUMS` digest in an
+anchor log outside the package (AgentDFIR: `anchors.jsonl` in its home, a
+hash chain of its own) and print it. A signature proves a round was sealed
+by the holder of the key; the anchor, and the printed digest kept somewhere
+else, are what show a package was not rewritten and re-signed, or rolled
+back to an earlier copy, by someone who controls the machine.
 
 ## Compatibility
 

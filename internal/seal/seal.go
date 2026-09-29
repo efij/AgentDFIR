@@ -220,3 +220,45 @@ func VerifyFileSig(dataPath, sigPath, trustedPubPath string) error {
 	}
 	return nil
 }
+
+// SigFile is the signature file's name inside a package.
+const SigFile = sigFile
+
+// LoadPrivateKey reads an ed25519 private key written by GenerateKey.
+func LoadPrivateKey(path string) (ed25519.PrivateKey, error) {
+	priv, err := readKey(path, privBlock)
+	if err != nil {
+		return nil, err
+	}
+	if len(priv) != ed25519.PrivateKeySize {
+		return nil, errors.New("invalid private key size")
+	}
+	return ed25519.PrivateKey(priv), nil
+}
+
+// PublicKeyHex is the hex public key of a private key file, the form
+// SEAL.sig records and Verify pins.
+func PublicKeyHex(keyPath string) (string, error) {
+	priv, err := LoadPrivateKey(keyPath)
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(priv.Public().(ed25519.PublicKey)), nil
+}
+
+// Fingerprint shortens a hex public key for display: the first 16 hex
+// digits of its sha256.
+func Fingerprint(pubHex string) string {
+	sum := sha256.Sum256([]byte(pubHex))
+	return hex.EncodeToString(sum[:])[:16]
+}
+
+// Digest is the sha256 of the package's SHA256SUMS — the value a signature
+// covers and an anchor records.
+func Digest(pkgDir string) (string, error) {
+	d, err := sumsDigest(pkgDir)
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(d), nil
+}

@@ -9,6 +9,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/efij/AgentDFIR/v3/internal/artmemo"
 	"github.com/efij/AgentDFIR/v3/internal/casepkg"
 	"github.com/efij/AgentDFIR/v3/internal/schema"
 )
@@ -231,6 +232,18 @@ type contentFindings struct {
 	secret, injection, unicode, honey []schema.Finding
 }
 
+// memoContent is contentFindings as the artifact memo stores it.
+type memoContent struct {
+	Secret    []schema.Finding `json:"secret,omitempty"`
+	Injection []schema.Finding `json:"injection,omitempty"`
+	Unicode   []schema.Finding `json:"unicode,omitempty"`
+	Honey     []schema.Finding `json:"honey,omitempty"`
+}
+
+// ContentMemoHits is how many artifacts the last content scan served from
+// the memo instead of reading (for tests and progress reporting).
+var ContentMemoHits int
+
 // contentScans runs POTENTIAL_SECRET_EXPOSURE, the injection-surface
 // rules, INVISIBLE_UNICODE_INSTRUCTION and SECRET_ACCESS (honeytokens)
 // with one read of each artifact.
@@ -238,9 +251,20 @@ func contentScans(man *casepkg.Manifest, pkgDir string, honeytokens []string) []
 	store := casepkg.NewStore(pkgDir, man)
 	cur := man.Current()
 	results := make([]contentFindings, len(cur))
+	// Each artifact's result depends only on its bytes, its record and the
+	// honeytokens, so an unchanged artifact is not read again.
+	memo := artmemo.Open[memoContent](pkgDir, "detect-content", fmt.Sprintf("%q", honeytokens))
 	forEachParallel(len(cur), func(i int) {
-		results[i] = scanArtifactContent(store, cur[i], honeytokens)
+		if m, ok := memo.Get(cur[i]); ok {
+			results[i] = contentFindings{m.Secret, m.Injection, m.Unicode, m.Honey}
+			return
+		}
+		r := scanArtifactContent(store, cur[i], honeytokens)
+		results[i] = r
+		memo.Put(cur[i], memoContent{r.secret, r.injection, r.unicode, r.honey})
 	})
+	_ = memo.Save() // advisory: a memo that cannot be written costs the next run a re-scan
+	ContentMemoHits = memo.Hits()
 	var secret, injection, uni, honey []schema.Finding
 	for _, r := range results {
 		secret = append(secret, r.secret...)

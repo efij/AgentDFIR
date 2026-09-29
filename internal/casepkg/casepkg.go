@@ -165,6 +165,20 @@ type Round struct {
 	ArtifactsCarried int      `json:"artifacts_carried_forward"`
 	ArtifactsFailed  int      `json:"artifacts_not_acquired"`
 	StoredBytes      int64    `json:"stored_bytes"`
+	// PrevSealSHA256 is the sha256 of the SHA256SUMS this round replaced —
+	// the seal of the round before. The archived seal is covered by this
+	// round's SHA256SUMS as well; this names the link for a reader.
+	PrevSealSHA256 string `json:"prev_seal_sha256,omitempty"`
+	// Signer is the public key (hex) the round was sealed for, when it is
+	// signed. The signature itself is SEAL.sig, archived by the next round.
+	Signer string `json:"signer,omitempty"`
+	// PriorIntegrity is what checking the earlier rounds found before this
+	// one was added: "verified", "unsigned" (nothing to check a signature
+	// against), or "FAILED" with the problems listed. A round added to a
+	// case that failed is sealed like any other — the host's evidence is
+	// still worth taking — but it says so, permanently.
+	PriorIntegrity string   `json:"prior_integrity,omitempty"`
+	PriorProblems  []string `json:"prior_integrity_problems,omitempty"`
 }
 
 // CaseInfo is case.json.
@@ -199,16 +213,27 @@ type Sharer interface {
 
 // Builder accumulates evidence into a package directory and seals it.
 type Builder struct {
-	Dir      string
-	Shared   Sharer // optional cross-case blob sharing
-	NoCodec  bool   // store plaintext (used by tests and --no-compress)
-	manifest Manifest
-	caseInfo CaseInfo
-	coll     *hashchain.Writer // collection.jsonl
-	custody  *hashchain.Writer // chain-of-custody.jsonl
-	mf       *os.File          // manifest.jsonl, append mode
-	lock     *lockHandle
-	sealed   bool
+	Dir     string
+	Shared  Sharer // optional cross-case blob sharing
+	NoCodec bool   // store plaintext (used by tests and --no-compress)
+	// Signer, PriorIntegrity and PriorProblems are recorded in this round's
+	// entry in case.json when it is sealed (see Round).
+	Signer         string
+	PriorIntegrity string
+	PriorProblems  []string
+	manifest       Manifest
+	caseInfo       CaseInfo
+	coll           *hashchain.Writer // collection.jsonl
+	custody        *hashchain.Writer // chain-of-custody.jsonl
+	mf             *os.File          // manifest.jsonl, append mode
+	lock           *lockHandle
+	sealed         bool
+	// pending: this round of an existing package recorded the sealed state
+	// it started from and is rolled back to it unless sealed. created:
+	// this builder made the package directory, and removes it unless the
+	// first round is sealed.
+	pending bool
+	created bool
 
 	round   int
 	started time.Time
@@ -253,7 +278,8 @@ func New(dir, caseID string, info CaseInfo) (*Builder, error) {
 	info.UTCOffsetSeconds = offset
 
 	b := &Builder{
-		Dir: dir,
+		Dir:     dir,
+		created: true,
 		manifest: Manifest{
 			ADFIRVersion:     version.ADFIRVersion,
 			CaseID:           caseID,
@@ -309,17 +335,39 @@ func New(dir, caseID string, info CaseInfo) (*Builder, error) {
 // appended: resuming a broken chain would hide the break behind a
 // valid-looking tail.
 func Reopen(dir string, info CaseInfo) (*Builder, error) {
+	return ReopenChecked(dir, info, nil)
+}
+
+// ReopenChecked is Reopen with a check that runs once the package is
+// locked and before anything is written to it. That is the only point at
+// which the earlier rounds can be proven as they were sealed: before the
+// lock another run could still be adding a round, and after Reopen the
+// custody chain already carries this round's first record.
+func ReopenChecked(dir string, info CaseInfo, check func()) (*Builder, error) {
+	lk, err := acquireLock(dir)
+	if err != nil {
+		return nil, err
+	}
+	// A round a previous process left unsealed is rolled back first, so
+	// the check below sees the package exactly as it was last sealed.
+	ab, err := rollbackPending(dir, "crashed")
+	if err != nil {
+		lk.release()
+		return nil, err
+	}
+	noteAborted(dir, ab)
+	if check != nil {
+		check()
+	}
 	man, err := ReadManifest(dir)
 	if err != nil {
+		lk.release()
 		return nil, fmt.Errorf("reopen %s: %w", dir, err)
 	}
 	prevCase, err := ReadCaseInfo(dir)
 	if err != nil {
+		lk.release()
 		return nil, fmt.Errorf("reopen %s: %w", dir, err)
-	}
-	lk, err := acquireLock(dir)
-	if err != nil {
-		return nil, err
 	}
 
 	// Carry the operator's new assertions into the existing case record;
@@ -390,6 +438,10 @@ func Reopen(dir string, info CaseInfo) (*Builder, error) {
 		}
 	}
 
+	if err := beginPending(dir, round); err != nil {
+		return fail(fmt.Errorf("record the sealed state: %w", err))
+	}
+	b.pending = true
 	if b.coll, err = hashchain.NewAppender(filepath.Join(dir, "collection.jsonl")); err != nil {
 		return fail(fmt.Errorf("collection log: %w", err))
 	}
@@ -401,6 +453,16 @@ func Reopen(dir string, info CaseInfo) (*Builder, error) {
 	}
 	if err := b.startRound(); err != nil {
 		return fail(err)
+	}
+	// Rounds rolled back since the last seal are part of the record.
+	for _, a := range takeAborted(dir) {
+		if err := b.custody.Append(map[string]any{
+			"event": "round_aborted", "case_id": b.manifest.CaseID, "round": a.Round,
+			"started_utc": a.StartedUTC, "how": a.How,
+			"discarded_blobs": a.DiscardedBlobs, "discarded_bytes": a.DiscardedBytes,
+		}); err != nil {
+			return fail(err)
+		}
 	}
 	return b, nil
 }
@@ -445,6 +507,9 @@ func countOK(m *Manifest) int {
 
 // Round returns the round this builder is writing.
 func (b *Builder) Round() int { return b.round }
+
+// CaseID is the case this builder is writing.
+func (b *Builder) CaseID() string { return b.manifest.CaseID }
 
 // startRound records the opening custody event for this round.
 func (b *Builder) startRound() error {
@@ -554,6 +619,10 @@ func (b *Builder) carryRecord(prev ArtifactRecord, rec ArtifactRecord) ArtifactR
 	rec.StoredSHA = prev.StoredSHA
 	rec.StoredSize = prev.StoredSize
 	rec.Chunks = prev.Chunks
+	// The identity the file was judged unchanged on travels with the
+	// record, or the next round has nothing to compare and re-reads it.
+	rec.Inode = prev.Inode
+	rec.CTimeUTC = prev.CTimeUTC
 	rec.Status = StatusOK
 	rec.Method = MethodCarriedForward
 	rec.CollectedUTC = time.Now().UTC().Format(time.RFC3339Nano)
@@ -1030,6 +1099,11 @@ func (b *Builder) Seal() error {
 	}
 	b.coll, b.custody, b.mf = nil, nil, nil
 
+	prevSeal := ""
+	if data, err := os.ReadFile(filepath.Join(b.Dir, sumsFile)); err == nil {
+		sum := sha256.Sum256(data)
+		prevSeal = hex.EncodeToString(sum[:])
+	}
 	b.caseInfo.Rounds = append(b.caseInfo.Rounds, Round{
 		Round:            b.round,
 		StartedUTC:       b.started.UTC().Format(time.RFC3339),
@@ -1040,6 +1114,10 @@ func (b *Builder) Seal() error {
 		ArtifactsCarried: b.stats.Carried,
 		ArtifactsFailed:  b.stats.Failed,
 		StoredBytes:      b.stats.StoredBytes,
+		PrevSealSHA256:   prevSeal,
+		Signer:           b.Signer,
+		PriorIntegrity:   b.PriorIntegrity,
+		PriorProblems:    b.PriorProblems,
 	})
 	if err := writeJSON(filepath.Join(b.Dir, "case.json"), b.caseInfo); err != nil {
 		return err
@@ -1050,6 +1128,7 @@ func (b *Builder) Seal() error {
 	if err := b.writeSums(); err != nil {
 		return err
 	}
+	endPending(b.Dir)
 	b.sealed = true
 	b.lock.release()
 	return nil
@@ -1081,6 +1160,25 @@ func (b *Builder) Close() {
 		_ = b.mf.Close()
 		b.mf = nil
 	}
+	// Nothing unsealed survives a builder that is abandoned: an added
+	// round is rolled back to the last seal, and a package whose first
+	// round never sealed is removed.
+	switch {
+	case b.pending:
+		b.pending = false
+		if ab, err := rollbackPending(b.Dir, "abandoned"); err == nil {
+			noteAborted(b.Dir, ab)
+		}
+	case b.created:
+		b.created = false
+		_ = filepath.WalkDir(b.Dir, func(p string, _ os.DirEntry, _ error) error { _ = os.Chmod(p, 0o700); return nil })
+		if b.lock != nil {
+			b.lock.release()
+			b.lock = nil
+		}
+		_ = os.RemoveAll(b.Dir)
+		return
+	}
 	if b.lock != nil {
 		b.lock.release()
 	}
@@ -1101,12 +1199,29 @@ func (b *Builder) archivePreviousSeal() error {
 	if err := os.MkdirAll(filepath.Join(b.Dir, sealsDir), 0o700); err != nil {
 		return err
 	}
+	// The signature over that seal goes with it. Before this, SEAL.sig was
+	// overwritten by the next round's and every earlier signature was lost.
+	if sig, err := os.ReadFile(filepath.Join(b.Dir, sigFileName)); err == nil {
+		sdst := filepath.Join(b.Dir, sealsDir, fmt.Sprintf("%s.%d", sigFileName, b.round-1))
+		if _, err := os.Stat(sdst); errors.Is(err, os.ErrNotExist) {
+			if err := os.WriteFile(sdst, sig, 0o400); err != nil {
+				return err
+			}
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
 	dst := filepath.Join(b.Dir, sealsDir, fmt.Sprintf("%s.%d", sumsFile, b.round-1))
 	if _, err := os.Stat(dst); err == nil {
 		return nil // already archived
 	}
 	return os.WriteFile(dst, data, 0o400)
 }
+
+// sigFileName is the package signature (internal/seal writes it). It sits
+// outside the sealed zone because it signs SHA256SUMS; each round archives
+// the previous one into seals/, where the next seal covers it.
+const sigFileName = "SEAL.sig"
 
 // sealedFiles lists the non-raw files covered by SHA256SUMS. manifest.json
 // is listed for packages that still carry the legacy array form.
@@ -1156,8 +1271,9 @@ func (b *Builder) writeSums() error {
 		lines = append(lines, h+"  raw/"+e.Name())
 	}
 	sort.Strings(lines)
-	return os.WriteFile(filepath.Join(b.Dir, sumsFile),
-		[]byte(strings.Join(lines, "\n")+"\n"), 0o600)
+	// Atomically: the new SHA256SUMS is the moment the round becomes
+	// sealed, and a half-written one must never exist.
+	return writeAtomic(filepath.Join(b.Dir, sumsFile), []byte(strings.Join(lines, "\n")+"\n"), 0o600)
 }
 
 // VerifyResult reports the outcome of package verification.

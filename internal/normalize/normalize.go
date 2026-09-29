@@ -52,6 +52,9 @@ type StreamResult struct {
 	// segments versus read again, when the events came from BuildOverlay.
 	Reused   int
 	Reparsed int
+	// CacheRejected says why the cached segments were not used, when the
+	// reason was an integrity failure rather than ordinary invalidation.
+	CacheRejected string
 }
 
 // ParseStream runs all parsers and calls sink for every normalized event

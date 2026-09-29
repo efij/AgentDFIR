@@ -10,6 +10,9 @@
 package rulepack
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"github.com/efij/AgentDFIR/v3/internal/shellshape"
 	"os"
@@ -20,6 +23,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/efij/AgentDFIR/v3/internal/artmemo"
 	"github.com/efij/AgentDFIR/v3/internal/casepkg"
 	"github.com/efij/AgentDFIR/v3/internal/schema"
 )
@@ -40,6 +44,9 @@ type Rule struct {
 	re        *regexp.Regexp
 	targetRe  *regexp.Regexp
 	excludeRe *regexp.Regexp
+	// need is the regex's literal prefilter (see prefilter.go): nil when
+	// no set of required literals could be proven.
+	need []string
 }
 
 // Match declares what a rule inspects.
@@ -149,6 +156,7 @@ func validatePack(p *Pack) error {
 				return fmt.Errorf("rule %s: bad regex: %w", r.ID, err)
 			}
 			r.re = re
+			r.need = requiredLiterals(r.Match.Regex)
 		}
 		if r.Match.TargetRegex != "" {
 			tre, err := regexp.Compile(r.Match.TargetRegex)
@@ -197,12 +205,13 @@ func Apply(packs []Pack, res *schema.Normalized, pkgDir string) ([]schema.Findin
 	var out []schema.Finding
 	var artRules []*Rule
 	dec := decodeEvents(res.Events)
+	subj := newSubjects(res.Events)
 	for _, p := range packs {
 		for i := range p.Rules {
 			r := &p.Rules[i]
 			switch r.Match.Type {
 			case "command", "summary":
-				out = append(out, matchEvents(r, res, dec)...)
+				out = append(out, matchEvents(r, res, dec, subj)...)
 			case "config", "instructions", "transcript":
 				artRules = append(artRules, r)
 			}
@@ -214,38 +223,25 @@ func Apply(packs []Pack, res *schema.Normalized, pkgDir string) ([]schema.Findin
 		if err != nil {
 			return out, err
 		}
-		out = append(out, matchArtifacts(artRules, man, casepkg.NewStore(pkgDir, man))...)
+		memo := artmemo.Open[[]schema.Finding](pkgDir, "rulepack-artifacts", rulesDigest(artRules))
+		out = append(out, matchArtifacts(artRules, man, casepkg.NewStore(pkgDir, man), memo)...)
+		_ = memo.Save() // advisory: a memo that cannot be written costs the next run a re-scan
+		ArtifactMemoHits = memo.Hits()
 	}
 	return out, nil
 }
 
-func matchEvents(r *Rule, res *schema.Normalized, dec *decoded) []schema.Finding {
+func matchEvents(r *Rule, res *schema.Normalized, dec *decoded, subj *subjects) []schema.Finding {
 	var out []schema.Finding
+	kind := subjectKind(r)
 	for i := range res.Events {
 		ev := &res.Events[i]
-		var subject string
-		switch r.Match.Type {
-		case "command":
-			// The full command, not the 300-character display copy: the
-			// flag or payload that matters is often past the cut.
-			subject = ev.FullCommand()
-			switch r.Match.Scope {
-			case "shell":
-				subject = shellshape.Strip(shellshape.ExpandVars(subject))
-			default:
-				// Quoted arguments stay (SQL in `psql -c '…'` is the
-				// command); heredoc bodies — files being written, edit
-				// scripts full of string literals — go.
-				subject = shellshape.StripAllHeredocs(subject)
-			}
-		case "summary":
-			subject = ev.Summary
-		}
+		subject := subj.text(kind, i)
 		if subject == "" {
 			continue
 		}
 		evidence := fmt.Sprintf("%s:%d (artifact %.12s)", ev.SourcePath, ev.SourceLine, ev.SourceArtifact)
-		if matches(r, subject) {
+		if matchesPrepared(r, subject, subj.lower(kind, i), subj.folded(kind, i)) && !excluded(r, subject) {
 			if r.Match.SkipScratchTarget && r.targetRe != nil && onlyScratchTargets(r.targetRe, shellshape.ExpandVars(ev.FullCommand())) {
 				continue
 			}
@@ -311,7 +307,7 @@ func artifactClass(a casepkg.ArtifactRecord) string {
 // per artifact too, not once per rule. Binaries are skipped: a content
 // rule's phrase or regex inside a .pptx or a node_modules blob is noise,
 // and the other content rules already stay off them.
-func matchArtifacts(rules []*Rule, man *casepkg.Manifest, store *casepkg.Store) []schema.Finding {
+func matchArtifacts(rules []*Rule, man *casepkg.Manifest, store *casepkg.Store, memo *artmemo.Memo[[]schema.Finding]) []schema.Finding {
 	cur := man.Current()
 	results := make([][]schema.Finding, len(cur))
 	var wg sync.WaitGroup
@@ -321,7 +317,15 @@ func matchArtifacts(rules []*Rule, man *casepkg.Manifest, store *casepkg.Store) 
 		go func() {
 			defer wg.Done()
 			for i := range next {
+				// An artifact's matches depend only on its bytes, its
+				// record and the rules, so an unchanged artifact is not
+				// read again (see internal/artmemo).
+				if f, ok := memo.Get(cur[i]); ok {
+					results[i] = f
+					continue
+				}
 				results[i] = matchOneArtifact(rules, cur[i], store)
+				memo.Put(cur[i], results[i])
 			}
 		}()
 	}
@@ -363,13 +367,16 @@ func matchOneArtifact(rules []*Rule, a casepkg.ArtifactRecord, store *casepkg.St
 	}
 	artifactReads.Add(1)
 	s := string(data)
-	low := ""
+	low, folded := "", ""
 	var out []schema.Finding
 	for _, r := range applicable {
 		if len(r.Match.Contains) > 0 && low == "" {
 			low = strings.ToLower(s)
 		}
-		if !matchesPrepared(r, s, low) {
+		if r.need != nil && folded == "" {
+			folded = fold(s)
+		}
+		if !matchesPrepared(r, s, low, folded) {
 			continue
 		}
 		out = append(out, finding(r, "", "", schema.StateObserved,
@@ -379,20 +386,28 @@ func matchOneArtifact(rules []*Rule, a casepkg.ArtifactRecord, store *casepkg.St
 }
 
 func matches(r *Rule, s string) bool {
-	if r.excludeRe != nil && r.excludeRe.MatchString(s) {
+	if excluded(r, s) {
 		return false
 	}
-	low := ""
+	low, folded := "", ""
 	if len(r.Match.Contains) > 0 {
 		low = strings.ToLower(s)
 	}
-	return matchesPrepared(r, s, low)
+	if r.need != nil {
+		folded = fold(s)
+	}
+	return matchesPrepared(r, s, low, folded)
 }
 
-// matchesPrepared is matches with the lowercased subject supplied by the
-// caller, so one artifact is lowercased once for all its rules.
-func matchesPrepared(r *Rule, s, low string) bool {
-	if r.re != nil && r.re.MatchString(s) {
+func excluded(r *Rule, s string) bool {
+	return r.excludeRe != nil && r.excludeRe.MatchString(s)
+}
+
+// matchesPrepared is matches with the lowercased and case-folded subject
+// supplied by the caller, so a subject is prepared once for all rules.
+// folded may be "" only when the rule has no prefilter.
+func matchesPrepared(r *Rule, s, low, folded string) bool {
+	if r.re != nil && (r.need == nil || mayMatch(r.need, folded)) && r.re.MatchString(s) {
 		return true
 	}
 	for _, c := range r.Match.Contains {
@@ -401,6 +416,22 @@ func matchesPrepared(r *Rule, s, low string) bool {
 		}
 	}
 	return false
+}
+
+// ArtifactMemoHits is how many artifacts the last Apply served from the
+// memo instead of scanning (for tests and progress reporting).
+var ArtifactMemoHits int
+
+// rulesDigest identifies a rule set by its full definitions, so remembered
+// results are never reused under a rule that changed.
+func rulesDigest(rules []*Rule) string {
+	h := sha256.New()
+	for _, r := range rules {
+		data, _ := json.Marshal(r)
+		h.Write(data)
+		h.Write([]byte{'\n'})
+	}
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 func finding(r *Rule, session, agent, status, evidence string) schema.Finding {

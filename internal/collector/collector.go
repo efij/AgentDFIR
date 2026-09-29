@@ -45,6 +45,16 @@ type Options struct {
 	Recollect     bool        // re-read every file even when an earlier round already preserved it
 	FullContent   bool        // collect dependency/VCS subtrees too (--full-plugins)
 	Progress      func(Stats) // optional; called after every acquired artifact (UI status lines)
+	// Unchanged, for SurveyRun only, answers whether an earlier round
+	// already holds a file (the builder's carry-forward test), so the
+	// survey counts the bytes that will really be read.
+	Unchanged func(path string, info os.FileInfo) bool
+	// Pace, when set, is called by a worker before it reads a file of the
+	// given size. It may block (to keep the host responsive) and may
+	// refuse (the disk reached its free-space floor); a refused file is
+	// recorded as not acquired, with the reason. It never changes which
+	// files are collected or in what order — only when.
+	Pace func(size int64) error
 }
 
 // Defaults for size bounds.
@@ -88,6 +98,12 @@ type Stats struct {
 	Failed     int
 	NotPresent int   // manifest paths checked that do not exist on this host
 	TotalBytes int64 // plaintext bytes the package now accounts for
+	// ReadBytes is what was actually read from disk this round. Carried-
+	// forward files add to TotalBytes without being read, so a throughput
+	// computed from TotalBytes is a fiction on every repeat run — it made
+	// the time-remaining collapse to zero while real reads were still going.
+	ReadBytes int64
+	Processed int // files handled so far, read or carried
 }
 
 // candidate is one discovered file awaiting acquisition.
@@ -175,6 +191,12 @@ func newRunner(b *casepkg.Builder, opts Options, st *Stats) *runner {
 func (r *runner) worker() {
 	defer r.wg.Done()
 	for c := range r.jobs {
+		if r.opts.Pace != nil {
+			if err := r.opts.Pace(c.info.Size()); err != nil {
+				r.results <- result{idx: c.idx, pending: r.b.PrepareRecord(failedRecord(c.rec, err))}
+				continue
+			}
+		}
 		p, err := r.b.PrepareFile(c.path, c.rec)
 		r.results <- result{idx: c.idx, pending: p, err: err}
 	}
@@ -218,6 +240,7 @@ func (r *runner) commit(res result) {
 		r.fail(err)
 		return
 	}
+	r.st.Processed++
 	switch {
 	case carried:
 		r.st.Carried++
@@ -225,6 +248,7 @@ func (r *runner) commit(res result) {
 	case rec.Status == casepkg.StatusOK:
 		r.st.Acquired++
 		r.st.TotalBytes += rec.Size
+		r.st.ReadBytes += rec.Size
 	case rec.Status == casepkg.StatusSymlink:
 		r.st.Symlinks++
 	case rec.Status == casepkg.StatusNotPresent:
@@ -540,9 +564,14 @@ func IngestLooseSessions(b *casepkg.Builder, root string, opts Options) (*Stats,
 // symlinks, irregular files, over-bound files and policy-excluded subtrees
 // are counted as skipped, not as work.
 type Survey struct {
-	Files   int   // regular files that would be read
+	Files   int   // regular files that would be acquired (read or carried)
 	Bytes   int64 // their total size
 	Skipped int   // symlinks, irregular, bound-exceeded, policy-excluded
+	// Carried and ReadBytes are filled when Options.Unchanged is set:
+	// files an earlier round already holds, and the bytes of the rest —
+	// what acquisition will actually read.
+	Carried   int
+	ReadBytes int64
 }
 
 // SurveyRun measures a collection without performing it.
@@ -629,4 +658,18 @@ func (s *surveyor) file(path string) {
 	}
 	s.out.Files++
 	s.out.Bytes += info.Size()
+	if s.opts.Unchanged != nil && !s.opts.Recollect && s.opts.Unchanged(path, info) {
+		s.out.Carried++
+		return
+	}
+	s.out.ReadBytes += info.Size()
+}
+
+// failedRecord is a file discovery committed to but a worker was not
+// allowed to read (Options.Pace refused it). It stays in the manifest as
+// not acquired, with the reason — never silently dropped.
+func failedRecord(rec casepkg.ArtifactRecord, err error) casepkg.ArtifactRecord {
+	rec.Status = casepkg.StatusError
+	rec.Error = err.Error()
+	return rec
 }

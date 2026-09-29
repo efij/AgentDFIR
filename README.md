@@ -247,6 +247,9 @@ that case instead of producing another multi-gigabyte copy. A second round:
 - carries forward files that are unchanged by **size, inode and ctime** — never mtime alone, which any writer can set — recorded as `carried_forward` with the round that actually read them, so carried evidence is never presented as a fresh acquisition
 - stores only the **new tail** of a transcript that grew, after proving the earlier bytes still hash to what was preserved
 - continues both hash chains from their previous last line (a chain that is already broken is refused, not extended) and archives the seal that closed the previous round
+- **proves the earlier rounds first**: every round is signed (a per-machine key, or `--sign <key>`), its digest is recorded in an anchor log outside the case and printed, and the next run checks the signature, the anchor and the sealed files before adding anything. A failure is recorded in the new round for good and the run exits 4
+- **re-analyzes only what changed**: only new or grown transcripts are parsed, and when neither the evidence nor the parsing and rule code changed, the stored results are reused outright. A new release that doesn't touch parsers or rules doesn't trigger a re-analysis
+- **stays out of the way**: lowered priority, half the CPUs, a soft memory cap, paced reads, a pause while the machine is busy, and a free-disk floor it won't cross (`--priority normal` for full speed). One progress bar covers the whole run, with elapsed time and a time remaining learned from this machine's earlier runs
 
 On the same machine as above, a second run re-read 10 files, carried 8,269
 forward, and added **157 KB** to disk.

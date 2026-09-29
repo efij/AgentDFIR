@@ -8,11 +8,14 @@
 package analysis
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -21,6 +24,7 @@ import (
 	"github.com/efij/AgentDFIR/v3/internal/correlate"
 	"github.com/efij/AgentDFIR/v3/internal/detect"
 	"github.com/efij/AgentDFIR/v3/internal/endpoint"
+	"github.com/efij/AgentDFIR/v3/internal/fingerprint"
 	"github.com/efij/AgentDFIR/v3/internal/index"
 	"github.com/efij/AgentDFIR/v3/internal/ioc"
 	"github.com/efij/AgentDFIR/v3/internal/journal"
@@ -101,35 +105,123 @@ func Stale(pkg string) bool { return staleReason(pkg) != "" }
 
 // staleReason says why results must be recomputed, or "" when they are
 // current.
+//
+// Results are current when they were computed by this binary's analysis
+// code, on the overlay the package holds now, from the evidence the
+// package holds now. None of that is the release number: a release that
+// changes no parser and no rule used to throw away every case's results,
+// and three releases in a day meant three full re-analyses of an unchanged
+// machine. Results computed by different analysis code are still
+// recomputed — on a real case the difference was once 66 HIGH findings.
 func staleReason(pkg string) string {
-	ev, err := overlay.Stat(filepath.Join(pkg, "normalized", "events.jsonl"))
-	if err != nil {
-		return "no normalized events"
+	st := normalize.Status(pkg)
+	if !st.Current {
+		return st.Reason
 	}
 	if !overlay.Exists(filepath.Join(pkg, "detections", "findings.json")) {
 		return "no findings"
 	}
-	if mt, ok := manifestModTime(pkg); ok && mt.After(ev.ModTime()) {
-		return "manifest newer than the normalized overlay"
-	}
-	// Results carry the version that produced them. A package analyzed by
-	// an older binary is that binary's opinion, not this one's: on a real
-	// case the difference was 66 HIGH findings that the running version
-	// would not have raised.
-	data, err := overlay.ReadFile(filepath.Join(pkg, "detections", "analysis.json"))
+	meta, err := readMeta(pkg)
 	if err != nil {
 		return "no analysis metadata"
 	}
-	var meta struct {
-		Version string `json:"agentdfir_version"`
+	switch {
+	case meta.AnalysisFingerprint == "":
+		if meta.Version != "" {
+			return "analysis was produced by agentdfir " + meta.Version
+		}
+		return "analysis metadata carries no fingerprint"
+	case meta.AnalysisFingerprint != fingerprint.Analysis():
+		return "analysis code changed since agentdfir " + meta.Version + " produced these results"
+	case meta.OverlayBuild != st.BuildID:
+		return "the overlay was rebuilt since the last analysis"
 	}
-	if json.Unmarshal(data, &meta) != nil || meta.Version == "" {
-		return "analysis metadata carries no version"
+	man, err := casepkg.ReadManifest(pkg)
+	if err != nil {
+		return "unreadable manifest"
 	}
-	if meta.Version != version.Version {
-		return "analysis was produced by agentdfir " + meta.Version
+	if meta.InputsDigest != analysisInputs(man) {
+		return "evidence changed since the last analysis"
 	}
 	return ""
+}
+
+// meta is the part of analysis.json staleness reads.
+type meta struct {
+	Events              int    `json:"events"`
+	Version             string `json:"agentdfir_version"`
+	AnalysisFingerprint string `json:"analysis_fingerprint"`
+	OverlayBuild        string `json:"overlay_build"`
+	InputsDigest        string `json:"inputs_digest"`
+	OptionsDigest       string `json:"options_digest"`
+}
+
+func readMeta(pkg string) (*meta, error) {
+	data, err := overlay.ReadFile(filepath.Join(pkg, "detections", "analysis.json"))
+	if err != nil {
+		return nil, err
+	}
+	var m meta
+	if err := json.Unmarshal(data, &m); err != nil {
+		return nil, err
+	}
+	return &m, nil
+}
+
+// analysisInputs identifies everything in the sealed zone analysis reads:
+// every current record, including the ones no parser reads (the host
+// witness, MCP configs read by the audit), by content address.
+func analysisInputs(man *casepkg.Manifest) string {
+	var keys []string
+	for _, a := range man.Current() {
+		keys = append(keys, a.Status+"\x00"+a.LogicalPath+"\x00"+a.SourcePath+"\x00"+a.ArtifactID+"\x00"+a.Product)
+	}
+	sort.Strings(keys)
+	h := sha256.New()
+	for _, k := range keys {
+		h.Write([]byte(k))
+		h.Write([]byte{'\n'})
+	}
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+// optionsDigest identifies the analyst-supplied inputs that change what a
+// default analysis would find. A caller deciding whether earlier results
+// can stand compares it along with staleness.
+func (o Options) optionsDigest() string {
+	h := sha256.New()
+	fmt.Fprintf(h, "rules=%s\x00nopacks=%t\x00spawn=%d\x00", o.RulesDir, o.NoBuiltinPacks, o.SpawnThreshold)
+	for _, l := range [][]string{o.EndpointLogs, o.Honeytokens, o.KnownDests, o.IOCFiles, o.GatewayServers} {
+		fmt.Fprintf(h, "%q\x00", l)
+	}
+	fmt.Fprintf(h, "%s\x00%s\x00%s\x00%s\x00%s", o.ShellHistory, o.GatewayLog, o.GatewayMap, o.EndpointFormat, o.Window)
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+// Current reports whether the package's stored results are the ones Run
+// with these options would produce now, and why not when they are not.
+// A caller that gets true can use them instead of re-running.
+func Current(pkg string, o Options) (bool, string) {
+	if o.Renormalize {
+		return false, "re-parse requested"
+	}
+	if why := staleReason(pkg); why != "" {
+		return false, why
+	}
+	if o.SpawnThreshold <= 0 {
+		o.SpawnThreshold = 10
+	}
+	o.Log, o.Stage = nil, nil
+	m, err := readMeta(pkg)
+	if err != nil || m.OptionsDigest != o.optionsDigest() {
+		return false, "analysis options differ from the last analysis"
+	}
+	if o.RetireExcluded {
+		if man, err := casepkg.ReadManifest(pkg); err == nil && man.RetireExcluded() > 0 {
+			return false, "artifacts to retire from the scan set"
+		}
+	}
+	return true, ""
 }
 
 // Ensure runs a default analysis only when results are missing or stale,
@@ -153,6 +245,7 @@ func Run(pkg string, o Options) (*Result, error) {
 	}
 	res := &Result{}
 	dir := filepath.Join(pkg, "normalized")
+	var inputsDigest string
 	detDir := filepath.Join(pkg, "detections")
 	for _, d := range []string{dir, detDir} {
 		if err := os.MkdirAll(d, 0o700); err != nil {
@@ -171,19 +264,20 @@ func Run(pkg string, o Options) (*Result, error) {
 					return nil, fmt.Errorf("retire excluded artifacts: %w", err)
 				}
 				res.StageNotes = append(res.StageNotes, fmt.Sprintf("%d artifacts under node_modules/.git objects retired from the scan set (evidence kept)", n))
-				o.Renormalize = true
+				// No full re-parse: retiring changes the overlay's inputs,
+				// so the incremental rebuild drops exactly those segments.
 			}
 		}
+	}
+	if man, err := casepkg.ReadManifest(pkg); err == nil {
+		inputsDigest = analysisInputs(man)
 	}
 	o.stage(1, "normalize")
 	// ---- 1. normalize (streaming) — only when the overlay is missing/stale.
 	evPath := filepath.Join(dir, "events.jsonl")
-	needNorm := o.Renormalize
-	if fi, err := overlay.Stat(evPath); err != nil {
-		needNorm = true
-	} else if mt, ok := manifestModTime(pkg); ok && mt.After(fi.ModTime()) {
-		needNorm = true
-	}
+	ovStatus := normalize.Status(pkg)
+	needNorm := o.Renormalize || !ovStatus.Current
+	prevMeta, _ := readMeta(pkg)
 	var entities []schema.Entity
 	if needNorm {
 		// The overlay is segmented per source artifact, so a new collection
@@ -195,15 +289,12 @@ func Run(pkg string, o Options) (*Result, error) {
 		// events.jsonl itself stays uncompressed: internal/index records a
 		// byte offset per event so the explorer can open one without
 		// holding all of them, and a gzip stream cannot be seeked.
-		sr, err := normalize.BuildOverlay(pkg, dir, normalize.OverlayOptions{Full: o.Renormalize})
+		sr, err := normalize.Refresh(pkg, normalize.OverlayOptions{Full: o.Renormalize})
 		if err != nil {
 			return nil, err
 		}
-		if err := overlay.WriteJSONL(filepath.Join(dir, "entities.jsonl"), len(sr.Entities), func(i int) any { return sr.Entities[i] }); err != nil {
-			return nil, err
-		}
-		if err := overlay.WriteJSONL(filepath.Join(dir, "relationships.jsonl"), len(sr.Relationships), func(i int) any { return sr.Relationships[i] }); err != nil {
-			return nil, err
+		if sr.CacheRejected != "" {
+			res.StageNotes = append(res.StageNotes, "overlay cache rejected, rebuilt from the sealed evidence: "+sr.CacheRejected)
 		}
 		entities, res.Events, res.Renormalized = sr.Entities, sr.EventCount, true
 		res.Reused, res.Reparsed = sr.Reused, sr.Reparsed
@@ -225,6 +316,12 @@ func Run(pkg string, o Options) (*Result, error) {
 		}
 		entities = overlay.ReadJSONL[schema.Entity](filepath.Join(dir, "entities.jsonl"))
 		res.Events = overlay.CountLines(evPath)
+		// Built since the last analysis (acquisition refreshes it before
+		// asking the host about the agent's claims): new evidence, so
+		// results computed on the previous build do not carry over.
+		if prevMeta == nil || prevMeta.OverlayBuild != ovStatus.BuildID {
+			res.Renormalized = true
+		}
 		o.logf("Normalized: reusing overlay (%d events); corroboration states preserved", res.Events)
 		// Not a StageNote: those are printed as "note:" on stderr and mean a
 		// stage was skipped or degraded. Reclaiming disk is neither.
@@ -236,16 +333,27 @@ func Run(pkg string, o Options) (*Result, error) {
 
 	o.stage(2, "second witness")
 	var findings []schema.Finding
+	// The events are decoded once and shared by every stage below. Each
+	// stage used to read the whole overlay again — seven decodes of every
+	// event per analysis, 323 MB each on a real machine. The stages that
+	// annotate events (host witness, endpoint and shell corroboration)
+	// change this one copy, and it is written back once, before the
+	// detections that stream the file read it.
+	var events []schema.Event
+	loaded, dirty := false, false
+	allEvents := func() []schema.Event {
+		if !loaded {
+			events, loaded = LoadEvents(pkg), true
+		}
+		return events
+	}
 	// Host witness recorded during acquisition. This is the only source
 	// that is always available: it needs no EDR, no auditd, no Sysmon, and
 	// it is why a finding can now say CONFIRMED instead of only RECORDED.
 	if wrec, wErr := witness.Load(pkg); wErr == nil {
-		events := LoadEvents(pkg)
-		wres, wf := witness.Apply(events, wrec)
+		wres, wf := witness.Apply(allEvents(), wrec)
 		if wres.Checked > 0 {
-			if err := overlay.WriteJSONLPlain(evPath, len(events), func(i int) any { return events[i] }); err != nil {
-				return nil, err
-			}
+			dirty = true
 			findings = append(findings, wf...)
 			res.Witness = &wres
 			o.logf("Host witness: %d claimed write(s) checked — %d CONFIRMED, %d DISPROVED, %d no longer present",
@@ -254,7 +362,8 @@ func Run(pkg string, o Options) (*Result, error) {
 	}
 	// ---- 2. second witness (runs BEFORE detection so findings carry the states).
 	if len(o.EndpointLogs) > 0 || o.ShellHistory != "" {
-		events := LoadEvents(pkg)
+		events := allEvents()
+		dirty = true
 		if o.ShellHistory != "" {
 			if cres, err := correlate.Apply(events, &correlate.ShellHistoryAdapter{Path: o.ShellHistory}); err == nil && cres.Corroborated > 0 {
 				o.logf("Shell history: %d tool call(s) corroborated", cres.Corroborated)
@@ -284,7 +393,12 @@ func Run(pkg string, o Options) (*Result, error) {
 					cres.CloudCommands, cres.CloudCorroborated, cres.CloudRefused, cres.CloudBursts)
 			}
 		}
+	}
+	if dirty {
 		if err := overlay.WriteJSONLPlain(evPath, len(events), func(i int) any { return events[i] }); err != nil {
+			return nil, err
+		}
+		if err := normalize.RecordEvents(pkg); err != nil {
 			return nil, err
 		}
 	}
@@ -357,7 +471,7 @@ func Run(pkg string, o Options) (*Result, error) {
 		for _, d := range dropped {
 			res.StageNotes = append(res.StageNotes, "duplicate rule id: "+d)
 		}
-		extra, err := rulepack.Apply(packs, &schema.Normalized{Events: LoadEvents(pkg)}, pkg)
+		extra, err := rulepack.Apply(packs, &schema.Normalized{Events: allEvents()}, pkg)
 		if err != nil {
 			return nil, fmt.Errorf("rule packs: %w", err)
 		}
@@ -387,7 +501,7 @@ func Run(pkg string, o Options) (*Result, error) {
 			if err != nil {
 				return nil, fmt.Errorf("gateway log: %w", err)
 			}
-			sum, gf := mcpaudit.CorrelateGateway(LoadEvents(pkg), recs, o.GatewayServers, 3)
+			sum, gf := mcpaudit.CorrelateGateway(allEvents(), recs, o.GatewayServers, 3)
 			sum.Unparsed = unparsed
 			gw = &sum
 			mf = append(mf, gf...)
@@ -424,7 +538,7 @@ func Run(pkg string, o Options) (*Result, error) {
 
 	o.stage(6, "provenance")
 	// ---- 6. instruction & memory provenance.
-	if prov, err := provenance.Run(pkg, LoadEvents(pkg), ""); err == nil {
+	if prov, err := provenance.Run(pkg, allEvents(), ""); err == nil {
 		res.Provenance = len(prov.Files)
 		findings = append(findings, prov.Findings...)
 		_ = overlay.WriteJSON(filepath.Join(detDir, "provenance.json"), prov)
@@ -443,7 +557,7 @@ func Run(pkg string, o Options) (*Result, error) {
 		}
 		chains = append(chains, extra...)
 	}
-	cf := chain.Run(LoadEvents(pkg), findings, chains)
+	cf := chain.Run(allEvents(), findings, chains)
 	res.Chains = len(cf)
 	findings = append(findings, cf...)
 	o.logf("Attack chains: %d chain(s) evaluated, %d matched", len(chains), len(cf))
@@ -452,7 +566,7 @@ func Run(pkg string, o Options) (*Result, error) {
 	//
 	// Confidence is computed last, over the finished set, so a verifier can
 	// see the enrichment states the earlier stages produced.
-	findings = verify.Apply(findings, LoadEvents(pkg))
+	findings = verify.Apply(findings, allEvents())
 	findings = dedupe(findings)
 	sortBySeverity(findings)
 	res.Findings = findings
@@ -470,6 +584,12 @@ func Run(pkg string, o Options) (*Result, error) {
 		// Which rule set decided this, by name, version and content hash —
 		// so the question stays answerable after the binary is replaced.
 		"rule_packs": packSrcs, "agentdfir_version": version.Version,
+		// What decides whether these results can be reused: the code that
+		// produced them, the overlay build and evidence they were computed
+		// on, and the analyst's options (see staleReason and Current).
+		"analysis_fingerprint": fingerprint.Analysis(), "parse_fingerprint": fingerprint.Parse(),
+		"overlay_build": normalize.Status(pkg).BuildID, "inputs_digest": inputsDigest,
+		"options_digest": o.optionsDigest(),
 	})
 	// The explorer's offset index over the finished overlay, built here so
 	// opening a case is instant instead of re-parsing hundreds of MB of
@@ -491,6 +611,16 @@ func LoadEvents(pkg string) []schema.Event {
 // LoadEntities reads the overlay entities.
 func LoadEntities(pkg string) []schema.Entity {
 	return overlay.ReadJSONL[schema.Entity](filepath.Join(pkg, "normalized", "entities.jsonl"))
+}
+
+// PreviousEvents is how many events the last analysis of the package
+// covered (0 when there was none). Progress uses it to size the analysis
+// before it starts.
+func PreviousEvents(pkg string) int {
+	if m, err := readMeta(pkg); err == nil {
+		return m.Events
+	}
+	return 0
 }
 
 // LoadFindings reads the persisted findings.
@@ -524,16 +654,4 @@ func sortBySeverity(f []schema.Finding) {
 			f[j], f[j-1] = f[j-1], f[j]
 		}
 	}
-}
-
-// manifestModTime returns when the package manifest last changed, in
-// whichever form it is written. A later collection round appends to it, so
-// this is what tells the overlay it is out of date.
-func manifestModTime(pkg string) (time.Time, bool) {
-	for _, name := range []string{"manifest.jsonl", "manifest.json"} {
-		if fi, err := os.Stat(filepath.Join(pkg, name)); err == nil {
-			return fi.ModTime(), true
-		}
-	}
-	return time.Time{}, false
 }

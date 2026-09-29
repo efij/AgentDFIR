@@ -235,6 +235,25 @@ func TestSecondRoundCarriesForwardUnchangedFiles(t *testing.T) {
 	if res, err := casepkg.Verify(pkg); err != nil || len(res.Problems) != 0 {
 		t.Fatalf("package does not verify after two rounds: %v %v", err, res.Problems)
 	}
+
+	// A third round must carry forward too. A carried record that dropped
+	// the inode and change time it was judged on left the next round no
+	// identity to compare, so every other run re-read every file — on a
+	// real machine, 2.7 GB re-read on alternate runs.
+	b3, err := casepkg.Reopen(pkg, casepkg.CaseInfo{OperatorOSUser: "tester"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	third, err := Run(b3, man, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := b3.Seal(); err != nil {
+		t.Fatal(err)
+	}
+	if third.Carried != first.Acquired || third.Acquired != 0 {
+		t.Fatalf("third round: carried %d, re-read %d of %d unchanged artifacts", third.Carried, third.Acquired, first.Acquired)
+	}
 }
 
 // TestAbsentManifestPathsAreRecorded: "we looked here and it was not there"

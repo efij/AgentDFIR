@@ -33,22 +33,28 @@ func ExcludedByPolicy(path string) bool {
 // removes a record, and a later round that collects the path again wins.
 const retiredFile = "retired.json"
 
-// RetireExcluded marks every current record ExcludedByPolicy would have
-// skipped. Returns how many records left the scan set. Evidence records
-// stay in Artifacts; only Current() changes.
+// RetireExcluded marks every acquired record ExcludedByPolicy would have
+// skipped. Returns how many records newly left the scan set — zero when
+// nothing changed since the last call persisted by WriteRetired. Evidence
+// records stay in Artifacts; only Current() changes.
+//
+// It used to count every excluded record, retired before or not, and the
+// policy's own SKIPPED_BY_POLICY placeholders with them. Every round writes
+// fresh placeholders, so the count was never zero, and analysis took it as
+// a reason to re-parse the whole case — on every run.
 func (m *Manifest) RetireExcluded() int {
 	if m.retired == nil {
 		m.retired = map[string]int{}
 	}
 	n := 0
 	for _, a := range m.Artifacts {
-		if !ExcludedByPolicy(a.SourcePath) {
-			continue
+		if a.Status != StatusOK || !ExcludedByPolicy(a.SourcePath) {
+			continue // placeholders and failures carry no content to scan
 		}
 		if r, ok := m.retired[a.SourcePath]; !ok || a.Round > r {
 			m.retired[a.SourcePath] = a.Round
+			n++
 		}
-		n++
 	}
 	return n
 }

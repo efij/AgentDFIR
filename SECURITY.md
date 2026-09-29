@@ -40,6 +40,38 @@ passed through a session. Treat it as you would any evidence store.
   other case holds its own real link to the bytes it needs.
 - `--no-share` keeps a case's bytes entirely inside its own directory.
 
+### Signed rounds and what they prove
+
+Every round is signed with this machine's key (`keys/seal.ed25519` in the
+home, `0600`, created on first use) unless `--sign` names another key or
+`--no-sign` is given, and each sealed round's digest is appended to
+`anchors.jsonl` in the home and printed at the end of the run. Before a
+new round is added, the previous signature, the anchor and the sealed
+files are checked; a failure is recorded in the new round permanently and
+the run exits 4.
+
+Limits, stated plainly: the key and the anchor log sit on the same machine,
+under the same account, as the evidence. They stop anyone who can only
+reach the case directory (a share, a copy, a backup restore), and they
+catch accidental corruption, but someone who controls the account can
+rewrite a case, re-sign it and edit the anchor log. The digest printed at
+the end of each run — pasted into a ticket or case notes somewhere else —
+is what that attacker cannot reach. Sign with an external key (`--sign`)
+when that matters.
+
+The analysis overlay is reused across rounds. It is authenticated with a
+key derived from the machine key and every cached file is hashed; anything
+that does not match is rebuilt from the sealed evidence, never trusted.
+
+### Resource use
+
+`agentdfir run` is gentle by default: lowered CPU priority, at most half the
+CPUs (4 workers), a soft heap limit, acquisition reads capped at 200 MB/s,
+a pause while the machine is under load, and a free-disk floor (2 GiB, or
+1% of the volume up to 5 GiB) it will not cross — it refuses to start, or
+stops cleanly, instead. `--priority background` also lowers I/O priority;
+`--priority normal` restores full speed.
+
 A collect→seal cycle holds an exclusive lock on the package. If a run is
 killed, the next run reports and reclaims the stale lock; a lock held by a
 live process is never stolen.
