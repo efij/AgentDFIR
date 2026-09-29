@@ -29,6 +29,7 @@ import (
 	"github.com/efij/AgentDFIR/v3/internal/casepkg"
 	"github.com/efij/AgentDFIR/v3/internal/chain"
 	"github.com/efij/AgentDFIR/v3/internal/index"
+	"github.com/efij/AgentDFIR/v3/internal/mitigate"
 	"github.com/efij/AgentDFIR/v3/internal/notes"
 	"github.com/efij/AgentDFIR/v3/internal/overlay"
 	"github.com/efij/AgentDFIR/v3/internal/report"
@@ -71,6 +72,12 @@ type Server struct {
 	notes    *notes.Store
 	mu       sync.RWMutex
 
+	// Protect tab writes: the machine's mitigate environment (swapped in
+	// tests), the token a page must present, and one change at a time.
+	mitEnv     func() (mitigate.Env, error)
+	applyToken string
+	mitMu      sync.Mutex
+
 	accounts   map[string]*Account // profile key → the AI login it ran under
 	acctOf     []string            // index position → profile key
 	claudeUUID map[string]string   // profile key → Claude accountUuid (Cowork match only)
@@ -89,7 +96,7 @@ func Load(pkg string, opts Options) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Server{pkg: pkg, man: man, arts: man.Current(), store: casepkg.NewStore(pkg, man)}
+	s := &Server{pkg: pkg, man: man, arts: man.Current(), store: casepkg.NewStore(pkg, man), mitEnv: defaultMitigateEnv, applyToken: newApplyToken()}
 	s.info, _ = report.ReadCaseInfo(pkg)
 	// Quick verification: the seal over the small sealed files, both hash
 	// chains end to end, the manifest cross-check and every blob's
@@ -204,6 +211,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/notes", s.apiNotes)
 	mux.HandleFunc("/api/accounts", s.apiAccounts)
 	mux.HandleFunc("/api/mitigations", s.apiMitigations)
+	mux.HandleFunc("/api/mitigations/", s.apiMitigate)
 	return guard(mux)
 }
 
@@ -219,16 +227,9 @@ func guard(next http.Handler) http.Handler {
 			http.Error(w, "forbidden host", http.StatusForbidden)
 			return
 		}
-		if r.Method != http.MethodGet && r.Method != http.MethodHead {
-			// The one write: analyst notes, which live outside the sealed zone.
-			// Same-origin only (no cross-site form or fetch can carry the header),
-			// so a page in another tab cannot forge case-file entries.
-			if r.Method != http.MethodPost || r.URL.Path != "/api/notes" || r.Header.Get("X-AgentDFIR-Notes") != "1" ||
-				(r.Header.Get("Sec-Fetch-Site") != "" && r.Header.Get("Sec-Fetch-Site") != "same-origin") ||
-				!originIsLoopback(r.Header.Get("Origin")) {
-				http.Error(w, "read-only", http.StatusMethodNotAllowed)
-				return
-			}
+		if r.Method != http.MethodGet && r.Method != http.MethodHead && !writeAllowed(r) {
+			http.Error(w, "read-only", http.StatusMethodNotAllowed)
+			return
 		}
 		w.Header().Set("Content-Security-Policy", "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src data:; connect-src 'self'; base-uri 'none'; form-action 'none'")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -236,6 +237,29 @@ func guard(next http.Handler) http.Handler {
 		w.Header().Set("Cache-Control", "no-store")
 		next.ServeHTTP(w, r)
 	})
+}
+
+// writeAllowed names the only writes: analyst notes (outside the sealed
+// zone) and the Protect tab's mitigations (host state, further gated by a
+// per-process token in the handler). Both are same-origin only: a custom
+// header forces a CORS preflight this server never answers, so no
+// cross-site form or fetch can carry it, and a page in another tab cannot
+// forge case-file entries or edit ~/.claude/settings.json.
+func writeAllowed(r *http.Request) bool {
+	if r.Method != http.MethodPost {
+		return false
+	}
+	if (r.Header.Get("Sec-Fetch-Site") != "" && r.Header.Get("Sec-Fetch-Site") != "same-origin") ||
+		!originIsLoopback(r.Header.Get("Origin")) {
+		return false
+	}
+	switch {
+	case r.URL.Path == "/api/notes":
+		return r.Header.Get("X-AgentDFIR-Notes") == "1"
+	case strings.HasPrefix(r.URL.Path, "/api/mitigations/"):
+		return r.Header.Get("X-AgentDFIR-Mitigate") != ""
+	}
+	return false
 }
 
 // originIsLoopback accepts a missing Origin (same-origin fetch in most

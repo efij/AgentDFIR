@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"os/exec"
 	"os/user"
 	"path/filepath"
 	"sort"
@@ -213,27 +212,7 @@ func mitigateEnv(home string) (mitigate.Env, error) {
 	if err != nil {
 		return mitigate.Env{}, err
 	}
-	return mitigate.Env{Home: home, StateDir: filepath.Join(ah, "mitigations"), GuardCommand: guardCommand()}, nil
-}
-
-// guardCommand is the hook command line. The binary on PATH is preferred
-// over this process's path: a package manager's symlink survives upgrades,
-// a Cellar path does not.
-func guardCommand() string {
-	p, err := exec.LookPath("agentdfir")
-	if err != nil || p == "" {
-		p, err = os.Executable()
-		if err != nil {
-			return ""
-		}
-	}
-	if abs, err := filepath.Abs(p); err == nil {
-		p = abs
-	}
-	if strings.ContainsAny(p, " \t'\"") {
-		p = `"` + strings.ReplaceAll(p, `"`, `\"`) + `"`
-	}
-	return p + " guard log"
+	return mitigate.Env{Home: home, StateDir: filepath.Join(ah, "mitigations"), GuardCommand: mitigate.GuardCommand()}, nil
 }
 
 func parseSelection(sel, deny string) (mitigate.Selection, error) {
