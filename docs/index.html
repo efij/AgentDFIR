@@ -794,7 +794,7 @@ Result:             <span class="bad">FAILED — 2 problem(s):</span>
       <div><span>Homebrew</span><code>brew install efij/agentdfir/agentdfir</code></div>
       <div><span>Chocolatey</span><code>choco install agentdfir</code></div>
       <div><span>Scoop</span><code>scoop bucket add agentdfir https://github.com/efij/scoop-agentdfir; scoop install agentdfir</code></div>
-      <div><span>Windows script</span><code>irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex</code></div>
+      <div><span>Windows (cmd or PowerShell)</span><code>powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex"</code></div>
       <div><span>Go</span><code>go install github.com/efij/AgentDFIR/v3/cmd/agentdfir@latest</code></div>
       <div><span>Verify a release</span><span>Every asset ships a Sigstore bundle; <code>cosign verify-blob --offline</code> works air-gapped. <a class="more" style="margin:0" href="https://github.com/efij/AgentDFIR/blob/main/docs/install.md">Exact command</a></span></div>
     </div>
@@ -876,9 +876,9 @@ Result:             <span class="bad">FAILED — 2 problem(s):</span>
 <script>
 (function(){
   var C={unix:['$','curl -fsSL https://raw.githubusercontent.com/efij/AgentDFIR/main/install.sh | sh && ~/.local/bin/agentdfir run'],
-    win:['>','$env:AGENTDFIR_RUN=1; irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex'],
+    win:['>','powershell -NoProfile -ExecutionPolicy Bypass -Command "[Environment]::SetEnvironmentVariable(\'AGENTDFIR_RUN\',\'1\'); irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex"'],
     brew:['$','brew install efij/agentdfir/agentdfir && agentdfir run'],
-    choco:['>','choco install agentdfir; agentdfir run'],
+    choco:['>','choco install agentdfir -y\nagentdfir run'],
     go:['$','go install github.com/efij/AgentDFIR/v3/cmd/agentdfir@latest && agentdfir run']};
   var os=/Win/.test(navigator.platform||navigator.userAgent)?'win':'unix';
   var body=document.getElementById('cmd-body'),p=document.getElementById('cmd-p'),tabs=document.querySelectorAll('.term-top button'),btn=document.getElementById('copy');

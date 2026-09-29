@@ -2,7 +2,10 @@
 <#
 AgentDFIR installer for Windows (PowerShell 5.1 or 7, x64 or ARM64).
 
-  $env:AGENTDFIR_RUN=1; irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex
+  Command Prompt or PowerShell (the same line works in both):
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "[Environment]::SetEnvironmentVariable('AGENTDFIR_RUN','1'); irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex"
+  PowerShell only:
+    $env:AGENTDFIR_RUN=1; irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex
 
 What it does, in order:
   1. detects the CPU (x64 / ARM64), 2. downloads the raw release .exe and SHA256SUMS.txt,

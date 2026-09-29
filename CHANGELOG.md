@@ -7,6 +7,16 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+- Windows install one-liner only worked in PowerShell: pasted into Command
+  Prompt, `$env:…; irm … | iex` fails ("'irm' is not recognized"), and the
+  macOS/Linux `curl … | sh` line fails too (Windows has `curl` but no `sh`).
+  The documented Windows line is now `powershell -NoProfile -ExecutionPolicy
+  Bypass -Command "[Environment]::SetEnvironmentVariable('AGENTDFIR_RUN','1');
+  irm …/install.ps1 | iex"` — no `$`, so it means the same thing in cmd.exe,
+  Windows PowerShell 5.1 and PowerShell 7; CI pastes it into all three. The
+  site's Chocolatey command no longer uses `;` (not a separator in cmd).
+
 ## [3.0.0] — 2026-09-28
 
 Built from the incidents of the last twelve months — the Nx s1ngularity

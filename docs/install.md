@@ -11,11 +11,14 @@ macOS / Linux (installs to `~/.local/bin`):
 curl -fsSL https://raw.githubusercontent.com/efij/AgentDFIR/main/install.sh | sh && ~/.local/bin/agentdfir run
 ```
 
-Windows, PowerShell, x64 or ARM64 (installs to `%LOCALAPPDATA%\agentdfir\bin`, added to your PATH):
+Windows, x64 or ARM64 — paste into **Command Prompt or PowerShell** (installs to `%LOCALAPPDATA%\agentdfir\bin`, added to your PATH):
 
-```powershell
-$env:AGENTDFIR_RUN=1; irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex
+```bat
+powershell -NoProfile -ExecutionPolicy Bypass -Command "[Environment]::SetEnvironmentVariable('AGENTDFIR_RUN','1'); irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex"
 ```
+
+Already in PowerShell, the short form works too: `$env:AGENTDFIR_RUN=1; irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex`.
+The `curl … | sh` line is for macOS and Linux only: Windows has `curl` but no `sh`.
 
 AgentDFIR is a single static binary with zero runtime dependencies. Pick the path
 that fits the machine you are on. Every path ends with the same file, and
@@ -132,9 +135,22 @@ AGENTDFIR_VERSION=v0.12.1 AGENTDFIR_INSTALL_DIR=/usr/local/bin sh install.sh
 
 ## 2b. install.ps1 (Windows)
 
+From **Command Prompt or PowerShell** (the same line works in both, and in
+Windows PowerShell 5.1 and PowerShell 7):
+
+```bat
+powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex"
+```
+
+From a PowerShell prompt, the short form:
+
 ```powershell
 irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex
 ```
+
+`irm`, `iex` and `$env:` are PowerShell; typed into `cmd.exe` they fail with
+"'irm' is not recognized". The `powershell -Command "…"` wrapper is written
+without `$` so it means the same thing whichever shell you paste it into.
 
 Detects x64 / ARM64, downloads the raw `.exe` and `SHA256SUMS.txt` from the
 latest release, verifies the checksum, installs `agentdfir.exe` to
