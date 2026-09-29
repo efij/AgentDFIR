@@ -16,6 +16,11 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
   irm …/install.ps1 | iex"` — no `$`, so it means the same thing in cmd.exe,
   Windows PowerShell 5.1 and PowerShell 7; CI pastes it into all three. The
   site's Chocolatey command no longer uses `;` (not a separator in cmd).
+- Explorer: **Cmd/Ctrl+K did nothing on non-Latin keyboard layouts**
+  (Hebrew, Russian, Greek…), and neither did `j`/`k` in Activity: the
+  handler compared `e.key` to `"k"`. Shortcuts now match the physical key
+  (`e.code`). A keydown whose target is not an element no longer throws
+  and kills the handler, and the hint reads `Ctrl K` off macOS.
 
 ## [3.0.0] — 2026-09-28
 
