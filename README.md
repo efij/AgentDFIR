@@ -104,6 +104,7 @@ Add a second witness and the same commands upgrade every finding from *the agent
 
 ```sh
 agentdfir analyze CASE-2026-042.adfir --endpoint /var/log/audit/audit.log   # auditd / Sysmon XML / EDR exports
+agentdfir analyze CASE-2026-042.adfir --endpoint cloudtrail.json           # CloudTrail / Azure Activity Log / GCP audit exports
 agentdfir analyze CASE-2026-042.adfir --gateway-log mcp-gateway.jsonl        # your MCP gateway's own log
 ```
 
@@ -131,7 +132,7 @@ Every capability below comes from a real 2025–2026 incident and is tested
 against a reproduction of it (`agentdfir simulate --scenario list`).
 
 ```sh
-agentdfir hunt --path ~/src          # was I hit? s1ngularity, Shai-Hulud 1/2, keyv wave, SANDWORM_MODE, postmark-mcp, codexui, Amazon Q
+agentdfir hunt --path ~/src          # was I hit? s1ngularity, Shai-Hulud 1/2, keyv wave, SANDWORM_MODE, postmark-mcp, codexui, Amazon Q, Storm-3168/JADEPUFFER
 agentdfir scan-repo ~/src/untrusted  # before an agent opens it: committed SessionStart hooks, folderOpen tasks, repo MCP servers, injected AGENTS.md
 agentdfir decode payload.txt         # nested base64/gzip/hex/UTF-16LE payloads, offline — no model refuses to help
 agentdfir monitor --journal          # hash-chain every transcript append; a later edit becomes TRANSCRIPT_REWRITTEN
@@ -160,7 +161,8 @@ agentdfir monitor --journal          # hash-chain every transcript append; a lat
   secret-hunting prompt, exfiltration through trusted services (link
   shorteners, screenshot services, `workers.dev`, blockchain RPC,
   tunnels), GitHub repo creation as an exfil path, data encoded into DNS
-  labels, cloud/database destruction (Replit, PocketOS), MCP tool-definition
+  labels, cloud/database destruction (Replit, PocketOS), cloud resource deletion and
+  removal of resource locks, backups and deletion protection (Storm-3168), MCP tool-definition
   rug-pulls and typosquatted MCP packages.
 
 ## 🛡️ Stop it happening again — `agentdfir mitigate` (v2.7)
@@ -170,7 +172,8 @@ for Claude Code, a rules file for Codex, `permissions.deny` for Cursor, pinned
 MCP packages and cleared auto-approve lists. Two packs are on by default and
 never get in the way of legitimate work — **keep the agents' own logs** (a
 `PreToolUse` guard that refuses transcript deletion) and **keep credential files
-away from the agent**. Six more are opt-in, each with its friction stated.
+away from the agent**. Seven more are opt-in, each with its friction stated,
+including **ask before deleting cloud resources or their backups**.
 
 ```sh
 agentdfir mitigate                 # the plan — nothing is written
@@ -293,7 +296,7 @@ Ships with wrappers for tools IR teams already run:
 | ✅ | `simulate` — synthetic incident generation (adversary emulation for AI agents): `orphan-agent`, `toxic-chain`, and reproductions of real incidents — `keyv-hook`, `sandworm-mcp`, `s1ngularity`, `mcpoison-rugpull`, `pocketos-wipe`, `swarm-antiforensics` (v3.0) |
 | ✅ | [Attack chains](docs/attack-chains.md), session cards, investigation tree, whole-case search and the hash-chained analyst case file in the [explorer](docs/serve.md) (v1.0) |
 | ✅ | Full parsers for 13 products: Claude Code, Claude Cowork (desktop-app agent mode: HMAC audit log, in-VM transcripts, shared folders and egress allowlist per session), Codex CLI + Codex desktop app (rollout JSONL and the SQLite thread store, read with a stdlib-only reader that applies the write-ahead log), Gemini CLI, Cursor, Copilot CLI, Copilot Chat (VS Code), Cline, Roo, OpenClaw, OpenCode, Aider, Warp — plus Kiro (steering, specs, MCP, powers, skills and extension state; no transcript store to parse) |
-| ✅ | [Enrich with a second witness](docs/endpoint-corroboration.md) — auditd, Sysmon XML, Velociraptor/osquery/eslogger/EDR exports: tool calls → CONFIRMED / DISPROVED, unlogged agent processes and connections surfaced |
+| ✅ | [Enrich with a second witness](docs/endpoint-corroboration.md) — auditd, Sysmon XML, Velociraptor/osquery/eslogger/EDR exports, and AWS CloudTrail / Azure Activity Log / GCP Cloud Audit Log exports for the agent's `az` / `aws` / `gcloud` commands: tool calls → CONFIRMED / DISPROVED, unlogged agent processes and connections surfaced |
 | ✅ | Reports: network-silent HTML, self-contained PDF (stdlib writer, no renderer deps), JSON, CSV, STIX 2.1, OTel · [OCSF 1.3, SARIF 2.1, Sigma export](docs/siem-interop.md) for SIEM/SOC pipelines |
 | ✅ | [`serve`](docs/serve.md) — local browser case explorer: agent tree, density-scrubber timeline, raw evidence pane, findings, topology; loopback-only, zero external resources |
 | ✅ | `monitor` live watch · [`--detect --alert`](docs/realtime-detection.md) real-time sensor (webhook / syslog / file) · `replay` session step-through · `investigate` explorer |

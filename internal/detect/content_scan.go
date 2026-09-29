@@ -287,7 +287,11 @@ func scanArtifactContent(store *casepkg.Store, a casepkg.ArtifactRecord, honeyto
 		sa = newSecretAcc(secretPatterns)
 	}
 	if surface != nil {
-		pa = newPhraseAcc(injectionPhrases)
+		if surface.ruleID == "PROMPT_INJECTION_INDICATOR" {
+			pa = newPhraseAcc(injectionPhrases) // the person's own prompts are in here
+		} else {
+			pa = newPhraseAcc(toolContentPhrases)
+		}
 	}
 	if wantHoney {
 		ca = newContainsAcc(honeytokens)

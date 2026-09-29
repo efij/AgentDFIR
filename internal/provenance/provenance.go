@@ -380,7 +380,7 @@ func evaluate(rep *Report, writes []Write) []schema.Finding {
 					FalsePositive: "Agents legitimately summarize docs into memory; the risk is what the line instructs.",
 				})
 			}
-			if ph, ok := detect.InjectionPhrase(la.Text); ok {
+			if ph, ok := detect.ToolContentPhrase(la.Text); ok {
 				flag(schema.Finding{
 					RuleID: "INSTRUCTION_INJECTION_PHRASE", Severity: "HIGH", Title: "Instruction File Contains an Override Phrase",
 					Description: fmt.Sprintf("Line %d of %s contains %q. Persistent instruction files are loaded into every session; an override phrase here is a standing injection.", la.Line, fr.LogicalPath, ph),
@@ -419,7 +419,7 @@ func evaluate(rep *Report, writes []Write) []schema.Finding {
 				Status: schema.StateObserved, Endpoint: schema.StateUnknown, MitreATLAS: "AML.T0080.000", MitreATTACK: "T1547",
 			})
 		}
-		if ph, ok := detect.InjectionPhrase(w.Content); ok {
+		if ph, ok := detect.ToolContentPhrase(w.Content); ok {
 			flag(schema.Finding{
 				RuleID: "INSTRUCTION_INJECTION_PHRASE", Severity: "HIGH", Title: "Override Phrase Written Into an Instruction File",
 				Description: fmt.Sprintf("Agent %s wrote %q into %s.", w.Event.AgentID, ph, w.Path),

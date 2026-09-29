@@ -250,6 +250,9 @@ var Builtin = []Rule{
 	{ID: "UNLOGGED_AGENT_NETWORK", Package: "correlate", Surface: "endpoint", MaxSeverity: "HIGH",
 		Title: "Agent Process Connected to a Destination Not in the Transcript", Summary: "Endpoint network record from an agent process with no transcript evidence.",
 		MitreATTACK: "T1071"},
+	{ID: "CLOUD_DESTRUCTIVE_BURST", Package: "correlate", Surface: "endpoint", MaxSeverity: "HIGH",
+		Title: "Many Cloud Resources Deleted by One Identity in Minutes", Summary: "A cloud audit log (--endpoint) shows one identity deleting 10+ distinct resources within 10 minutes.",
+		MitreATTACK: "T1485", MitreATLAS: "AML.T0101"},
 	// ---------------------------------------------------------- rulepack
 	{ID: "ENCODED_EXEC_UNRESOLVED", Package: "rulepack", Surface: "command", MaxSeverity: "MEDIUM",
 		Title: "Encoded Data Run Through an Interpreter, Payload Not Recoverable", Summary: "A decode step is piped into an interpreter (or eval'd) but the payload is not in the command line.",

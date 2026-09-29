@@ -28,7 +28,7 @@ import (
 
 // Indicator kinds.
 const (
-	KindPackage      = "package"       // Ecosystem/Value, optional Versions or FromVersion
+	KindPackage      = "package"       // Ecosystem/Value, optional Versions, FromVersion or BelowVersion
 	KindDomain       = "domain"        // host or parent domain; IPs too
 	KindURL          = "url"           // URL prefix without scheme
 	KindPath         = "path"          // file name or path fragment
@@ -45,8 +45,11 @@ type Indicator struct {
 	Ecosystem   string   `json:"ecosystem,omitempty"`
 	Versions    []string `json:"versions,omitempty"`
 	FromVersion string   `json:"from_version,omitempty"`
-	Confidence  string   `json:"confidence,omitempty"` // high (default) | medium | low
-	Note        string   `json:"note,omitempty"`
+	// BelowVersion marks every version before the fixed one as affected:
+	// a vulnerable-version range rather than a list of malicious releases.
+	BelowVersion string `json:"below_version,omitempty"`
+	Confidence   string `json:"confidence,omitempty"` // high (default) | medium | low
+	Note         string `json:"note,omitempty"`
 	// FileName, for a sha256 indicator, names the file the hash belongs to,
 	// so a directory walk hashes only files of that name.
 	FileName string `json:"file_name,omitempty"`
@@ -281,7 +284,7 @@ func (ind Indicator) MatchPackage(eco, name, version string) bool {
 		return false
 	}
 	version = strings.TrimPrefix(strings.TrimSpace(version), "v")
-	if len(ind.Versions) == 0 && ind.FromVersion == "" {
+	if len(ind.Versions) == 0 && ind.FromVersion == "" && ind.BelowVersion == "" {
 		return true
 	}
 	if version == "" {
@@ -291,6 +294,9 @@ func (ind Indicator) MatchPackage(eco, name, version string) bool {
 		if v == version {
 			return true
 		}
+	}
+	if ind.BelowVersion != "" && compareVersions(version, ind.BelowVersion) < 0 {
+		return true
 	}
 	return ind.FromVersion != "" && compareVersions(version, ind.FromVersion) >= 0
 }
@@ -380,6 +386,8 @@ func (ind Indicator) Label() string {
 			v = "@" + strings.Join(ind.Versions, "|")
 		case ind.FromVersion != "":
 			v = "@>=" + ind.FromVersion
+		case ind.BelowVersion != "":
+			v = "@<" + ind.BelowVersion
 		}
 		return ind.Ecosystem + ":" + ind.Value + v
 	}

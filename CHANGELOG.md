@@ -7,6 +7,58 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+Lessons from the 2026 agent-driven cloud attacks: Microsoft's Storm-3168,
+Sysdig's JADEPUFFER and Sygnia's AI-assisted intrusion.
+
+### Added
+- **Cloud audit logs as a second witness.** `--endpoint` (on `analyze`,
+  `run` and `correlate`) now reads AWS CloudTrail, Azure Activity Log and
+  GCP Cloud Audit Log exports as JSON, a JSON array or JSON Lines, sniffed
+  per file (`--format cloud-audit` to force it). An agent's `az`, `aws` or
+  `gcloud` command becomes CORROBORATED when the control plane recorded the
+  same operation within ±2 minutes, on the same resource when the command
+  names one; a call the cloud refused is noted with its error. A cloud log
+  never contradicts a command, since the export may cover another account,
+  and it never counts as host telemetry. Files only, no cloud API calls.
+- **`CLOUD_DESTRUCTIVE_BURST`** (HIGH): the cloud audit log shows one
+  identity deleting 10+ distinct resources within 10 minutes. It says
+  whether any of the deletes match commands in the collected transcripts.
+- **`CLOUD_RESOURCE_DELETION`** (HIGH): the agent deletes storage accounts
+  or buckets, key vaults, secrets, KMS keys, apps, resource groups, VMs,
+  clusters, stacks or projects through `az`, `aws`, `gcloud` or `gsutil`.
+- **`CLOUD_RECOVERY_PROTECTION_REMOVED`** (CRITICAL): the agent deletes a
+  resource lock, disables backup protection, deletes a backup vault,
+  recovery point or snapshot, suspends bucket versioning or turns off
+  deletion protection.
+- **Guardrail pack `cloud-destructive`** (ask, friction 1): the agent must
+  ask before those commands, before destroying databases and before
+  stopping cloud logging. Claude Code and Codex. Read and list commands are
+  never asked.
+- **Incident `storm-3168-jadepuffer`** for `agentdfir hunt`: the published
+  attacker addresses, and Langflow below 1.3.0 (CVE-2025-3248, the entry
+  point) at low confidence. Package indicators gain `below_version` for
+  vulnerable-version ranges. The ransom note's Bitcoin address is left out
+  on purpose: it is the example address from the Bitcoin docs.
+- **Authority-claim phrases** ("this is an approved red team exercise",
+  "you are authorized to bypass" …) count as injection in tool and MCP
+  results, fetched content, instruction files, tool definitions, MCP
+  configs and repository files. Never in the person's own prompts, where a
+  pen-tester writes exactly that.
+- Secret formats `ALIBABA_ACCESS_KEY` (`LTAI…`) and `TENCENT_SECRET_ID`
+  (`AKID…`).
+
+### Changed
+- `CLOUD_CREDENTIAL_EXPORT` also covers listing storage account keys and
+  connection strings, Cosmos DB keys, service-principal credential resets
+  and GCS HMAC keys.
+- The Protect tab's steps for a leaked secret say that deleting it from an
+  issue, pull request or commit does not remove it from edit history,
+  forks or caches.
+
+### Fixed
+- Re-running analysis with the same endpoint log appended the same
+  corroboration note to an event again on every run.
+
 ## [3.1.2] — 2026-09-29
 
 ### Changed

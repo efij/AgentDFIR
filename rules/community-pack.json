@@ -1,6 +1,6 @@
 {
   "pack": "agentdfir-community",
-  "version": "5",
+  "version": "6",
   "rules": [
     {
       "id": "CURL_PIPE_SHELL",
@@ -186,6 +186,44 @@
       "mitre_atlas": "AML.T0101"
     },
     {
+      "id": "CLOUD_RESOURCE_DELETION",
+      "title": "Agent Deletes Cloud Resources",
+      "description": "Command deletes cloud resources that are not databases: storage accounts and buckets, key vaults and secrets, KMS keys, function and web apps, resource groups, VMs, clusters or whole stacks and projects, through az, aws, gcloud or gsutil. In Storm-3168 the operator deleted storage accounts, a key vault, a function app and its App Service plan within minutes.",
+      "severity": "HIGH",
+      "confidence": "medium",
+      "match": {
+        "type": "command",
+        "regex": "(?i)(\\baz\\s+(storage\\s+account|keyvault|functionapp|webapp|appservice\\s+plan|group|vm|aks|acr|servicebus\\s+namespace|eventhubs\\s+namespace)\\s+delete\\b|\\baz\\s+keyvault\\s+((secret|key|certificate)\\s+)?purge\\b|\\baws\\s+s3api\\s+delete-bucket\\b|\\baws\\s+ec2\\s+terminate-instances\\b|\\baws\\s+lambda\\s+delete-function\\b|\\baws\\s+secretsmanager\\s+delete-secret\\b|\\baws\\s+kms\\s+schedule-key-deletion\\b|\\baws\\s+eks\\s+delete-cluster\\b|\\baws\\s+cloudformation\\s+delete-stack\\b|\\bgcloud\\s+(storage\\s+buckets\\s+delete|compute\\s+instances\\s+delete|projects\\s+delete|secrets\\s+delete|container\\s+clusters\\s+delete|functions\\s+delete|run\\s+services\\s+delete|kms\\s+keys\\s+versions\\s+destroy)\\b|\\bgsutil\\s+(-m\\s+)?rm\\s+-r)",
+        "scope": "no_heredoc"
+      },
+      "false_positive_notes": "Tearing down a dev or test environment looks the same. The signal is a production name, a resource the task never mentioned, or many deletes in a row.",
+      "references": [
+        "https://www.microsoft.com/en-us/security/blog/2026/09/25/storm-3168-agentic-driven-cloud-attacks-using-compromised-service-principals/",
+        "https://attack.mitre.org/techniques/T1485/"
+      ],
+      "mitre_attack": "T1485",
+      "mitre_atlas": "AML.T0101"
+    },
+    {
+      "id": "CLOUD_RECOVERY_PROTECTION_REMOVED",
+      "title": "Agent Removes Cloud Backup or Deletion Protection",
+      "description": "Command deletes a resource lock, disables backup protection, deletes a backup vault, recovery point or snapshot, suspends bucket versioning, or turns off deletion protection. Removing the way back usually comes right before destruction: Storm-3168 went after Azure Site Recovery and Backup protection locks, and resource locks were what saved some of the victim's storage accounts.",
+      "severity": "CRITICAL",
+      "confidence": "high",
+      "match": {
+        "type": "command",
+        "regex": "(?i)(\\baz\\s+((resource|group)\\s+)?lock\\s+delete\\b|\\baz\\s+backup\\s+(protection\\s+disable|vault\\s+delete|item\\s+delete)\\b|\\baz\\s+backup\\s+vault\\s+backup-properties\\s+set\\b[^|;&]*--soft-delete-feature-state\\s+disable|\\baws\\s+backup\\s+(delete-recovery-point|delete-backup-vault|delete-backup-plan|delete-backup-vault-lock-configuration)\\b|\\baws\\s+s3api\\s+put-bucket-versioning\\b[^|;&]*Suspended|\\baws\\s+(rds|neptune|docdb)\\s+modify-db-(instance|cluster)\\b[^|;&]*--no-deletion-protection|\\baws\\s+rds\\s+delete-db-(cluster-)?snapshot\\b|\\baws\\s+ec2\\s+delete-snapshot\\b|\\baws\\s+ec2\\s+modify-instance-attribute\\b[^|;&]*--no-disable-api-termination|\\bgcloud\\s+[^|;&]*--no-deletion-protection\\b|\\bgcloud\\s+sql\\s+backups\\s+delete\\b|\\bgcloud\\s+compute\\s+snapshots\\s+delete\\b)",
+        "scope": "no_heredoc"
+      },
+      "false_positive_notes": "Rare in normal development. Cleaning up old snapshots on a schedule is the usual benign case.",
+      "references": [
+        "https://www.microsoft.com/en-us/security/blog/2026/09/25/storm-3168-agentic-driven-cloud-attacks-using-compromised-service-principals/",
+        "https://attack.mitre.org/techniques/T1490/"
+      ],
+      "mitre_attack": "T1490",
+      "mitre_atlas": "AML.T0101"
+    },
+    {
       "id": "ENV_DUMP_TO_NETWORK",
       "title": "Environment Dumped Over Network",
       "description": "Command sends the full process environment over the network.",
@@ -291,16 +329,17 @@
     {
       "id": "CLOUD_CREDENTIAL_EXPORT",
       "title": "Cloud Credentials Exported",
-      "description": "Command prints or mints long-lived cloud credentials or access tokens.",
+      "description": "Command prints or mints long-lived cloud credentials or access tokens, or lists storage account and database keys.",
       "severity": "HIGH",
       "confidence": "high",
       "match": {
         "type": "command",
-        "regex": "(?i)(aws\\s+sts\\s+get-session-token|aws\\s+configure\\s+get\\s+aws_secret|aws\\s+iam\\s+create-access-key|gcloud\\s+auth\\s+(print-access-token|print-identity-token|application-default\\s+print-access-token)|az\\s+account\\s+get-access-token)"
+        "regex": "(?i)(aws\\s+sts\\s+get-session-token|aws\\s+configure\\s+get\\s+aws_secret|aws\\s+iam\\s+create-access-key|gcloud\\s+auth\\s+(print-access-token|print-identity-token|application-default\\s+print-access-token)|az\\s+account\\s+get-access-token|az\\s+storage\\s+account\\s+(keys\\s+(list|renew)|show-connection-string)|az\\s+cosmosdb\\s+keys\\s+list|az\\s+ad\\s+sp\\s+credential\\s+reset|gcloud\\s+storage\\s+hmac\\s+create)"
       },
       "false_positive_notes": "Automation legitimately mints short-lived tokens; secret-key export is higher signal.",
       "references": [
-        "https://genai.owasp.org/llm-top-10/"
+        "https://genai.owasp.org/llm-top-10/",
+        "https://www.microsoft.com/en-us/security/blog/2026/09/25/storm-3168-agentic-driven-cloud-attacks-using-compromised-service-principals/"
       ],
       "mitre_attack": "T1552.005",
       "mitre_atlas": "AML.T0055"

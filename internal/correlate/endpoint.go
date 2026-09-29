@@ -38,6 +38,12 @@ type EndpointResult struct {
 	OutsideCover   int       `json:"outside_coverage"`
 	AgentProcesses int       `json:"agent_lineage_processes"`
 	Unlogged       int       `json:"unlogged_agent_records"`
+
+	CloudRecords      int `json:"cloud_records,omitempty"`
+	CloudCommands     int `json:"cloud_commands_checked,omitempty"`
+	CloudCorroborated int `json:"cloud_corroborated,omitempty"`
+	CloudRefused      int `json:"cloud_refused,omitempty"` // matched, and the cloud denied it
+	CloudBursts       int `json:"cloud_destructive_bursts,omitempty"`
 }
 
 // Endpoint correlates events in place and returns findings.
@@ -46,8 +52,27 @@ func Endpoint(events []schema.Event, records []endpoint.Record, opts EndpointOpt
 		opts.Window = 3 * time.Second
 	}
 	res := &EndpointResult{Records: len(records)}
+	// Cloud audit records are a different witness with its own window and
+	// its own rules: they never contradict a command (the export may cover
+	// another account), and they must not widen the host telemetry's
+	// coverage or every tool call outside it would look unexplained.
+	var host, cloud []endpoint.Record
+	for _, r := range records {
+		if r.Kind == "cloud" {
+			cloud = append(cloud, r)
+		} else {
+			host = append(host, r)
+		}
+	}
+	findings := endpointHost(events, host, opts, res)
+	findings = append(findings, cloudPass(events, cloud, res)...)
+	return res, findings
+}
+
+// endpointHost correlates process, file and network telemetry.
+func endpointHost(events []schema.Event, records []endpoint.Record, opts EndpointOptions, res *EndpointResult) []schema.Finding {
 	if len(records) == 0 {
-		return res, nil
+		return nil
 	}
 	sort.SliceStable(records, func(i, j int) bool { return records[i].Time.Before(records[j].Time) })
 	res.CoverageStart, res.CoverageEnd = records[0].Time, records[len(records)-1].Time
@@ -189,7 +214,7 @@ func Endpoint(events []schema.Event, records []endpoint.Record, opts EndpointOpt
 			FalsePositive: "Telemetry/update checks by the agent runtime, or MCP servers reaching their own APIs; add known hosts with --known-destinations.",
 		})
 	}
-	return res, findings
+	return findings
 }
 
 // score rates how well an endpoint record explains a tool call: 0 = no.

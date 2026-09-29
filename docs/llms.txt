@@ -15,7 +15,7 @@ Status: released (v3.0). The explorer (`agentdfir serve`) is an investigation wo
 - [Container / CI Collection](https://github.com/efij/AgentDFIR/blob/main/docs/container-ci-collection.md): collect --docker and --archive — containers, CI artifacts, support bundles, vendor exports
 - [Instruction Provenance](https://github.com/efij/AgentDFIR/blob/main/docs/provenance.md): who wrote each line of CLAUDE.md / rules / settings and whether it came from a tool result
 - [Real-time Detection](https://github.com/efij/AgentDFIR/blob/main/docs/realtime-detection.md): monitor --detect --alert — live sensor pushing findings to webhook/syslog/file
-- [Endpoint Corroboration](https://github.com/efij/AgentDFIR/blob/main/docs/endpoint-corroboration.md): auditd / Sysmon / EDR exports as a second witness — CORROBORATED vs CONTRADICTED tool calls, unlogged agent activity
+- [Endpoint Corroboration](https://github.com/efij/AgentDFIR/blob/main/docs/endpoint-corroboration.md): auditd / Sysmon / EDR exports, and AWS CloudTrail / Azure Activity Log / GCP Cloud Audit Log exports for az/aws/gcloud commands, as a second witness — CORROBORATED vs CONTRADICTED tool calls, unlogged agent activity
 - [MCP Audit](https://github.com/efij/AgentDFIR/blob/main/docs/mcp-audit.md): read-only MCP server inventory + supply-chain findings across 9 agent hosts, baseline drift, gateway-log corroboration
 - [MCP Forensics](https://efij.github.io/AgentDFIR/mcp-forensics): MCP config and tool-activity investigation
 - [Hunt](https://github.com/efij/AgentDFIR/blob/main/docs/hunt.md): agentdfir hunt — was this machine hit by a known AI-agent or npm supply-chain incident; IOC packs, STIX 2.1 / MISP import, lockfile checks, evidence-window verdicts

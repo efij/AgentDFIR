@@ -23,7 +23,7 @@ import (
 // Record is one endpoint observation.
 type Record struct {
 	Time      time.Time `json:"time"`
-	Kind      string    `json:"kind"` // process | network | file
+	Kind      string    `json:"kind"` // process | network | file | cloud
 	PID       int       `json:"pid,omitempty"`
 	PPID      int       `json:"ppid,omitempty"`
 	Exe       string    `json:"exe,omitempty"`
@@ -35,8 +35,15 @@ type Record struct {
 	DestHost  string    `json:"dest_host,omitempty"`
 	FilePath  string    `json:"file_path,omitempty"`
 	FileOp    string    `json:"file_op,omitempty"` // create | delete | modify | open
-	Source    string    `json:"source"`            // adapter name
-	Ref       string    `json:"ref"`               // file:line or event id
+	// Cloud control-plane records (kind cloud): who did what to which
+	// resource, from where, and whether the cloud allowed it.
+	Provider  string `json:"provider,omitempty"`  // aws | azure | gcp
+	Operation string `json:"operation,omitempty"` // s3:DeleteBucket, microsoft.storage/storageaccounts/delete, storage.buckets.delete
+	Resource  string `json:"resource,omitempty"`  // resource ids and names the record names
+	SourceIP  string `json:"source_ip,omitempty"`
+	Failed    string `json:"failed,omitempty"` // error code when the cloud refused the call
+	Source    string `json:"source"`           // adapter name
+	Ref       string `json:"ref"`              // file:line or event id
 }
 
 // Format names an adapter.
@@ -48,7 +55,8 @@ const (
 	FormatSysmon Format = "sysmon-xml"
 	FormatJSONL  Format = "jsonl"
 	FormatCSV    Format = "csv"
-	MaxLogBytes         = 2 << 30 // 2 GiB streaming bound
+	FormatCloud  Format = "cloud-audit" // AWS CloudTrail, Azure Activity Log, GCP Cloud Audit Logs
+	MaxLogBytes         = 2 << 30       // 2 GiB streaming bound
 	maxLineBytes        = 4 << 20
 )
 
@@ -85,6 +93,8 @@ func Load(path string, f Format) (*LoadResult, error) {
 		res, err = loadJSONL(path)
 	case FormatCSV:
 		res, err = loadCSV(path)
+	case FormatCloud:
+		res, err = loadCloud(path)
 	default:
 		return nil, fmt.Errorf("unknown endpoint format %q", f)
 	}
@@ -111,6 +121,8 @@ func Sniff(path string) (Format, error) {
 		return FormatAuditd, nil
 	case bytes.HasPrefix(head, []byte("<")) && (bytes.Contains(head, []byte("<Event")) || bytes.Contains(head, []byte("<Events"))):
 		return FormatSysmon, nil
+	case (bytes.HasPrefix(head, []byte("{")) || bytes.HasPrefix(head, []byte("["))) && looksLikeCloudAudit(head):
+		return FormatCloud, nil
 	case bytes.HasPrefix(head, []byte("{")) || bytes.HasPrefix(head, []byte("[")):
 		return FormatJSONL, nil
 	}
@@ -121,7 +133,7 @@ func Sniff(path string) (Format, error) {
 	if bytes.Count(first, []byte(",")) >= 2 {
 		return FormatCSV, nil
 	}
-	return "", errors.New("cannot determine endpoint log format; pass --format auditd|sysmon-xml|jsonl|csv")
+	return "", errors.New("cannot determine endpoint log format; pass --format auditd|sysmon-xml|jsonl|csv|cloud-audit")
 }
 
 func min(a, b int) int {

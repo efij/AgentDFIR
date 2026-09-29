@@ -104,7 +104,7 @@ func Evaluate(inv *Inventory) []schema.Finding {
 				s, "T1195", "", "Normal for team repos; review who can change the file."))
 		}
 		for _, t := range s.Tools {
-			if ph, ok := detect.InjectionPhrase(t.Description); ok {
+			if ph, ok := detect.ToolContentPhrase(t.Description); ok {
 				out = append(out, finding("MCP_TOOL_DESCRIPTION_POISONING", "CRITICAL", "Instruction Payload in MCP Tool Description",
 					fmt.Sprintf("Tool %q of server %q carries an instruction-override phrase (%q) in its description. Tool descriptions are injected into the model's context on every session — this is the tool-poisoning delivery path, present before any call is made.", t.Name, s.Name, ph),
 					s, "", "AML.T0110", "Tools that document prompt-injection defenses can match; read the full description."))

@@ -154,6 +154,25 @@ var Packs = []Pack{
 		Claude: []string{"Bash(curl * | sh*)", "Bash(curl * | bash*)", "Bash(wget * | sh*)", "Bash(wget * | bash*)", "Bash(* | base64 -d | sh*)", "Bash(iex *)", "Bash(pip install http*)", "Bash(npm install http*)"},
 	},
 	{
+		ID: "cloud-destructive", Title: "Ask before deleting cloud resources or their backups",
+		Why:   "The agent must ask before it deletes cloud storage, databases, key vaults, apps or whole projects, removes a resource lock or backup protection, or stops cloud logging.",
+		Cost:  "One prompt when you really are tearing down an environment. Listing and reading are never asked.",
+		Level: Ask, Friction: 1, Confidence: 80,
+		Rules:  []string{"CLOUD_RESOURCE_DELETION", "CLOUD_RECOVERY_PROTECTION_REMOVED", "CLOUD_DATA_DESTRUCTION", "CLOUD_LOGGING_DISABLE"},
+		ATLAS:  []string{"AML.M0029"},
+		Claude: cloudDestructive,
+		Codex: []CodexRule{
+			{Pattern: []string{"az", "group", "delete"}}, {Pattern: []string{"az", "storage", "account", "delete"}},
+			{Pattern: []string{"az", "keyvault", "delete"}}, {Pattern: []string{"az", "keyvault", "purge"}},
+			{Pattern: []string{"az", "lock", "delete"}}, {Pattern: []string{"az", "backup", "protection", "disable"}},
+			{Pattern: []string{"aws", "s3", "rb"}}, {Pattern: []string{"aws", "s3api", "delete-bucket"}},
+			{Pattern: []string{"aws", "ec2", "terminate-instances"}}, {Pattern: []string{"aws", "kms", "schedule-key-deletion"}},
+			{Pattern: []string{"aws", "cloudtrail", "stop-logging"}}, {Pattern: []string{"aws", "cloudtrail", "delete-trail"}},
+			{Pattern: []string{"gcloud", "projects", "delete"}}, {Pattern: []string{"gcloud", "sql", "instances", "delete"}},
+			{Pattern: []string{"terraform", "destroy"}}, {Pattern: []string{"pulumi", "destroy"}},
+		},
+	},
+	{
 		ID: "self-modify", Title: "Ask before the agent changes its own settings",
 		Why:   "The agent must ask before it edits its own permissions, hooks or MCP servers, the usual way an injected instruction makes itself permanent.",
 		Cost:  "A prompt when you ask the agent to change its own settings or add an MCP server.",
@@ -234,4 +253,22 @@ func PacksForRule(rule string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// cloudDestructive are the control-plane commands that delete what a
+// backup cannot bring back, or delete the backup. Read and list commands
+// are deliberately absent: an agent that inspects a subscription is doing
+// its job.
+var cloudDestructive = []string{
+	"Bash(az group delete*)", "Bash(az storage account delete*)", "Bash(az keyvault delete*)", "Bash(az keyvault purge*)",
+	"Bash(az functionapp delete*)", "Bash(az webapp delete*)", "Bash(az vm delete*)", "Bash(az aks delete*)",
+	"Bash(az sql db delete*)", "Bash(az sql server delete*)", "Bash(az cosmosdb delete*)",
+	"Bash(az lock delete*)", "Bash(az resource lock delete*)", "Bash(az group lock delete*)",
+	"Bash(az backup protection disable*)", "Bash(az backup vault delete*)", "Bash(az monitor diagnostic-settings delete*)",
+	"Bash(aws s3 rb*)", "Bash(aws s3api delete-bucket*)", "Bash(aws rds delete-db-*)", "Bash(aws dynamodb delete-table*)",
+	"Bash(aws ec2 terminate-instances*)", "Bash(aws kms schedule-key-deletion*)", "Bash(aws secretsmanager delete-secret*)",
+	"Bash(aws backup delete-*)", "Bash(aws cloudformation delete-stack*)", "Bash(aws cloudtrail stop-logging*)", "Bash(aws cloudtrail delete-trail*)",
+	"Bash(gcloud projects delete*)", "Bash(gcloud sql instances delete*)", "Bash(gcloud storage buckets delete*)",
+	"Bash(gcloud compute instances delete*)", "Bash(gcloud container clusters delete*)", "Bash(gcloud logging sinks delete*)",
+	"Bash(terraform destroy*)", "Bash(pulumi destroy*)",
 }
