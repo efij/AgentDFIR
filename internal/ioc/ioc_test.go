@@ -38,6 +38,15 @@ func TestPackageMatch(t *testing.T) {
 	if !pm.MatchPackage("npm", "postmark-mcp", "1.0.18") || pm.MatchPackage("npm", "postmark-mcp", "1.0.9") {
 		t.Error("from_version match wrong")
 	}
+	lf := Indicator{Kind: KindPackage, Ecosystem: "pypi", Value: "langflow", BelowVersion: "1.3.0"}
+	for v, want := range map[string]bool{"1.2.9": true, "1.0.0": true, "1.3.0": false, "1.4.2": false, "": false} {
+		if got := lf.MatchPackage("pypi", "langflow", v); got != want {
+			t.Errorf("below_version langflow@%q = %v, want %v", v, got, want)
+		}
+	}
+	if lf.Label() != "pypi:langflow@<1.3.0" {
+		t.Errorf("label %q", lf.Label())
+	}
 }
 
 func TestDomainBoundary(t *testing.T) {

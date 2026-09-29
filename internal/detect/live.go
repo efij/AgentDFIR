@@ -71,7 +71,11 @@ func (l *Live) Eval(ev schema.Event) []schema.Finding {
 	}
 	// Injection phrases arriving in agent-facing content.
 	if ev.EventType == schema.EventHumanPrompt || ev.EventType == schema.EventToolResult {
-		if ph, ok := InjectionPhrase(ev.Summary); ok {
+		match := InjectionPhrase
+		if ev.EventType == schema.EventToolResult {
+			match = ToolContentPhrase
+		}
+		if ph, ok := match(ev.Summary); ok {
 			out = append(out, schema.Finding{
 				RuleID: "PROMPT_INJECTION_INDICATOR", Severity: "MEDIUM", Title: "Prompt Injection Indicator",
 				Description: fmt.Sprintf("Instruction-override phrase %q arrived in live %s content. Indicator, not proof — watch the agent's next actions.", ph, ev.EventType),

@@ -514,7 +514,7 @@ footer a:hover{color:var(--text)}
       <h2>What the agent says is not what the computer did.</h2>
       <p class="sub" style="margin-top:18px">“I ran <code>curl example.com</code>” in a chat proves nothing. Every action on every timeline says how strongly it is backed, from a claim in the conversation up to the computer's own records, and a second witness (auditd, Sysmon, your EDR or MCP gateway) can confirm it or prove it false.</p>
       <ul class="stg points">
-        <li><b>A second witness.</b> <code>analyze --endpoint audit.log</code> lines up each tool call with the operating system's own process and network records.</li>
+        <li><b>A second witness.</b> <code>analyze --endpoint audit.log</code> lines up each tool call with the operating system's own process and network records. Pass a CloudTrail, Azure Activity Log or GCP audit export and every <code>az</code>, <code>aws</code> and <code>gcloud</code> command is checked against the cloud's own record.</li>
         <li><b>Lies surface.</b> An agent that says it did something the computer never saw becomes a finding of its own.</li>
         <li><b>Off the record.</b> Processes and connections the agent never mentioned are reported too.</li>
       </ul>
@@ -581,7 +581,7 @@ footer a:hover{color:var(--text)}
       <h2>The last twelve months of agent incidents, as commands.</h2>
       <p class="sub" style="margin-top:18px">New in v3.0. Every capability comes from a real 2025–2026 incident and is tested against a reproduction of it (<code>agentdfir simulate --scenario list</code>).</p>
       <ul class="stg points">
-        <li><b><code>hunt</code> — was I hit?</b> Verified indicators for s1ngularity, Shai-Hulud 1 and 2, the keyv wave, SANDWORM_MODE, postmark-mcp, codexui-android and the Amazon Q wiper, plus STIX 2.1 and MISP feeds. A command the agent ran is <em>observed</em>; a question about the incident is only <em>mentioned</em>. Evidence that starts after the incident says <em>inconclusive</em>, not all-clear.</li>
+        <li><b><code>hunt</code> — was I hit?</b> Verified indicators for s1ngularity, Shai-Hulud 1 and 2, the keyv wave, SANDWORM_MODE, postmark-mcp, codexui-android, the Amazon Q wiper and Storm-3168 / JADEPUFFER, plus STIX 2.1 and MISP feeds. A command the agent ran is <em>observed</em>; a question about the incident is only <em>mentioned</em>. Evidence that starts after the incident says <em>inconclusive</em>, not all-clear.</li>
         <li><b><code>scan-repo</code> — before an agent opens it.</b> Committed SessionStart hooks, VS Code folderOpen tasks, repo MCP servers, injected AGENTS.md, install scripts that run AI CLIs headless. SARIF, a GitHub Action and a pre-commit hook.</li>
         <li><b><code>decode</code> — no model refuses to help.</b> Nested base64, gzip, hex and UTF-16LE payloads unwrapped offline; every rule sees what an executed payload really runs.</li>
         <li><b><code>monitor --journal</code> — the transcript can lie.</b> Every append hash-chained as it is written, the chain head anchored off the file; a later edit is <code>TRANSCRIPT_REWRITTEN</code>.</li>
@@ -636,7 +636,7 @@ footer a:hover{color:var(--text)}
       <p class="sub" style="margin-top:18px"><code>agentdfir mitigate</code> turns findings into guardrails in the agents' own settings: Claude Code permissions and a log-guard hook, a Codex rules file, Cursor CLI denies, pinned MCP packages. It shows the plan first, backs up every file, records each change in a hash-chained ledger and can put every byte back.</p>
       <ul class="stg points">
         <li><b>Two packs with zero friction, on by default.</b> The agent cannot delete its own transcripts or read cloud keys, SSH keys and browser password stores.</li>
-        <li><b>Six more, opt-in, each with its cost stated.</b> Ask before uploads, downloaded scripts, persistence, self-modification and destructive commands.</li>
+        <li><b>Seven more, opt-in, each with its cost stated.</b> Ask before uploads, downloaded scripts, persistence, self-modification, destructive commands, and deleting cloud resources or their backups.</li>
         <li><b>Drift detection.</b> <code>--status</code> re-reads every file and flags a guardrail an agent removed after it went in.</li>
         <li><b>Or from the browser.</b> On the machine the case came from, the Protect tab previews every file and diff, applies on a click and undoes any change, byte-exact. For a case from another computer it builds the command to run there.</li>
       </ul>
@@ -772,7 +772,7 @@ Result:             <span class="bad">FAILED — 2 problem(s):</span>
 
     <div class="stg integ" style="margin-top:56px">
       <div><h3>Collect from anywhere</h3><p>this machine · --path image<br>--import KAPE/Velociraptor/CyLR<br>--docker · --archive CI</p></div>
-      <div><h3>Second witness</h3><p>auditd · Sysmon XML<br>EDR JSONL/CSV · eslogger<br>MCP gateway logs</p></div>
+      <div><h3>Second witness</h3><p>auditd · Sysmon XML<br>EDR JSONL/CSV · eslogger<br>CloudTrail · Azure Activity · GCP audit<br>MCP gateway logs</p></div>
       <div><h3>Export to your stack</h3><p>OCSF 1.3 · SARIF 2.1 · STIX 2.1<br>Sigma · OTel · Timesketch<br>l2tcsv · PDF · HTML</p></div>
       <div><h3>Deploy at scale</h3><p>KAPE target + module<br>Velociraptor artifact<br>signed product packs</p></div>
     </div>
@@ -833,7 +833,7 @@ Result:             <span class="bad">FAILED — 2 problem(s):</span>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/attack-chains.md"><b>Attack chains</b><span>The eight built-in chains and how to write your own.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/claude-code-forensic-artifacts.md"><b>Claude Code artifacts</b><span>Every on-disk location and the JSONL session schema.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/mcp-audit.md"><b>MCP supply-chain audit</b><span>Inventory, risky configuration, poisoning and drift.</span></a>
-      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/endpoint-corroboration.md"><b>Endpoint corroboration</b><span>auditd, Sysmon and EDR exports as a second witness.</span></a>
+      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/endpoint-corroboration.md"><b>Endpoint corroboration</b><span>auditd, Sysmon, EDR and cloud audit exports as a second witness.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/provenance.md"><b>Instruction provenance</b><span>Who wrote each line of an agent's instruction files.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/realtime-detection.md"><b>Real-time detection</b><span>Webhook, syslog or file alerts within seconds.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/dfir-interop.md"><b>DFIR interop</b><span>KAPE, Velociraptor, CyLR in; Timesketch and l2tcsv out.</span></a>

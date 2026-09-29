@@ -548,7 +548,7 @@ var remoteInstrRe = regexp.MustCompile(`(?i)((curl|wget|iwr|irm)\b[^\n]*\|\s*(ba
 
 func (s *scanner) instructions(rel string, b []byte) {
 	text := string(b)
-	if ph, ok := detect.InjectionPhrase(text); ok {
+	if ph, ok := detect.ToolContentPhrase(text); ok {
 		s.add(schema.Finding{RuleID: "REPO_INSTRUCTION_INJECTION", Severity: "HIGH", Title: "Instruction Override in a File the Agent Loads",
 			Description:  fmt.Sprintf("%s contains the phrase %q. Agents load this file into every session in the repository as trusted instructions.", rel, ph),
 			EvidenceRefs: []string{rel}, MitreATTACK: "T1204", MitreATLAS: "AML.T0051.001",

@@ -193,7 +193,7 @@ func Hunt(incs []Incident, in Inputs) []Verdict {
 								hit = true
 							}
 						}
-						if !hit && len(ind.Versions) == 0 && ind.FromVersion == "" && installsPackage(low, ind.Value) {
+						if !hit && len(ind.Versions) == 0 && ind.FromVersion == "" && ind.BelowVersion == "" && installsPackage(low, ind.Value) {
 							hit = true
 						}
 					case KindSHA256:

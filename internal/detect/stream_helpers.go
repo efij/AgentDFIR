@@ -131,7 +131,7 @@ func oneToolCallRules(ev schema.Event, p *streamPass2) []schema.Finding {
 
 func mcpPoisonOne(ev schema.Event, server string) (schema.Finding, bool) {
 	low := strings.ToLower(ev.Summary)
-	for _, ph := range injectionPhrases {
+	for _, ph := range toolContentPhrases {
 		if strings.Contains(low, ph) {
 			return schema.Finding{
 				RuleID: "MCP_TOOL_POISONING", Severity: "HIGH", Title: "Instruction Content Returned by MCP Tool",

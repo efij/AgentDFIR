@@ -279,6 +279,10 @@ func Run(pkg string, o Options) (*Result, error) {
 			}{cres, cf})
 			o.logf("Endpoint correlation: %d checked — %d CORROBORATED, %d CONTRADICTED, %d outside coverage; %d unlogged agent records",
 				cres.ToolCalls, cres.Corroborated, cres.Contradicted, cres.OutsideCover, cres.Unlogged)
+			if cres.CloudRecords > 0 {
+				o.logf("Cloud audit correlation: %d cloud command(s) checked — %d CORROBORATED (%d refused by the cloud); %d destructive burst(s)",
+					cres.CloudCommands, cres.CloudCorroborated, cres.CloudRefused, cres.CloudBursts)
+			}
 		}
 		if err := overlay.WriteJSONLPlain(evPath, len(events), func(i int) any { return events[i] }); err != nil {
 			return nil, err

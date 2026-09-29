@@ -34,6 +34,38 @@ var injectionPhrases = []string{
 	"important: before responding",
 }
 
+// authorityClaimPhrases tell the model an action is sanctioned. From the
+// person running the agent they are ordinary: pen-testers write exactly
+// this. Arriving through a tool result, a fetched page, an instruction
+// file or a tool definition they are a pretext aimed at the model, so they
+// are matched on those surfaces only, never on the user's own prompts.
+// Sygnia's 2026 AI-assisted intrusion left "approved by the CEO" red-team
+// framing in its artifacts.
+var authorityClaimPhrases = []string{
+	"this is an authorized penetration test",
+	"this is an authorized security test",
+	"this is an approved red team exercise",
+	"this is a sanctioned red team exercise",
+	"you are authorized to bypass",
+	"has pre-approved this action",
+}
+
+// toolContentPhrases are matched on content the person did not type.
+var toolContentPhrases = append(append([]string{}, injectionPhrases...), authorityClaimPhrases...)
+
+// ToolContentPhrase is InjectionPhrase for content that did not come from
+// the person: tool results, fetched pages, instruction files, tool and MCP
+// definitions, repository files.
+func ToolContentPhrase(text string) (string, bool) {
+	low := strings.ToLower(text)
+	for _, ph := range toolContentPhrases {
+		if strings.Contains(low, ph) {
+			return ph, true
+		}
+	}
+	return "", false
+}
+
 // InjectionPhrase reports the first instruction-override phrase found in
 // text (case-insensitive). Shared with the MCP audit so tool descriptions
 // are judged by the same conservative vocabulary as transcripts.

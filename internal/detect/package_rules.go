@@ -161,6 +161,8 @@ var secretPatterns = []secretPattern{
 	{"ANTHROPIC_API_KEY", "sk-ant-", regexp.MustCompile(`\bsk-ant-[A-Za-z0-9_-]{20,}\b`)},
 	{"OPENAI_API_KEY", "sk-", regexp.MustCompile(`\bsk-[A-Za-z0-9_-]{20,}\b`)},
 	{"GOOGLE_API_KEY", "AIza", regexp.MustCompile(`\bAIza[0-9A-Za-z_-]{35}\b`)},
+	{"ALIBABA_ACCESS_KEY", "LTAI", regexp.MustCompile(`\bLTAI[0-9A-Za-z]{12,20}\b`)},
+	{"TENCENT_SECRET_ID", "AKID", regexp.MustCompile(`\bAKID[0-9A-Za-z]{32}\b`)},
 	{"PRIVATE_KEY_BLOCK", "-----BEGIN ", regexp.MustCompile(`-----BEGIN [A-Z ]*PRIVATE KEY-----`)},
 	{"JWT", "eyJ", regexp.MustCompile(`\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b`)},
 }

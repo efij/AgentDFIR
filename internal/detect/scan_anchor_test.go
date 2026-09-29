@@ -128,3 +128,32 @@ func TestSecretPatternsAnchorsAreRequired(t *testing.T) {
 		}
 	}
 }
+
+// synthKey builds a key-shaped value at run time, so no credential-shaped
+// literal is committed (secret scanners rightly refuse those).
+func synthKey(prefix string, n int) string {
+	const alnum = "Q7m2Kx9Rv4Tz8Wp3Hn6Yc5Bd"
+	out := []byte(prefix)
+	for i := 0; i < n; i++ {
+		out = append(out, alnum[i%len(alnum)])
+	}
+	return string(out)
+}
+
+func TestNonUSCloudKeyFormats(t *testing.T) {
+	for _, tc := range []struct{ name, text string }{
+		{"ALIBABA_ACCESS_KEY", "export ALICLOUD_ACCESS_KEY=" + synthKey("LTAI", 20)},
+		{"TENCENT_SECRET_ID", "SecretId: " + synthKey("AKID", 32)},
+	} {
+		first, _ := referenceScan([]byte(tc.text))
+		if _, ok := first[tc.name]; !ok {
+			t.Errorf("%s not matched in %q", tc.name, tc.text)
+		}
+	}
+	first, _ := referenceScan([]byte("LTAI short and AKID123"))
+	for _, name := range []string{"ALIBABA_ACCESS_KEY", "TENCENT_SECRET_ID"} {
+		if _, ok := first[name]; ok {
+			t.Errorf("%s matched a too-short value", name)
+		}
+	}
+}

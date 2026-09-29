@@ -685,7 +685,7 @@ func stripJSONC(b []byte) []byte {
 	return re.ReplaceAll(out, []byte("$1"))
 }
 
-func injectionPhrase(text string) (string, bool) { return detect.InjectionPhrase(text) }
+func injectionPhrase(text string) (string, bool) { return detect.ToolContentPhrase(text) }
 
 func isHex(s string) bool {
 	for i := 0; i < len(s); i++ {

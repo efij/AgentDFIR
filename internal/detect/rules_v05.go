@@ -154,7 +154,7 @@ func mcpToolPoisoning(res *schema.Normalized) []schema.Finding {
 			continue
 		}
 		low := strings.ToLower(ev.Summary)
-		for _, p := range injectionPhrases {
+		for _, p := range toolContentPhrases {
 			if strings.Contains(low, p) {
 				out = append(out, schema.Finding{
 					RuleID:        "MCP_TOOL_POISONING",

@@ -16,7 +16,7 @@ agentdfir hunt --list                           # incidents, indicator counts, s
 Exit status is `1` when an incident's indicators are present, `0`
 otherwise, so it drops into scripts and CI.
 
-## Incidents shipped (pack `agentdfir-incidents` v1)
+## Incidents shipped (pack `agentdfir-incidents` v2)
 
 Every indicator is copied from the cited write-up; nothing is inferred.
 `--list` prints the sources.
@@ -31,6 +31,7 @@ Every indicator is copied from the cited write-up; nothing is inferred.
 | `codexui-android` | Codex token theft, Apr–May 2026 | `codexui-android`, `@friuns/codexui`, `sentry.anyclaw.store`, XOR key |
 | `keyv-wave` | Shai-Hulud keyv / cacheable wave, Aug 2026 — committed SessionStart hook + folderOpen task | `keyv@6.0.0` and siblings, `npm-cache.com`, payload file names, repo description |
 | `amazon-q-wiper` | Amazon Q VS Code 1.84.0 wiper prompt, Jul 2025 | the extension install directory |
+| `storm-3168-jadepuffer` | LLM-driven cloud and database destruction, Jun–Sep 2026 (Microsoft Storm-3168, Sysdig JADEPUFFER) | the three published attacker addresses; Langflow below 1.3.0 (CVE-2025-3248, the entry point) at low confidence, because a vulnerable version is exposure, not compromise |
 
 Incidents without host indicators (Anthropic's GTG-1002 / GTG-2002 reports,
 the OpenAI–Hugging Face agent intrusion, Replit, PocketOS) are covered by

@@ -115,6 +115,10 @@ func runEndpointCorrelation(pkg string, logs []string, f endpoint.Format, opts c
 	if !res.CoverageStart.IsZero() {
 		fmt.Printf("Telemetry coverage: %s → %s\n", res.CoverageStart.Format(time.RFC3339), res.CoverageEnd.Format(time.RFC3339))
 	}
+	if res.CloudRecords > 0 {
+		fmt.Printf("Cloud audit correlation: %d cloud record(s), %d cloud command(s) checked — %d CORROBORATED (%d refused by the cloud); %d destructive burst(s).\n",
+			res.CloudRecords, res.CloudCommands, res.CloudCorroborated, res.CloudRefused, res.CloudBursts)
+	}
 	return findings, res, 0
 }
 

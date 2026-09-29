@@ -106,5 +106,10 @@ func appendNote(summary, note string) string {
 	if summary == "" {
 		return note
 	}
+	// Re-analysing the same overlay with the same log must not stack the
+	// same note again.
+	if summary == note || strings.Contains(summary, "["+note+"]") || strings.HasPrefix(summary, note+" [") {
+		return summary
+	}
 	return summary + " [" + note + "]"
 }

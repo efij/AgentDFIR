@@ -46,6 +46,7 @@ The default selection is `default,fix`.
 | `secret-paths` | block | 0 | ✓ | the agent's Read tool on cloud keys, SSH keys, tokens, browser password stores |
 | `outbound-upload` | ask | 1 | | sending files or data to another machine (`curl -d/-F/-T`, `scp`, `rclone`, `aws s3 cp` …) |
 | `download-exec` | ask | 1 | | `curl … \| sh` and friends |
+| `cloud-destructive` | ask | 1 | | deleting cloud storage, databases, key vaults, apps or projects, removing resource locks or backup protection, stopping cloud logging (`az`, `aws`, `gcloud`, `terraform destroy`) |
 | `persistence` | ask | 1 | | cron jobs, launch agents, shell startup lines, `authorized_keys` |
 | `self-modify` | ask | 2 | | the agent editing its own permissions, hooks or MCP servers |
 | `no-bypass` | block | 2 | | `--dangerously-skip-permissions` (sets `disableBypassPermissionsMode`) |
