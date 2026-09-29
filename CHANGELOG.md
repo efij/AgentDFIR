@@ -7,6 +7,15 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.1.2] — 2026-09-29
+
+### Changed
+- Explorer **Findings are newest first.** Severity tiers stay (Act now,
+  Serious, Worth a look, Minor), but inside each tier the kind of finding
+  seen most recently comes first, and inside a kind the latest occurrence
+  is shown first. Findings with no timestamp (configuration, file content)
+  follow the dated ones.
+
 ## [3.1.1] — 2026-09-29
 
 Precision pass on a real machine's case (2,495 findings): CRITICAL 19 → 14,

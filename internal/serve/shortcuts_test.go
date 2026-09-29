@@ -15,6 +15,9 @@ func TestShortcutsMatchPhysicalKeys(t *testing.T) {
 			t.Errorf("ui.html lost %q", want)
 		}
 	}
+	if !strings.Contains(ui, "b.latest.localeCompare(a.latest)") {
+		t.Error("findings groups are no longer ordered newest first within a tier")
+	}
 	if strings.Contains(ui, "e.key.toLowerCase()==='k'") {
 		t.Error("layout-dependent Cmd+K check is back")
 	}
