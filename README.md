@@ -179,9 +179,11 @@ agentdfir mitigate --status        # verified against the files now: in place / 
 agentdfir mitigate --revert-all    # every file back, byte-exact
 ```
 
-This is the only command that changes files outside a case, and it never runs
-from `run` or `serve`. The explorer's **Protect** tab builds the command for
-you. Full rules: [docs/mitigate.md](docs/mitigate.md).
+This is the only thing that changes files outside a case, and `run` never does
+it on its own. The explorer's **Protect** tab (v3.1) previews every file and
+diff, applies the changes when you press *Apply*, and lists each one with
+*Undo* — on the machine the case came from; for a case from another computer
+it builds the command to run there. Full rules: [docs/mitigate.md](docs/mitigate.md).
 
 ## 📤 Look at another computer's case
 
