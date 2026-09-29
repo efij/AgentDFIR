@@ -7,6 +7,38 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.1.1] — 2026-09-29
+
+Precision pass on a real machine's case (2,495 findings): CRITICAL 19 → 14,
+HIGH 403 → 167, MEDIUM 942 → 557. Every change removes a shape that was never
+the attack; the attack corpus, the benign corpus (budget 0) and every
+`simulate` scenario still produce their rules.
+
+### Fixed
+- **Heredoc bodies are data.** Pack command rules no longer match text inside
+  `cat > f <<'EOF'` / `python3 - <<'EOF'` bodies (edit scripts, tests, plans):
+  most HIGH false positives — `REVERSE_SHELL`, `AGENT_CONFIG_SHELL_WRITE`,
+  credential-store and cloud rules — came from files being written. The
+  same applies to sensitive-path detection.
+- `.env.example` / `.sample` / `.template` / `.dist` are not secrets.
+- `CHAIN_SECRET_TO_EXFIL` requires an upload-shaped step, not any outbound
+  request (reading `.env` then fetching a README was CRITICAL).
+- `CHAIN_DOWNLOAD_AND_EXECUTE` needs a download saved to a file and a file
+  executed (`curl -sI`, `-o /dev/null` probes and `python3 -c` no longer
+  count): 165 → 34.
+- `INSTRUCTION_FROM_TOOL_RESULT` is HIGH only when the preceding tool result
+  came from outside the machine (web, search, MCP, a subagent); the agent
+  writing memory after its own local command is LOW context (101 → 3 HIGH).
+- `REVERSE_SHELL` (python) needs the socket wired to a shell, not a port
+  check; `LD_PRELOAD_INJECT` skips Apple's debug allocators and sanitizer
+  runtimes; `CURL_FILE_UPLOAD` skips request bodies in the session's own
+  scratch directory; `TOOL_POISONING_INDICATOR` skips source, test and
+  bug-report files inside plugin trees.
+- `DESTRUCTIVE_COMMAND` recognises scratch paths behind a variable
+  (`S=…/scratchpad; rm -rf $S/x` is INFO); `UNEXPECTED_TASK` (nested
+  subagents, now routine) is LOW.
+- Rule packs gain `match.exclude_regex`; community pack v5.
+
 ## [3.1.0] — 2026-09-29
 
 Guardrails can be applied and undone from the explorer, the Windows

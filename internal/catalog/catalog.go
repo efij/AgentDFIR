@@ -165,7 +165,7 @@ var Builtin = []Rule{
 	{ID: "UNEXPECTED_NETWORK_DESTINATION", Package: "detect", Surface: "command", MaxSeverity: "HIGH",
 		Title: "Network Destination Outside Allowlist / Cloud Metadata Contacted", Summary: "HIGH for the instance-metadata service (T1552.005); LOW for other non-allowlisted hosts (T1071).",
 		MitreATTACK: "T1552.005", MitreATLAS: "AML.T0075"},
-	{ID: "UNEXPECTED_TASK", Package: "detect", Surface: "transcript", MaxSeverity: "MEDIUM",
+	{ID: "UNEXPECTED_TASK", Package: "detect", Surface: "transcript", MaxSeverity: "LOW",
 		Title: "Nested Subagent Spawn", Summary: "A subagent spawned another subagent."},
 
 	// -------------------------------------------------------------- mcpaudit

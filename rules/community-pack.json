@@ -1,6 +1,6 @@
 {
   "pack": "agentdfir-community",
-  "version": "4",
+  "version": "5",
   "rules": [
     {
       "id": "CURL_PIPE_SHELL",
@@ -42,7 +42,7 @@
       "confidence": "high",
       "match": {
         "type": "command",
-        "regex": "(bash\\s+-i\\s+>&\\s*/dev/tcp/|nc\\s+-e\\s|mkfifo[^;]*nc\\s|python[0-9]?\\s+-c\\s+.import\\s+socket)"
+        "regex": "(bash\\s+-i\\s+>&\\s*/dev/tcp/|nc\\s+-e\\s|mkfifo[^;]*nc\\s|python[0-9.]*\\s+-c\\s+.import\\s+socket[^\\n]*(pty\\.spawn|os\\.dup2|subprocess|/bin/(ba)?sh))"
       },
       "false_positive_notes": "Almost never legitimate from an AI agent.",
       "references": [
@@ -282,9 +282,10 @@
       "confidence": "medium",
       "match": {
         "type": "command",
-        "regex": "(?i)(LD_PRELOAD=\\S|DYLD_INSERT_LIBRARIES=\\S|gdb\\s+(-\\w+\\s+)*-p\\s+\\d+|\\.so\\s+into\\s+)"
+        "regex": "(?i)(LD_PRELOAD=\\S|DYLD_INSERT_LIBRARIES=\\S|gdb\\s+(-\\w+\\s+)*-p\\s+\\d+|\\.so\\s+into\\s+)",
+        "exclude_regex": "(?i)(LD_PRELOAD|DYLD_INSERT_LIBRARIES)=[\\\"']?(/usr/lib/|/System/Library/|/Library/Developer/)[^\\s\\\"':]*(libgmalloc|libMallocStackLogging|libclang_rt\\.|libasan|libtsan|libubsan)"
       },
-      "false_positive_notes": "LD_PRELOAD is used legitimately for sanitizers and profiling; check the library.",
+      "false_positive_notes": "LD_PRELOAD is used legitimately for sanitizers and profiling; check the library. Apple's debug allocators and sanitizer runtimes (libgmalloc, libclang_rt.*san) are excluded.",
       "mitre_attack": "T1574.006"
     },
     {
@@ -866,9 +867,11 @@
       "match": {
         "type": "command",
         "regex": "(?i)\\bcurl\\b[^|;&]*(\\s-T\\s|--upload-file\\b|\\s-F\\s+\\S*@|--form\\s+\\S*@|--data-binary\\s+@|\\s-d\\s+@|--data(-raw|-urlencode)?\\s+@)",
-        "scope": "shell"
+        "scope": "shell",
+        "target_regex": "@([^\\s\\\"';|&]+)",
+        "skip_scratch_target": true
       },
-      "false_positive_notes": "Uploading build artifacts or test fixtures to internal services is legitimate; look at the destination host and the file.",
+      "false_positive_notes": "Uploading build artifacts or test fixtures to internal services is legitimate; look at the destination host and the file. Uploading a request body the session itself just wrote to its scratch directory is not user data leaving; those are skipped.",
       "references": [
         "https://atlas.mitre.org/techniques/AML.T0086",
         "https://attack.mitre.org/techniques/T1048/003/"

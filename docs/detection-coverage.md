@@ -292,7 +292,6 @@ agentdfir rules list --packs rules --json   # machine-readable
 | MEDIUM | `TIMESTOMP_INDICATOR` | transcript | T1070.006 | - | builtin |
 | MEDIUM | `TRACE_GAP` | transcript | - | - | builtin |
 | MEDIUM | `UNEXPECTED_AGENT_RESUME` | transcript | - | - | builtin |
-| MEDIUM | `UNEXPECTED_TASK` | transcript | - | - | builtin |
 | MEDIUM | `UNLOGGED_AGENT_ACTIVITY` | endpoint | T1070 | - | builtin |
 | LOW | `AGENT_GENERATED_PUSH` | command | - | - | builtin |
 | LOW | `CLIPBOARD_CAPTURE` | command | T1115 | - | agentdfir-community |
@@ -300,6 +299,7 @@ agentdfir rules list --packs rules --json   # machine-readable
 | LOW | `MCP_SERVER_REMOVED` | mcp | - | - | builtin |
 | LOW | `MCP_TOOL_ADDED` | mcp | - | - | builtin |
 | LOW | `MCP_UNPINNED_PACKAGE` | config | T1195.002 | AML.T0010.005 | agentdfir-community |
+| LOW | `UNEXPECTED_TASK` | transcript | - | - | builtin |
 | INFO | `AGENT_GENERATED_COMMIT` | command | - | - | builtin |
 | INFO | `INSTRUCTION_FILE_WRITTEN_BY_AGENT` | provenance | - | - | builtin |
 | INFO | `MCP_PROJECT_SCOPED_SERVER` | mcp | T1195 | - | builtin |

@@ -37,8 +37,9 @@ type Rule struct {
 	MitreATLAS    string   `json:"mitre_atlas,omitempty"`
 	MitreATTACK   string   `json:"mitre_attack,omitempty"`
 
-	re       *regexp.Regexp
-	targetRe *regexp.Regexp
+	re        *regexp.Regexp
+	targetRe  *regexp.Regexp
+	excludeRe *regexp.Regexp
 }
 
 // Match declares what a rule inspects.
@@ -60,7 +61,10 @@ type Match struct {
 	// TargetRegex captures (group 1) the file a matched command acts on;
 	// with SkipScratchTarget the rule stays quiet when every captured
 	// target is scratch space the session itself owns.
-	TargetRegex       string `json:"target_regex,omitempty"`
+	TargetRegex string `json:"target_regex,omitempty"`
+	// ExcludeRegex: a subject that also matches it is not a hit (known
+	// benign forms such as Apple's debug malloc in DYLD_INSERT_LIBRARIES).
+	ExcludeRegex      string `json:"exclude_regex,omitempty"`
 	SkipScratchTarget bool   `json:"skip_scratch_target,omitempty"`
 }
 
@@ -153,6 +157,16 @@ func validatePack(p *Pack) error {
 			}
 			r.targetRe = tre
 		}
+		if r.Match.ExcludeRegex != "" {
+			if len(r.Match.ExcludeRegex) > maxRegexLen {
+				return fmt.Errorf("rule %s: exclude_regex too long", r.ID)
+			}
+			xre, err := regexp.Compile(r.Match.ExcludeRegex)
+			if err != nil {
+				return fmt.Errorf("rule %s: exclude_regex: %w", r.ID, err)
+			}
+			r.excludeRe = xre
+		}
 		if r.Match.Scope != "" && r.Match.Scope != "shell" && r.Match.Scope != "no_heredoc" {
 			return fmt.Errorf("rule %s: invalid match.scope %q", r.ID, r.Match.Scope)
 		}
@@ -218,10 +232,11 @@ func matchEvents(r *Rule, res *schema.Normalized, dec *decoded) []schema.Finding
 			switch r.Match.Scope {
 			case "shell":
 				subject = shellshape.Strip(shellshape.ExpandVars(subject))
-			case "no_heredoc":
+			default:
 				// Quoted arguments stay (SQL in `psql -c '…'` is the
-				// command); heredoc bodies — files being written — go.
-				subject = shellshape.StripHeredocs(subject)
+				// command); heredoc bodies — files being written, edit
+				// scripts full of string literals — go.
+				subject = shellshape.StripAllHeredocs(subject)
 			}
 		case "summary":
 			subject = ev.Summary
@@ -364,6 +379,9 @@ func matchOneArtifact(rules []*Rule, a casepkg.ArtifactRecord, store *casepkg.St
 }
 
 func matches(r *Rule, s string) bool {
+	if r.excludeRe != nil && r.excludeRe.MatchString(s) {
+		return false
+	}
 	low := ""
 	if len(r.Match.Contains) > 0 {
 		low = strings.ToLower(s)

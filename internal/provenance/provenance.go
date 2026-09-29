@@ -373,7 +373,7 @@ func evaluate(rep *Report, writes []Write) []schema.Finding {
 			}
 			if la.Trigger == "tool_result" {
 				flag(schema.Finding{
-					RuleID: "INSTRUCTION_FROM_TOOL_RESULT", Severity: "HIGH", Title: "Instruction Line Originated From Tool Output",
+					RuleID: "INSTRUCTION_FROM_TOOL_RESULT", Severity: triggerSeverity(la.TrigInfo), Title: "Instruction Line Originated From Tool Output",
 					Description: fmt.Sprintf("Line %d of %s (%q) was written by agent %s via %s right after content came back from %s. Text that entered as tool output — not from the user — is now a standing instruction for every future session.", la.Line, fr.LogicalPath, trimTo(la.Text, 80), la.AgentID, la.Tool, la.TrigInfo),
 					SessionID:   la.SessionID, AgentID: la.AgentID, EvidenceRefs: []string{la.Evidence},
 					Status: schema.StateObserved, Endpoint: schema.StateUnknown, MitreATLAS: "AML.T0080.000", MitreATTACK: "T1547",
@@ -413,7 +413,7 @@ func evaluate(rep *Report, writes []Write) []schema.Finding {
 	for _, w := range rep.OtherWrite {
 		if w.Trigger == "tool_result" {
 			flag(schema.Finding{
-				RuleID: "INSTRUCTION_FROM_TOOL_RESULT", Severity: "HIGH", Title: "Instruction File Written From Tool Output (file not collected)",
+				RuleID: "INSTRUCTION_FROM_TOOL_RESULT", Severity: triggerSeverity(w.TrigInfo), Title: "Instruction File Written From Tool Output (file not collected)",
 				Description: fmt.Sprintf("Agent %s wrote %s via %s right after content came back from %s: %q. The file itself was not in the collection; collect the project to attribute line by line.", w.Event.AgentID, w.Path, w.Event.Tool, w.TrigInfo, w.Snippet),
 				SessionID:   w.Event.SessionID, AgentID: w.Event.AgentID, EvidenceRefs: []string{ref(w.Event)},
 				Status: schema.StateObserved, Endpoint: schema.StateUnknown, MitreATLAS: "AML.T0080.000", MitreATTACK: "T1547",
@@ -502,4 +502,20 @@ func trimTo(s string, n int) string {
 		return string(r[:n]) + "…"
 	}
 	return s
+}
+
+// triggerSeverity: content from outside the machine (a web page, a search
+// result, an MCP server, a subagent that may have read one) turned into a
+// standing instruction is the poisoning path — HIGH. The agent writing its
+// memory right after its own local command or file read is how auto-memory
+// works; on a real machine that was 101 HIGH findings and none were
+// poisoning — LOW context.
+func triggerSeverity(trig string) string {
+	t := strings.ToLower(trig)
+	for _, u := range []string{"webfetch", "websearch", "fetch", "mcp", "browser", "http", "task", "agent", "url", "search"} {
+		if strings.Contains(t, u) {
+			return "HIGH"
+		}
+	}
+	return "LOW"
 }

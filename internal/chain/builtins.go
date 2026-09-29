@@ -35,7 +35,9 @@ var Builtin = []Chain{
 			// A network verb the shell actually runs — not a URL inside a
 			// heredoc or a quoted string, and not an `nc -z` probe. Nine of
 			// fifteen CRITICAL chains on a real machine had such a step.
-			{Name: "upload or outbound connection", EventTypes: []string{"tool_call"}, Outbound: true},
+			// Upload-shaped, not merely outbound: on a real machine "read
+			// .env, later curl a README" was most of the CRITICALs.
+			{Name: "upload-shaped command", EventTypes: []string{"tool_call"}, Upload: true},
 		},
 		MitreATLAS: "AML.T0086", MitreATTACK: "T1048",
 		FalsePositive: "Legitimate deploys read a token and push. Confirm the destination against the allowlist (analyze --known-destinations).",
@@ -79,8 +81,14 @@ var Builtin = []Chain{
 		Title:       "Agent Downloaded Content, Then Executed It",
 		Description: "A download command (curl/wget) was followed by execution of a script or binary in the same session.",
 		Steps: []Step{
-			{Name: "download", EventTypes: []string{"tool_call"}, CommandRegex: `(^|\s|;|&&|\|)(curl|wget)\s`},
-			{Name: "execute", EventTypes: []string{"tool_call"}, CommandRegex: `(^|\s|;|&&|\|)(chmod\s+\+x|sh|bash|zsh|python3?|node|perl|ruby)\s`},
+			// A download that lands in a file: curl -o/-O, wget without -O-.
+			// A header check, a status probe (-o /dev/null) or a response
+			// read on stdout is not "downloaded content". On a real machine
+			// the loose form was 165 findings, none a download-and-run.
+			{Name: "download", EventTypes: []string{"tool_call"}, CommandRegex: `(\bcurl\b[^|;&\n]*\s(-[a-zA-Z]*O\b|--remote-name|(-o|--output)\s*["']?([^/\s"'-]|/([^d]|d[^e]|de[^v])))|\bwget\s+(-[a-zA-Z]*\s+)*[^-\s])`},
+			// Running a file: `bash x.sh`, `./x`, `chmod +x`. `python3 -c …`
+			// and `python3 - <<EOF` run inline code, not a download.
+			{Name: "execute", EventTypes: []string{"tool_call"}, CommandRegex: `(chmod\s+\+x|(^|\s|;|&&|\|)(sh|bash|zsh|python3?|node|perl|ruby)\s+[^-\s<|&;]|(^|\s|;|&&|\|)\./[A-Za-z0-9_])`},
 		},
 		MitreATTACK:   "T1105",
 		FalsePositive: "Package installers and build scripts do this legitimately. Check the download source.",

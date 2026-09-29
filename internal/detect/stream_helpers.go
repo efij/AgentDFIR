@@ -147,7 +147,7 @@ func mcpPoisonOne(ev schema.Event, server string) (schema.Finding, bool) {
 
 func nestedTaskFinding(ev schema.Event) schema.Finding {
 	return schema.Finding{
-		RuleID: "UNEXPECTED_TASK", Severity: "MEDIUM", Title: "Nested Subagent Spawn",
+		RuleID: "UNEXPECTED_TASK", Severity: "LOW", Title: "Nested Subagent Spawn",
 		Description: "A subagent spawned another subagent. Nested delegation widens the blast radius and is uncommon in normal sessions.",
 		SessionID:   ev.SessionID, AgentID: ev.AgentID, EvidenceRefs: []string{ref(ev)},
 		Status: ev.Corroboration, Endpoint: schema.StateUnknown,
@@ -252,7 +252,8 @@ func deletesLogs(cmd string) bool {
 // Clearing a scratch, cache or build directory is routine housekeeping and
 // was reported at the same level as deleting a user's files.
 func destructiveSeverity(cmd string) string {
-	targets := DeleteTargets(cmd)
+	// S=…/scratchpad; rm -rf $S/x — the variable is the session's scratch.
+	targets := DeleteTargets(shellshape.ExpandVars(cmd))
 	if len(targets) == 0 {
 		return "MEDIUM"
 	}

@@ -6,6 +6,7 @@ package detect
 import (
 	"bytes"
 	"fmt"
+	"github.com/efij/AgentDFIR/v3/internal/shellshape"
 	"regexp"
 	"strings"
 
@@ -256,9 +257,14 @@ func SecretKind(value string) (string, bool) {
 var sensitivePathRe = regexp.MustCompile(`(?i)(\.ssh/|id_rsa|id_ed25519|authorized_keys|\.aws/credentials|\.netrc|\.kube/config|/etc/shadow|\.gnupg/|\.npmrc|\.pypirc|\.docker/config\.json|\.env\b|keychain|wallet\.dat|\.gcloud/|\.azure/|credentials\.json|token\.json)`)
 
 func containsSensitivePath(s string) (string, bool) {
+	// Heredoc bodies are files being written, not paths being read, and
+	// template env files (.env.example, .env.sample…) hold no secrets.
+	s = envTemplateRe.ReplaceAllString(shellshape.StripAllHeredocs(s), "")
 	m := sensitivePathRe.FindString(s)
 	return m, m != ""
 }
+
+var envTemplateRe = regexp.MustCompile(`(?i)\.env\.(example|sample|template|dist|defaults?|tpl)\b`)
 
 func lowerHas(s string, subs ...string) bool {
 	l := strings.ToLower(s)
