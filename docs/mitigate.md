@@ -13,8 +13,11 @@ agentdfir mitigate --revert <id>       # one file back, byte-exact
 agentdfir mitigate --revert-all        # everything back, newest first
 ```
 
-The explorer's **Protect** tab shows the same view for the open case and
-builds the command. The page itself never changes anything.
+The explorer's **Protect** tab does the same from the browser: on the
+machine the case came from, *Preview changes* shows every file and the
+exact diff, *Apply* makes the changes, and each applied change has *Undo*.
+It goes through the same backup, ledger and revert as the command. For a
+case from another computer the tab builds the command to run there.
 
 ## What can be done about a finding
 
