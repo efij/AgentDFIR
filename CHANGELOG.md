@@ -7,6 +7,12 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.1.0] — 2026-09-29
+
+Guardrails can be applied and undone from the explorer, the Windows
+one-liner works from Command Prompt, and Cmd/Ctrl+K works on every
+keyboard layout.
+
 ### Added
 - **Protect tab applies guardrails from the page.** On the machine the case
   came from, *Preview changes* shows every file, what goes into it and the
