@@ -215,6 +215,19 @@ dl.kv dt{color:var(--muted)} dl.kv dd{margin:0;font-family:var(--mono);font-size
 .cmdbox code{flex:1;min-width:0;font-family:var(--mono);font-size:13px;overflow-x:auto;white-space:nowrap}
 .since{font-size:12.5px;color:var(--ok);font-weight:650}
 .drift{color:var(--act);font-weight:650}
+.mit{border:1px solid var(--line);border-radius:var(--r-lg);background:var(--surface);padding:14px 16px;margin:0 0 12px}
+.mit .f{font-family:var(--mono);font-size:13px;font-weight:650;word-break:break-all}
+.mit .p{color:var(--muted);font-size:12.5px;margin-top:2px}
+.mit ul{margin:8px 0 0;padding-left:18px;color:var(--ink-2);font-size:13.5px}
+.mit details{margin-top:8px}.mit summary{cursor:pointer;font-size:13px;color:var(--accent);font-weight:600}
+.mit pre{margin:8px 0 0;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface-2);font-family:var(--mono);font-size:12px;line-height:1.45;overflow-x:auto;white-space:pre}
+.mit .ok{color:var(--ok)}.mit .bad{color:var(--act)}
+.mitbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0 36px}
+.mitbar .or{color:var(--muted);font-size:13px}
+.ap{width:100%;border-collapse:collapse;border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;background:var(--surface);margin-bottom:36px}
+.ap td,.ap th{padding:10px 14px;border-top:1px solid var(--line);text-align:left;font-size:13.5px;vertical-align:middle}
+.ap thead th{border-top:0;font-size:12.5px;color:var(--muted);font-weight:600;background:var(--surface-2)}
+.ap .f{font-family:var(--mono);font-size:12.5px;word-break:break-all}
 .steps-l{margin:6px 0 0;padding-left:18px;color:var(--ink-2);font-size:13.5px}
 @media (max-width:760px){.pk .hide-s{display:none}}
 /* ---- story (swimlane) — the one loud element on the page */
@@ -1015,9 +1028,14 @@ function storyCard(it,isStart){
 
 
 // ================= PROTECT =================
-// What can be done about the findings. The page never changes the machine:
-// it builds the `agentdfir mitigate` command and the person runs it.
-let protectData=null;
+// What can be done about the findings. On the machine the case came from,
+// the page previews every change and applies it through /api/mitigations/
+// (same-origin + per-load token; every file backed up, every change in the
+// ledger, undo per change). Elsewhere it builds the `agentdfir mitigate`
+// command for that computer's terminal.
+let protectData=null, protectResult=null;
+const mitPost=(action,body)=>fetch('/api/mitigations/'+action,{method:'POST',credentials:'omit',headers:{'Content-Type':'application/json','X-AgentDFIR-Mitigate':protectData&&protectData.token||''},body:JSON.stringify(body)}).then(r=>{if(!r.ok) return r.text().then(t=>{throw new Error(t||r.status);}); return r.json();});
+const refreshProtect=()=>{ protectData=null; renderProtect(); };
 function renderProtect(){
   const box=$('#pv');
   const ready=protectData?Promise.resolve(protectData):api('/api/mitigations').then(d=>protectData=d);
@@ -1030,7 +1048,7 @@ function renderProtect(){
     const titleOf=r=>{ const f=S.findings.find(x=>x.rule_id===r.rule); return f?plain(f).title:(r.title||r.rule); };
     box.append(h('h1',{class:'verdict-line'},sum(prev)+sum(fix)?'Stop it happening again':'Nothing here can be prevented by settings'));
     box.append(h('p',{class:'lede'},d.same_machine
-      ? plural(sum(prev),'finding')+' can be prevented by guardrails in your AI agents’ own settings'+(sum(fix)?', and '+plural(sum(fix),'finding')+' can be fixed in the config right now':'')+'. This page does not change anything: pick what you want, copy the command, and run it in a terminal. It shows every change first, backs up each file and can undo all of it.'
+      ? plural(sum(prev),'finding')+' can be prevented by guardrails in your AI agents’ own settings'+(sum(fix)?', and '+plural(sum(fix),'finding')+' can be fixed in the config right now':'')+'. Pick what you want and press Preview: nothing is written until you see every change and press Apply. Each file is backed up first, every change is recorded, and each one can be undone from this page.'
       : 'This case was collected on '+(d.host||'another computer')+'. The guardrails below have to be applied there: run the command on that computer.'));
     if(d.ledger_error) box.append(h('div',{class:'panel',style:'border-color:var(--act);margin-bottom:24px'},h('b',{class:'drift'},'The mitigation ledger does not verify: '),d.ledger_error));
     if(A.last_apply) box.append(h('p',{class:'since',style:'margin:-12px 0 24px'},'Guardrails last applied on this machine '+day(A.last_apply)+'. Counts marked “since” only include what happened after.'));
@@ -1054,8 +1072,47 @@ function renderProtect(){
     });
     box.append(h('table',{class:'pk'},h('thead',null,h('tr',null,h('th',null,''),h('th',null,'Guardrail'),h('th',null,'Level'),h('th',{class:'hide-s'},'Friction'),h('th',null,'This case'))),tb));
     upd();
-    const cp=h('button',{class:'btn sm primary',onclick:()=>copyText(cmd.textContent).then(()=>{cp.textContent='Copied';setTimeout(()=>cp.textContent='Copy',1500);})},'Copy');
-    box.append(h('div',{class:'cmdbox'},cmd,cp));
+    const selection=()=>{ const packs=Object.keys(pick).filter(k=>pick[k]); return {packs,fix:fix.length>0,deny:Object.keys(deny).filter(k=>deny[k]&&pick[k])}; };
+    const cp=h('button',{class:'btn sm',onclick:()=>copyText(cmd.textContent).then(()=>{cp.textContent='Copied';setTimeout(()=>cp.textContent='Copy',1500);})},'Copy');
+    if(!d.same_machine||!d.token){
+      box.append(h('div',{class:'cmdbox'},cmd,cp));
+    } else {
+      // Preview → Apply, on this machine, from this page.
+      const out=h('div');
+      const pv=h('button',{class:'btn primary',onclick:()=>{ const sel=selection(); if(!sel.packs.length&&!sel.fix){ toast('Pick at least one guardrail'); return; }
+        pv.disabled=true; out.replaceChildren(h('div',{class:'loading'},'Working out the changes…'));
+        mitPost('plan',sel).then(pl=>{ pv.disabled=false; out.replaceChildren(); renderPlan(pl,sel); }).catch(err=>{ pv.disabled=false; out.replaceChildren(h('div',{class:'mit'},h('b',{class:'bad'},'Could not build the plan: '),err.message)); }); }},'Preview changes');
+      box.append(h('div',{class:'mitbar'},pv,h('span',{class:'or'},'or, in a terminal:'),h('code',{style:'font-family:var(--mono);font-size:12.5px'},cmd),cp));
+      box.append(out);
+      const renderPlan=(pl,sel)=>{
+        const n=(pl.changes||[]).length;
+        if(!n){ out.append(h('div',{class:'mit'},h('b',{class:'ok'},'Nothing to change. '),'Every selected guardrail is already in place.')); }
+        (pl.changes||[]).forEach(c=>{ out.append(h('div',{class:'mit'},h('div',{class:'f'},c.target),h('div',{class:'p'},(c.existed?'Edits the existing file, keeping everything already in it':'Creates the file')+' · '+c.product),
+          h('ul',null,(c.summary||[]).map(x=>h('li',null,x))),c.diff?h('details',null,h('summary',null,'Show the exact change'),h('pre',null,c.diff)):null)); });
+        if((pl.refused||[]).length) out.append(h('div',{class:'mit'},h('b',{class:'bad'},'Left alone: '),h('ul',null,pl.refused.map(x=>h('li',null,x)))));
+        if((pl.recommend||[]).length) out.append(h('div',{class:'mit'},h('b',null,'Needs a person or an administrator'),h('ul',null,pl.recommend.map(x=>h('li',null,x)))));
+        if(n){ const ap=h('button',{class:'btn primary',onclick:()=>{ ap.disabled=true; ap.textContent='Applying…';
+            mitPost('apply',sel).then(res=>{ protectResult=res; refreshProtect(); }).catch(err=>{ ap.disabled=false; ap.textContent='Apply'; out.append(h('div',{class:'mit'},h('b',{class:'bad'},'Apply failed: '),err.message)); }); }},'Apply '+plural(n,'change'));
+          out.append(h('div',{class:'mitbar'},ap,h('span',{class:'or'},'Backs up each file first. Undo any change below afterwards.'))); }
+      };
+      // The last apply from this page, until the next one.
+      if(protectResult){ const r=protectResult; protectResult=null; const pnl=h('div',{class:'mit'},h('b',{class:r.failed?'bad':'ok'},r.failed?plural(r.failed,'change')+' failed':'Applied'),
+          h('ul',null,(r.results||[]).map(x=>h('li',null,x.error?h('span',{class:'bad'},x.target+': '+x.error):x.id?x.target+' (undo id '+x.id+')':x.target+' — skipped'+(x.note?': '+x.note:'')))),
+          h('div',{class:'p',style:'margin-top:8px'},'Restart running agents so they read the new settings.'));
+        box.insertBefore(pnl,box.querySelector('.sec-h')); }
+      // Everything applied on this machine, with undo.
+      if((d.applied||[]).length){
+        const anyLive=d.applied.some(a=>a.state!=='reverted');
+        const undoAll=anyLive?h('button',{class:'btn sm',onclick:()=>{ if(!confirm('Undo every guardrail agentdfir applied on this computer?')) return; mitPost('revert',{all:true}).then(r=>{ toast('Reverted '+plural(r.reverted,'change')+(r.errors.length?' · '+r.errors.join('; '):'')); refreshProtect(); }).catch(err=>toast('Undo failed: '+err.message)); }},'Undo all'):null;
+        box.append(h('div',{class:'sec-h'},h('h2',null,'Changes made on this computer'),undoAll));
+        const tb2=h('tbody');
+        const word={in_place:['ok','In place'],drifted:['act','Removed since'],missing:['act','File gone'],reverted:['plain','Undone']};
+        d.applied.forEach(a=>{ const w=word[a.state]||['plain',a.state];
+          const undo=a.state==='reverted'?h('span',{class:'muted'},'—'):h('button',{class:'btn sm',onclick:()=>mitPost('revert',{id:a.id}).then(()=>{ toast('Put back exactly as it was'); refreshProtect(); }).catch(err=>toast('Undo failed: '+err.message))},'Undo');
+          tb2.append(h('tr',null,h('td',null,day(a.ts)),h('td',null,h('div',{class:'f'},a.target),h('div',{class:'p'},(a.packs||[]).length?a.packs.join(', '):'fix')),h('td',null,h('span',{class:'chip '+w[0]},w[1])),h('td',null,undo))); });
+        box.append(h('table',{class:'ap'},h('thead',null,h('tr',null,h('th',null,'When'),h('th',null,'File'),h('th',null,'Now'),h('th',null,''))),tb2));
+      }
+    }
 
     const ruleList=(title,list,extra)=>{ if(!list.length) return; box.append(h('div',{class:'sec-h'},h('h2',null,title)));
       const l=h('div',{class:'start'});

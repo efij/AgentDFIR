@@ -7,6 +7,17 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+- **Protect tab applies guardrails from the page.** On the machine the case
+  came from, *Preview changes* shows every file, what goes into it and the
+  exact diff; *Apply* makes the changes; every applied change is listed
+  with *Undo*, plus *Undo all*. Same backup, hash-chained ledger and
+  byte-exact revert as `agentdfir mitigate`. Writes go through
+  `POST /api/mitigations/{plan,apply,revert}`: same-origin only (custom
+  header, `Sec-Fetch-Site`, loopback `Origin`), a per-process token the
+  page gets from `GET /api/mitigations`, and refused for a case collected
+  on another computer, where the tab still builds the terminal command.
+
 ### Fixed
 - Windows install one-liner only worked in PowerShell: pasted into Command
   Prompt, `$env:…; irm … | iex` fails ("'irm' is not recognized"), and the
