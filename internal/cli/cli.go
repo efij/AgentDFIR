@@ -13,6 +13,7 @@ import (
 
 	"github.com/efij/AgentDFIR/v3/internal/casepkg"
 	"github.com/efij/AgentDFIR/v3/internal/collector"
+	"github.com/efij/AgentDFIR/v3/internal/integrity"
 	"github.com/efij/AgentDFIR/v3/internal/live"
 	"github.com/efij/AgentDFIR/v3/internal/products"
 	"github.com/efij/AgentDFIR/v3/internal/sanitize"
@@ -244,14 +245,16 @@ func cmdCollect(args []string) int {
 	noShare := fs.Bool("no-share", false, "do not share identical blobs with other cases on this machine")
 	fullPlugins := fs.Bool("full-plugins", false, "also collect node_modules/.git subtrees (large, third-party)")
 	liveMode := fs.Bool("live", false, "collect volatile evidence first (RFC 3227 order)")
-	signKey := fs.String("sign", "", "sign the sealed package with this ed25519 private key")
+	signKey := fs.String("sign", "", "sign the sealed round with this ed25519 private key (default: this machine's key)")
+	noSign := fs.Bool("no-sign", false, "do not sign the sealed round")
+	verifyPrior := fs.String("verify-prior", "quick", "before adding a round, check earlier rounds: quick | full (re-hash every blob)")
 	importTree := fs.String("import", "", "KAPE/Velociraptor/CyLR/image tree: collect every product for every user profile found")
 	dockerRef := fs.String("docker", "", "container id/name (docker export, read-only) or a saved export .tar")
 	archive := fs.String("archive", "", "zip / tar / tar.gz: GitHub Actions artifact, support bundle, vendor data export")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
-	base := importOpts{out: *out, caseID: *caseID, operator: *operator, authz: *authz, signKey: *signKey, maxFileMB: *maxFileMB, args: args}
+	base := importOpts{out: *out, caseID: *caseID, operator: *operator, authz: *authz, signKey: *signKey, noSign: *noSign, maxFileMB: *maxFileMB, args: args}
 	switch {
 	case *importTree != "":
 		base.tree = *importTree
@@ -359,13 +362,17 @@ func cmdCollect(args []string) int {
 		}
 	}
 
-	b, reopened, err := openPackage(dest, id, info, !*noShare)
+	var prior integrity.Prior
+	b, reopened, err := openPackage(dest, id, info, !*noShare, func() {
+		prior = checkPrior(os.Stdout, dest, *verifyPrior)
+	})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
 	}
 	defer b.Close()
 	if reopened {
+		prior.Apply(b)
 		fmt.Printf("Adding round %d to the existing package %s\n", b.Round(), sanitize.Terminal(dest))
 	}
 	host, _ := os.Hostname()
@@ -404,15 +411,15 @@ func cmdCollect(args []string) int {
 		"duration_ms": time.Since(start).Milliseconds(),
 	})
 	roundStats := b.Stats()
+	signing := prepareSigning(b, *signKey, *noSign)
 	if err := b.Seal(); err != nil {
 		fmt.Fprintln(os.Stderr, "seal error:", err)
 		return 1
 	}
-	if *signKey != "" {
-		if err := seal.Sign(dest, *signKey); err != nil {
-			fmt.Fprintln(os.Stderr, "sign error:", err)
-			return 1
-		}
+	sealed, err := finishSeal(os.Stdout, dest, signing, b.CaseID(), b.Round(), true)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "sign error:", err)
+		return 1
 	}
 	if runErr != nil {
 		fmt.Fprintln(os.Stderr, "collection error (package sealed with partial evidence):", runErr)
@@ -431,12 +438,15 @@ func cmdCollect(args []string) int {
 	if liveStats != nil {
 		fmt.Printf("Volatile:  %d collected, %d failed (live mode)\n", liveStats.Collected, liveStats.Failed)
 	}
-	if *signKey != "" {
+	if sealed.Signed {
 		fmt.Println("Signed:    SEAL.sig written (ed25519).")
 	}
 	fmt.Println("Sealed:    SHA256SUMS written; run `agentdfir verify` to confirm integrity.")
 	if runErr != nil {
 		return 1
+	}
+	if prior.Status == integrity.Failed {
+		return exitPriorFailed
 	}
 	return 0
 }

@@ -61,3 +61,25 @@ func TestRetiredListPersistsAcrossReadManifest(t *testing.T) {
 		t.Fatalf("after reopen current = %+v, want only SKILL.md", cur)
 	}
 }
+
+// Retiring is reported once. The count used to include records retired
+// before and the policy's own SKIPPED_BY_POLICY placeholders, which every
+// round writes afresh, so it was never zero and analysis re-parsed the
+// whole case on every run.
+func TestRetireCountsOnlyNewlyRetiredContent(t *testing.T) {
+	junk := "/h/.claude/plugins/cache/x/node_modules/a.js"
+	man := &Manifest{Artifacts: []ArtifactRecord{
+		{SourcePath: junk, Round: 1, Status: StatusOK},
+		{SourcePath: "/h/.claude/plugins/cache/y/.git/objects", Round: 1, Status: StatusSkippedPolicy},
+	}}
+	if n := man.RetireExcluded(); n != 1 {
+		t.Fatalf("first pass retired %d, want 1 (the content, not the placeholder)", n)
+	}
+	if n := man.RetireExcluded(); n != 0 {
+		t.Fatalf("second pass retired %d, want 0: nothing changed", n)
+	}
+	man.Artifacts = append(man.Artifacts, ArtifactRecord{SourcePath: "/h/.claude/plugins/cache/y/.git/objects", Round: 2, Status: StatusSkippedPolicy})
+	if n := man.RetireExcluded(); n != 0 {
+		t.Fatalf("a new round's placeholder counted as retired content: %d", n)
+	}
+}

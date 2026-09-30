@@ -3,17 +3,21 @@ package normalize
 import (
 	"bufio"
 	"compress/gzip"
+	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/efij/AgentDFIR/v3/internal/casepkg"
+	"github.com/efij/AgentDFIR/v3/internal/fingerprint"
 	"github.com/efij/AgentDFIR/v3/internal/overlay"
 	"github.com/efij/AgentDFIR/v3/internal/parsers/segment"
 	"github.com/efij/AgentDFIR/v3/internal/schema"
@@ -70,6 +74,11 @@ type OverlayOptions struct {
 	// Full forces every artifact to be re-parsed, ignoring (and then
 	// replacing) any cached segments. This is what --renormalize sets.
 	Full bool
+	// MACKey authenticates state.json. With a key, a state file whose MAC
+	// is missing or wrong is not trusted and every artifact is re-parsed;
+	// without one (a case opened on a machine that never sealed it) the
+	// per-segment hashes are still checked.
+	MACKey []byte
 }
 
 // segState is one artifact's cached contribution, as persisted.
@@ -79,6 +88,7 @@ type segState struct {
 	LogicalPath   string                `json:"logical_path"`
 	Base          int                   `json:"base"`   // sequence number of its first event when written
 	Events        int                   `json:"events"` // events in the segment file
+	SHA256        string                `json:"sha256"` // of the segment's decompressed bytes
 	Entities      []schema.Entity       `json:"entities,omitempty"`
 	Relationships []schema.Relationship `json:"relationships,omitempty"`
 }
@@ -91,24 +101,48 @@ type parserState struct {
 
 // overlayState is normalized/state.json.
 //
-// Every field outside Parsers is an invalidation key. The binary's own
-// version is one of them on purpose: a parser change between releases
-// would silently keep producing the old events for every unchanged
-// artifact, and a cached wrong answer is worse than a slow right one. The
-// cost is one full re-analysis after an upgrade, which is what an analyst
-// wants anyway.
+// SchemaVersion, ParseFingerprint, CaseID and Host are invalidation keys.
+// The parse fingerprint is a hash of the parsing code itself: a parser
+// change between releases must not keep serving the old events for every
+// unchanged artifact, because a cached wrong answer is worse than a slow
+// right one. It used to be the release number, which made every release —
+// including ones that never touched a parser — re-parse every case.
+//
+// ToolVersion is kept for the reader and is not a key. InputsDigest and
+// BuildID describe the build rather than gate it: the digest says which
+// evidence the overlay was built from (Current reports whether that is
+// still the package's evidence), and the build id changes every time
+// events.jsonl is rewritten, so results computed on an earlier build can
+// tell they are out of date.
 type overlayState struct {
-	SchemaVersion string        `json:"schema_version"`
-	ToolVersion   string        `json:"agentdfir_version"`
-	CaseID        string        `json:"case_id"`
-	Host          string        `json:"host"`
-	Parsers       []parserState `json:"parsers"`
+	SchemaVersion    string `json:"schema_version"`
+	ParseFingerprint string `json:"parse_fingerprint"`
+	ToolVersion      string `json:"agentdfir_version"`
+	CaseID           string `json:"case_id"`
+	Host             string `json:"host"`
+	InputsDigest     string `json:"inputs_digest"`
+	BuildID          string `json:"build_id"`
+	// EventsSHA256 is the hash of events.jsonl as last written by this
+	// package's own code (a build, or an analysis stage annotating it). A
+	// file that no longer matches was changed by something else and is
+	// not reused.
+	EventsSHA256 string        `json:"events_sha256"`
+	Parsers      []parserState `json:"parsers"`
 }
+
+// macFileName holds the HMAC of state.json when the build had a key.
+const macFileName = "state.mac"
 
 // errNoSegment means the cache entry exists but its file cannot be opened —
 // deleted, truncated, or no longer a readable gzip stream. The artifact is
 // parsed fresh instead of failing the analysis.
 var errNoSegment = errors.New("segment file missing")
+
+// ErrSegmentAltered means a cached segment's bytes no longer hash to what
+// was recorded when it was written. Its events have already been copied
+// into the overlay being built by then, so the build is abandoned and
+// redone from the sealed evidence; BuildOverlay reports the reason.
+var ErrSegmentAltered = errors.New("cached segment does not match its recorded hash")
 
 // BuildOverlay writes normalized/events.jsonl and its segments, re-parsing
 // only the artifacts whose content is new to the overlay, and returns the
@@ -123,8 +157,13 @@ func BuildOverlay(pkgDir, dir string, opt OverlayOptions) (*StreamResult, error)
 		// A damaged or half-written overlay must not make the package
 		// un-analyzable: fall back to the full parse once, which also
 		// rewrites every segment.
+		reason := err.Error()
 		opt.Full = true
-		return buildOverlay(pkgDir, dir, opt)
+		res, err = buildOverlay(pkgDir, dir, opt)
+		if res != nil {
+			res.CacheRejected = reason
+		}
+		return res, err
 	}
 	return res, err
 }
@@ -150,16 +189,18 @@ func buildOverlay(pkgDir, dir string, opt OverlayOptions) (*StreamResult, error)
 		os.Remove(tmpName) // no-op once renamed
 	}()
 
+	evHash := sha256.New()
 	ov := &segCache{
 		segDir: segDir,
-		buf:    bufio.NewWriterSize(tmp, 256<<10),
+		buf:    bufio.NewWriterSize(io.MultiWriter(tmp, evHash), 256<<10),
 		prev:   map[string]*segState{},
 		live:   map[string]bool{},
 		taken:  map[string]bool{},
 	}
 	ov.enc = json.NewEncoder(ov.buf)
+	var rejected string
 	if !opt.Full {
-		ov.load(dir, man)
+		rejected = ov.load(dir, man, opt.MACKey)
 	}
 
 	merged := &schema.Normalized{}
@@ -197,7 +238,8 @@ func buildOverlay(pkgDir, dir string, opt OverlayOptions) (*StreamResult, error)
 	if err := os.Remove(evPath + overlay.Suffix); err != nil && !os.IsNotExist(err) {
 		return nil, err
 	}
-	if err := ov.save(dir, man); err != nil {
+	ov.eventsSHA = hex.EncodeToString(evHash.Sum(nil))
+	if err := ov.save(dir, man, opt.MACKey); err != nil {
 		return nil, err
 	}
 	ov.prune()
@@ -208,6 +250,7 @@ func buildOverlay(pkgDir, dir string, opt OverlayOptions) (*StreamResult, error)
 		EventCount:    ov.count,
 		Reused:        ov.reused,
 		Reparsed:      ov.parsed,
+		CacheRejected: rejected,
 	}, nil
 }
 
@@ -231,35 +274,60 @@ type segCache struct {
 	curKey     string
 	curFile    *os.File
 	curZW      *gzip.Writer
+	curHash    hash.Hash
 	curEnc     *json.Encoder
 	curTmp     string
 	curWritten int
 
-	count  int
-	reused int
-	parsed int
+	count     int
+	reused    int
+	parsed    int
+	eventsSHA string
 }
 
-func (o *segCache) load(dir string, man *casepkg.Manifest) {
+// load reads the cache left by the previous build. It returns why the
+// cache was refused when that is worth telling the analyst — an
+// authentication failure, not an ordinary invalidation.
+func (o *segCache) load(dir string, man *casepkg.Manifest, key []byte) string {
 	data, err := os.ReadFile(filepath.Join(dir, stateFileName))
 	if err != nil {
-		return
+		return ""
+	}
+	if len(key) > 0 {
+		mac, err := os.ReadFile(filepath.Join(dir, macFileName))
+		if err != nil {
+			return "analysis cache carries no MAC; re-parsed from the sealed evidence"
+		}
+		if !hmac.Equal([]byte(strings.TrimSpace(string(mac))), []byte(stateMAC(key, data))) {
+			return "analysis cache failed its MAC check; re-parsed from the sealed evidence"
+		}
 	}
 	var st overlayState
 	if json.Unmarshal(data, &st) != nil {
-		return
+		return ""
 	}
-	if st.SchemaVersion != version.SchemaVersion || st.ToolVersion != version.Version ||
+	if st.SchemaVersion != version.SchemaVersion || st.ParseFingerprint != fingerprint.Parse() ||
 		st.CaseID != man.CaseID || st.Host != man.Host {
-		return
+		return ""
 	}
 	for i := range st.Parsers {
 		ps := &st.Parsers[i]
 		for j := range ps.Segments {
 			s := &ps.Segments[j]
+			if s.SHA256 == "" {
+				continue // written before segments were hashed: parse again
+			}
 			o.prev[ps.Name+"\x00"+s.Key] = s
 		}
 	}
+	return ""
+}
+
+// stateMAC authenticates state.json's exact bytes.
+func stateMAC(key, data []byte) string {
+	m := hmac.New(sha256.New, key)
+	m.Write(data)
+	return hex.EncodeToString(m.Sum(nil))
 }
 
 func (o *segCache) begin(pe parserEntry) {
@@ -337,12 +405,13 @@ func (o *segCache) End(art casepkg.ArtifactRecord, base, count int, ents []schem
 		o.curKey = ""
 		return fmt.Errorf("%s: parser advanced %d event(s) but wrote %d", art.LogicalPath, count, o.curWritten)
 	}
+	sum := hex.EncodeToString(o.curHash.Sum(nil))
 	if err := o.closeFresh(true); err != nil {
 		return err
 	}
 	o.record(segState{
 		Key: o.curKey, ArtifactID: art.ArtifactID, LogicalPath: art.LogicalPath,
-		Base: base, Events: count, Entities: ents, Relationships: rels,
+		Base: base, Events: count, SHA256: sum, Entities: ents, Relationships: rels,
 	})
 	o.live[o.segRel(o.curKey)] = true
 	o.taken[o.curKey] = true
@@ -380,16 +449,20 @@ func (o *segCache) replay(st *segState, base int) (*segment.Replay, error) {
 	}
 	defer f.Close()
 
+	// The segment is hashed as it is copied — the bytes have to be read
+	// anyway — so an edited cache costs one rebuild, never a wrong answer.
+	h := sha256.New()
+	src := io.TeeReader(f, h)
 	delta := base - st.Base
 	n := 0
 	if delta == 0 {
 		cw := &lineCounter{w: o.buf}
-		if _, err := io.Copy(cw, f); err != nil {
+		if _, err := io.Copy(cw, src); err != nil {
 			return nil, fmt.Errorf("segment %s: %w", st.LogicalPath, err)
 		}
 		n = cw.lines
 	} else {
-		sc := bufio.NewScanner(f)
+		sc := bufio.NewScanner(src)
 		sc.Buffer(make([]byte, 0, 64<<10), 16<<20)
 		for sc.Scan() {
 			var ev schema.Event
@@ -405,6 +478,9 @@ func (o *segCache) replay(st *segState, base int) (*segment.Replay, error) {
 		if err := sc.Err(); err != nil {
 			return nil, fmt.Errorf("segment %s: %w", st.LogicalPath, err)
 		}
+	}
+	if got := hex.EncodeToString(h.Sum(nil)); got != st.SHA256 {
+		return nil, fmt.Errorf("segment %s: %w", st.LogicalPath, ErrSegmentAltered)
 	}
 	if n != st.Events {
 		return nil, fmt.Errorf("segment %s: holds %d event(s), state says %d", st.LogicalPath, n, st.Events)
@@ -435,14 +511,15 @@ func (o *segCache) fresh(key string) error {
 	}
 	o.curKey, o.curFile, o.curTmp = key, f, f.Name()
 	o.curZW = gzip.NewWriter(f)
-	o.curEnc = json.NewEncoder(o.curZW)
+	o.curHash = sha256.New()
+	o.curEnc = json.NewEncoder(io.MultiWriter(o.curZW, o.curHash))
 	o.curWritten = 0
 	return nil
 }
 
 func (o *segCache) closeFresh(keep bool) error {
 	f, zw, tmp := o.curFile, o.curZW, o.curTmp
-	o.curFile, o.curZW, o.curEnc, o.curTmp = nil, nil, nil, ""
+	o.curFile, o.curZW, o.curEnc, o.curTmp, o.curHash = nil, nil, nil, "", nil
 	if f == nil {
 		return nil
 	}
@@ -472,16 +549,39 @@ func (o *segCache) segPath(key string) string {
 	return filepath.Join(o.segDir, o.name, key+".jsonl")
 }
 
-func (o *segCache) save(dir string, man *casepkg.Manifest) error {
-	st := overlayState{
-		SchemaVersion: version.SchemaVersion, ToolVersion: version.Version,
-		CaseID: man.CaseID, Host: man.Host, Parsers: o.out,
+func (o *segCache) save(dir string, man *casepkg.Manifest, key []byte) error {
+	var id [16]byte
+	if _, err := rand.Read(id[:]); err != nil {
+		return err
 	}
+	st := overlayState{
+		SchemaVersion: version.SchemaVersion, ParseFingerprint: fingerprint.Parse(),
+		ToolVersion: version.Version, CaseID: man.CaseID, Host: man.Host,
+		InputsDigest: InputsDigest(man), BuildID: hex.EncodeToString(id[:]),
+		EventsSHA256: o.eventsSHA, Parsers: o.out,
+	}
+	return writeState(dir, st, key)
+}
+
+// writeState persists the overlay state with its MAC.
+func writeState(dir string, st overlayState, key []byte) error {
 	data, err := json.MarshalIndent(st, "", "  ")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(dir, stateFileName), append(data, '\n'), 0o600)
+	data = append(data, '\n')
+	macPath := filepath.Join(dir, macFileName)
+	// The MAC goes first and the state second: a crash between the two
+	// leaves a MAC that does not match, which costs a re-parse, never a
+	// state that is trusted without one.
+	if len(key) > 0 {
+		if err := os.WriteFile(macPath, []byte(stateMAC(key, data)+"\n"), 0o600); err != nil {
+			return err
+		}
+	} else if err := os.Remove(macPath); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return writeFileAtomic(filepath.Join(dir, stateFileName), data)
 }
 
 // prune deletes segments no artifact in the package refers to any more —

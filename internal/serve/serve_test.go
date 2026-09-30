@@ -15,6 +15,7 @@ import (
 
 	"github.com/efij/AgentDFIR/v3/internal/casepkg"
 	"github.com/efij/AgentDFIR/v3/internal/collector"
+	"github.com/efij/AgentDFIR/v3/internal/normalize"
 	"github.com/efij/AgentDFIR/v3/internal/overlay"
 	"github.com/efij/AgentDFIR/v3/internal/products"
 )
@@ -251,6 +252,13 @@ func TestServesEveryEventPastTheOldCap(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.Close()
+	// The padding stands in for a large case's own overlay, so record it
+	// the way a stage that annotates events does. Without this the overlay
+	// is (correctly) treated as changed outside AgentDFIR and rebuilt from
+	// the sealed evidence, which drops the padding.
+	if err := normalize.RecordEvents(pkg); err != nil {
+		t.Fatal(err)
+	}
 
 	// MaxEvents is what the old cap came in through: it must no longer be
 	// able to hide anything.

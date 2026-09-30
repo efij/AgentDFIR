@@ -10,6 +10,7 @@ import (
 
 	"github.com/efij/AgentDFIR/v3/internal/correlate"
 	"github.com/efij/AgentDFIR/v3/internal/endpoint"
+	"github.com/efij/AgentDFIR/v3/internal/normalize"
 	"github.com/efij/AgentDFIR/v3/internal/overlay"
 	"github.com/efij/AgentDFIR/v3/internal/sanitize"
 	"github.com/efij/AgentDFIR/v3/internal/schema"
@@ -99,6 +100,10 @@ func runEndpointCorrelation(pkg string, logs []string, f endpoint.Format, opts c
 	}
 	res, findings := correlate.Endpoint(events, records, opts)
 	if err := overlay.WriteJSONL(filepath.Join(dir, "events.jsonl"), len(events), func(i int) any { return events[i] }); err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		return nil, nil, 1
+	}
+	if err := normalize.RecordEvents(pkg); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return nil, nil, 1
 	}

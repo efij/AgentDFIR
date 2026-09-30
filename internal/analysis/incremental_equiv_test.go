@@ -13,6 +13,7 @@ import (
 	"github.com/efij/AgentDFIR/v3/internal/overlay"
 	"github.com/efij/AgentDFIR/v3/internal/products"
 	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v3/internal/store"
 )
 
 // geminiLines writes a gemini-cli session, which the generic chat parser
@@ -85,7 +86,23 @@ func writeTranscript(t testing.TB, path, body string) {
 // Divergence here would not look like a crash. It would look like an agent
 // lineage that is subtly wrong in a case file an analyst is about to
 // testify from, which is why this compares bytes and not counts.
-func TestIncrementalEquivalenceAcrossRounds(t *testing.T) {
+func TestIncrementalEquivalenceAcrossRounds(t *testing.T) { equivalenceAcrossRounds(t) }
+
+// The same rounds with a machine key, so the authenticated overlay state
+// and the per-artifact scan memo are in play on every round.
+func TestIncrementalEquivalenceAcrossRoundsWithMemo(t *testing.T) {
+	home := filepath.Join(t.TempDir(), "home")
+	if err := os.Mkdir(home, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(store.EnvHome, home)
+	if _, err := store.MachineKey(); err != nil {
+		t.Fatal(err)
+	}
+	equivalenceAcrossRounds(t)
+}
+
+func equivalenceAcrossRounds(t *testing.T) {
 	root := t.TempDir()
 	cdir := filepath.Join(root, ".claude", "projects", "p")
 	xdir := filepath.Join(root, ".codex", "sessions")
@@ -132,7 +149,12 @@ func TestIncrementalEquivalenceAcrossRounds(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	reusedEver, renumberedEver := 0, false
+	reusedEver, renumberedEver, unchangedSeen := 0, false, false
+	man0, err := casepkg.ReadManifest(pkg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	prevDigest := normalize.InputsDigest(man0)
 	for i, m := range rounds {
 		m.apply(t, root)
 		nb, err := casepkg.Reopen(pkg, casepkg.CaseInfo{OperatorOSUser: "t"})
@@ -142,6 +164,10 @@ func TestIncrementalEquivalenceAcrossRounds(t *testing.T) {
 		collectAll(t, nb, root)
 
 		clone := copyPkg(t, pkg)
+		// The full side reads everything: no remembered scan results.
+		if err := os.RemoveAll(filepath.Join(clone, "detections", "memo")); err != nil {
+			t.Fatal(err)
+		}
 		inc, err := Run(pkg, Options{})
 		if err != nil {
 			t.Fatalf("round %d (%s) incremental: %v", i+1, m.name, err)
@@ -150,9 +176,23 @@ func TestIncrementalEquivalenceAcrossRounds(t *testing.T) {
 		if err != nil {
 			t.Fatalf("round %d (%s) full: %v", i+1, m.name, err)
 		}
-		if !inc.Renormalized {
-			t.Fatalf("round %d (%s): a new round must rebuild the overlay", i+1, m.name)
+		// A round that changed the case's current evidence rebuilds the
+		// overlay; one that did not — every file carried forward, or a
+		// source gone from the host while its earlier record stays current
+		// — must not. Rebuilding those was a full re-analysis of an
+		// unchanged machine on every run.
+		man, err := casepkg.ReadManifest(pkg)
+		if err != nil {
+			t.Fatal(err)
 		}
+		digest := normalize.InputsDigest(man)
+		if want := digest != prevDigest; inc.Renormalized != want {
+			t.Fatalf("round %d (%s): overlay rebuilt=%t, want %t", i+1, m.name, inc.Renormalized, want)
+		}
+		if digest == prevDigest {
+			unchangedSeen = true
+		}
+		prevDigest = digest
 		reusedEver += inc.Reused
 		if inc.Reparsed > 0 && inc.Reused > 0 {
 			// Something was parsed ahead of something replayed, so at least
@@ -187,6 +227,9 @@ func TestIncrementalEquivalenceAcrossRounds(t *testing.T) {
 					i+1, m.name, k, gotF[k], wantF[k])
 			}
 		}
+	}
+	if !unchangedSeen {
+		t.Fatal("no round left the evidence unchanged; the skip path never ran")
 	}
 	if reusedEver == 0 {
 		t.Fatal("no segment was ever replayed; the test compared the full path against itself")

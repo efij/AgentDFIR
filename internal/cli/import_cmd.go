@@ -11,12 +11,12 @@ import (
 	"github.com/efij/AgentDFIR/v3/internal/collector"
 	"github.com/efij/AgentDFIR/v3/internal/products"
 	"github.com/efij/AgentDFIR/v3/internal/sanitize"
-	"github.com/efij/AgentDFIR/v3/internal/seal"
 )
 
 // importOpts carries the collect flags that apply to tree import.
 type importOpts struct {
 	tree, out, caseID, operator, authz, signKey string
+	noSign                                      bool
 	maxFileMB                                   int64
 	args                                        []string
 	notes                                       map[string]string // extra case notes (docker/archive provenance)
@@ -141,15 +141,15 @@ func collectImport(o importOpts) int {
 		fmt.Printf("  no profile layout found — preserved %d loose JSON/JSONL file(s) as archive.sessions\n", st.Acquired)
 	}
 	_ = b.Log("import_finished", map[string]any{"duration_ms": time.Since(start).Milliseconds()})
+	signing := prepareSigning(b, o.signKey, o.noSign)
 	if err := b.Seal(); err != nil {
 		fmt.Fprintln(os.Stderr, "seal error:", err)
 		return 1
 	}
-	if o.signKey != "" {
-		if err := seal.Sign(dest, o.signKey); err != nil {
-			fmt.Fprintln(os.Stderr, "sign error:", err)
-			return 1
-		}
+	sealed, err := finishSeal(os.Stdout, dest, signing, id, b.Round(), true)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "sign error:", err)
+		return 1
 	}
 	fmt.Printf("Case:      %s\n", id)
 	fmt.Printf("Package:   %s\n", dest)
@@ -157,7 +157,7 @@ func collectImport(o importOpts) int {
 	fmt.Printf("Acquired:  %d artifacts (%d bytes)\n", total.Acquired, total.TotalBytes)
 	fmt.Printf("Symlinks:  %d recorded (never followed)\n", total.Symlinks)
 	fmt.Printf("Skipped:   %d   Failed: %d\n", total.Skipped, total.Failed)
-	if o.signKey != "" {
+	if sealed.Signed {
 		fmt.Println("Signed:    SEAL.sig written (ed25519).")
 	}
 	fmt.Println("Sealed:    SHA256SUMS written; run `agentdfir verify` to confirm integrity.")
