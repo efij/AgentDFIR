@@ -61,6 +61,16 @@ next is added, and a run never chokes the machine.
   hashes, and a MAC over its state under the machine key. Anything that
   does not match is rebuilt from the sealed evidence.
 
+- **Command palette in the explorer.** `Cmd+K` / `Ctrl+K`, or `/`, opens
+  a search box over the page instead of only focusing the small header
+  field (which, on a narrow window, was hidden, so the shortcut silently
+  switched tabs). It fuzzy-matches views, findings and conversations as you
+  type, shows matching actions from the evidence a moment later, runs
+  actions (theme, verify, apply guardrails), keeps recent searches, and is
+  fully keyboard driven: `↑` `↓` `Tab`, `↵`, `Cmd/Ctrl+↵` for the full
+  search, `esc`. A search button opens it on a phone. Secrets are masked in
+  every result.
+
 ### Changed
 - `CLOUD_CREDENTIAL_EXPORT` also covers listing storage account keys and
   connection strings, Cosmos DB keys, service-principal credential resets
