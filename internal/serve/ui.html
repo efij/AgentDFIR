@@ -201,6 +201,38 @@ dl.kv{display:grid;grid-template-columns:150px 1fr;gap:6px 14px;margin:12px 0 0;
 dl.kv dt{color:var(--muted)} dl.kv dd{margin:0;font-family:var(--mono);font-size:12.5px;word-break:break-all}
 
 
+/* ---- command palette (Cmd/Ctrl+K) */
+.pal-scrim{position:fixed;inset:0;background:var(--scrim);opacity:0;pointer-events:none;transition:opacity .12s ease;z-index:80}
+.pal-scrim.on{opacity:1;pointer-events:auto}
+.pal{position:fixed;left:50%;top:12vh;width:min(680px,calc(100vw - 32px));transform:translate(-50%,-8px) scale(.98);opacity:0;pointer-events:none;transition:opacity .12s ease,transform .12s ease;z-index:81;
+  background:var(--surface);border:1px solid var(--line-2);border-radius:var(--r-lg);box-shadow:0 24px 64px rgba(0,0,0,.28),var(--shadow);display:flex;flex-direction:column;max-height:min(620px,76vh);overflow:hidden}
+.pal.on{opacity:1;pointer-events:auto;transform:translate(-50%,0) scale(1)}
+.pal-in{display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--line);color:var(--muted)}
+.pal-in input{flex:1;min-width:0;height:56px;border:0;outline:none;background:none;font:inherit;font-size:17px;color:var(--ink)}
+.pal-in input::placeholder{color:var(--muted)}
+.pal kbd{font:11px var(--mono);padding:2px 6px;border:1px solid var(--line-2);border-bottom-width:2px;border-radius:5px;color:var(--muted);background:var(--surface-2);white-space:nowrap}
+.pal-list{overflow-y:auto;padding:6px;overscroll-behavior:contain}
+.pal-g{padding:10px 10px 4px;font-size:11.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.pal-i{display:flex;align-items:center;gap:12px;width:100%;padding:9px 10px;border:0;border-radius:var(--r-sm);background:none;color:var(--ink);text-align:left;cursor:pointer;font:inherit;min-height:44px}
+.pal-i[aria-selected="true"]{background:var(--accent-soft)}
+.pal-i .ic{flex:0 0 28px;height:28px;border-radius:7px;display:grid;place-items:center;background:var(--surface-2);color:var(--ink-2)}
+.pal-i[aria-selected="true"] .ic{background:var(--accent);color:var(--accent-ink)}
+.pal-i .tx{flex:1;min-width:0}
+.pal-i .t{font-size:14.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pal-i .d{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.pal-i mark{background:none;border:0;outline:0;box-shadow:none;padding:0;border-radius:0;color:var(--accent);font-weight:750;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px}
+.pal-i .go{flex:0 0 auto;font-size:12px;color:var(--muted);opacity:0}
+.pal-i[aria-selected="true"] .go{opacity:1}
+.pal-empty{padding:28px 16px;text-align:center;color:var(--muted);font-size:14px}
+.pal-foot{display:flex;gap:14px;flex-wrap:wrap;align-items:center;padding:9px 14px;border-top:1px solid var(--line);background:var(--surface-2);font-size:12px;color:var(--muted)}
+.pal-foot span{display:inline-flex;gap:5px;align-items:center}
+.pal-spin{width:14px;height:14px;border:2px solid var(--line-2);border-top-color:var(--accent);border-radius:50%;animation:palspin .7s linear infinite;visibility:hidden}
+.pal-spin.on{visibility:visible}
+@keyframes palspin{to{transform:rotate(360deg)}}
+.gsearch{cursor:pointer}.gsearch input{cursor:pointer}
+#palbtn{display:none}
+@media (max-width:760px){.pal{top:16px;max-height:calc(100vh - 32px)}.pal-foot .hide-s{display:none}}
+@media (prefers-reduced-motion:reduce){.pal,.pal-scrim{transition:none}.pal-spin{animation:none}}
 /* ---- protect */
 .pk{width:100%;border-collapse:collapse;border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;background:var(--surface);margin-bottom:12px}
 .pk td,.pk th{padding:12px 14px;border-top:1px solid var(--line);text-align:left;vertical-align:top;font-size:14px}
@@ -342,6 +374,7 @@ pre.raw{margin:0;padding:12px 14px;border-radius:var(--r-sm);background:var(--su
   .top{flex-wrap:wrap;gap:8px 12px;padding:8px 12px}
   .tabs{order:3;width:100%;overflow-x:auto;min-height:44px}
   .gsearch{display:none}
+  #palbtn{display:inline-grid}
   main{overflow:auto}
   .fx,.ax{grid-template-columns:1fr;height:auto}
   .fx.open .fx-list{display:none} .fx:not(.open) .fx-detail{display:none}
@@ -399,7 +432,8 @@ pre.raw{margin:0;padding:12px 14px;border-radius:var(--r-sm);background:var(--su
       <button role="tab" data-view="more" aria-selected="false">More</button>
     </nav>
     <div class="right">
-      <label class="gsearch"><svg class="i sm"><use href="#i-search"/></svg><span class="sr">Search the whole case</span><input id="gq" type="search" placeholder="Search everything" aria-keyshortcuts="Meta+K Control+K"><kbd id="gqk">⌘K</kbd></label>
+      <label class="gsearch"><svg class="i sm"><use href="#i-search"/></svg><span class="sr">Search the whole case</span><input id="gq" type="search" placeholder="Search or jump to…" aria-keyshortcuts="Meta+K Control+K" aria-haspopup="dialog" readonly><kbd id="gqk">⌘K</kbd></label>
+      <button class="iconbtn" id="palbtn" aria-label="Search and jump (Cmd or Ctrl+K)" aria-keyshortcuts="Meta+K Control+K"><svg class="i"><use href="#i-search"/></svg></button>
       <button class="iconbtn" id="theme" aria-label="Switch light or dark theme"><svg class="i"><use href="#i-moon"/></svg></button>
     </div>
   </header>
@@ -456,6 +490,12 @@ pre.raw{margin:0;padding:12px 14px;border-radius:var(--r-sm);background:var(--su
   <div class="db" id="dbody"></div>
 </aside>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="pal-scrim" id="palscrim"></div>
+<div class="pal" id="pal" role="dialog" aria-modal="true" aria-label="Search and jump" hidden>
+  <div class="pal-in"><svg class="i"><use href="#i-search"/></svg><input id="palq" type="text" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="true" aria-controls="pall" aria-autocomplete="list" placeholder="Search the case, jump to a finding, or run a command"><span class="pal-spin" id="palspin" aria-hidden="true"></span><kbd>esc</kbd></div>
+  <div class="pal-list" id="pall" role="listbox" aria-label="Results"></div>
+  <div class="pal-foot"><span><kbd>↑</kbd><kbd>↓</kbd> move</span><span><kbd>↵</kbd> open</span><span class="hide-s"><kbd id="palmod">⌘</kbd><kbd>↵</kbd> search every file</span><span class="hide-s"><kbd>/</kbd> opens this too</span><span style="margin-left:auto" id="palcount"></span></div>
+</div>
 <script>
 (function(){
 'use strict';
@@ -1384,16 +1424,133 @@ function go(name,quiet){
 }
 $$('.tabs button').forEach(b=>b.addEventListener('click',()=>go(b.dataset.view)));
 if(!/Mac|iPhone|iPad/.test(navigator.platform||navigator.userAgent)) $('#gqk').textContent='Ctrl K';
-$('#gq').addEventListener('keydown',e=>{ if(e.key==='Enter'&&e.target.value.trim()){ const q=e.target.value.trim(); moreTab='search'; go('more',true); $$('#moreseg button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.m==='search'))); const box=$('#more'); box.replaceChildren(); renderSearch(box,q); } });
+// ================= COMMAND PALETTE =================
+// Cmd/Ctrl+K (or /) opens one box that finds everything: views, actions,
+// findings and conversations instantly from memory, and actions in the
+// evidence from /api/search as you type. Cmd/Ctrl+Enter runs the full
+// search, original files included.
+const PAL={open:false,items:[],sel:0,seq:0,last:null,remote:null,remoteQ:'',pending:''};
+const isMac=/Mac|iPhone|iPad/.test(navigator.platform||navigator.userAgent);
+if(!isMac) $('#palmod').textContent='Ctrl';
+const palRecent={ get(){ try{ return JSON.parse(localStorage.getItem('adfir-pal-recent')||'[]'); }catch(e){ return []; } },
+  add(q){ q=String(q||'').trim(); if(q.length<2) return; try{ const l=[q,...this.get().filter(x=>x!==q)].slice(0,5); localStorage.setItem('adfir-pal-recent',JSON.stringify(l)); }catch(e){} } };
+// fuzzy: every query character in order; word starts and runs score higher.
+function fuzzy(q,text){
+  const t=String(text||''), T=t.toLowerCase(), Q=q.toLowerCase(); if(!Q) return {score:1,idx:[]};
+  const at=T.indexOf(Q); if(at>=0){ const idx=[...Array(Q.length).keys()].map(i=>i+at); return {score:1000-at+(at===0||/\W/.test(T[at-1])?300:0)-T.length*0.1,idx}; }
+  let score=0, j=0, prev=-2; const idx=[];
+  for(let i=0;i<T.length&&j<Q.length;i++){ if(T[i]!==Q[j]) continue; const start=i===0||/[\s\-_/.:·(]/.test(T[i-1]); score+=start?12:(i===prev+1?8:1); idx.push(i); prev=i; j++; }
+  if(j<Q.length) return null;
+  // Scattered letters are noise: "del" must not match d…e…l across a sentence.
+  const span=idx[idx.length-1]-idx[0]+1; if(span>Q.length*3&&score<Q.length*10) return null;
+  return {score:score-T.length*0.05,idx};
+}
+function palHL(text,idx){ const d=h('span'); if(!idx||!idx.length){ d.textContent=text; return d; } const set=new Set(idx); let buf='', inM=false;
+  const flush=m=>{ if(!buf) return; d.append(m?h('mark',null,buf):buf); buf=''; };
+  [...text].forEach((c,i)=>{ const m=set.has(i); if(m!==inM){ flush(inM); inM=m; } buf+=c; }); flush(inM); return d; }
+const MORE_TABS=[['search','Search everything','Every action, finding and original file'],['mcp','Plugin (MCP) activity','Every plugin call and what came back'],['plugins','Plugins installed','MCP servers in the settings files'],['memory','Memory files','What the agents keep between conversations'],['crosscheck','Cross-check','What independent evidence confirms'],['map','Agent map','Which agent started which'],['evidence','About the evidence','Integrity, seal and verification']];
+function openMore(tab){ moreTab=tab; go('more'); $$('#moreseg button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.m===tab))); }
+function fullSearch(q){ palRecent.add(q); moreTab='search'; go('more',true); $$('#moreseg button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.m==='search'))); const box=$('#more'); box.replaceChildren(); renderSearch(box,q); }
+function palStatic(){
+  const out=[];
+  [['overview','Overview','The verdict and what to look at first'],['findings','Findings','Everything flagged, most serious first'],['activity','Activity','Every conversation and action, in order'],['protect','Protect','Stop it happening again: guardrails and fixes']]
+    .forEach(([v,t,d])=>out.push({group:'Go to',title:t,sub:d,glyph:'→',keys:v,run:()=>go(v)}));
+  MORE_TABS.forEach(([k,t,d])=>out.push({group:'Go to',title:t,sub:d,glyph:'→',keys:'more '+k,run:()=>openMore(k)}));
+  out.push({group:'Actions',title:curTheme()==='dark'?'Switch to light theme':'Switch to dark theme',sub:'Theme',glyph:'◐',keys:'theme dark light mode',run:()=>$('#theme').click()});
+  out.push({group:'Actions',title:'Verify every file in the case',sub:'Re-hash the whole evidence package',glyph:'✓',keys:'verify integrity hash seal',run:()=>openMore('evidence')});
+  out.push({group:'Actions',title:'Apply guardrails',sub:'Preview and apply agentdfir mitigate from the Protect tab',glyph:'⛨',keys:'mitigate guardrails protect apply',run:()=>go('protect')});
+  (S.groups||[]).forEach(g=>{ const n=g.items.length; out.push({group:'Findings',title:g.p.title,sub:plural(n,'time')+' · '+g.rule,sev:g.sev,keys:g.rule+' '+(g.items[0]&&g.items[0].title||''),run:()=>openGroup(g.key)}); });
+  (S.sessions||[]).forEach(se=>{ if(se.case_level) return; out.push({group:'Conversations',title:mask(sessTitle(se)),sub:(se.product||'agent')+' · '+day(se.first),glyph:'💬',keys:se.id,run:()=>openSession(se.id)}); });
+  return out;
+}
+function palBuild(q){
+  q=q.trim(); const items=[];
+  if(!q){
+    palRecent.get().forEach(r=>items.push({group:'Recent searches',title:r,glyph:'↺',run:()=>palSet(r)}));
+    const st=palStatic();
+    st.filter(x=>x.group==='Findings').slice(0,5).forEach(x=>items.push(Object.assign({},x,{group:'Look at first'})));
+    st.filter(x=>x.group==='Go to'&&!/^more /.test(x.keys)).forEach(x=>items.push(x));
+    st.filter(x=>x.group==='Actions').forEach(x=>items.push(x));
+    return items;
+  }
+  const limits={'Go to':5,'Actions':3,'Findings':6,'Conversations':4};
+  const scored=palStatic().map(x=>{ const a=fuzzy(q,x.title), b=x.keys?fuzzy(q,x.keys):null; const s=Math.max(a?a.score:-1,b?b.score*0.8:-1); return s<0?null:Object.assign({},x,{score:s,idx:a?a.idx:[]}); }).filter(Boolean);
+  const byGroup={}; scored.forEach(x=>(byGroup[x.group]=byGroup[x.group]||[]).push(x));
+  const order=Object.keys(byGroup).sort((a,b)=>Math.max(...byGroup[b].map(x=>x.score))-Math.max(...byGroup[a].map(x=>x.score)));
+  order.forEach(g=>byGroup[g].sort((a,b)=>b.score-a.score).slice(0,limits[g]||5).forEach(x=>items.push(x)));
+  if(PAL.remote&&PAL.remoteQ===q){ const re=safeRe(q,false,false);
+    (PAL.remote.events&&PAL.remote.events.items||[]).slice(0,6).forEach(x=>items.push({group:'In the evidence',title:x.what||'(no text)',sub:when(x.ts)+(x.session?' · '+sessName(x.session):''),glyph:'§',re,run:()=>{ palRecent.add(q); showProof(x.id); }})); }
+  items.push({group:'Search',title:'Search every file for “'+q+'”',sub:'Actions, findings and the original collected files',glyph:'⌕',kbd:(isMac?'⌘':'Ctrl')+' ↵',run:()=>fullSearch(q)});
+  return items;
+}
+function palRender(){
+  const list=$('#pall'); list.replaceChildren(); const q=$('#palq').value;
+  PAL.items=palBuild(q); if(PAL.sel>=PAL.items.length) PAL.sel=0;
+  let grp=null;
+  PAL.items.forEach((it,i)=>{
+    if(it.group!==grp){ grp=it.group; list.append(h('div',{class:'pal-g',role:'presentation'},grp)); }
+    const title=it.re?hl(it.title,it.re):palHL(it.title,it.idx); title.className='t';
+    const ic=it.sev?h('span',{class:'ic'},sevChip(it.sev)):h('span',{class:'ic','aria-hidden':'true'},it.glyph||'•');
+    if(it.sev){ ic.style.background='none'; ic.style.flexBasis='auto'; ic.style.width='auto'; }
+    const b=h('div',{class:'pal-i',role:'option',id:'palo'+i,'aria-selected':String(i===PAL.sel),onmousemove:()=>{ if(PAL.sel!==i) palSelect(i); },onclick:()=>palRun(i)},
+      ic,h('span',{class:'tx'},title,it.sub?h('div',{class:'d'},it.sub):null),h('span',{class:'go'},it.kbd?h('kbd',null,it.kbd):'Open ↵'));
+    list.append(b);
+  });
+  if(PAL.pending&&PAL.pending===q.trim()&&PAL.remoteQ!==PAL.pending){ const at=[...list.querySelectorAll('.pal-g')].find(x=>x.textContent==='Search'); const row=h('div',{class:'pal-g',role:'presentation',style:'text-transform:none;letter-spacing:0;font-weight:500'},'Searching every recorded action…'); if(at) list.insertBefore(row,at); else list.append(row); }
+  if(!PAL.items.length) list.append(h('div',{class:'pal-empty'},'Nothing matches. Press ',h('kbd',null,(isMac?'⌘':'Ctrl')+' ↵'),' to search every file.'));
+  $('#palq').setAttribute('aria-activedescendant',PAL.items.length?'palo'+PAL.sel:'');
+  const n=PAL.items.filter(x=>x.group!=='Search').length; $('#palcount').textContent=q.trim()?plural(n,'result'):'';
+}
+function palSelect(i){ const prev=$('#palo'+PAL.sel); if(prev) prev.setAttribute('aria-selected','false'); PAL.sel=i; const cur=$('#palo'+i); if(cur){ cur.setAttribute('aria-selected','true'); cur.scrollIntoView({block:'nearest'}); } $('#palq').setAttribute('aria-activedescendant','palo'+i); }
+function palRun(i){ const it=PAL.items[i]; if(!it) return; const keep=it.group==='Recent searches'; if(!keep) closePal(false); it.run(); }
+const palRemote=debounce(q=>{
+  const my=++PAL.seq; if(q.length<2){ PAL.pending=''; $('#palspin').classList.remove('on'); return; }
+  PAL.pending=q; if(PAL.open) palRender();
+  api('/api/search?'+new URLSearchParams({q,mode:'text',scope:'events',limit:'6'})).then(r=>{ if(my!==PAL.seq||!PAL.open) return; PAL.remote=r; PAL.remoteQ=q; palRender(); })
+    .catch(()=>{}).finally(()=>{ if(my===PAL.seq){ PAL.pending=''; $('#palspin').classList.remove('on'); if(PAL.open) palRender(); } });
+},160);
+function palSet(q){ const inp=$('#palq'); inp.value=q; PAL.sel=0; palRender(); if(q.trim().length>=2) $('#palspin').classList.add('on'); palRemote(q.trim()); inp.focus(); }
+function openPal(q){
+  if(PAL.open){ $('#palq').focus(); $('#palq').select(); return; }
+  PAL.open=true; const ae=document.activeElement; PAL.last=ae&&!$('#pal').contains(ae)&&ae!==$('#gq')?ae:null; PAL.sel=0;
+  const p=$('#pal'); p.hidden=false; requestAnimationFrame(()=>{ p.classList.add('on'); $('#palscrim').classList.add('on'); });
+  Promise.all([findReady,sessReady].map(x=>x.catch(()=>null))).then(()=>{ if(PAL.open) palRender(); });
+  palSet(q||''); $('#palq').select();
+}
+function closePal(restore){
+  if(!PAL.open) return; PAL.open=false; PAL.seq++; $('#palspin').classList.remove('on');
+  $('#pal').classList.remove('on'); $('#palscrim').classList.remove('on');
+  setTimeout(()=>{ if(!PAL.open) $('#pal').hidden=true; },130);
+  $('#palq').blur(); // never leave focus in a hidden box: the next keys would type into it
+  if(restore!==false&&PAL.last&&PAL.last.isConnected&&PAL.last.focus) PAL.last.focus();
+}
+$('#palq').addEventListener('input',e=>{ if(!PAL.open) return; PAL.sel=0; const q=e.target.value.trim(); palRender(); if(q.length>=2) $('#palspin').classList.add('on'); palRemote(q); });
+$('#palq').addEventListener('keydown',e=>{
+  if(!PAL.open) return;
+  const n=PAL.items.length;
+  if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); if(e.target.value){ palSet(''); } else closePal(); return; }
+  if(e.key==='ArrowDown'||(e.ctrlKey&&isKey(e,'n'))){ e.preventDefault(); if(n) palSelect((PAL.sel+1)%n); return; }
+  if(e.key==='ArrowUp'||(e.ctrlKey&&isKey(e,'p'))){ e.preventDefault(); if(n) palSelect((PAL.sel-1+n)%n); return; }
+  if(e.key==='Home'&&n&&!e.target.value){ e.preventDefault(); palSelect(0); return; }
+  if(e.key==='End'&&n&&!e.target.value){ e.preventDefault(); palSelect(n-1); return; }
+  if(e.key==='Enter'){ e.preventDefault(); const q=e.target.value.trim(); if((e.metaKey||e.ctrlKey)&&q){ closePal(false); fullSearch(q); return; } palRun(PAL.sel); return; }
+  if(e.key==='Tab'){ e.preventDefault(); if(n) palSelect((PAL.sel+(e.shiftKey?-1:1)+n)%n); }
+});
+$('#palscrim').addEventListener('click',()=>closePal());
+$('#gq').addEventListener('focus',e=>{ e.target.blur(); openPal(''); });
+$('#gq').addEventListener('click',()=>openPal(''));
+$('#palbtn').addEventListener('click',()=>openPal(''));
 // Shortcuts match the physical key (e.code) as well as the character: on a
 // Hebrew, Russian or Greek layout Cmd/Ctrl+K reports e.key 'ל'/'л'/'κ', and
 // matching on e.key alone left the shortcut dead for those users.
 const isKey=(e,ch)=>e.code==='Key'+ch.toUpperCase()||(e.key||'').toLowerCase()===ch;
 document.addEventListener('keydown',e=>{
-  if((e.metaKey||e.ctrlKey)&&!e.altKey&&isKey(e,'k')){e.preventDefault(); const g=$('#gq'); if(getComputedStyle(g.parentNode).display!=='none'){g.focus(); g.select();} else {moreTab='search'; go('more');} return;}
+  if((e.metaKey||e.ctrlKey)&&!e.altKey&&isKey(e,'k')){e.preventDefault(); if(PAL.open) closePal(); else openPal(''); return;}
+  if(PAL.open) return; // the palette's own input handles its keys
   if(e.key==='Escape'&&$('#drawer').classList.contains('on')){closeDrawer(); return;}
   const t=e.target; if(t&&t.nodeType===1&&(t.matches('input,select,textarea')||t.isContentEditable)) return;
   if(e.metaKey||e.ctrlKey||e.altKey) return;
+  if(e.key==='/'&&!$('#drawer').classList.contains('on')){ e.preventDefault(); openPal(''); return; }
   if($('#v-activity').classList.contains('on')&&!$('#drawer').classList.contains('on')){ const a=S.act; if(isKey(e,'j')&&a.sel<a.rows.length-1){e.preventDefault(); selectEv(a.sel+1);} else if(isKey(e,'k')&&a.sel>0){e.preventDefault(); selectEv(a.sel-1);} }
   if($('#v-findings').classList.contains('on')&&S.group&&!$('#drawer').classList.contains('on')){ const g=S.groups.find(x=>x.key===S.group); const L=g?(S.acct?g.items.filter(x=>x.account===S.acct):g.items).length:0; if(e.key==='ArrowRight'&&g&&S.occ<L-1){S.occ++; renderFinding();} else if(e.key==='ArrowLeft'&&S.occ>0){S.occ--; renderFinding();} }
 });
