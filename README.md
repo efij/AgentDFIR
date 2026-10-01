@@ -199,6 +199,33 @@ The file carries the sealed evidence and the case notes; the analysis is rebuilt
 by the receiving machine's binary, so nobody has to trust someone else's
 conclusions. `open` also takes a package directory or an `encrypt`ed `.enc` file.
 
+## ⚖️ Who asked, who allowed, what happened — accountability
+
+When an agent acts beyond what was asked, the question becomes *who is
+accountable*. `report accountability` answers it from evidence the case already
+holds: for every consequential action, one row — **who asked** (the human prompt
+or the tool result that triggered it), **what was allowed** (the permission state
+captured at that round), **what the agent did** (event, evidence state, witness,
+masked command, target), and **whether it went beyond the instruction**
+(deterministic gap codes, or `NONE_DETECTED` — never "authorized").
+
+```sh
+agentdfir report accountability CASE.adfir --format all   # md + json + html
+agentdfir case authorize CASE.adfir --by "J. Doe" --basis "incident IR-7, CISO approval"
+agentdfir export custody CASE.adfir --out custody.zip --certify --name … --title … --org …
+agentdfir selfcheck --offline        # prove on your own machine: nothing sent, nothing executed
+```
+
+`export custody` builds a human-readable chain-of-custody package (both hash
+chains verified, seal copies, a full `verify` run, a pre-filled FRE 902(13)/(14)
+certification template a qualified person completes and signs, and a
+`MANIFEST.sha256`). `selfcheck --offline` runs the binary as its own subject under
+`sandbox-exec` / `unshare --net` / an in-process guard and reports whether it
+opened a socket, spawned a process or wrote outside the case — with a connectivity
+canary so a non-enforcing sandbox can never pass. Details:
+[accountability](docs/accountability.md) · [evidence authentication](docs/evidence-authentication.md) ·
+[selfcheck](docs/selfcheck.md). Not legal advice.
+
 ## 🔎 From findings to a story — the investigation layer (v1.0)
 
 A list of 700 findings is not an answer. The explorer (`agentdfir serve`) turns it into one:

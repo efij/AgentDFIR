@@ -7,6 +7,61 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+The question agent incidents raise has moved from *is the agent safe* to *who
+is accountable when it acts beyond what was asked* — the frame of the FTC's
+2026-09-30 inquiry into AI-agent providers (news context only; AgentDFIR names
+no vendor as a target). This release hands the evidence over in that shape, and
+lets anyone prove the tool's offline claim on their own machine.
+
+### Added
+- **`agentdfir report accountability`** — for every consequential action in a
+  case (HIGH/CRITICAL findings and any destructive, cloud, exfiltration,
+  credential, configuration-change or execution rule), one row with four parts:
+  **Instruction** (the human prompt or tool result that triggered it, reusing
+  the provenance trigger logic), **Authority** (the permission state captured at
+  that round — `defaultMode`, allow/deny/ask, bypass flags and markers, hooks,
+  enabled MCP servers, the session's recorded permission mode, before/after when
+  a config changed between rounds), **Action** (event, evidence state, witness,
+  masked command, target), and **Gap** (rule-based, deterministic: a short code
+  and a sentence, or `NONE_DETECTED` — never "authorized"). A header with the
+  seal digest, signer fingerprint, rounds, authorization and accounts; a
+  per-gap-code summary; and a limits section listing what the evidence cannot
+  show. `--session`, `--since/--until`, `--finding`; `--format md|json|html|all`.
+  JSON schema at `docs/schema/accountability.schema.json`. The report is derived
+  data written outside the seal, and recorded in a new custody activity log.
+- **`agentdfir export custody`** — a self-contained, human-readable
+  chain-of-custody package (derived, outside the case): `custody.md`/`custody.json`
+  (both hash chains, verified), `seals/` (copies of `SHA256SUMS*`, `SEAL.sig*`,
+  the signer's public key, anchor records), `verify.txt` (a full verify plus the
+  commands to reproduce it with AgentDFIR and with standard tools),
+  `certification-902-14.md` (pre-filled with case facts, human fields left as
+  `[[ ]]`, never signed by the tool), and `MANIFEST.sha256` over the bundle.
+  `--out <dir|zip>`, `--certify --name --title --org`.
+- **`agentdfir case authorize --by --basis [--reference]`** and
+  **`agentdfir case log`** — record who authorized an acquisition into a
+  hash-chained custody **activity log** outside the seal (each record names the
+  seal digest it was made against), and print both logs with their chain state.
+  The `report_generated`, `custody_exported` and `acquisition_authorized` events
+  are recorded there, so generating a report never re-seals the case.
+- **`agentdfir selfcheck --offline`** — prove on your own machine that an
+  AgentDFIR collection and analysis opens no network socket, spawns no child
+  process, and writes only inside the case/state directories. Runs the binary as
+  the subject on a synthetic profile (or `--profile <dir>`) under the strongest
+  containment available — `sandbox-exec` on macOS, `unshare --net`+`strace` on
+  Linux, an in-process network guard everywhere else — and reports the level
+  reached: `kernel-enforced`, `traced` or `in-process`. A connectivity **canary**
+  run inside the sandbox confirms the sandbox is actually enforcing; if it
+  connects, the result is downgraded, never a pass. `--json`, `--no-canary`;
+  non-zero exit on any violation. CI runs it on Linux every change and on macOS
+  in sandbox-exec mode.
+- **`docs/evidence-authentication.md`** — how a case authenticates itself (seal
+  chain, archived seals, `SEAL.sig`, anchors, prior-round proof, custody hash
+  chain), with the exact commands to reproduce each check using AgentDFIR and
+  standard tools, carefully-worded US context (FRE 902(13)/902(14)) and a note
+  that other jurisdictions differ (ISO/IEC 27037). Plus `docs/accountability.md`,
+  `docs/selfcheck.md` and `docs/templates/certification-902-14.md`. Not legal
+  advice; the docs never claim "admissible" or "compliant".
+
 ## [3.2.0] — 2026-10-01
 
 Cloud audit logs become a second witness, repeat runs are a true delta,

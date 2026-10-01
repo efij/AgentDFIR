@@ -30,6 +30,31 @@ jobs:
       - name: test
         run: go test -race ./...
 
+  # Proves AgentDFIR's offline claim end to end: a real collect + analyze run,
+  # as its own subject, under kernel containment, must open no socket, spawn no
+  # child process and write nothing outside the case. Linux uses a network
+  # namespace (and strace when present); macOS uses sandbox-exec. Part of the
+  # PLAN-delta §8.2 behaviour contract. A regression that reaches the network
+  # fails the PR here, not a user's air-gapped host.
+  selfcheck-offline:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+      - name: install strace (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y strace
+      - name: build
+        run: go build -trimpath -o agentdfir ./cmd/agentdfir
+      - name: selfcheck --offline
+        run: ./agentdfir selfcheck --offline --json
+
   # Builds the release asset layout and runs the documented install paths
   # against it, so a broken install.sh or a renamed asset fails the PR, not the
   # release. Mirrors the `verify` job in release.yml minus the download.
