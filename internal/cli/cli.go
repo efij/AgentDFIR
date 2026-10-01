@@ -18,6 +18,7 @@ import (
 	"github.com/efij/AgentDFIR/v3/internal/products"
 	"github.com/efij/AgentDFIR/v3/internal/sanitize"
 	"github.com/efij/AgentDFIR/v3/internal/seal"
+	"github.com/efij/AgentDFIR/v3/internal/selfcheck"
 	"github.com/efij/AgentDFIR/v3/internal/version"
 )
 
@@ -84,6 +85,13 @@ EXPORT — hand results to other tools
   agentdfir rules list --packs rules      every detection with its MITRE ATT&CK / ATLAS mapping
   agentdfir rules export --sigma <dir>    detection rules as Sigma for your SIEM
 
+ACCOUNTABILITY — who asked, who allowed, what happened (not legal advice)
+  agentdfir report accountability [<pkg>] [--session id] [--finding rule] [--format md|json|html|all]
+  agentdfir case authorize [<pkg>] --by <name> --basis <text>   record who authorized the acquisition
+  agentdfir case log [<pkg>]              the sealed custody log + the post-seal activity log
+  agentdfir export custody [<pkg>] --out <dir|zip> [--certify --name … --title … --org …]
+  agentdfir selfcheck --offline           prove on this machine: nothing sent, executed, or written outside the case
+
 BEFORE AN INCIDENT
   agentdfir monitor --detect --alert <url|file>      live sensor: findings pushed as they happen
   agentdfir monitor --journal [--journal-anchor f]   hash-chain every transcript append; later edits become provable
@@ -108,6 +116,7 @@ func Main(args []string) int {
 		fmt.Fprint(os.Stderr, usage)
 		return 2
 	}
+	selfcheck.InstallIfRequested()
 	activatePacks()
 	switch args[0] {
 	case "packs":
@@ -142,6 +151,8 @@ func Main(args []string) int {
 		return cmdBaseline(args[1:])
 	case "report":
 		return cmdReport(args[1:])
+	case "case":
+		return cmdCase(args[1:])
 	case "export":
 		return cmdExport(args[1:])
 	case "keygen":
@@ -182,6 +193,8 @@ func Main(args []string) int {
 		return cmdScanRepo(args[1:])
 	case "decode":
 		return cmdDecode(args[1:])
+	case "selfcheck":
+		return cmdSelfcheck(args[1:])
 	case "journal":
 		return cmdJournal(args[1:])
 	case "version", "--version", "-v":

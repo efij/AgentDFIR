@@ -21,6 +21,9 @@ import (
 
 // cmdReport renders HTML/JSON/CSV/STIX/OTel outputs for a package.
 func cmdReport(args []string) int {
+	if len(args) > 0 && args[0] == "accountability" {
+		return cmdReportAccountability(args[1:])
+	}
 	fs := flag.NewFlagSet("report", flag.ContinueOnError)
 	format := fs.String("format", "html", "html|pdf|json|csv|stix|otel|ocsf|sarif|timesketch|l2tcsv|all")
 	outDir := fs.String("out", "", "output directory (default: <package>/reports)")
@@ -158,8 +161,12 @@ func cmdReport(args []string) int {
 	return 0
 }
 
-// cmdExport handles `export --support`.
+// cmdExport handles `export --support`, `export custody` and the portable
+// case file.
 func cmdExport(args []string) int {
+	if len(args) > 0 && args[0] == "custody" {
+		return cmdExportCustody(args[1:])
+	}
 	fs := flag.NewFlagSet("export", flag.ContinueOnError)
 	support := fs.Bool("support", false, "produce a redacted support package instead of a portable case file")
 	out := fs.String("out", "", "output path")
