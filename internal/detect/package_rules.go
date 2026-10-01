@@ -68,8 +68,10 @@ func artRef(a casepkg.ArtifactRecord, off int64) string {
 	return fmt.Sprintf("%s (artifact %.12s, byte offset %d)", a.LogicalPath, a.ArtifactID, off)
 }
 
-// bypassMarkers are config values that disable permission/sandbox controls.
-var bypassMarkers = []string{
+// BypassMarkers are config values that disable permission/sandbox
+// controls. The accountability report reuses them to describe the
+// permission state a configuration file put in effect.
+var BypassMarkers = []string{
 	`"defaultMode": "bypassPermissions"`,
 	`"defaultMode":"bypassPermissions"`,
 	`"dangerouslySkipPermissions"`,
@@ -88,7 +90,7 @@ func permissionBypass(man *casepkg.Manifest, pkgDir string) []schema.Finding {
 		if !isType(a, "product_config", "managed_config") {
 			continue
 		}
-		marker, off, ok := scanContains(blobReader{store, a.ArtifactID}, bypassMarkers)
+		marker, off, ok := scanContains(blobReader{store, a.ArtifactID}, BypassMarkers)
 		if !ok {
 			continue
 		}

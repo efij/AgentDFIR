@@ -376,6 +376,10 @@ func ReadManifest(pkgDir string) (*casepkg.Manifest, error) {
 	return casepkg.ReadManifest(pkgDir)
 }
 
+// BaseCSS is the stylesheet every HTML report shares, so a report rendered
+// by another package looks like this one.
+const BaseCSS = reportCSS
+
 const reportCSS = `ol.chain{margin:6px 0 10px 18px;padding:0}ol.chain li{margin:4px 0}
 
 :root{--bg:#0b1120;--surface:#151f35;--border:#2b3a55;--text:#f1f5f9;--muted:#94a3b8;--accent:#22c55e;--red:#ef4444;--amber:#f59e0b}

@@ -3,6 +3,6 @@
 package fingerprint
 
 const (
-	parse    = "dea9ecafee34f2b3c54ec88676ca673691c061ccadbed29c13ab646125312485"
-	analysis = "790b815b30c5ba2714b83c89e3ab8fa15303ebdb226e4a7fc2b9f46e5e10daa0"
+	parse    = "57b296ab36088ffa24a5ed9174c22c6aae88ea68315f667047fe32a50e1ab130"
+	analysis = "be812bad06161b91d601f09bb12e5bbc5430ae60a6ccc468f5ced65c3c61712d"
 )
