@@ -7,6 +7,11 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.2.0] — 2026-10-01
+
+Cloud audit logs become a second witness, repeat runs are a true delta,
+and Cmd/Ctrl+K opens a real command palette.
+
 Lessons from the 2026 agent-driven cloud attacks: Microsoft's Storm-3168,
 Sysdig's JADEPUFFER and Sygnia's AI-assisted intrusion.
 
