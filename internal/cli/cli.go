@@ -108,6 +108,7 @@ EDISCOVERY — derivative productions for legal review (structural RSMF validati
 BEFORE AN INCIDENT
   agentdfir monitor --detect --alert <url|file>      live sensor: findings pushed as they happen
   agentdfir monitor --journal [--journal-anchor f]   hash-chain every transcript append; later edits become provable
+  sudo agentdfir monitor --es [--es-events a,b]     macOS: also capture Endpoint Security events via Apple's eslogger (root + Full Disk Access)
   agentdfir journal verify [--anchor <head>]         check the journal and an off-host anchor
   agentdfir mcp audit                                MCP servers on this machine: unpinned, plaintext, poisoned
   agentdfir extensions [--path <home>]               IDE extensions, agent plugins, skills: hidden loaders, remote hooks
