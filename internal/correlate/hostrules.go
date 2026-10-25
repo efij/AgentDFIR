@@ -886,15 +886,7 @@ var agentPackages = []string{"@anthropic-ai/claude-code", "@openai/codex", "@goo
 // installCommand reports whether argv installs or builds packages (and so
 // runs their lifecycle or build scripts), and returns its text.
 func installCommand(cmd string) (string, bool) {
-	text, _, ok := installSpec(cmd)
-	return text, ok
-}
-
-// installSpec is installCommand plus the package specs the install names
-// (nil when it installs from a manifest or names none).
-func installSpec(cmd string) (string, []string, bool) {
 	found := ""
-	var pkgs []string
 	forEachInvocation(cmd, func(argv []string) bool {
 		for k := 0; k < len(argv) && k < 3; k++ {
 			p, rest := exeName(argv[k]), argv[k+1:]
@@ -935,62 +927,13 @@ func installSpec(cmd string) (string, []string, bool) {
 			}
 			if ok {
 				found = strings.Join(argv[k:], " ")
-				pkgs = packageArgs(p, rest)
 				return true
 			}
 		}
 		return false
 	})
-	return found, pkgs, found != ""
+	return found, found != ""
 }
-
-// installValued are package-manager options that take a separate value.
-var installValued = map[string]bool{"--registry": true, "--prefix": true, "-C": true, "--cwd": true, "--dir": true, "--cache": true,
-	"--userconfig": true, "--tag": true, "-i": true, "--index-url": true, "--extra-index-url": true, "-f": true, "--find-links": true,
-	"-t": true, "--target": true, "--root": true, "--python": true, "-p": true, "--source": true, "-v": true, "--version": true,
-	"--path": true, "--git": true, "--branch": true, "--rev": true, "--features": true, "--group": true, "-G": true, "--filter": true}
-
-// packageArgs returns the package specs after the subcommand. Anything
-// that installs from a file, a URL, a requirements list or an editable
-// path yields a spec that is not a bare name, so it never matches an
-// agent package.
-func packageArgs(pm string, rest []string) []string {
-	var out []string
-	sub := false
-	for j := 0; j < len(rest); j++ {
-		a := rest[j]
-		if strings.HasPrefix(a, "-") {
-			name, _, _ := strings.Cut(a, "=")
-			switch {
-			case sourceOverride[name]:
-				out = append(out, "!source-override "+a) // never an agent package
-				if !strings.Contains(a, "=") {
-					j++
-				}
-			case a == "-r" || a == "--requirement" || a == "-e" || a == "--editable" || a == "-c" || a == "--constraint":
-				out = append(out, a) // a file or path whose packages the argv does not reveal
-				j++
-			case installValued[a]:
-				j++
-			}
-			continue
-		}
-		if !sub {
-			sub = true // the subcommand: install, add, ci, …
-			continue
-		}
-		if pm == "uv" && a == "install" && len(out) == 0 {
-			continue // uv pip install / uv tool install
-		}
-		out = append(out, a)
-	}
-	return out
-}
-
-// sourceOverride are options that point a package manager at another
-// source: whatever it installs is not the published agent CLI.
-var sourceOverride = map[string]bool{"--registry": true, "--index-url": true, "-i": true, "--extra-index-url": true, "--find-links": true,
-	"-f": true, "--git": true, "--path": true, "--source": true, "--@anthropic-ai:registry": true}
 
 // plainVersion: a semver (or a prefix of one) or a dist-tag. Aliases
 // (npm:), URLs, git and file references, ranges and markers are not.
@@ -1042,30 +985,65 @@ var agentPackageSet = func() map[string]bool {
 	return m
 }()
 
-// onlyAgentPackages reports whether an install names packages and every
-// one of them is an agent CLI.
-func onlyAgentPackages(pkgs []string) bool {
-	if len(pkgs) == 0 {
+// agentInstallFlags are the only options an agent-only install may carry.
+// Anything else (a registry or index override, a user config, an
+// abbreviated long option, an attached value) makes it an ordinary
+// install: the classification fails closed.
+var agentInstallFlags = map[string]bool{"-g": true, "--global": true, "-D": true, "--save-dev": true, "-y": true, "--yes": true, "-q": true, "--quiet": true}
+
+// agentOnlyInstall reports whether a process is exactly the agent CLI
+// being installed: its argv is `<pm> install|i|add [allowed flags]
+// <agent-spec>...`, argv[0] is the process's own image, and the package
+// manager is a real one (node / python only through a known entry point:
+// npm-cli.js, yarn.js, pnpm.cjs, or -m pip / -m pipx).
+func agentOnlyInstall(exe, cmd string) bool {
+	var argv []string
+	lex(cmd, false, func(a []string) bool { argv = a; return true })
+	if len(argv) < 3 || exeName(argv[0]) != exeName(exe) {
 		return false
 	}
-	for _, p := range pkgs {
-		if !agentSpec(strings.Trim(p, `"'`)) {
+	pm, rest := exeName(argv[0]), argv[1:]
+	switch {
+	case pm == "node" || pm == "nodejs":
+		switch exeName(rest[0]) {
+		case "npm-cli.js":
+			pm = "npm"
+		case "yarn.js":
+			pm = "yarn"
+		case "pnpm.cjs":
+			pm = "pnpm"
+		default:
 			return false
 		}
+		rest = rest[1:]
+	case pm == "python" || pm == "python3" || strings.HasPrefix(pm, "python3."):
+		if len(rest) < 2 || rest[0] != "-m" || (rest[1] != "pip" && rest[1] != "pipx") {
+			return false
+		}
+		pm, rest = rest[1], rest[2:]
 	}
-	return true
-}
-
-// packageManagerExe: the process image is a package manager (or the
-// interpreter that runs one), so its own argv is what it was asked to do.
-func packageManagerExe(exe string) bool {
-	switch exeName(exe) {
-	case "npm", "pnpm", "cnpm", "yarn", "bun", "pip", "pip3", "pipx", "uv", "poetry", "pdm", "gem", "cargo", "composer",
-		"node", "nodejs", "python", "python3":
-		return true
+	switch pm {
+	case "npm", "pnpm", "yarn", "bun", "pip", "pip3", "pipx":
+	default:
+		return false
 	}
-	n := exeName(exe)
-	return strings.HasPrefix(n, "python3.") || strings.HasPrefix(n, "pip3.")
+	if len(rest) < 2 || (rest[0] != "install" && rest[0] != "i" && rest[0] != "add") {
+		return false
+	}
+	specs := 0
+	for _, a := range rest[1:] {
+		if strings.HasPrefix(a, "-") {
+			if !agentInstallFlags[a] {
+				return false
+			}
+			continue
+		}
+		if !agentSpec(a) {
+			return false
+		}
+		specs++
+	}
+	return specs > 0
 }
 
 // insideInstallDir: a path in a package-manager install tree, where an
@@ -1110,9 +1088,9 @@ func (v *hostView) packageScripts() ([]schema.Finding, HostRuleCoverage) {
 			st, ok := isRoot[j]
 			if !ok {
 				st = -1
-				if _, pkgs, inst := installSpec(v.recs[j].Cmdline); inst {
+				if _, inst := installCommand(v.recs[j].Cmdline); inst {
 					st = 1
-					if packageManagerExe(v.recs[j].Exe) && onlyAgentPackages(pkgs) {
+					if agentOnlyInstall(v.recs[j].Exe, v.recs[j].Cmdline) {
 						st = 2
 					}
 				}

