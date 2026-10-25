@@ -180,24 +180,42 @@ func continueItemLocs(data []byte, n int) []srcLoc {
 			}
 			continue
 		}
-		if t, err := dec.Token(); err != nil || t != json.Delim('[') {
-			return locs
-		}
-		for i := 0; i < n && dec.More(); i++ {
-			start := int(dec.InputOffset())
-			for start < len(data) && (data[start] == ',' || data[start] == ' ' || data[start] == '\t' || data[start] == '\r' || data[start] == '\n') {
-				start++
-			}
-			lineStart := bytes.LastIndexByte(data[:start], '\n') + 1
-			locs[i] = srcLoc{int64(lineStart), bytes.Count(data[:start], []byte{'\n'}) + 1}
-			var skip json.RawMessage
-			if dec.Decode(&skip) != nil {
-				return locs
-			}
-		}
+		arrayElemLocs(dec, data, locs)
 		return locs
 	}
 	return locs
+}
+
+// topArrayLocs finds the start of each element of a top-level JSON array
+// (sessions.json), with the same fallback to line 1.
+func topArrayLocs(data []byte, n int) []srcLoc {
+	locs := make([]srcLoc, n)
+	for i := range locs {
+		locs[i] = srcLoc{0, 1}
+	}
+	dec := json.NewDecoder(bytes.NewReader(data))
+	arrayElemLocs(dec, data, locs)
+	return locs
+}
+
+// arrayElemLocs reads the array the decoder is positioned at and records
+// each element's line and line-start offset into locs.
+func arrayElemLocs(dec *json.Decoder, data []byte, locs []srcLoc) {
+	if t, err := dec.Token(); err != nil || t != json.Delim('[') {
+		return
+	}
+	for i := 0; i < len(locs) && dec.More(); i++ {
+		start := int(dec.InputOffset())
+		for start < len(data) && (data[start] == ',' || data[start] == ' ' || data[start] == '\t' || data[start] == '\r' || data[start] == '\n') {
+			start++
+		}
+		lineStart := bytes.LastIndexByte(data[:start], '\n') + 1
+		locs[i] = srcLoc{int64(lineStart), bytes.Count(data[:start], []byte{'\n'}) + 1}
+		var skip json.RawMessage
+		if dec.Decode(&skip) != nil {
+			return
+		}
+	}
 }
 
 func (p *parser) continueItem(it continueItem, art casepkg.ArtifactRecord, cfg *productCfg, sid, cwd string, loc srcLoc) {
@@ -417,6 +435,7 @@ func (p *parser) parseContinueIndex(data []byte, art casepkg.ArtifactRecord, cfg
 		p.gap(art, cfg, 0, 1, "unrecognized Continue sessions.json shape")
 		return nil
 	}
+	locs := topArrayLocs(data, len(entries))
 	for i, e := range entries {
 		if e.SessionID == "" {
 			continue
@@ -431,7 +450,7 @@ func (p *parser) parseContinueIndex(data []byte, art casepkg.ArtifactRecord, cfg
 		}
 		ev.Cwd = fileURIPath(e.WorkspaceDirectory)
 		ev.Summary = trim("title="+e.Title, 200)
-		p.emit(ev, art, 0, i+1)
+		p.emit(ev, art, locs[i].off, locs[i].line)
 	}
 	return nil
 }

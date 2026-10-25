@@ -188,7 +188,7 @@ func pluginFindings(p Plugin, scripts map[string]scriptVerdict) []schema.Finding
 			desc += " The plugin is not in the install registry (cache leftover or unknown state), so the hook may not be active."
 		}
 		out = append(out, finding("PLUGIN_HOOK_EXECUTES_REMOTE", sev, "Agent Plugin Hook Downloads or Decodes Code and Runs It",
-			desc, []string{p.Dir}, "T1105", "AML.T0010.005",
+			desc, []string{firstNonEmpty(h.File, p.Dir)}, "T1105", "AML.T0010.005",
 			"Plugins that install a helper on first run use network hooks; the signal is a pipe into a shell, a decoded payload, or a download at session start.",
 			"plugin: "+label, "event: "+h.Event))
 	}
