@@ -231,14 +231,21 @@ func Build(in Input, o Options) *Report {
 			r.Omitted++
 			continue
 		}
-		a := b.action(e)
+		r.Actions = append(r.Actions, b.action(e))
+	}
+	validate(r)
+	for i := range r.Actions {
+		a := &r.Actions[i]
+		a.StateLabel = Invalid
+		if a.State != Invalid {
+			a.StateLabel = schema.Label(a.State)
+		}
 		r.Summary.States[a.StateLabel]++
 		for _, f := range a.Coverage {
 			if f.Needed {
 				r.Summary.Coverage[f.Coverage]++
 			}
 		}
-		r.Actions = append(r.Actions, a)
 	}
 	if r.Omitted > 0 {
 		r.Notes = append(r.Notes, fmt.Sprintf("%d tool call(s) past the bound of %d not listed; narrow with --session", r.Omitted, o.MaxActions))

@@ -31,9 +31,9 @@ func WriteText(w io.Writer, r *Report) {
 		if !s.First.IsZero() {
 			span = fmt.Sprintf(", %s → %s", clock(s.First), clock(s.Last))
 		}
-		p("  %s  %s  %d record(s)%s", s.Verdict, t(s.File), s.Records, span)
+		p("  %s  %s  %d record(s)%s", t(s.Verdict), t(s.File), s.Records, span)
 		if s.SHA256 != "" {
-			p("      sha256 %s", s.SHA256)
+			p("      sha256 %s", t(s.SHA256))
 		}
 		if len(s.Hosts) > 0 {
 			p("      host(s): %s", t(strings.Join(s.Hosts, ", ")))
@@ -56,7 +56,7 @@ func WriteText(w io.Writer, r *Report) {
 			}
 		}
 		for _, d := range s.Drops {
-			p("      drop: %s: %s (%s)%s", d.Signal, t(d.Detail), spanOf(d.Start, d.End), refSuffix(t(d.Ref)))
+			p("      drop: %s: %s (%s)%s", t(d.Signal), t(d.Detail), spanOf(d.Start, d.End), refSuffix(t(d.Ref)))
 		}
 		if s.DropsOmitted > 0 {
 			p("      %d more drop signal(s) not kept", s.DropsOmitted)
@@ -76,7 +76,7 @@ func WriteText(w io.Writer, r *Report) {
 			if !c.CountsAsCoverage {
 				role = "corroborates only"
 			}
-			p("    %-16s %-14s %-8s %s → %s  %d record(s), %s", t(host), t(c.Kind), c.Health, clock(c.Start), clock(c.End), c.Records, role)
+			p("    %-16s %-14s %-8s %s → %s  %d record(s), %s", t(host), t(c.Kind), t(c.Health), clock(c.Start), clock(c.End), c.Records, role)
 			for _, iv := range c.Partial {
 				p("      partial: %s (%s, %s)", t(iv.Reason), t(iv.Source), spanOf(iv.Start, iv.End))
 			}
@@ -87,28 +87,28 @@ func WriteText(w io.Writer, r *Report) {
 	}
 	p("")
 	p("SUMMARY")
-	p("  states:   %s", countList(r.Summary.States))
+	p("  states:   %s", t(countList(r.Summary.States)))
 	if len(r.Summary.Coverage) > 0 {
-		p("  coverage: %s", countList(r.Summary.Coverage))
+		p("  coverage: %s", t(countList(r.Summary.Coverage)))
 	}
 
 	for i, a := range r.Actions {
 		p("")
-		p("[%d] %s  %s  %s", i+1, a.Timestamp, t(a.Tool), a.StateLabel)
+		p("[%d] %s  %s  %s", i+1, t(a.Timestamp), t(a.Tool), t(a.StateLabel))
 		p("    claim:      %s", t(a.Claim))
-		p("    confidence: %s", a.Confidence)
+		p("    confidence: %s", t(a.Confidence))
 		for _, f := range a.Coverage {
 			need := ""
 			if f.Needed {
 				need = " (needed)"
 			}
-			p("    coverage:   %s%s %s: %s", f.Kind, need, f.Coverage, t(f.Reason))
+			p("    coverage:   %s%s %s: %s", t(f.Kind), need, t(f.Coverage), t(f.Reason))
 		}
 		p("    chain:")
 		for _, s := range a.Chain {
-			head := fmt.Sprintf("      %s %s", s.Role, t(s.Label))
+			head := fmt.Sprintf("      %s %s", t(s.Role), t(s.Label))
 			if s.Relation != "" {
-				head = fmt.Sprintf("      ─%s→ %s %s", s.Relation, s.Role, t(s.Label))
+				head = fmt.Sprintf("      ─%s→ %s %s", t(s.Relation), t(s.Role), t(s.Label))
 			}
 			attrs := []string{}
 			if s.State != "" {
@@ -121,7 +121,7 @@ func WriteText(w io.Writer, r *Report) {
 				attrs = append(attrs, "correlation "+s.Correlation)
 			}
 			if len(attrs) > 0 {
-				head += "  [" + strings.Join(attrs, ", ") + "]"
+				head += "  [" + t(strings.Join(attrs, ", ")) + "]"
 			}
 			p("%s", head)
 			for _, ref := range s.Refs {
@@ -150,7 +150,7 @@ func WriteText(w io.Writer, r *Report) {
 	p("CHECKING THIS REPORT")
 	p("  --json prints the same report with every reference resolvable: %d sealed artifact(s), %d derived file(s).", len(r.Artifacts), len(r.Derived))
 	for _, d := range r.Derived {
-		p("  %s sha256 %s", d.Path, d.SHA256)
+		p("  %s sha256 %s", t(d.Path), t(d.SHA256))
 	}
 }
 
@@ -159,14 +159,14 @@ func refText(r SourceRef) string {
 		s := "telemetry " + r.Telemetry
 		if r.TelemetryFile != "" {
 			s += " [" + r.TelemetryFile
-			if r.TelemetrySHA256 != "" {
-				s += " sha256 " + r.TelemetrySHA256[:16] + "…"
+			if h := r.TelemetrySHA256; len(h) >= 16 {
+				s += " sha256 " + h[:16] + "…"
 			}
 			s += "]"
 		}
 		return s
 	}
-	id := r.ArtifactID
+	id := sanitize.Terminal(r.ArtifactID)
 	if len(id) > 16 {
 		id = id[:16] + "…"
 	}
