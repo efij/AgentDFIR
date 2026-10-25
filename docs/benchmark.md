@@ -22,12 +22,17 @@ agentdfir benchmark --no-perf            # everything except the performance cas
 agentdfir benchmark --corpus <dir>       # score a different labeled corpus (benign/, attack/)
 agentdfir benchmark --baseline f.json    # compare performance with another baseline
 agentdfir benchmark --save-baseline f.json   # write this run's performance numbers as a baseline
+agentdfir benchmark --repo <checkout>    # where the disk-image, telemetry and interop fixtures are
 ```
 
-Progress goes to stderr. The fixtures (the corpus, the historical
-packages, the performance baseline) are built into the binary, so an
-installed binary runs the same benchmark as a source checkout. Everything
-is written to a temporary directory that is removed afterwards.
+Progress goes to stderr. The corpus, the historical packages and the
+performance baseline are built into the binary. The disk-image, telemetry
+and interop fixtures and the Python verifier are not (they would add
+megabytes to every binary): the suites that need them look for a source
+checkout from the working directory up, or where `--repo` points, and
+report SKIP with the reason when there is none. Everything is written to
+a temporary directory that is removed afterwards; decompressed disk
+images are written sparse and deleted one at a time.
 
 Exit status: `0` every hard check held, `1` at least one failed (listed
 under "Failures"), `2` usage. A performance regression is a warning and
@@ -35,8 +40,8 @@ never changes the exit status.
 
 `go test ./internal/benchmark` runs the quick subset: a sample of the
 detection fixtures plus every evidence-state scenario, integrity
-mutation, historical package and robustness case. Performance is never
-measured in `go test`.
+mutation, historical package and robustness case, and every
+cross-platform suite. Performance is never measured in `go test`.
 
 ## What is measured
 
@@ -96,28 +101,71 @@ deleted `SEAL.sig` is detected because `case.json` (which is sealed)
 records the last round's signer; a package whose `case.json` cannot be
 read reports that as a problem rather than passing.
 
+## Cross-platform suites
+
+Five suites run after the sections above, and each ends in its own
+**PASS / FAIL / SKIP** verdict, in the Markdown report and under
+`suites` in the JSON. Every suite carries the label *synthetic or
+tool-generated fixtures; not a comparison with any other product*.
+Nothing in them runs, imitates the output of, or scores against another
+product; a third party who wants a comparison can run the same fixtures
+through another tool.
+
+| Suite | Input | Hard checks |
+|---|---|---|
+| Acquisition | every disk-image fixture under `internal/diskimage/**/testdata` (41): NTFS in raw, split raw, E01 (one and nine segments), VHD fixed/dynamic, VHDX, VMDK sparse/stream/flat; the USN and VSS NTFS volumes; ext4, ext2, ext4 inline-data; FAT12/16/32, exFAT; XFS v5 and v4; Btrfs; QCOW2 v2/v3/deflate and the two refused QCOW2 variants; LVM2; APFS, HFS+, HFSX; DMG UDZO/UDBZ/ULFO; the sparsebundle; the three-volume APFS DMG; the encrypted DMG header | each opens with the `collect --image` reader (or is refused with the documented UNSUPPORTED / ENCRYPTED kind); every volume is enumerated and every regular file read; files and symlinks match the fixture's manifest where one exists (the coreutils listings `xfs.manifest` / `btrfs.manifest` made from a read-only mount, the `expected.txt` files from `shasum` on the source tree), containers match the raw image they wrap byte for byte; every UNSUPPORTED state reported is one the fixture documents and the documented ones are all reported; the fixture and every segment file hash the same after every reader closed (read-only proof). Fixtures without a manifest (the NTFS volumes, HFSX, the three-volume APFS DMG) are reported "enumerated, not compared" |
+| Per-OS corroboration | generated Claude Code sessions whose tool calls claim commands, a file write and network use, with synthetic telemetry in each source's documented shape: Windows Sysmon in a native `.evtx`, macOS eslogger JSON and unified log ndjson, Linux auditd, Tetragon, Falco and docker events; then every labeled corpus case that carries endpoint telemetry | each claim's labeled state and the expected CORROBORATED count per scenario; the evidence-state contract on every event; for corpus cases, the expected rules fire. The incomplete-telemetry contract, per platform, on observable states: telemetry without file or network records never contradicts a write or a fetch; a sequence gap (EVTX EventRecordID, eslogger seq_num / global_seq_num, audit serial) never turns a claim inside it into DISPROVED, while a claim where numbering is contiguous still is; a process file that stops does not keep processes "covered" because a file of another kind goes on; Falco, docker events and the unified log corroborate, never contradict |
+| Forensic interop | the hand-made UFDR, UFD/UFDX, AXIOM CSV, AXIOM Portable Case, Plaso (json_line, l2tcsv) and Autopsy fixtures in `internal/parsers/suite/testdata`, sealed the way `collect --suite-export` seals them and analyzed | record, UNSUPPORTED and unparsed-line counts equal the ones the reader's own tests pin; every original sealed byte-identical; `Case.mfdb` yields the `AXIOM_CASE_DB_UNSUPPORTED` finding |
+| Detection quality | the detection section above | as above, plus a breakdown by the platform of each fixture's telemetry (windows, macos, linux; "any" for transcript-only fixtures), and each of the three platforms has labeled attack fixtures |
+| Evidence integrity | the integrity and compatibility sections above, and `tools/adfir-verify/adfir_verify.py` (Python 3 standard library) over every package this run built and the five historical packages | every mutation detected, every historical package verifies, the Python verifier says VERIFIED on every package; SKIP, with the reason, when `python3` is not on `PATH` |
+
+**Expected failures.** A check can be marked as failing on this build for
+a documented reason. It is then reported **XFAIL** and does not fail the
+run; if it passes, it is reported **XPASS** and the run warns, so the
+mark can be removed. On this build the per-OS sequence-gap and
+stopped-kind checks (two per platform, six in all) are XFAIL with the
+reason "fixed by per-kind coverage": correlation still treats the
+telemetry as one time window for every record kind and every file, and
+does not track sequence numbers, so a missing record inside a gap, or
+after a process file stopped, still reads as absence. The labeled
+control in each scenario (a claim where coverage is contiguous) passes
+as DISPROVED either way.
+
 ## Current numbers
 
-agentdfir 4.0.0, `benchmark --no-perf`, darwin/arm64, 11 CPUs, go1.27.1. Synthetic.
+A 4.5.0 development build (it still reports `4.0.0` until the release
+version bump), `benchmark --no-perf` from a source checkout,
+darwin/arm64, 11 CPUs, go1.27.1, 12 s wall time. Synthetic.
 
 | Section | Result |
 |---|---|
-| Detection | precision 100.0%, recall 100.0% (53 TP, 0 FP, 0 FN) over 20 attack cases, 8 scenarios, 41 benign cases |
-| Rule coverage | 46 of 192 alert rules have an attack fixture; 146 have none (listed in the report); 4 building blocks |
+| Detection | precision 100.0%, recall 100.0% (69 TP, 0 FP, 0 FN) over 29 attack cases, 8 scenarios, 48 benign cases |
+| Rule coverage | 60 of 206 alert rules have an attack fixture; 146 have none (listed in the report); 4 building blocks |
 | Evidence states | 12/12 labeled checks, 0 contract violations over 25 events |
-| Provenance | 0 dangling over 81 packages: 451 of 483 events resolved to artifact, line and line start (the other 32 describe a whole artifact, line 0); 259 of 261 finding references resolved, 2 cite external endpoint logs |
+| Provenance | 0 dangling over 124 packages: 637 of 669 events resolved to artifact, line and line start (the other 32 describe a whole artifact, line 0); 337 of 381 finding references resolved, 44 cite external endpoint logs |
 | Integrity mutations | 24/24 detected |
 | Compatibility | 5/5 historical packages verify and analyze |
 | Robustness | 7/7 cases |
-| Performance | not measured in this run (`--no-perf`); the recorded baseline is 3,574 ms and 152.3 MiB peak heap on 48,800 events |
+| Performance | not measured in this run (`--no-perf`). A full run on the same loaded machine measured 4,504 ms and 178.1 MiB peak heap on 48,800 events, 26% over the recorded baseline (3,574 ms, 152.3 MiB): a warning, not a failure |
+
+Cross-platform suites, same run:
+
+| Suite | Verdict | Measured |
+|---|---|---|
+| Acquisition | PASS | 41 fixtures in 2.4 s (35 compared with a manifest or the image they wrap, 6 enumerated only); 45 volumes; 16,031 files enumerated, 16,026 read; manifest files 14,179 of 14,185 recovered with matching SHA-256, the other 6 reported UNSUPPORTED as documented (ext4 fscrypt directory, the Btrfs zstd extent in the raw image and both QCOW2 copies, the LZVN-compressed file on APFS and HFS+); 17 UNSUPPORTED / ENCRYPTED states in all (also: QCOW2 backing file and zstd cluster type, DMG LZFSE chunks, encrypted DMG, the FileVault volume, five non-linear LVM2 LVs); source unchanged 41/41 |
+| Per-OS corroboration | PASS | 57 of 63 checks pass, 6 XFAIL (above). Windows (Sysmon .evtx): CORROBORATED 5 of 5 labeled; macOS (eslogger, unified log): 5 of 5; Linux (auditd, Tetragon, Falco, docker events): 10 of 10. Corpus cases with telemetry: 8 Windows, 2 macOS, 2 Linux, every expected rule fired, 0 contract violations |
+| Forensic interop | PASS | 6 exports; 17 of 17 expected records (UFDR 5, AXIOM CSV 4, Portable Case 2, Plaso 4, Autopsy 2, UFD 0); 13 of 13 originals sealed byte-identical; UNSUPPORTED notices: Case.mfdb (with the `AXIOM_CASE_DB_UNSUPPORTED` finding) and the unknown UFDR element; Plaso's 2 unparsable lines reported |
+| Detection quality | PASS | as above; by platform: Windows 4 attack / 4 benign fixtures, macOS 1 / 1, Linux 1 / 1, transcript-only 31 / 42, each 100.0% / 100.0% |
+| Evidence integrity | PASS | 24/24 mutations, 5/5 historical packages; Python 3.12 verifier: 27 of 27 packages VERIFIED (the signed reference package, the 21 packages the suites built, the 5 historical ones) |
 
 Read the detection line for what it is. The labels were written next to
 the rules, and the corpus gates the build, so 100% means the rules still
 do what their fixtures say, not that they are 100% accurate. The number
 that carries information is the coverage gap: 146 alert rules have no
-attack fixture at all. The performance baseline was recorded on a shared,
-loaded machine; re-record it with `--save-baseline` on a quiet one
-before relying on the 25% warning.
+attack fixture at all. The per-platform rows are small (one attack
+fixture each on macOS and Linux). The performance baseline was recorded
+on a shared, loaded machine; re-record it with `--save-baseline` on a
+quiet one before relying on the 25% warning.
 
 ### Defects the benchmark found (fixed in 4.0.0)
 
