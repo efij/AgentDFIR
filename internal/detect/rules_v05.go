@@ -509,9 +509,11 @@ func identityMismatch(res *schema.Normalized) []schema.Finding {
 // account, and branches of one conversation interleave in time.
 // Browser history databases (one session per AI conversation, visits in
 // row order) and session indexes such as Continue's sessions.json are
-// multi-session stores of the same kind.
+// multi-session stores of the same kind, and so are forensic-suite
+// exports (timestamp source "forensic_suite…": a UFDR report, an AXIOM
+// CSV, a Plaso timeline).
 func multiSessionStore(ev schema.Event) bool {
-	return ev.TimestampSrc == "database" || strings.HasPrefix(ev.TimestampSrc, "provider_export") || ev.Product == browserProduct || ev.Result == "session_index"
+	return ev.TimestampSrc == "database" || strings.HasPrefix(ev.TimestampSrc, "provider_export") || strings.HasPrefix(ev.TimestampSrc, "forensic_suite") || ev.Product == browserProduct || ev.Result == "session_index"
 }
 
 // SESSION_TAMPERING — chain breaks + backward timestamps per artifact.
