@@ -496,18 +496,19 @@ func (g *builder) toolCall(e schema.Event, ms []correlate.Match) {
 	put("timestamp", e.Timestamp)
 	put("session_id", e.SessionID)
 	// Commands can carry the credential they leaked; the graph names the
-	// key by type and fingerprint instead.
-	cmd := detect.MaskSecrets(e.Command)
-	put("command", trim(cmd, 200))
-	put("file", e.File)
+	// key by type and fingerprint instead. The full command is masked
+	// first and only then cut, so a cut can never expose part of a key.
+	full := e.FullCommand()
+	put("command", detect.MaskTruncate(full, 200))
+	put("file", detect.MaskSecrets(e.File))
 	put("action", e.Action)
-	put("witness_note", e.WitnessNote)
+	put("witness_note", detect.MaskSecrets(e.WitnessNote))
 	label := e.Tool
 	switch {
-	case cmd != "":
-		label += ": " + trim(cmd, 60)
+	case full != "":
+		label += ": " + detect.MaskTruncate(full, 60)
 	case e.File != "":
-		label += ": " + trim(e.File, 60)
+		label += ": " + detect.MaskTruncate(e.File, 60)
 	}
 	tid := toolID(e)
 	if g.node(Node{ID: tid, Kind: KindToolCall, Label: label, State: e.Corroboration, Attrs: attrs, Refs: []Ref{eventRef(e)}}) == nil {
@@ -539,9 +540,9 @@ func (g *builder) toolCall(e schema.Event, ms []correlate.Match) {
 		}
 		basis := BasisNamedFile
 		if strings.Contains(e.WitnessNote, "host witness:") {
-			basis += "; " + e.WitnessNote
+			basis += "; " + detect.MaskSecrets(e.WitnessNote)
 		}
-		if g.node(Node{ID: "file:" + e.File, Kind: KindFile, Label: e.File}) != nil {
+		if g.node(Node{ID: "file:" + e.File, Kind: KindFile, Label: detect.MaskSecrets(e.File)}) != nil {
 			g.edge(Edge{From: tid, To: "file:" + e.File, Relation: rel, Basis: basis, State: e.Corroboration, Refs: ref})
 		}
 	}
@@ -574,7 +575,7 @@ func (g *builder) correlated(e schema.Event, tid string, m correlate.Match) {
 			g.related(pid, rel)
 		}
 	case "file":
-		if g.node(Node{ID: "file:" + r.FilePath, Kind: KindFile, Label: r.FilePath}) != nil {
+		if g.node(Node{ID: "file:" + r.FilePath, Kind: KindFile, Label: detect.MaskSecrets(r.FilePath)}) != nil {
 			g.edge(Edge{From: tid, To: "file:" + r.FilePath, Relation: "touched", Basis: basis, State: e.Corroboration, Confidence: m.Confidence, Note: note, Refs: refs})
 		}
 	case "network":
@@ -595,7 +596,7 @@ func (g *builder) correlated(e schema.Event, tid string, m correlate.Match) {
 		if r.Failed != "" {
 			attrs["refused"] = r.Failed
 		}
-		if g.node(Node{ID: id, Kind: KindCloud, Label: r.Provider + " " + res, Attrs: attrs}) != nil {
+		if g.node(Node{ID: id, Kind: KindCloud, Label: detect.MaskSecrets(r.Provider + " " + res), Attrs: attrs}) != nil {
 			g.edge(Edge{From: tid, To: id, Relation: "acted_on", Basis: basis, State: e.Corroboration, Confidence: m.Confidence, Note: note, Refs: refs})
 		}
 	}
@@ -614,14 +615,14 @@ func (g *builder) processNode(r endpoint.Record) string {
 		attrs["exe"] = r.Exe
 	}
 	if r.Cmdline != "" {
-		attrs["cmdline"] = detect.MaskSecrets(r.Cmdline)
+		attrs["cmdline"] = detect.MaskTruncate(r.Cmdline, 300)
 	}
 	if r.User != "" {
 		attrs["user"] = r.User
 	}
 	label := baseName(r.Exe)
 	if label == "" {
-		label = trim(detect.MaskSecrets(r.Cmdline), 40)
+		label = detect.MaskTruncate(r.Cmdline, 40)
 	}
 	if r.PID != 0 {
 		label += fmt.Sprintf(" (pid %d)", r.PID)
@@ -646,7 +647,7 @@ func (g *builder) related(pid string, rel correlate.RelatedRecord) {
 				Note: noteIf(fmt.Sprintf("port %d", r.DestPort), r.DestPort != 0), Refs: refs})
 		}
 	case r.Kind == "file" && r.FilePath != "":
-		if g.node(Node{ID: "file:" + r.FilePath, Kind: KindFile, Label: r.FilePath}) != nil {
+		if g.node(Node{ID: "file:" + r.FilePath, Kind: KindFile, Label: detect.MaskSecrets(r.FilePath)}) != nil {
 			g.edge(Edge{From: pid, To: "file:" + r.FilePath, Relation: "touched", Basis: rel.Basis, State: schema.StateObserved,
 				Note: noteIf("file operation "+r.FileOp, r.FileOp != ""), Refs: refs})
 		}

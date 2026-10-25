@@ -5,6 +5,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/efij/AgentDFIR/v3/internal/detect"
 	"github.com/efij/AgentDFIR/v3/internal/sanitize"
 	"github.com/efij/AgentDFIR/v3/internal/schema"
 )
@@ -14,7 +15,7 @@ import (
 func WriteText(w io.Writer, g *Graph) {
 	label := map[string]string{}
 	for _, n := range g.Nodes {
-		label[n.ID] = fmt.Sprintf("[%s] %s", n.Kind, sanitize.Terminal(n.Label))
+		label[n.ID] = fmt.Sprintf("[%s] %s", n.Kind, sanitize.Terminal(detect.MaskSecrets(n.Label)))
 	}
 	scope := "whole case"
 	switch {
@@ -102,7 +103,7 @@ func WriteMermaid(w io.Writer, g *Graph) {
 }
 
 func mermaidText(s string) string {
-	s = trim(sanitize.Terminal(s), 80)
+	s = detect.MaskTruncate(sanitize.Terminal(s), 80)
 	return strings.NewReplacer("#", "#35;", "\"", "#quot;", "\n", " ", "\r", " ", "|", "#124;", "<", "#lt;", ">", "#gt;", "`", "'").Replace(s)
 }
 
@@ -141,6 +142,6 @@ func WriteDOT(w io.Writer, g *Graph) {
 }
 
 func dotText(s string) string {
-	s = trim(sanitize.Terminal(s), 80)
+	s = detect.MaskTruncate(sanitize.Terminal(s), 80)
 	return strings.NewReplacer("\\", "\\\\", "\"", "\\\"", "\n", " ", "\r", " ").Replace(s)
 }

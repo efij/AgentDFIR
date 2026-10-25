@@ -82,3 +82,65 @@ func TestMaskSecrets(t *testing.T) {
 		t.Errorf("clean text changed: %q", got)
 	}
 }
+
+// pemParts builds a key-shaped block at run time; nothing key-like is a
+// literal in the source.
+func pemParts() (header, body, footer string) {
+	kind := "PRIV" + "ATE KEY"
+	return "-----BEGIN " + kind + "-----", strings.Repeat("MIIEvQIBADANBgkqhkiG9w0BAQEFAASC", 4), "-----END " + kind + "-----"
+}
+
+func TestMaskSecretsPrivateKeyWhole(t *testing.T) {
+	h, body, f := pemParts()
+	half := body[:len(body)/2]
+	for name, in := range map[string]string{
+		"newlines":     "cat <<EOF\n" + h + "\n" + half + "\n" + body[len(half):] + "\n" + f + "\nEOF",
+		"json-escaped": `{"content":"` + h + `\n` + half + `\n` + body[len(half):] + `\n` + f + `"}`,
+		"no-end":       "echo '" + h + "\n" + body,
+	} {
+		out := MaskSecrets(in)
+		if strings.Contains(out, half[:24]) || strings.Contains(out, body[len(half):len(half)+24]) {
+			t.Errorf("%s: key body survived masking: %q", name, out)
+		}
+		if !strings.Contains(out, "-----BEGIN …[PRIVATE_KEY_BLOCK sha256:") {
+			t.Errorf("%s: masked form missing: %q", name, out)
+		}
+		if name != "no-end" && strings.Contains(out, "-----END") {
+			t.Errorf("%s: footer left behind: %q", name, out)
+		}
+	}
+	// The masked fingerprint names the key the way SecretFingerprints does.
+	in := h + "\n" + body + "\n" + f
+	fp := SecretFingerprints([]byte(in))
+	if len(fp) != 1 || !strings.Contains(MaskSecrets(in), fp[0].Fingerprint) {
+		t.Errorf("mask %q vs fingerprint %+v", MaskSecrets(in), fp)
+	}
+}
+
+func TestMaskTruncateNeverCutsAValueOpen(t *testing.T) {
+	cmd := "curl -H 'Authorization: token " + fpGitHub + "' https://x.example"
+	for n := 1; n < len(cmd)+5; n++ {
+		out := MaskTruncate(cmd, n)
+		// No run of the value's body beyond its literal prefix may appear.
+		for k := 4; k+6 <= len(fpGitHub); k++ {
+			if strings.Contains(out, fpGitHub[k:k+6]) {
+				t.Fatalf("n=%d leaked part of the value: %q", n, out)
+			}
+		}
+	}
+	// A malformed, too-short token cut at the end is reduced to its prefix.
+	if got := MaskTruncate("export T=ghp_abc123 && run", 15); got != "export T=ghp_…[cut]" {
+		t.Errorf("partial token: %q", got)
+	}
+	// A cut inside the prefix drops the partial prefix.
+	if got := MaskTruncate("x AKIAQW3", 5); got != "x …[cut]" {
+		t.Errorf("cut inside prefix: %q", got)
+	}
+	if got := MaskTruncate("use the disk", 8); got != "use the …" {
+		t.Errorf("ordinary words over-masked: %q", got)
+	}
+	_, body, _ := pemParts()
+	if out := MaskTruncate(strings.Repeat("a", 20)+" "+"-----BEGIN PRIV"+"ATE KEY-----\n"+body, 40); strings.Contains(out, body[:10]) {
+		t.Errorf("key body after cut: %q", out)
+	}
+}

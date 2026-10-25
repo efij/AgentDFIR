@@ -285,6 +285,10 @@ func (cd *caseData) add(kind, key, display string, t time.Time, src, where, ref 
 	if key == "" {
 		return nil
 	}
+	// Everything here is printed and written out. Credential-format values
+	// are masked to their type and fingerprint in every field, the key
+	// included (the fingerprint keeps distinct values distinct).
+	key, display, where, ref = detect.MaskSecrets(key), detect.MaskSecrets(display), detect.MaskSecrets(where), detect.MaskSecrets(ref)
 	m := cd.items[kind]
 	if m == nil {
 		m = map[string]*occ{}
@@ -474,10 +478,17 @@ func (cd *caseData) loadMCP(pkg string) {
 	for _, s := range v.Inventory.Servers {
 		where := s.Name + " in " + s.ConfigPath
 		if s.Package != "" {
-			cd.add(KindMCP, "package:"+strings.ToLower(s.Package), "MCP package "+s.Package, time.Time{}, "", where, "")
+			if strings.Contains(s.Package, "://") {
+				// git+https://user:token@host/… package refs carry URLs too.
+				k, d := urlIdentity(s.Package)
+				cd.add(KindMCP, "package_url:"+k, "MCP package "+d, time.Time{}, "", where, "")
+			} else {
+				cd.add(KindMCP, "package:"+strings.ToLower(s.Package), "MCP package "+s.Package, time.Time{}, "", where, "")
+			}
 		}
 		if s.URL != "" {
-			cd.add(KindMCP, "url:"+strings.ToLower(s.URL), "MCP server URL "+s.URL, time.Time{}, "", where, "")
+			k, d := urlIdentity(s.URL)
+			cd.add(KindMCP, "url:"+k, "MCP server URL "+d, time.Time{}, "", where, "")
 		}
 		if s.SHA256 != "" {
 			cd.add(KindMCP, "binary:"+s.SHA256, "MCP server binary sha256:"+short(s.SHA256), time.Time{}, "", where, "")

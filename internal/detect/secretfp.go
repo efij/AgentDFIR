@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"regexp"
 	"sort"
 	"strings"
 )
@@ -104,19 +105,111 @@ func pemBody(after []byte) []byte {
 // fixed literal and its fingerprint, so text derived from evidence (a
 // lineage label, an exported graph) can name which key a command carried
 // without carrying the key. Placeholder-looking values are masked too:
-// masking costs nothing, and a missed real key costs a great deal.
+// masking costs nothing, and a missed real key costs a great deal. A
+// private key is replaced whole — header, body and footer, or, with no END
+// marker, the header and up to maxPEMBody of what follows it.
 func MaskSecrets(s string) string {
+	s = maskPEM(s)
 	for _, p := range secretPatterns {
-		if !strings.Contains(s, p.lit) {
+		if p.name == "PRIVATE_KEY_BLOCK" || !strings.Contains(s, p.lit) {
 			continue
 		}
 		s = p.re.ReplaceAllStringFunc(s, func(m string) string {
-			if strings.HasPrefix(m, "-----BEGIN") {
-				return m // the header alone carries no key material
-			}
 			sum := sha256.Sum256([]byte(m))
 			return p.lit + "…[" + p.name + " sha256:" + hex.EncodeToString(sum[:8]) + "]"
 		})
 	}
 	return s
+}
+
+var pemHeaderRe = regexp.MustCompile(`-----BEGIN [A-Z ]*PRIVATE KEY-----`)
+
+// maskPEM replaces every private-key block. The fingerprint is the one
+// SecretFingerprints gives the same key (hash of the base64 body), so a
+// masked label and a cross-case fingerprint name the key the same way.
+func maskPEM(s string) string {
+	if !strings.Contains(s, "-----BEGIN ") {
+		return s
+	}
+	var b strings.Builder
+	for {
+		loc := pemHeaderRe.FindStringIndex(s)
+		if loc == nil {
+			b.WriteString(s)
+			return b.String()
+		}
+		b.WriteString(s[:loc[0]])
+		rest := s[loc[1]:]
+		end := len(rest)
+		if end > maxPEMBody {
+			end = maxPEMBody
+		}
+		bodyEnd := end
+		if k := strings.Index(rest[:end], "-----END"); k >= 0 {
+			bodyEnd = k
+			end = k + len("-----END")
+			if f := strings.Index(rest[end:], "-----"); f >= 0 && f < 64 {
+				end += f + len("-----")
+			}
+		}
+		sum := sha256.Sum256(pemBodyChars(rest[:bodyEnd]))
+		b.WriteString("-----BEGIN …[PRIVATE_KEY_BLOCK sha256:" + hex.EncodeToString(sum[:8]) + "]")
+		s = rest[end:]
+	}
+}
+
+// pemBodyChars keeps the base64 characters of a PEM body, with
+// JSON-escaped line breaks removed, as pemBody does.
+func pemBodyChars(body string) []byte {
+	body = strings.NewReplacer(`\n`, "", `\r`, "").Replace(body)
+	var out []byte
+	for i := 0; i < len(body); i++ {
+		c := body[i]
+		switch {
+		case c >= 'A' && c <= 'Z', c >= 'a' && c <= 'z', c >= '0' && c <= '9', c == '+', c == '/', c == '=':
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+// MaskTruncate masks s and only then cuts it to n runes, so a cut can
+// never expose part of a value the full text would have masked. A word
+// left at the cut point that holds a known credential prefix — a value
+// too short to match once cut, or malformed to begin with — is reduced to
+// the prefix, and a cut inside a prefix drops the partial prefix.
+func MaskTruncate(s string, n int) string {
+	s = MaskSecrets(s)
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	cut := string(r[:n])
+	start := strings.LastIndexAny(cut, " \t\n'\"=:(") + 1
+	tail := cut[start:]
+	for _, p := range secretPatterns {
+		lit := p.lit
+		if p.name == "PRIVATE_KEY_BLOCK" {
+			lit = "-----BEGIN"
+		}
+		k := strings.Index(tail, lit)
+		if k >= 0 && (k == 0 || !isAlnum(tail[k-1])) && !strings.Contains(tail[k:], "…[") {
+			return cut[:start+k] + lit + "…[cut]"
+		}
+	}
+	// The cut fell inside a prefix. Only prefixes long enough not to be
+	// ordinary word endings ("sk", "ey") are considered.
+	for _, p := range secretPatterns {
+		lit := p.lit
+		for j := len(lit) - 1; j >= 3; j-- {
+			if strings.HasSuffix(tail, lit[:j]) {
+				return cut[:len(cut)-j] + "…[cut]"
+			}
+		}
+	}
+	return cut + "…"
+}
+
+func isAlnum(c byte) bool {
+	return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9'
 }
