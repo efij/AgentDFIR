@@ -24,8 +24,13 @@ Chains run last in `agentdfir analyze`, after detections, rule packs, MCP audit 
 | `CHAIN_INJECTION_TO_PUSH` | injection in tool result → commit → push | session · 180 min | HIGH | ATLAS AML.T0010 · ATT&CK T1195.002 |
 | `CHAIN_SUBAGENT_CROSS_TALK_EXFIL` | subagent spawned → cross-session message → outbound transfer | session · 120 min | HIGH | ATLAS AML.T0086 · ATT&CK T1048 |
 | `CHAIN_DOWNLOAD_AND_EXECUTE` | curl/wget → execute | session · 30 min | MEDIUM | ATT&CK T1105 |
+| `CHAIN_CROSS_TOOL_EXFIL` | credential store / private key / staged secret / secrets MCP tool → MCP tool that sends, posts or publishes | session · 60 min | HIGH | ATLAS AML.T0086 · ATT&CK T1567 |
+| `CHAIN_MCP_RESULT_TO_PRIVILEGED` | instructions in an MCP tool result → credential read, permission grant or upload | session · 60 min | HIGH | ATLAS AML.T0099 · ATT&CK T1552 |
+| `CHAIN_PERMISSION_ESCALATION_TO_IMPACT` | permissions widened (bypass mode, self-granted tools, nested bypass, denied tool ran) → destructive command, logging shutdown or upload | session · 120 min | HIGH | ATLAS AML.T0081 · ATT&CK T1562.001 |
 
-All eight are in `internal/catalog`, `agentdfir rules list` and [detection-coverage.md](detection-coverage.md).
+The last three were added in v4 after a dedupe against the chains above; see [detection-v4.md](detection-v4.md). They report a *possible* path: the order of events is recorded, causation is not.
+
+All eleven are in `internal/catalog`, `agentdfir rules list` and [detection-coverage.md](detection-coverage.md).
 
 ## How matching works
 
@@ -43,6 +48,7 @@ Every non-empty field must hold; list fields are any-of; `or` lists alternatives
 |---|---|
 | `event_types` | `human_prompt`, `model_response`, `tool_call`, `tool_result`, `agent_spawn`, `agent_message`, `session_meta`, `trace_gap` |
 | `tools` | tool names (case-insensitive), e.g. `Bash`, `Write`, `WebFetch` |
+| `tool_regex` | RE2, case-insensitive, over the tool name, e.g. `send|post|upload` against `mcp__slack__send_message` |
 | `mcp` | the event must carry an MCP server |
 | `network` | the event must carry a network destination |
 | `command_regex`, `file_regex` | RE2, case-insensitive, over the command / file field |
