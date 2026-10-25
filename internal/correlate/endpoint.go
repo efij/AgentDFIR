@@ -85,9 +85,11 @@ func Endpoint(events []schema.Event, records []endpoint.Record, opts EndpointOpt
 	// ("process-image") are weaker still: they name only the program, so
 	// they can at most partly corroborate. Service-install and log-cleared
 	// records are notices for the operator, not correlation input.
-	var host, cloud, witnessCloud, sightings, script, image []endpoint.Record
+	var host, cloud, witnessCloud, sightings, script, image, hostState []endpoint.Record
 	for _, r := range records {
 		switch {
+		case r.Source == "tcc-db": // collected TCC.db rows: host state, not telemetry
+			hostState = append(hostState, r)
 		case endpoint.IsWitnessCloud(r):
 			witnessCloud = append(witnessCloud, r)
 		case r.Kind == "cloud":
@@ -109,6 +111,7 @@ func Endpoint(events []schema.Event, records []endpoint.Record, opts EndpointOpt
 	sightingPass(events, sightings, opts, res)
 	scriptPass(events, script, opts, res)
 	imagePass(events, image, opts, res)
+	findings = append(findings, HostState(events, hostState)...)
 	return res, findings
 }
 
@@ -259,6 +262,7 @@ func endpointHost(events []schema.Event, records []endpoint.Record, opts Endpoin
 			FalsePositive: "Telemetry/update checks by the agent runtime, or MCP servers reaching their own APIs; add known hosts with --known-destinations.",
 		})
 	}
+	findings = append(findings, macOSRules(events, records, lineage)...)
 	return findings
 }
 
