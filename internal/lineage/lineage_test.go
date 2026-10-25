@@ -287,3 +287,54 @@ func TestLongCommandMaskedBeforeCut(t *testing.T) {
 		}
 	}
 }
+
+// Pairings from the partial-coverage and corroborate-only passes become
+// edges too: a DNS lookup and a proxy request to network nodes, a script
+// block and an image-only process creation to process nodes, a k8s audit
+// record to a cloud resource; each carries the pass's basis and confidence.
+func TestEdgesFromEveryCorrelationPass(t *testing.T) {
+	in := fixture()
+	at := t0.Add(10 * time.Second)
+	in.Correlation.Matches = append(in.Correlation.Matches,
+		correlate.Match{EventID: "e6", Witness: correlate.WitnessSighting, Score: 40, Basis: "DNS lookup of c2.example within ±2m0s", Confidence: "LOW", WindowMS: 120000,
+			Record: endpoint.Record{Time: at, Kind: "dns", DestHost: "C2.example", SourceIP: "10.0.0.5", Source: "bind", Ref: "query.log:3"}},
+		correlate.Match{EventID: "e6", Witness: correlate.WitnessScript, Score: 100, Basis: "script block exact match", Confidence: "HIGH", WindowMS: 3000,
+			Record: endpoint.Record{Time: at, Kind: "script", Exe: "powershell.exe", Cmdline: "id", Source: "powershell", Ref: "4104:1"}},
+		correlate.Match{EventID: "e7", Witness: correlate.WitnessProcessImage, Score: 50, Basis: "process image basename ls (no command line audited)", Confidence: "LOW", WindowMS: 3000,
+			Record: endpoint.Record{Time: at, Kind: endpoint.KindProcessImage, Exe: `C:\bin\ls.exe`, Source: "security", Ref: "4688:1"}},
+		correlate.Match{EventID: "e7", Witness: correlate.WitnessSighting, Score: 30, Basis: "sshd login accepted for deploy", Confidence: "LOW", WindowMS: 120000,
+			Record: endpoint.Record{Time: at, Kind: "auth", User: "deploy", SourceIP: "10.0.0.5", Operation: "ssh-accept publickey", Source: "authlog", Ref: "auth.log:1"}},
+		correlate.Match{EventID: "e7", Witness: correlate.WitnessCloud, Score: 95, Basis: "k8s audit verb + resource", Confidence: "HIGH", WindowMS: 300000,
+			Record: endpoint.Record{Time: at, Kind: "cloud", Provider: "k8s", Operation: "delete secrets", Resource: "prod/db", Source: "k8s-audit", Ref: "audit.jsonl:1"}},
+	)
+	g, err := Build(in, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	checks := []struct{ to, rel, basis, conf string }{
+		{"network:c2.example", "looked_up", "DNS lookup of c2.example", "LOW"},
+		{"process:powershell:4104:1", "ran_script", "script block exact match (script, score 100)", "HIGH"},
+		{"process:security:4688:1", "executed_as", "process image basename ls", "LOW"},
+		{"network:ssh-login:authlog:auth.log:1", "logged_in", "sshd login accepted for deploy", "LOW"},
+		{"cloud:k8s:prod/db", "acted_on", "k8s audit verb + resource", "HIGH"},
+	}
+	for _, c := range checks {
+		var found *Edge
+		for i, ed := range g.Edges {
+			if ed.To == c.to && ed.Relation == c.rel {
+				found = &g.Edges[i]
+			}
+		}
+		if found == nil || !strings.Contains(found.Basis, c.basis) || found.Confidence != c.conf || len(found.Refs) != 2 {
+			t.Errorf("%s %s: %+v", c.rel, c.to, found)
+		}
+	}
+	if n := nodeOf(g, "process:security:4688:1"); n == nil || n.Attrs["record_kind"] != endpoint.KindProcessImage {
+		t.Errorf("image node: %+v", n)
+	}
+	var buf bytes.Buffer
+	WriteMermaid(&buf, g)
+	if !strings.Contains(buf.String(), "looked_up") {
+		t.Errorf("mermaid: %q", buf.String())
+	}
+}

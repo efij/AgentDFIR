@@ -17,8 +17,12 @@ func WriteText(w io.Writer, r *Report) {
 	}
 	fmt.Fprintf(w, "Coverage for case %s%s\n", sanitize.Terminal(r.CaseID), host)
 	s := r.Summary
-	fmt.Fprintf(w, "  %d session(s) · %d tool call(s): %d confirmed, %d disproved, %d unverified · %d time gap(s)\n",
-		s.Sessions, s.ToolCalls, s.Verified, s.Disproved, s.Unverified, s.TimeGaps)
+	partly := ""
+	if s.Partial > 0 {
+		partly = fmt.Sprintf(" (%d only partly)", s.Partial)
+	}
+	fmt.Fprintf(w, "  %d session(s) · %d tool call(s): %d confirmed%s, %d disproved, %d unverified · %d time gap(s)\n",
+		s.Sessions, s.ToolCalls, s.Verified, partly, s.Disproved, s.Unverified, s.TimeGaps)
 	sections := []struct{ status, title string }{
 		{Known, "KNOWN"}, {Unknown, "UNKNOWN"}, {VerifyNext, "VERIFY NEXT — what to collect"},
 	}

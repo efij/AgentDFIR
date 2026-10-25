@@ -100,6 +100,8 @@ func witnessCloudPass(events []schema.Event, records []endpoint.Record, res *End
 			res.CloudRefused++
 		}
 		ev.Summary = appendNote(ev.Summary, note)
+		basis, conf := witnessCloudBasis(r.Provider, bestScore)
+		addMatchBasis(res, WitnessCloud, ev, r, bestScore, basis, conf, cloudWindow, nil)
 	}
 	// Bursts over the Git hosting records only, indexed as burstFindings expects.
 	var git []endpoint.Record
@@ -113,6 +115,26 @@ func witnessCloudPass(events []schema.Event, records []endpoint.Record, res *End
 		}
 	}
 	return burstFindings(git, gitBy, res)
+}
+
+// witnessCloudBasis names what a Kubernetes, Git hosting or storage
+// match compared, with the confidence of the cloud rung its score is on.
+func witnessCloudBasis(provider string, score int) (string, string) {
+	what := strings.TrimSuffix(provider, "-storage") + " storage operation"
+	switch provider {
+	case "k8s":
+		what = "k8s audit verb"
+	case "github", "gitlab":
+		what = provider + " audit action"
+	}
+	_, conf := MatchBasis("cloud", score)
+	switch {
+	case score >= 95:
+		return what + " + resource", conf
+	case score >= 75:
+		return what + "; the command named no resource", conf
+	}
+	return what + "; the record names no resource", conf
 }
 
 // witnessScore mirrors cloudScore: 95 operation and resource agree, 75

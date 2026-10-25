@@ -16,7 +16,7 @@ import (
 // re-deriving any of it from the note text.
 type Match struct {
 	EventID    string `json:"event_id"`
-	Witness    string `json:"witness"` // endpoint | cloud
+	Witness    string `json:"witness"` // endpoint | cloud | sighting | script | process-image
 	Score      int    `json:"score"`
 	Basis      string `json:"basis"`
 	Confidence string `json:"confidence"` // HIGH | MEDIUM | LOW
@@ -97,13 +97,49 @@ func MatchBasis(kind string, score int) (basis, confidence string) {
 	return "", ""
 }
 
-// addMatch appends one match to the result, within MaxMatches.
+// Match witnesses: which pass made the pairing. The host process, file and
+// network telemetry is "endpoint"; CloudTrail, Azure, GCP and the
+// cloud-like audit sources (Kubernetes, Git hosting, object storage) are
+// "cloud"; DNS, proxy, auth.log and journal records are "sighting"; native
+// PowerShell script-block records are "script"; Security 4688 records
+// without a command line are "process-image".
+const (
+	WitnessEndpoint     = "endpoint"
+	WitnessCloud        = "cloud"
+	WitnessSighting     = "sighting"
+	WitnessScript       = "script"
+	WitnessProcessImage = "process-image"
+)
+
+// The partial-coverage and corroborate-only passes are not on the
+// MatchBasis ladder: their scores are not process-telemetry scores, so
+// each match states exactly what was compared.
+//
+//	sighting  proxy request to the same host and path        MEDIUM
+//	sighting  proxy request to the same host                 MEDIUM
+//	sighting  proxy request to the host, another path        LOW
+//	sighting  DNS lookup of the host                         LOW
+//	sighting  sshd login for the user (host not logged)      LOW
+//	sighting  sudo / journal command line                    as MatchBasis("process")
+//	script    script block equals the command                HIGH
+//	script    whole command inside the script block          MEDIUM
+//	image     process image basename only                    LOW
+//	cloud     k8s verb+resource, Git hosting action,          as MatchBasis("cloud")
+//	          storage operation (+ bucket/key)
+
+// addMatch appends one match to the result, within MaxMatches, with the
+// basis and confidence MatchBasis gives the record's kind and score.
 func addMatch(res *EndpointResult, witness string, ev *schema.Event, r endpoint.Record, score int, window time.Duration, related []RelatedRecord) {
+	basis, conf := MatchBasis(r.Kind, score)
+	addMatchBasis(res, witness, ev, r, score, basis, conf, window, related)
+}
+
+// addMatchBasis appends one match with an explicit basis and confidence.
+func addMatchBasis(res *EndpointResult, witness string, ev *schema.Event, r endpoint.Record, score int, basis, conf string, window time.Duration, related []RelatedRecord) {
 	if len(res.Matches) >= MaxMatches {
 		res.MatchesOmitted++
 		return
 	}
-	basis, conf := MatchBasis(r.Kind, score)
 	m := Match{EventID: ev.EventID, Witness: witness, Score: score, Basis: basis, Confidence: conf,
 		WindowMS: window.Milliseconds(), Record: boundRecord(r), Related: related}
 	if t, ok := parseEventTime(ev.Timestamp); ok {
