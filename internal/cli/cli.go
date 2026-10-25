@@ -75,6 +75,7 @@ LOOK — same results, different views
   agentdfir lineage <pkg> [--finding id|--session id] [--format text|json|mermaid|dot]   human → agent → tool → process → destination
   agentdfir correlate-cases <a> <b> [...] [--json]   what several cases share (destinations, IOCs, key fingerprints, accounts)
   agentdfir reconstruct <pkg|case> [...] [--json|--mermaid|--dot] [--out f]   one incident across hosts: timeline, delegation, hand-offs, stages, missing evidence
+  agentdfir supply-chain <pkg> [--json] [--out f] [--since T]   skills, plugins, hooks, MCP servers: origin, hash history, drift, invocations
 
 MOVE A CASE — look at another computer's case here
   agentdfir export [<pkg>]                one file (<case>.adfir.tgz) + its SHA-256; default: this machine's case
@@ -155,6 +156,8 @@ func Main(args []string) int {
 		return cmdGaps(args[1:])
 	case "lineage":
 		return cmdLineage(args[1:])
+	case "supply-chain":
+		return cmdSupplyChain(args[1:])
 	case "provenance":
 		return cmdProvenance(args[1:])
 	case "serve":

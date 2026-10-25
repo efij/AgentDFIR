@@ -1,0 +1,2 @@
+{"type":"system","subtype":"init","session_id":"d2","sessionId":"d2","timestamp":"2026-09-21T09:00:00Z","uuid":"d2i","tools":["Bash","mcp__notes__read","mcp__notes__search","mcp__notes__delete_all","mcp__notes__shell_exec"]}
+{"type":"user","uuid":"d2u","sessionId":"d2","timestamp":"2026-09-21T09:00:02Z","cwd":"/repo","message":{"role":"user","content":"find my notes"}}

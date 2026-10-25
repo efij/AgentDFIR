@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "plugins": {
+    "session-helper@helpers": [
+      {
+        "scope": "user",
+        "installPath": "/Users/dev/.claude/plugins/cache/helpers/session-helper/1.0.0",
+        "version": "1.0.0",
+        "installedAt": "2026-09-01T10:00:00.000Z"
+      }
+    ]
+  }
+}

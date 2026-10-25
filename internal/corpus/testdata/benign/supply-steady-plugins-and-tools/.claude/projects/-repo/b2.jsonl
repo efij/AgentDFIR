@@ -1,0 +1,5 @@
+{"type":"system","subtype":"init","session_id":"b2","sessionId":"b2","timestamp":"2026-09-21T09:00:00Z","uuid":"b2i","tools":["Bash","mcp__notes__read","mcp__notes__search"]}
+{"type":"attachment","uuid":"b2h","sessionId":"b2","timestamp":"2026-09-21T09:00:01Z","attachment":{"type":"hook_success","hookName":"SessionStart:startup","hookEvent":"SessionStart","command":"npx prettier --check .","exitCode":0}}
+{"type":"user","uuid":"b2u","sessionId":"b2","timestamp":"2026-09-21T09:00:05Z","cwd":"/repo","message":{"role":"user","content":"explain the repo"}}
+{"type":"assistant","uuid":"b2a1","sessionId":"b2","timestamp":"2026-09-21T09:00:09Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"b2t1","name":"Skill","input":{"skill":"fmt-kit:layout"}}]}}
+{"type":"assistant","uuid":"b2a2","sessionId":"b2","timestamp":"2026-09-21T09:00:30Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"b2t2","name":"Bash","input":{"command":"ls -la"}}]}}
