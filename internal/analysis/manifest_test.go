@@ -2,6 +2,12 @@ package analysis
 
 import (
 	"bytes"
+	"crypto/md5"
+	"crypto/sha1"
+	"crypto/sha256"
+	"crypto/sha512"
+	"encoding/hex"
+	"hash"
 	"os"
 	"path/filepath"
 	"testing"
@@ -57,12 +63,21 @@ func TestManifestRecordsWhatDecided(t *testing.T) {
 	if len(m.Options.EndpointLogs) != 1 || m.Options.EndpointLogs[0].Path != audit || len(m.Options.EndpointLogs[0].SHA256) != 64 {
 		t.Errorf("endpoint logs: %+v", m.Options.EndpointLogs)
 	}
-	if m.Options.Honeytokens != 2 || m.Options.HoneytokensSHA256 == "" {
-		t.Errorf("honeytokens: %d %q", m.Options.Honeytokens, m.Options.HoneytokensSHA256)
+	if m.Options.Honeytokens != 2 {
+		t.Errorf("honeytokens: %d", m.Options.Honeytokens)
 	}
 	data, _ := os.ReadFile(repro.Path(pkg))
-	if bytes.Contains(data, []byte("canary-1")) {
-		t.Error("the manifest must not carry honeytoken values")
+	if bytes.Contains(data, []byte("canary-1")) || bytes.Contains(data, []byte("honeytokens_sha256")) {
+		t.Error("the manifest must not carry honeytoken values or a digest of them")
+	}
+	// No hash derived from the tokens, in any common framing, anywhere.
+	for _, form := range []string{"canary-1\ncanary-2\n", "canary-1\ncanary-2", "canary-1", "canary-2", "canary-1canary-2", "canary-1\n\ncanary-2\n"} {
+		for _, h := range []hash.Hash{sha256.New(), sha1.New(), md5.New(), sha512.New()} {
+			h.Write([]byte(form))
+			if d := hex.EncodeToString(h.Sum(nil)); bytes.Contains(data, []byte(d)) || bytes.Contains(data, []byte(d[:16])) {
+				t.Errorf("the manifest contains a hash derived from the honeytokens (%q)", form)
+			}
+		}
 	}
 	if m.Input.SealSHA256 == "" || m.Input.InputsDigest == "" || m.Input.CaseID != "AN" || m.Input.ManifestSHA256 == "" {
 		t.Errorf("input: %+v", m.Input)

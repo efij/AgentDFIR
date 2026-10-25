@@ -95,8 +95,11 @@ func Compare(rec, now *Manifest, recordedFindings, nowFindings []schema.Finding)
 	add("options.spawn_threshold", fmt.Sprint(ro.SpawnThreshold), fmt.Sprint(no.SpawnThreshold), true, "a different AGENT_SPAWN_EXPLOSION threshold")
 	add("options.known_destinations", strings.Join(ro.KnownDests, ","), strings.Join(no.KnownDests, ","), true, "a different destination allowlist")
 	add("options.ioc_files", fileList(ro.IOCFiles), fileList(no.IOCFiles), true, "different IOC feeds")
-	add("options.honeytokens", fmt.Sprintf("%d %s", ro.Honeytokens, ro.HoneytokensSHA256), fmt.Sprintf("%d %s", no.Honeytokens, no.HoneytokensSHA256), true,
-		"a different honeytoken list (pass the original with --honeytokens)")
+	add("options.honeytokens", fmt.Sprint(ro.Honeytokens), fmt.Sprint(no.Honeytokens), true,
+		"a different number of honeytokens (pass the original list with --honeytokens)")
+	if ro.Honeytokens > 0 {
+		c.Notes = append(c.Notes, "honeytokens: only their count is recorded, so the package cannot confirm the list passed to the reproduction is the one the analysis used")
+	}
 	if ro.ReusedCorrelation {
 		c.Differences = append(c.Differences, Difference{Field: "options.reused_correlation", Recorded: fmt.Sprintf("%d finding(s)", ro.ReusedCorrelationFindings), Now: "not reusable",
 			Affects: true, Explain: "the recorded analysis carried forward endpoint-correlation findings from an earlier run whose logs it did not read; " +

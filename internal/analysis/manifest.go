@@ -64,6 +64,6 @@ func ManifestOptions(o Options) repro.Options {
 		GatewayServers: o.GatewayServers, NoBuiltinPacks: o.NoBuiltinPacks, SpawnThreshold: o.SpawnThreshold,
 		KnownDests: o.KnownDests, IOCFiles: repro.HashFiles(o.IOCFiles), RetireExcluded: o.RetireExcluded,
 	}
-	ro.Honeytokens, ro.HoneytokensSHA256 = repro.HoneytokenDigest(o.Honeytokens)
+	ro.Honeytokens = repro.HoneytokenCount(o.Honeytokens)
 	return ro
 }

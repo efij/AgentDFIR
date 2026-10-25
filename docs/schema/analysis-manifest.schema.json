@@ -75,8 +75,7 @@
         "known_destinations": {"type": "array", "items": {"type": "string"}},
         "ioc_files": {"type": "array", "items": {"$ref": "#/$defs/fileRef"}},
         "retire_excluded": {"type": "boolean"},
-        "honeytokens": {"type": "integer", "minimum": 0, "description": "How many; the values are never recorded."},
-        "honeytokens_sha256": {"$ref": "#/$defs/sha256"},
+        "honeytokens": {"type": "integer", "minimum": 0, "description": "How many were used. Neither the values nor any digest of them is recorded: a digest in the package would let its holder confirm guessed tokens."},
         "reused_correlation": {"type": "boolean"},
         "reused_correlation_findings": {"type": "integer", "minimum": 0},
         "overlay_reused": {"type": "boolean"}

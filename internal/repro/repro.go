@@ -162,10 +162,12 @@ type Options struct {
 	KnownDests     []string  `json:"known_destinations,omitempty"`
 	IOCFiles       []FileRef `json:"ioc_files,omitempty"`
 	RetireExcluded bool      `json:"retire_excluded,omitempty"`
-	// Honeytokens are planted secrets: the manifest records how many and
-	// a digest of the list, never the values.
-	Honeytokens       int    `json:"honeytokens,omitempty"`
-	HoneytokensSHA256 string `json:"honeytokens_sha256,omitempty"`
+	// Honeytokens are planted secrets: the manifest records only how
+	// many were used — never the values and never anything derived from
+	// them, so the package cannot be used to confirm a guessed token. A
+	// reproduction needs the list passed again and can check its count,
+	// not its identity.
+	Honeytokens int `json:"honeytokens,omitempty"`
 	// ReusedCorrelation is set when this analysis was given no endpoint
 	// logs but carried forward the endpoint-correlation results of an
 	// earlier run on the same overlay; those findings depend on logs this
@@ -328,24 +330,17 @@ func RulesDirFiles(dir string) []FileRef {
 	return out
 }
 
-// HoneytokenDigest is the digest the manifest records for a honeytoken
-// list: blank lines dropped, order kept.
-func HoneytokenDigest(tokens []string) (int, string) {
-	h := sha256.New()
+// HoneytokenCount counts a honeytoken list, blank lines dropped. The
+// manifest records only this count: any digest of the list stored in the
+// package would let whoever holds the package confirm guessed tokens.
+func HoneytokenCount(tokens []string) int {
 	n := 0
 	for _, t := range tokens {
-		t = strings.TrimSpace(t)
-		if t == "" {
-			continue
+		if strings.TrimSpace(t) != "" {
+			n++
 		}
-		n++
-		io.WriteString(h, t)
-		h.Write([]byte{'\n'})
 	}
-	if n == 0 {
-		return 0, ""
-	}
-	return n, hex.EncodeToString(h.Sum(nil))
+	return n
 }
 
 // SealInput fills the evidence identity from the package's sealed files:
