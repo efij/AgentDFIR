@@ -24,6 +24,7 @@ type importOpts struct {
 	fallback                                    bool              // archive mode: ingest loose session files when no profile is found
 	aiPlan                                      *aiexport.Plan    // AI-service export / UFDR files found in the tree (nil: search the tree)
 	aiOnly                                      bool              // --ai-export: seal the plan only, no profile discovery
+	includeBrowser                              bool              // --include-browser: also collect browser history (opt-in)
 }
 
 // collectImport acquires from a KAPE / Velociraptor / CyLR / image tree:
@@ -45,6 +46,13 @@ func collectImport(o importOpts) int {
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
+	}
+	if o.includeBrowser {
+		// Opt-in products join discovery only when asked for, so a profile
+		// holding nothing but a browser is found too.
+		if extra, err := products.OptIn(); err == nil {
+			prods = append(prods, extra...)
+		}
 	}
 	var profiles []collector.Profile
 	if !o.aiOnly {
@@ -91,6 +99,9 @@ func collectImport(o importOpts) int {
 		info.Notes[k] = v
 	}
 	aiExportNotes(o.aiPlan, info.Notes)
+	if o.includeBrowser {
+		info.Notes["browser_history"] = browserNote
+	}
 	b, err := casepkg.New(dest, id, info)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)

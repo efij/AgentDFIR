@@ -31,6 +31,14 @@ var codexManifestJSON []byte
 //go:embed tier23_manifests.json
 var tier23ManifestsJSON []byte
 
+// optin_products.json holds products that are never detected or collected
+// unless the operator asks for them by name or flag (browser history is
+// broad personal data, not agent evidence by default). They are absent
+// from All(), so detect, run and --import never pick them up on their own.
+//
+//go:embed optin_products.json
+var optInJSON []byte
+
 // Product describes how to detect one AI agent product.
 type Product struct {
 	ID          string   `json:"id"`
@@ -75,6 +83,9 @@ func Register(p Product, m CollectorManifest) error {
 		if e.ID == p.ID {
 			return fmt.Errorf("product pack %q shadows an embedded product", p.ID)
 		}
+	}
+	if IsOptIn(p.ID) {
+		return fmt.Errorf("product pack %q shadows an embedded product", p.ID)
 	}
 	if m.Product != p.ID {
 		return fmt.Errorf("manifest product %q does not match pack product %q", m.Product, p.ID)
@@ -154,6 +165,17 @@ func rawManifest(productID string) (*CollectorManifest, error) {
 			}
 		}
 		if m.Product == "" {
+			d, err := loadOptIn()
+			if err != nil {
+				return nil, err
+			}
+			for _, cand := range d.Manifests {
+				if cand.Product == productID {
+					m = cand
+				}
+			}
+		}
+		if m.Product == "" {
 			return nil, nil
 		}
 	}
@@ -172,11 +194,52 @@ func filterPlatform(m CollectorManifest) *CollectorManifest {
 	return &m
 }
 
-// ByID returns one product definition by its ID.
+// optInDoc is the shape of optin_products.json.
+type optInDoc struct {
+	Products  []Product           `json:"products"`
+	Manifests []CollectorManifest `json:"manifests"`
+}
+
+func loadOptIn() (*optInDoc, error) {
+	var d optInDoc
+	if err := json.Unmarshal(optInJSON, &d); err != nil {
+		return nil, err
+	}
+	return &d, nil
+}
+
+// OptIn returns the products that are collected only on explicit request
+// (`collect --product browser`, `--include-browser`).
+func OptIn() ([]Product, error) {
+	d, err := loadOptIn()
+	if err != nil {
+		return nil, err
+	}
+	return d.Products, nil
+}
+
+// IsOptIn reports whether a product ID names an opt-in product.
+func IsOptIn(id string) bool {
+	prods, err := OptIn()
+	if err != nil {
+		return false
+	}
+	for _, p := range prods {
+		if p.ID == id {
+			return true
+		}
+	}
+	return false
+}
+
+// ByID returns one product definition by its ID, opt-in products included.
 func ByID(id string) (*Product, error) {
 	prods, err := All()
 	if err != nil {
 		return nil, err
+	}
+	if extra, err := OptIn(); err == nil {
+		prods = append(prods, extra...)
 	}
 	for i := range prods {
 		if prods[i].ID == id {

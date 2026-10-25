@@ -348,6 +348,10 @@ func (p *streamPass2) handle(ev schema.Event) {
 		}
 	case schema.EventTraceGap:
 		p.findings = append(p.findings, traceGapOne(ev))
+	case schema.EventSessionMeta:
+		if f, ok := browserShareOne(ev); ok {
+			p.findings = append(p.findings, f)
+		}
 	case schema.EventToolResult:
 		if server, ok := p.agg.mcpServers[ev.ToolCallID]; ok {
 			if f, hit := mcpPoisonOne(ev, server); hit {

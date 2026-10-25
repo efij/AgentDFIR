@@ -1,0 +1,84 @@
+{
+ "sessionId": "c0ffee00-0000-4000-8000-000000000002",
+ "title": "tests",
+ "workspaceDirectory": "file:///Users/dev/app",
+ "mode": "agent",
+ "history": [
+  {
+   "message": {
+    "role": "user",
+    "content": "run the tests and tell me what fails"
+   },
+   "contextItems": []
+  },
+  {
+   "message": {
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "call_a",
+      "type": "function",
+      "function": {
+       "name": "builtin_read_file",
+       "arguments": "{\"filepath\": \"/Users/dev/app/main.go\"}"
+      }
+     }
+    ]
+   },
+   "contextItems": [],
+   "toolCallStates": [
+    {
+     "toolCallId": "call_a",
+     "toolCall": {
+      "id": "call_a",
+      "type": "function",
+      "function": {
+       "name": "builtin_read_file",
+       "arguments": "{\"filepath\": \"/Users/dev/app/main.go\"}"
+      }
+     },
+     "status": "done"
+    }
+   ]
+  },
+  {
+   "message": {
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "call_b",
+      "type": "function",
+      "function": {
+       "name": "builtin_run_terminal_command",
+       "arguments": "{\"command\": \"go test ./...\"}"
+      }
+     }
+    ]
+   },
+   "contextItems": [],
+   "toolCallStates": [
+    {
+     "toolCallId": "call_b",
+     "toolCall": {
+      "id": "call_b",
+      "type": "function",
+      "function": {
+       "name": "builtin_run_terminal_command",
+       "arguments": "{\"command\": \"go test ./...\"}"
+      }
+     },
+     "status": "done"
+    }
+   ]
+  },
+  {
+   "message": {
+    "role": "assistant",
+    "content": "All tests pass."
+   },
+   "contextItems": []
+  }
+ ]
+}

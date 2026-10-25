@@ -46,6 +46,7 @@ COLLECT — where the evidence is
   agentdfir collect --docker <container|export.tar>                            a container (read-only export)
   agentdfir collect --archive <zip|tar|tgz>                                    CI artifact, support bundle, vendor export
   agentdfir collect --ai-export <zip|dir>                                      ChatGPT / Claude.ai / DeepSeek / Gemini Takeout export, UFDR
+      --include-browser   any mode above, and "run": also take browser history (opt-in; only AI-service visits are parsed)
   agentdfir verify <pkg>                                                       prove the package was not modified
   agentdfir compact <pkg>                                                      delete the regenerable analysis overlay (analyze rebuilds it)
   agentdfir store status | store gc                                            shared evidence store: what it holds, reclaim what no case uses
@@ -270,10 +271,11 @@ func cmdCollect(args []string) int {
 	dockerRef := fs.String("docker", "", "container id/name (docker export, read-only) or a saved export .tar")
 	archive := fs.String("archive", "", "zip / tar / tar.gz: GitHub Actions artifact, support bundle, vendor data export")
 	aiExport := fs.String("ai-export", "", "AI-service account export (ChatGPT, Claude.ai, DeepSeek, Gemini Takeout) or Cellebrite UFDR: zip/tar or unpacked directory")
+	includeBrowser := fs.Bool("include-browser", false, "also collect browser history databases (opt-in: AI-service visits are parsed, the rest is sealed unread)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
-	base := importOpts{out: *out, caseID: *caseID, operator: *operator, authz: *authz, signKey: *signKey, noSign: *noSign, maxFileMB: *maxFileMB, args: args}
+	base := importOpts{out: *out, caseID: *caseID, operator: *operator, authz: *authz, signKey: *signKey, noSign: *noSign, maxFileMB: *maxFileMB, args: args, includeBrowser: *includeBrowser}
 	switch {
 	case *importTree != "":
 		base.tree = *importTree
@@ -373,6 +375,9 @@ func cmdCollect(args []string) int {
 	for k, v := range packNotes {
 		info.Notes[k] = v
 	}
+	if *includeBrowser || productID == browserProductID {
+		info.Notes["browser_history"] = browserNote
+	}
 	if *offlineRoot != "" {
 		info.Notes["mode"] = "offline-path"
 		info.Notes["offline_root"] = *offlineRoot
@@ -431,6 +436,12 @@ func cmdCollect(args []string) int {
 		"failed": st.Failed, "bytes": st.TotalBytes,
 		"duration_ms": time.Since(start).Milliseconds(),
 	})
+	if *includeBrowser && productID != browserProductID && runErr == nil {
+		// Opt-in second pass over the same profile: browser history only.
+		bst, bErr := collectBrowser(b, opts, false)
+		addStats(st, bst)
+		runErr = bErr
+	}
 	roundStats := b.Stats()
 	signing := prepareSigning(b, *signKey, *noSign)
 	if err := b.Seal(); err != nil {

@@ -507,8 +507,11 @@ func identityMismatch(res *schema.Normalized) []schema.Finding {
 // AI-service account exports (timestamp source "provider_export…") are
 // the same shape: one conversations.json holds every conversation of the
 // account, and branches of one conversation interleave in time.
+// Browser history databases (one session per AI conversation, visits in
+// row order) and session indexes such as Continue's sessions.json are
+// multi-session stores of the same kind.
 func multiSessionStore(ev schema.Event) bool {
-	return ev.TimestampSrc == "database" || strings.HasPrefix(ev.TimestampSrc, "provider_export")
+	return ev.TimestampSrc == "database" || strings.HasPrefix(ev.TimestampSrc, "provider_export") || ev.Product == browserProduct || ev.Result == "session_index"
 }
 
 // SESSION_TAMPERING — chain breaks + backward timestamps per artifact.

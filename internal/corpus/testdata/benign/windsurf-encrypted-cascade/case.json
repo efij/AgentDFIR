@@ -1,0 +1,6 @@
+{
+  "note": "Windsurf profile with encrypted Cascade conversation and memory stores, ordinary global rules and a pinned MCP server. The stores are reported as UNSUPPORTED metadata; that must not surface as a transcript integrity gap or any other finding.",
+  "products": [
+    "windsurf"
+  ]
+}

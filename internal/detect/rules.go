@@ -22,6 +22,7 @@ func Run(res *schema.Normalized) []schema.Finding {
 	findings = append(findings, destructiveCommands(res)...)
 	findings = append(findings, shellExecution(res)...)
 	findings = append(findings, traceGaps(res)...)
+	findings = append(findings, browserShareLinks(res)...)
 	return sortBySeverity(findings)
 }
 

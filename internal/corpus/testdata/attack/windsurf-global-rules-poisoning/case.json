@@ -1,0 +1,9 @@
+{
+  "note": "Windsurf global rules (memories/global_rules.md) carrying an instruction-override phrase. Global rules enter every Cascade session, so a poisoned file is persistent context poisoning.",
+  "products": [
+    "windsurf"
+  ],
+  "expect": [
+    "AGENT_CONTEXT_POISONING"
+  ]
+}

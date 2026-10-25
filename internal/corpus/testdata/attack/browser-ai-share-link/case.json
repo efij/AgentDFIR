@@ -1,0 +1,9 @@
+{
+  "note": "Opt-in Chrome history (Linux profile layout) with ChatGPT conversations, a ChatGPT share link, and ordinary pages. The share link must surface as AI_WEB_SHARE_LINK_VISITED; nothing else in the history may produce a finding.",
+  "products": [
+    "browser"
+  ],
+  "expect": [
+    "AI_WEB_SHARE_LINK_VISITED"
+  ]
+}

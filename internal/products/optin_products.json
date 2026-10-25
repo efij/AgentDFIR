@@ -1,0 +1,425 @@
+{
+  "products": [
+    {
+      "id": "browser",
+      "name": "Browser history (AI services, opt-in)",
+      "config_dirs": [
+        "Library/Application Support/Google/Chrome",
+        ".config/google-chrome",
+        "AppData/Local/Google/Chrome/User Data",
+        "Library/Application Support/Microsoft Edge",
+        ".config/microsoft-edge",
+        "AppData/Local/Microsoft/Edge/User Data",
+        "Library/Application Support/BraveSoftware/Brave-Browser",
+        ".config/BraveSoftware/Brave-Browser",
+        "AppData/Local/BraveSoftware/Brave-Browser/User Data",
+        "Library/Application Support/Arc/User Data",
+        "Library/Application Support/Vivaldi",
+        ".config/vivaldi",
+        "AppData/Local/Vivaldi/User Data",
+        "Library/Application Support/Chromium",
+        ".config/chromium",
+        "snap/chromium/common/chromium",
+        "AppData/Local/Chromium/User Data",
+        "Library/Application Support/com.operasoftware.Opera",
+        "Library/Application Support/com.operasoftware.OperaGX",
+        ".config/opera",
+        "AppData/Roaming/Opera Software/Opera Stable",
+        "AppData/Roaming/Opera Software/Opera GX Stable",
+        "Library/Safari",
+        "Library/Application Support/Firefox",
+        ".mozilla/firefox",
+        "AppData/Roaming/Mozilla/Firefox"
+      ],
+      "config_files": [],
+      "binaries": []
+    }
+  ],
+  "manifests": [
+    {
+      "product": "browser",
+      "entries": [
+        {
+          "id": "browser.chrome_macos",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/Google/Chrome/Default/History",
+            "${PROFILE_ROOT}/Library/Application Support/Google/Chrome/Default/History-*",
+            "${PROFILE_ROOT}/Library/Application Support/Google/Chrome/Profile */History",
+            "${PROFILE_ROOT}/Library/Application Support/Google/Chrome/Profile */History-*",
+            "${PROFILE_ROOT}/Library/Application Support/Google/Chrome/Guest*/History",
+            "${PROFILE_ROOT}/Library/Application Support/Google/Chrome/Guest*/History-*"
+          ],
+          "category": "browser_history",
+          "sensitivity": "high"
+        },
+        {
+          "id": "browser.chrome_linux",
+          "platforms": [
+            "linux"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/.config/google-chrome/Default/History",
+            "${PROFILE_ROOT}/.config/google-chrome/Default/History-*",
+            "${PROFILE_ROOT}/.config/google-chrome/Profile */History",
+            "${PROFILE_ROOT}/.config/google-chrome/Profile */History-*",
+            "${PROFILE_ROOT}/.config/google-chrome/Guest*/History",
+            "${PROFILE_ROOT}/.config/google-chrome/Guest*/History-*"
+          ],
+          "category": "browser_history",
+          "sensitivity": "high"
+        },
+        {
+          "id": "browser.chrome_windows",
+          "platforms": [
+            "windows"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/AppData/Local/Google/Chrome/User Data/Default/History",
+            "${PROFILE_ROOT}/AppData/Local/Google/Chrome/User Data/Default/History-*",
+            "${PROFILE_ROOT}/AppData/Local/Google/Chrome/User Data/Profile */History",
+            "${PROFILE_ROOT}/AppData/Local/Google/Chrome/User Data/Profile */History-*",
+            "${PROFILE_ROOT}/AppData/Local/Google/Chrome/User Data/Guest*/History",
+            "${PROFILE_ROOT}/AppData/Local/Google/Chrome/User Data/Guest*/History-*"
+          ],
+          "category": "browser_history",
+          "sensitivity": "high"
+        },
+        {
+          "id": "browser.edge_macos",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/Microsoft Edge/Default/History",
+            "${PROFILE_ROOT}/Library/Application Support/Microsoft Edge/Default/History-*",
+            "${PROFILE_ROOT}/Library/Application Support/Microsoft Edge/Profile */History",
+            "${PROFILE_ROOT}/Library/Application Support/Microsoft Edge/Profile */History-*",
+            "${PROFILE_ROOT}/Library/Application Support/Microsoft Edge/Guest*/History",
+            "${PROFILE_ROOT}/Library/Application Support/Microsoft Edge/Guest*/History-*"
+          ],
+          "category": "browser_history",
+          "sensitivity": "high"
+        },
+        {
+          "id": "browser.edge_linux",
+          "platforms": [
+            "linux"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/.config/microsoft-edge/Default/History",
+            "${PROFILE_ROOT}/.config/microsoft-edge/Default/History-*",
+            "${PROFILE_ROOT}/.config/microsoft-edge/Profile */History",
+            "${PROFILE_ROOT}/.config/microsoft-edge/Profile */History-*",
+            "${PROFILE_ROOT}/.config/microsoft-edge/Guest*/History",
+            "${PROFILE_ROOT}/.config/microsoft-edge/Guest*/History-*"
+          ],
+          "category": "browser_history",
+          "sensitivity": "high"
+        },
+        {
+          "id": "browser.edge_windows",
+          "platforms": [
+            "windows"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/AppData/Local/Microsoft/Edge/User Data/Default/History",
+            "${PROFILE_ROOT}/AppData/Local/Microsoft/Edge/User Data/Default/History-*",
+            "${PROFILE_ROOT}/AppData/Local/Microsoft/Edge/User Data/Profile */History",
+            "${PROFILE_ROOT}/AppData/Local/Microsoft/Edge/User Data/Profile */History-*",
+            "${PROFILE_ROOT}/AppData/Local/Microsoft/Edge/User Data/Guest*/History",
+            "${PROFILE_ROOT}/AppData/Local/Microsoft/Edge/User Data/Guest*/History-*"
+          ],
+          "category": "browser_history",
+          "sensitivity": "high"
+        },
+        {
+          "id": "browser.brave_macos",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/BraveSoftware/Brave-Browser/Default/History",
+            "${PROFILE_ROOT}/Library/Application Support/BraveSoftware/Brave-Browser/Default/History-*",
+            "${PROFILE_ROOT}/Library/Application Support/BraveSoftware/Brave-Browser/Profile */History",
+            "${PROFILE_ROOT}/Library/Application Support/BraveSoftware/Brave-Browser/Profile */History-*",
+            "${PROFILE_ROOT}/Library/Application Support/BraveSoftware/Brave-Browser/Guest*/History",
+            "${PROFILE_ROOT}/Library/Application Support/BraveSoftware/Brave-Browser/Guest*/History-*"
+          ],
+          "category": "browser_history",
+          "sensitivity": "high"
+        },
+        {
+          "id": "browser.brave_linux",
+          "platforms": [
+            "linux"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/.config/BraveSoftware/Brave-Browser/Default/History",
+            "${PROFILE_ROOT}/.config/BraveSoftware/Brave-Browser/Default/History-*",
+            "${PROFILE_ROOT}/.config/BraveSoftware/Brave-Browser/Profile */History",
+            "${PROFILE_ROOT}/.config/BraveSoftware/Brave-Browser/Profile */History-*",
+            "${PROFILE_ROOT}/.config/BraveSoftware/Brave-Browser/Guest*/History",
+            "${PROFILE_ROOT}/.config/BraveSoftware/Brave-Browser/Guest*/History-*"
+          ],
+          "category": "browser_history",
+          "sensitivity": "high"
+        },
+        {
+          "id": "browser.brave_windows",
+          "platforms": [
+            "windows"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/AppData/Local/BraveSoftware/Brave-Browser/User Data/Default/History",
+            "${PROFILE_ROOT}/AppData/Local/BraveSoftware/Brave-Browser/User Data/Default/History-*",
+            "${PROFILE_ROOT}/AppData/Local/BraveSoftware/Brave-Browser/User Data/Profile */History",
+            "${PROFILE_ROOT}/AppData/Local/BraveSoftware/Brave-Browser/User Data/Profile */History-*",
+            "${PROFILE_ROOT}/AppData/Local/BraveSoftware/Brave-Browser/User Data/Guest*/History",
+            "${PROFILE_ROOT}/AppData/Local/BraveSoftware/Brave-Browser/User Data/Guest*/History-*"
+          ],
+          "category": "browser_history",
+          "sensitivity": "high"
+        },
+        {
+          "id": "browser.arc_macos",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/Arc/User Data/Default/History",
+            "${PROFILE_ROOT}/Library/Application Support/Arc/User Data/Default/History-*",
+            "${PROFILE_ROOT}/Library/Application Support/Arc/User Data/Profile */History",
+            "${PROFILE_ROOT}/Library/Application Support/Arc/User Data/Profile */History-*",
+            "${PROFILE_ROOT}/Library/Application Support/Arc/User Data/Guest*/History",
+            "${PROFILE_ROOT}/Library/Application Support/Arc/User Data/Guest*/History-*"
+          ],
+          "category": "browser_history",
+          "sensitivity": "high"
+        },
+        {
+          "id": "browser.arc_windows",
+          "platforms": [
+            "windows"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/AppData/Local/Packages/TheBrowserCompany.Arc_*/LocalCache/Local/Arc/User Data/Default/History",
+            "${PROFILE_ROOT}/AppData/Local/Packages/TheBrowserCompany.Arc_*/LocalCache/Local/Arc/User Data/Default/History-*",
+            "${PROFILE_ROOT}/AppData/Local/Packages/TheBrowserCompany.Arc_*/LocalCache/Local/Arc/User Data/Profile */History",
+            "${PROFILE_ROOT}/AppData/Local/Packages/TheBrowserCompany.Arc_*/LocalCache/Local/Arc/User Data/Profile */History-*",
+            "${PROFILE_ROOT}/AppData/Local/Packages/TheBrowserCompany.Arc_*/LocalCache/Local/Arc/User Data/Guest*/History",
+            "${PROFILE_ROOT}/AppData/Local/Packages/TheBrowserCompany.Arc_*/LocalCache/Local/Arc/User Data/Guest*/History-*"
+          ],
+          "category": "browser_history",
+          "sensitivity": "high"
+        },
+        {
+          "id": "browser.vivaldi_macos",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/Vivaldi/Default/History",
+            "${PROFILE_ROOT}/Library/Application Support/Vivaldi/Default/History-*",
+            "${PROFILE_ROOT}/Library/Application Support/Vivaldi/Profile */History",
+            "${PROFILE_ROOT}/Library/Application Support/Vivaldi/Profile */History-*",
+            "${PROFILE_ROOT}/Library/Application Support/Vivaldi/Guest*/History",
+            "${PROFILE_ROOT}/Library/Application Support/Vivaldi/Guest*/History-*"
+          ],
+          "category": "browser_history",
+          "sensitivity": "high"
+        },
+        {
+          "id": "browser.vivaldi_linux",
+          "platforms": [
+            "linux"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/.config/vivaldi/Default/History",
+            "${PROFILE_ROOT}/.config/vivaldi/Default/History-*",
+            "${PROFILE_ROOT}/.config/vivaldi/Profile */History",
+            "${PROFILE_ROOT}/.config/vivaldi/Profile */History-*",
+            "${PROFILE_ROOT}/.config/vivaldi/Guest*/History",
+            "${PROFILE_ROOT}/.config/vivaldi/Guest*/History-*"
+          ],
+          "category": "browser_history",
+          "sensitivity": "high"
+        },
+        {
+          "id": "browser.vivaldi_windows",
+          "platforms": [
+            "windows"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/AppData/Local/Vivaldi/User Data/Default/History",
+            "${PROFILE_ROOT}/AppData/Local/Vivaldi/User Data/Default/History-*",
+            "${PROFILE_ROOT}/AppData/Local/Vivaldi/User Data/Profile */History",
+            "${PROFILE_ROOT}/AppData/Local/Vivaldi/User Data/Profile */History-*",
+            "${PROFILE_ROOT}/AppData/Local/Vivaldi/User Data/Guest*/History",
+            "${PROFILE_ROOT}/AppData/Local/Vivaldi/User Data/Guest*/History-*"
+          ],
+          "category": "browser_history",
+          "sensitivity": "high"
+        },
+        {
+          "id": "browser.chromium_macos",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/Chromium/Default/History",
+            "${PROFILE_ROOT}/Library/Application Support/Chromium/Default/History-*",
+            "${PROFILE_ROOT}/Library/Application Support/Chromium/Profile */History",
+            "${PROFILE_ROOT}/Library/Application Support/Chromium/Profile */History-*",
+            "${PROFILE_ROOT}/Library/Application Support/Chromium/Guest*/History",
+            "${PROFILE_ROOT}/Library/Application Support/Chromium/Guest*/History-*"
+          ],
+          "category": "browser_history",
+          "sensitivity": "high"
+        },
+        {
+          "id": "browser.chromium_linux",
+          "platforms": [
+            "linux"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/.config/chromium/Default/History",
+            "${PROFILE_ROOT}/.config/chromium/Default/History-*",
+            "${PROFILE_ROOT}/.config/chromium/Profile */History",
+            "${PROFILE_ROOT}/.config/chromium/Profile */History-*",
+            "${PROFILE_ROOT}/.config/chromium/Guest*/History",
+            "${PROFILE_ROOT}/.config/chromium/Guest*/History-*",
+            "${PROFILE_ROOT}/snap/chromium/common/chromium/Default/History",
+            "${PROFILE_ROOT}/snap/chromium/common/chromium/Default/History-*",
+            "${PROFILE_ROOT}/snap/chromium/common/chromium/Profile */History",
+            "${PROFILE_ROOT}/snap/chromium/common/chromium/Profile */History-*",
+            "${PROFILE_ROOT}/snap/chromium/common/chromium/Guest*/History",
+            "${PROFILE_ROOT}/snap/chromium/common/chromium/Guest*/History-*"
+          ],
+          "category": "browser_history",
+          "sensitivity": "high"
+        },
+        {
+          "id": "browser.chromium_windows",
+          "platforms": [
+            "windows"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/AppData/Local/Chromium/User Data/Default/History",
+            "${PROFILE_ROOT}/AppData/Local/Chromium/User Data/Default/History-*",
+            "${PROFILE_ROOT}/AppData/Local/Chromium/User Data/Profile */History",
+            "${PROFILE_ROOT}/AppData/Local/Chromium/User Data/Profile */History-*",
+            "${PROFILE_ROOT}/AppData/Local/Chromium/User Data/Guest*/History",
+            "${PROFILE_ROOT}/AppData/Local/Chromium/User Data/Guest*/History-*"
+          ],
+          "category": "browser_history",
+          "sensitivity": "high"
+        },
+        {
+          "id": "browser.opera_macos",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/com.operasoftware.Opera/History",
+            "${PROFILE_ROOT}/Library/Application Support/com.operasoftware.Opera/History-*",
+            "${PROFILE_ROOT}/Library/Application Support/com.operasoftware.Opera/Default/History",
+            "${PROFILE_ROOT}/Library/Application Support/com.operasoftware.Opera/Default/History-*",
+            "${PROFILE_ROOT}/Library/Application Support/com.operasoftware.OperaGX/History",
+            "${PROFILE_ROOT}/Library/Application Support/com.operasoftware.OperaGX/History-*",
+            "${PROFILE_ROOT}/Library/Application Support/com.operasoftware.OperaGX/Default/History",
+            "${PROFILE_ROOT}/Library/Application Support/com.operasoftware.OperaGX/Default/History-*"
+          ],
+          "category": "browser_history",
+          "sensitivity": "high"
+        },
+        {
+          "id": "browser.opera_linux",
+          "platforms": [
+            "linux"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/.config/opera/History",
+            "${PROFILE_ROOT}/.config/opera/History-*",
+            "${PROFILE_ROOT}/.config/opera/Default/History",
+            "${PROFILE_ROOT}/.config/opera/Default/History-*"
+          ],
+          "category": "browser_history",
+          "sensitivity": "high"
+        },
+        {
+          "id": "browser.opera_windows",
+          "platforms": [
+            "windows"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/AppData/Roaming/Opera Software/Opera Stable/History",
+            "${PROFILE_ROOT}/AppData/Roaming/Opera Software/Opera Stable/History-*",
+            "${PROFILE_ROOT}/AppData/Roaming/Opera Software/Opera Stable/Default/History",
+            "${PROFILE_ROOT}/AppData/Roaming/Opera Software/Opera Stable/Default/History-*",
+            "${PROFILE_ROOT}/AppData/Roaming/Opera Software/Opera GX Stable/History",
+            "${PROFILE_ROOT}/AppData/Roaming/Opera Software/Opera GX Stable/History-*",
+            "${PROFILE_ROOT}/AppData/Roaming/Opera Software/Opera GX Stable/Default/History",
+            "${PROFILE_ROOT}/AppData/Roaming/Opera Software/Opera GX Stable/Default/History-*"
+          ],
+          "category": "browser_history",
+          "sensitivity": "high"
+        },
+        {
+          "id": "browser.firefox_macos",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/Firefox/Profiles/*/places.sqlite",
+            "${PROFILE_ROOT}/Library/Application Support/Firefox/Profiles/*/places.sqlite-*"
+          ],
+          "category": "browser_history",
+          "sensitivity": "high"
+        },
+        {
+          "id": "browser.firefox_linux",
+          "platforms": [
+            "linux"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/.mozilla/firefox/*/places.sqlite",
+            "${PROFILE_ROOT}/.mozilla/firefox/*/places.sqlite-*",
+            "${PROFILE_ROOT}/snap/firefox/common/.mozilla/firefox/*/places.sqlite",
+            "${PROFILE_ROOT}/snap/firefox/common/.mozilla/firefox/*/places.sqlite-*",
+            "${PROFILE_ROOT}/.var/app/org.mozilla.firefox/.mozilla/firefox/*/places.sqlite",
+            "${PROFILE_ROOT}/.var/app/org.mozilla.firefox/.mozilla/firefox/*/places.sqlite-*"
+          ],
+          "category": "browser_history",
+          "sensitivity": "high"
+        },
+        {
+          "id": "browser.firefox_windows",
+          "platforms": [
+            "windows"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/AppData/Roaming/Mozilla/Firefox/Profiles/*/places.sqlite",
+            "${PROFILE_ROOT}/AppData/Roaming/Mozilla/Firefox/Profiles/*/places.sqlite-*"
+          ],
+          "category": "browser_history",
+          "sensitivity": "high"
+        },
+        {
+          "id": "browser.safari_macos",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Safari/History.db",
+            "${PROFILE_ROOT}/Library/Safari/History.db-*"
+          ],
+          "category": "browser_history",
+          "sensitivity": "high"
+        }
+      ]
+    }
+  ]
+}

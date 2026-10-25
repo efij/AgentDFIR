@@ -1,0 +1,2 @@
+- Use tabs in Go files.
+- Run the linter before committing.
