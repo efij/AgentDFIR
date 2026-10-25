@@ -78,7 +78,9 @@ func collectImage(path string, o importOpts, verifyStored bool, extras imageExtr
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
 	}
-	if fi, err := os.Stat(abs); err != nil || !fi.Mode().IsRegular() {
+	// A directory is accepted for Apple sparsebundles; diskimage.Open
+	// refuses any other directory.
+	if fi, err := os.Stat(abs); err != nil || !fi.Mode().IsRegular() && !fi.IsDir() {
 		fmt.Fprintf(os.Stderr, "--image: %s is not a readable file\n", sanitize.Terminal(abs))
 		return 2
 	}
@@ -183,6 +185,8 @@ func collectImage(path string, o importOpts, verifyStored bool, extras imageExtr
 				rep.notes = append(rep.notes, "ntfs: "+p)
 			}
 		}
+		// Readers that collect damage and unsupported structures (APFS
+		// skipped checkpoints and encrypted volumes, HFS+ dirty journal …).
 		if pr, ok := res.FS.(interface{ Problems() []string }); ok {
 			for _, p := range pr.Problems() {
 				rep.notes = append(rep.notes, res.Type+": "+p)

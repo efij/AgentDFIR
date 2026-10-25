@@ -55,14 +55,16 @@ or a partial/changed acquisition (sealed with what was taken); 2 the path is not
 | VHDX | BAT, payload blocks, metadata, 512/4096 logical sectors | non-empty log ("dirty log"), differencing (parent path reported), partially-present blocks |
 | VMDK | monolithicSparse, streamOptimized (compressed grains, footer GD), monolithicFlat / twoGbMax* via descriptor, multi-extent descriptors (FLAT/SPARSE/ZERO extents next to the descriptor) | delta/snapshot disks (parent hint reported), ESX COWD / SESparse, extents outside the descriptor's directory |
 | QCOW2 | v2/v3, L1/L2 cluster map, deflate-compressed clusters, zero clusters ([details](linux-filesystems.md)) | backing files (name reported), encryption (ENCRYPTED), external data files, extended L2, zstd compression type |
-| other containers | — | VDI, DMG, and compressed files (gzip/xz/zip/7z…) are named and refused |
+| DMG (UDIF), sparsebundle | raw / zero / zlib / bzip2 chunks; sparsebundle bands — see [macos-filesystems.md](macos-filesystems.md) | ADC / LZFSE / LZMA chunks, UDSP sparse images (UNSUPPORTED), encrypted images (ENCRYPTED) |
+| other containers | — | VDI and compressed files (gzip/xz/zip/7z…) are named and refused |
 | Partitions | MBR (incl. extended/logical, loop-guarded), GPT (header + entry CRC-32, backup compared; primary damaged → backup used), LVM2 linear logical volumes ([details](linux-filesystems.md)) | APM (Apple Partition Map), LVM2 thin/snapshot/raid/mirror/multi-device striped LVs (listed UNSUPPORTED with the reason), dynamic disks (LDM), Storage Spaces |
 | NTFS | boot sector, `$MFT` via its own data runs, update-sequence fixups, `$STANDARD_INFORMATION` times, `$FILE_NAME` (Win32/POSIX over DOS), resident and non-resident `$DATA`, sparse runs, `$ATTRIBUTE_LIST`, LZNT1 compression, hard links | EFS-encrypted file content (per file, UNSUPPORTED), reparse points (recorded, not followed), `$I30` index slack, `$LogFile`/`$UsnJrnl` parsing, deleted files (skipped and counted), Volume Shadow Copies (presence of the store is noted, copies are not parsed) |
 | ext2 / ext3 / ext4 | superblock (rev 0 and dynamic), 32/64-byte group descriptors, flex_bg, meta_bg, extent trees and legacy block maps, inline_data, htree directories (read linearly), sparse and large files, nanosecond and creation times; symlinks reported, never followed | journal never replayed (a volume that needs recovery is read as on disk and flagged), fscrypt-encrypted files (listed, UNSUPPORTED), deleted entries (skipped and counted), external journal devices and the compression/dirdata/unknown incompatible features (volume UNSUPPORTED) |
 | FAT12 / FAT16 / FAT32, exFAT | BPB and FAT type by cluster count, VFAT long names (checksum-verified), exFAT entry sets with checksums, NoFatChain, ValidDataLength; FAT times as local wall-clock (`tz` = `local-unknown`), exFAT times with their recorded UTC offset | deleted entries (skipped and counted), exFAT up-case table and allocation bitmap, TexFAT; a FAT/exFAT/ext volume the reader cannot open is named by signature and reported UNSUPPORTED |
 | BitLocker, LUKS | — | ENCRYPTED, with the unlock-then-mount route |
 | XFS, Btrfs | see [linux-filesystems.md](linux-filesystems.md) | realtime XFS files, Btrfs lzo/zstd extents, multi-device/RAID Btrfs (UNSUPPORTED with the reason) |
-| APFS (incl. FileVault), HFS+, ReFS, ZFS | — | UNSUPPORTED by signature, with the mount route |
+| APFS, HFS+ / HFSX | see [macos-filesystems.md](macos-filesystems.md) | encrypted APFS volumes (FileVault), LZVN/LZFSE-compressed files: listed, UNSUPPORTED |
+| ReFS, ZFS | — | UNSUPPORTED by signature, with the mount route |
 
 ### The mount-and-`--import` route
 

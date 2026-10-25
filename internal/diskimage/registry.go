@@ -6,9 +6,11 @@ import (
 	"io"
 	"io/fs"
 
+	"github.com/efij/AgentDFIR/v4/internal/diskimage/apfs"
 	"github.com/efij/AgentDFIR/v4/internal/diskimage/btrfs"
 	"github.com/efij/AgentDFIR/v4/internal/diskimage/ext4"
 	"github.com/efij/AgentDFIR/v4/internal/diskimage/fat"
+	"github.com/efij/AgentDFIR/v4/internal/diskimage/hfsplus"
 	"github.com/efij/AgentDFIR/v4/internal/diskimage/ntfs"
 	"github.com/efij/AgentDFIR/v4/internal/diskimage/xfs"
 )
@@ -28,6 +30,8 @@ var filesystems = []Filesystem{
 	{"fat", fat.Probe, fat.Open},
 	{"xfs", xfs.Probe, xfs.Open},
 	{"btrfs", btrfs.Probe, btrfs.Open},
+	{"apfs", apfs.Probe, apfs.Open},
+	{"hfsplus", hfsplus.Probe, hfsplus.Open},
 }
 
 // Register adds a reader at the end of the registry (for readers that
