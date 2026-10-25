@@ -75,6 +75,12 @@ func cmdRun(args []string) int {
 		fmt.Fprintln(os.Stderr, "usage: agentdfir run [--product <p>] [--out <dir>] [--endpoint <os-log>]... [--include-browser] [--new] [--priority gentle|background|normal] [--no-open] [--no-serve]")
 		return 2
 	}
+	expanded, err := expandEndpointDirs(endpointLogs) // a monitor state dir → its recorded captures
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		return 2
+	}
+	endpointLogs = expanded
 	mode, err := gentle.ParseMode(*priority)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)

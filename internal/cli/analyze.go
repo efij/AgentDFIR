@@ -123,6 +123,12 @@ func cmdAnalyze(args []string) int {
 	if pkg == "" {
 		pkg = fs.Arg(0)
 	}
+	expanded, err := expandEndpointDirs(endpointLogs) // a monitor state dir → its recorded captures
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		return 2
+	}
+	endpointLogs = expanded
 	opts := analysis.Options{EndpointLogs: endpointLogs, ShellHistory: *shellHistory, GatewayLog: *gwLog, GatewayMap: *gwMap,
 		GatewayServers: gwServers, RulesDir: *rulesDir, NoBuiltinPacks: *noPacks,
 		SpawnThreshold: *spawnTh, Renormalize: *renorm, RetireExcluded: *renorm, Log: os.Stdout, IOCFiles: iocFeeds}

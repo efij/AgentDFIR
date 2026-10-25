@@ -1,0 +1,3 @@
+{"cwd":"/Users/user/proj","message":{"content":"build the app","role":"user"},"sessionId":"mp1","timestamp":"2026-10-22T10:00:00Z","type":"user","uuid":"mp1-1"}
+{"cwd":"/Users/user/proj","message":{"content":[{"id":"t2","input":{"command":"npm run build"},"name":"Bash","type":"tool_use"}],"role":"assistant"},"parentUuid":"mp1-1","sessionId":"mp1","timestamp":"2026-10-22T10:00:02Z","type":"assistant","uuid":"mp1-2"}
+{"cwd":"/Users/user/proj","message":{"content":[{"content":"built in 4.1s","tool_use_id":"t2","type":"tool_result"}],"role":"user"},"parentUuid":"mp1-2","sessionId":"mp1","timestamp":"2026-10-22T10:00:04Z","type":"user","uuid":"mp1-3"}

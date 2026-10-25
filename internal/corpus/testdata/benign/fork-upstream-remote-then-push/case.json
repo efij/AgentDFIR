@@ -1,0 +1,6 @@
+{
+  "allow": {
+    "GIT_REMOTE_ADDED": "a remote was added; upstream of a fork"
+  },
+  "note": "Benign twin of env-read-new-remote-push: the routine fork workflow (add upstream, fetch, push the feature branch to origin) with no sensitive read before it. CHAIN_SECRET_TO_NEW_REMOTE_PUSH must not fire."
+}

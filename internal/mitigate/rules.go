@@ -97,6 +97,13 @@ var manualSteps = map[string][]string{
 	"SHELL_RC_PERSISTENCE":              {"Remove lines in your shell startup files you did not write."},
 	"AGENT_NAMESPACE_ESCAPE":            {"Treat the node as compromised: the agent's container reached the host. Rotate node and cluster credentials and rebuild the node.", "Remove host mounts, the runtime socket, privileged mode and CAP_SYS_ADMIN from the agent's pod spec."},
 	"AGENT_BPF_LOAD":                    {"List loaded BPF programs (bpftool prog list) and remove any you did not load.", "Drop CAP_BPF / CAP_SYS_ADMIN from the agent's environment."},
+	"WIN_AGENT_SUSPICIOUS_POWERSHELL":   {"Decode the command or read the script block in the finding, and find out what it downloaded or ran.", "Turn on PowerShell script-block logging (4104) if it is off, so the next one is readable."},
+	"AGENT_PRIVILEGE_ELEVATION":         {"Read the command each identity change ran; review what the target account did afterwards.", "Do not leave a cached sudo ticket or a NOPASSWD rule where an agent can use it."},
+	"AGENT_LOGGING_DISRUPTED":           {"Restart the logging source now and check what it missed: everything after the stop is under-recorded, not absent.", "Collect from a source the agent cannot stop (a remote collector, an EDR) for the rest of the investigation."},
+	"AGENT_EVIDENCE_SOURCE_DELETED":     {"Recover the deleted files from backups, snapshots or a disk image before they are overwritten.", "Treat the period the files covered as unrecorded, not as clean."},
+	"PACKAGE_SCRIPT_TOUCHED_AGENT":      {"Remove the package, then review the agent's settings, hooks, skills and MCP servers for anything it planted.", "If the agent's login was read or the agent was launched, sign it out and back in and rotate any credential the agent could reach."},
+	"CHAIN_STAGED_DATA_TO_TRANSFER":     {"Check the destination bucket, host or service and what the staged file held; if it was not yours to send, treat it as a leak."},
+	"CHAIN_SECRET_TO_NEW_REMOTE_PUSH":   {"Check who owns the new remote; if it is not yours, rotate the secrets the session read and ask the hosting service to take the repository down."},
 }
 
 // ModeOf classifies a rule.

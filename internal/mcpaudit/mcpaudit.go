@@ -226,6 +226,27 @@ func ScanProfile(root string) *Inventory {
 	return inv
 }
 
+// ConfigPatterns returns the absolute path patterns (some are globs)
+// where MCP hosts keep server definitions under a profile root, for
+// callers that watch them for change (monitor --record).
+func ConfigPatterns(root string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, loc := range locations {
+		for _, rel := range loc.rel {
+			path := rel
+			if !filepath.IsAbs(rel) {
+				path = filepath.Join(root, filepath.FromSlash(rel))
+			}
+			if !seen[path] {
+				seen[path] = true
+				out = append(out, path)
+			}
+		}
+	}
+	return out
+}
+
 // ParseConfigFile parses one config with an explicit dialect (package mode
 // and tests). host/scope/project annotate the resulting servers.
 func ParseConfigFile(inv *Inventory, host, scope, path, logical string, f format, data []byte) {

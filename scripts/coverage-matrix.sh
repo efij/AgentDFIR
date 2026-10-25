@@ -101,6 +101,13 @@ if [ -f "$V4" ]; then
   echo
   sed -n '/<!-- v4-proposals:begin -->/,/<!-- v4-proposals:end -->/p' "$V4" | sed '1d;$d'
 fi
+V45="$HERE/docs/detection-v45.md"
+if [ -f "$V45" ]; then
+  echo
+  echo "## v4.5 proposals"
+  echo
+  sed -n '/<!-- v45-proposals:begin -->/,/<!-- v45-proposals:end -->/p' "$V45" | sed '1d;$d'
+fi
 } > "$OUT"
 
 echo "wrote $OUT ($TOTAL rules, $ATLAS_TECH ATLAS / $ATTACK_TECH ATT&CK techniques)"
