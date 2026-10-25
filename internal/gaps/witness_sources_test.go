@@ -63,3 +63,25 @@ func TestWindowsContextKindsListed(t *testing.T) {
 }
 
 func mustTime(s string) time.Time { t, _ := time.Parse(time.RFC3339, s); return t }
+
+// Per-kind coverage and collection health travel into coverage.json; a
+// call left unchecked because its telemetry was PARTIAL says so.
+func TestKindCoverageAndHealthListed(t *testing.T) {
+	in := baseInput()
+	in.Correlation = &correlate.EndpointResult{Records: 2, CoverageStart: mustTime("2026-08-30T10:00:00Z"), CoverageEnd: mustTime("2026-08-30T11:00:00Z"),
+		KindCoverage: []correlate.KindCoverage{{Host: "desk-01", Kind: "process", CountsAsCoverage: true, Health: endpoint.HealthPartial}},
+		Health:       []endpoint.SourceHealth{{File: "Sysmon.evtx", Gaps: 1, Verdict: endpoint.HealthPartial}},
+		Decisions:    []correlate.CoverageDecision{{EventID: "e3", Needs: "process", Coverage: correlate.CoverPartial}}}
+	r := Build(in, Options{})
+	if len(r.Witness.KindCoverage) != 1 || len(r.Witness.CollectionHealth) != 1 {
+		t.Fatalf("witness: %+v", r.Witness)
+	}
+	if !hasItem(r, Unknown, "Sysmon.evtx is PARTIAL") {
+		t.Errorf("items: %+v", items(r, Unknown))
+	}
+	for _, ac := range r.Witness.Actions {
+		if ac.Action == "shell_command" && ac.Reasons[ReasonPartial] != 1 {
+			t.Errorf("reasons: %+v", ac)
+		}
+	}
+}

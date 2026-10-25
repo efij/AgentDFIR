@@ -25,6 +25,10 @@ type EndpointOptions struct {
 	Window        time.Duration // match window around a tool call (default 3s)
 	KnownDests    []string      // extra allowlisted network destinations
 	AgentBinaries []string      // extra agent process names for lineage
+	// Health holds the collection-health report Load computed for each
+	// source file (LoadResult.Health). Sources without one get a report
+	// derived from their records' own sequence fields.
+	Health []*endpoint.SourceHealth
 }
 
 // EndpointResult summarizes the pass.
@@ -70,6 +74,16 @@ type EndpointResult struct {
 	// at most MaxMatches; MatchesOmitted counts the ones past the bound.
 	Matches        []Match `json:"matches,omitempty"`
 	MatchesOmitted int     `json:"matches_omitted,omitempty"`
+
+	// Per-kind, per-host coverage and the collection health behind it
+	// (coverage.go). CoverageStart/End stay the union for compatibility.
+	KindCoverage     []KindCoverage          `json:"kind_coverage,omitempty"`
+	Health           []endpoint.SourceHealth `json:"collection_health,omitempty"`
+	OutsideReasons   map[string]int          `json:"outside_coverage_reasons,omitempty"`
+	Decisions        []CoverageDecision      `json:"coverage_decisions,omitempty"`
+	DecisionsOmitted int                     `json:"coverage_decisions_omitted,omitempty"`
+	// WindowMS is the match window the pass used.
+	WindowMS int64 `json:"window_ms,omitempty"`
 }
 
 // Endpoint correlates events in place and returns findings.
@@ -77,7 +91,7 @@ func Endpoint(events []schema.Event, records []endpoint.Record, opts EndpointOpt
 	if opts.Window <= 0 {
 		opts.Window = 3 * time.Second
 	}
-	res := &EndpointResult{Records: len(records)}
+	res := &EndpointResult{Records: len(records), WindowMS: opts.Window.Milliseconds()}
 	// Cloud audit records are a different witness with its own window and
 	// its own rules: they never contradict a command (the export may cover
 	// another account), and they must not widen the host telemetry's
@@ -117,6 +131,14 @@ func Endpoint(events []schema.Event, records []endpoint.Record, opts EndpointOpt
 			host = append(host, r)
 		}
 	}
+	healthBy, healthList := sourceHealth(records, opts.Health)
+	res.Health = healthList
+	// Sightings and context records are listed per kind too, as not
+	// counting towards coverage (a context bound shows there as PARTIAL).
+	listed := make([]endpoint.Record, 0, len(sightings)+len(ctx))
+	listed = append(append(listed, sightings...), ctx...)
+	cov := buildCoverage(records, host, listed, healthBy)
+	res.KindCoverage = cov.Entries()
 	findings := endpointHost(events, host, opts, res)
 	findings = append(findings, windowsPass(events, host, ctx, opts, res)...)
 	findings = append(findings, cloudPass(events, cloud, res)...)
@@ -154,8 +176,19 @@ func endpointHost(events []schema.Event, records []endpoint.Record, opts Endpoin
 			continue
 		}
 		res.ToolCalls++
+		needs := "process"
+		switch {
+		case ev.Command != "":
+		case ev.NetworkDest != "":
+			needs = "network"
+		default:
+			needs = "file"
+		}
+		assess := AssessCoverage(res.KindCoverage, ev.Host, needs, t, opts.Window)
 		if t.Before(res.CoverageStart.Add(-opts.Window)) || t.After(res.CoverageEnd.Add(opts.Window)) {
 			res.OutsideCover++
+			res.outside(CoverOutside)
+			res.decide(ev, needs, Assessment{Coverage: CoverOutside, Reason: "outside the time range of all endpoint telemetry"})
 			continue
 		}
 		lo, hi := t.Add(-opts.Window), t.Add(opts.Window)
@@ -177,12 +210,25 @@ func endpointHost(events []schema.Event, records []endpoint.Record, opts Endpoin
 			ev.Summary = appendNote(ev.Summary, fmt.Sprintf("corroborated by %s %s (%s)", r.Source, r.Kind, r.Ref))
 			addMatch(res, "endpoint", ev, r, bestScore, opts.Window, pids.relatedOf(records, best))
 			res.Corroborated++
+			res.decide(ev, needs, assess)
 			continue
 		}
+		res.decide(ev, needs, assess)
 		if ev.Command == "" {
-			continue // file/network-only calls without a match stay OBSERVED (telemetry may not cover that kind)
+			continue // file/network-only calls without a match stay OBSERVED (telemetry may not record every file or connection)
 		}
-		if !hasKind(records, "process") {
+		// Only process telemetry that covers this host at this time, with
+		// no sign of missed events, can disprove a command.
+		switch assess.Coverage {
+		case CoverHealthy, CoverUnverified:
+		case CoverPartial:
+			res.OutsideCover++
+			res.outside(assess.Coverage)
+			ev.Summary = appendNote(ev.Summary, "not checked for absence: "+assess.Reason)
+			continue
+		default:
+			res.OutsideCover++
+			res.outside(assess.Coverage)
 			continue
 		}
 		ev.Corroboration = schema.StateContradicted
@@ -278,6 +324,23 @@ func endpointHost(events []schema.Event, records []endpoint.Record, opts Endpoin
 	}
 	findings = append(findings, macOSRules(events, records, lineage)...)
 	return findings
+}
+
+// outside counts a tool call left unchecked, by reason.
+func (res *EndpointResult) outside(reason string) {
+	if res.OutsideReasons == nil {
+		res.OutsideReasons = map[string]int{}
+	}
+	res.OutsideReasons[reason]++
+}
+
+// decide records the coverage decision for one checked tool call.
+func (res *EndpointResult) decide(ev *schema.Event, needs string, a Assessment) {
+	if len(res.Decisions) >= maxDecisions {
+		res.DecisionsOmitted++
+		return
+	}
+	res.Decisions = append(res.Decisions, CoverageDecision{EventID: ev.EventID, Needs: needs, Host: ev.Host, Coverage: a.Coverage, Reason: a.Reason, Sources: a.Sources})
 }
 
 // score rates how well an endpoint record explains a tool call: 0 = no.

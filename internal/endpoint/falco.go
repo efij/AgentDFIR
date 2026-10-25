@@ -140,6 +140,7 @@ func loadFalco(path string) (*LoadResult, error) {
 			res.notice(fmt.Sprintf("Falco (third-party detection, not an AgentDFIR finding): rule %q [%s] first at %s: %s",
 				rule, prio, t.Format("2006-01-02T15:04:05Z"), trimText(leaf(doc, "output"), 240)))
 		}
+		r.Host = leaf(doc, "hostname")
 		res.Records = append(res.Records, r)
 	})
 	unsup.flush(res, "Falco plugin events are not host telemetry; import that source's own log instead")

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/efij/AgentDFIR/v4/internal/analysis"
+	"github.com/efij/AgentDFIR/v4/internal/correlate"
 	"github.com/efij/AgentDFIR/v4/internal/endpoint"
 	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
@@ -21,7 +22,10 @@ import (
 // every scenario is held to the contract:
 //
 //	CONFIRMED (CORROBORATED)  only with a second-witness record behind it
-//	DISPROVED (CONTRADICTED)  only on endpoint or host-witness evidence
+//	DISPROVED (CONTRADICTED)  only on endpoint or host-witness evidence, and
+//	                          only where the kind of telemetry the claim
+//	                          needs covers its host and time HEALTHY or
+//	                          UNKNOWN (never PARTIAL, never uncovered)
 //	CLAIMED narrative         never promoted, whatever the telemetry says
 type Evidence struct {
 	Scenarios          []string     `json:"scenarios"`
@@ -157,6 +161,35 @@ func stateScenarios() []stateScenario {
 			},
 		},
 		{
+			// The audit serial skips numbers around the first call: the
+			// kernel or auditd lost events there, so a missing process at
+			// that time proves nothing. The second call falls where the
+			// serial is contiguous again and is still checked.
+			name: "partial-collection", witness: "auditd execve log with an audit-serial gap",
+			build: func(profile, logs string) (string, error) {
+				s := newSession("aaaaaaaa-0006-4000-8000-000000000006", t0)
+				s.user(0, "test and lint")
+				s.bash(15, "pytest -q", "12 passed")
+				s.bash(45, "golangci-lint run", "ok")
+				if _, err := s.write(profile); err != nil {
+					return "", err
+				}
+				var a auditd
+				a.exec(sec(1), 4400, 1, "/usr/local/bin/node", "node", "/usr/local/lib/node_modules/@anthropic-ai/claude-code/cli.js")
+				a.exec(sec(10), 4401, 4400, "/usr/bin/uname", "uname", "-a")
+				a.serial += 6 // six events never written
+				a.exec(sec(20), 4402, 4400, "/usr/bin/id", "id", "-u")
+				a.exec(sec(40), 4403, 4400, "/usr/bin/git", "git", "status")
+				a.exec(sec(50), 4404, 4400, "/usr/bin/git", "git", "diff")
+				p := filepath.Join(logs, "audit.log")
+				return p, os.WriteFile(p, []byte(a.text()), 0o644)
+			},
+			wants: []stateWant{
+				{"Bash `pytest -q` inside the serial gap", toolCall("pytest -q"), schema.StateObserved},
+				{"Bash `golangci-lint run` where the serial is contiguous, no process", toolCall("golangci-lint run"), schema.StateContradicted},
+			},
+		},
+		{
 			name: "no-telemetry", witness: "none",
 			build: func(profile, _ string) (string, error) {
 				s := newSession("aaaaaaaa-0004-4000-8000-000000000004", t0)
@@ -243,7 +276,11 @@ func runEvidence(r *Report, work string, prov *provenanceChecker) error {
 			counts[schema.Label(e.Corroboration)]++
 		}
 		ev.Events += len(a.events)
-		for _, v := range contractViolations(a.events, telemetry != "") {
+		vs := contractViolations(a.events, telemetry != "")
+		if a.result != nil {
+			vs = append(vs, coverageViolations(a.events, a.result.Correlation)...)
+		}
+		for _, v := range vs {
 			ev.ContractViolations = append(ev.ContractViolations, sc.name+": "+v)
 			r.fail("evidence states: %s: %s", sc.name, v)
 		}
@@ -274,6 +311,36 @@ func contractViolations(events []schema.Event, hadEndpoint bool) []string {
 			if !byEndpoint && e.WitnessNote == "" {
 				out = append(out, fmt.Sprintf("event %s (%s) is DISPROVED with no endpoint or host-witness evidence", e.EventID, e.EventType))
 			}
+		}
+	}
+	return out
+}
+
+// coverageViolations holds every DISPROVED event to the coverage rule: the
+// correlation's own decision for it must say the kind of telemetry the
+// claim needs covered its host and time, HEALTHY or UNKNOWN. A DISPROVED
+// event with no decision at all is a violation too (nothing shows the
+// coverage was checked), unless a host witness disproved it.
+func coverageViolations(events []schema.Event, c *correlate.EndpointResult) []string {
+	dec := map[string]correlate.CoverageDecision{}
+	if c != nil {
+		for _, d := range c.Decisions {
+			dec[d.EventID] = d
+		}
+	}
+	var out []string
+	for _, e := range events {
+		if e.Corroboration != schema.StateContradicted || !strings.Contains(e.Summary, "endpoint telemetry") {
+			continue
+		}
+		d, ok := dec[e.EventID]
+		switch {
+		case !ok && c != nil && c.DecisionsOmitted > 0:
+			// past the decision bound: not checkable here
+		case !ok:
+			out = append(out, fmt.Sprintf("event %s is DISPROVED by endpoint telemetry with no coverage decision behind it", e.EventID))
+		case d.Coverage != correlate.CoverHealthy && d.Coverage != correlate.CoverUnverified:
+			out = append(out, fmt.Sprintf("event %s is DISPROVED although its %s coverage is %s (%s)", e.EventID, d.Needs, d.Coverage, d.Reason))
 		}
 	}
 	return out

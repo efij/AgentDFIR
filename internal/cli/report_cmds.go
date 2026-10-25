@@ -31,6 +31,9 @@ func cmdReport(args []string) int {
 	if isRSMFReport(args) {
 		return cmdReportRSMF(args)
 	}
+	if isProofReport(args) {
+		return cmdReportProof(args)
+	}
 	fs := flag.NewFlagSet("report", flag.ContinueOnError)
 	format := fs.String("format", "html", "html|pdf|json|csv|stix|otel|ocsf|sarif|timesketch|l2tcsv|all")
 	outDir := fs.String("out", "", "output directory (default: <package>/reports)")
@@ -38,7 +41,7 @@ func cmdReport(args []string) int {
 	// people type it; `report --format x pkg` is how flag parsing wants it.
 	pkg, rest := splitPositional(args)
 	if err := fs.Parse(rest); err != nil || (pkg == "" && fs.NArg() != 1) || (pkg != "" && fs.NArg() != 0) {
-		fmt.Fprintln(os.Stderr, "usage: agentdfir report <package-dir> [--format html|pdf|json|csv|stix|otel|ocsf|sarif|timesketch|l2tcsv|all] [--out dir]\n       agentdfir report <package-dir> --format rsmf [--out dir] [--session ID ...] [--redact ...]")
+		fmt.Fprintln(os.Stderr, "usage: agentdfir report <package-dir> [--format html|pdf|json|csv|stix|otel|ocsf|sarif|timesketch|l2tcsv|all] [--out dir]\n       agentdfir report <package-dir> --format rsmf [--out dir] [--session ID ...] [--redact ...]\n       agentdfir report <package-dir> --format proof [--json] [--session ID]")
 		return 2
 	}
 	if pkg == "" {

@@ -141,6 +141,28 @@ func loadJournal(path string) (*LoadResult, error) {
 		msg := journalMessage(doc["MESSAGE"])
 		prog := strings.ToLower(firstNonEmpty(leaf(doc, "SYSLOG_IDENTIFIER"), leaf(doc, "_COMM")))
 		emitted := false
+		n0 := len(res.Records)
+		host := leaf(doc, "_HOSTNAME")
+		// __SEQNUM counts entries within one journal (__SEQNUM_ID). A
+		// filtered export (journalctl -u …) skips numbers by design, so a
+		// journal export is only HEALTHY when it is unfiltered; journal
+		// records are corroborate-only either way.
+		domain := ""
+		if sn, err := strconv.ParseUint(leaf(doc, "__SEQNUM"), 10, 64); err == nil && sn > 0 {
+			domain = "journald/" + firstNonEmpty(leaf(doc, "__SEQNUM_ID"), host, baseName(path))
+			res.seqObserve(domain, sn, t, true)
+			defer func() {
+				for i := n0; i < len(res.Records); i++ {
+					res.Records[i].Seq, res.Records[i].SeqDomain = sn, domain
+					res.seqKind(domain, res.Records[i].Kind)
+				}
+			}()
+		}
+		defer func() {
+			for i := n0; i < len(res.Records); i++ {
+				res.Records[i].Host = host
+			}
+		}()
 		if rs := authRecords(prog, msg, pid, t, ref, "journald"); len(rs) > 0 {
 			res.Records = append(res.Records, rs...)
 			emitted = true

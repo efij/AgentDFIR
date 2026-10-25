@@ -198,6 +198,14 @@ func (p *ESParser) Line(line []byte, ref string) (rec Record, ok bool) {
 	}
 	p.types[typ]++
 	ts, tok := parseTime(m.Time)
+	// Sequence numbers are tracked for every message, mapped or not, so a
+	// type the adapter skips (close without modification) is not a gap.
+	if m.SeqNum != nil {
+		p.res.seqObserve("eslogger/"+typ, *m.SeqNum, ts, false)
+	}
+	if m.GlobalSeqNum != nil {
+		p.res.seqObserve("eslogger"+seqDomainGlobal, *m.GlobalSeqNum, ts, false)
+	}
 	if !tok {
 		p.res.problem(ref + ": no recognizable timestamp")
 		return Record{}, false
@@ -225,6 +233,7 @@ func (p *ESParser) Line(line []byte, ref string) (rec Record, ok bool) {
 		return Record{}, false
 	}
 	p.res.Records = append(p.res.Records, r)
+	p.res.seqKind(r.SeqDomain, r.Kind)
 	return r, true
 }
 

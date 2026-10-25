@@ -78,6 +78,7 @@ func loadBpftrace(path string) (*LoadResult, error) {
 		}
 	})
 	if lost > 0 {
+		res.dropSignal(DropSignal{Signal: "lost-events", Count: lost, Detail: "bpftrace reported lost events (kernel ring buffer full); not placed in time"})
 		res.note(fmt.Sprintf("bpftrace reported %d lost event(s): the trace is incomplete", lost))
 	}
 	unsup.flush(res, "outside the bpftrace event field contract (time, pid, comm|exe|args; see docs/linux-telemetry.md)")

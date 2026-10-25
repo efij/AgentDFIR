@@ -107,6 +107,13 @@ type Record struct {
 	// Message is the raw text of a log record kept for the timeline
 	// (kind log, macOS unified log), bounded.
 	Message string `json:"message,omitempty"`
+	// Host is the machine the source says recorded the event (EVTX
+	// Computer, Tetragon node_name, Falco hostname, journald _HOSTNAME).
+	// Empty when the source does not name it.
+	Host string `json:"host,omitempty"`
+	// Origin is the file the record was loaded from. In memory only:
+	// coverage and collection health are computed per source file.
+	Origin string `json:"-"`
 }
 
 // Format names an adapter.
@@ -147,6 +154,13 @@ type LoadResult struct {
 	// mapping for), keyed by that type. Counted and reported, never
 	// silently dropped.
 	Unsupported map[string]int
+
+	// Health is the collection-health report for the file (health.go).
+	Health *SourceHealth
+
+	seqs         *seqTracker
+	drops        []DropSignal
+	dropsOmitted int
 }
 
 // Load reads one endpoint log with the given (or sniffed) format.
@@ -191,6 +205,13 @@ func Load(path string, f Format) (*LoadResult, error) {
 	}
 	res.Format = f
 	sort.SliceStable(res.Records, func(i, j int) bool { return res.Records[i].Time.Before(res.Records[j].Time) })
+	for i := range res.Records {
+		res.Records[i].Origin = path
+	}
+	res.Health = res.health(path)
+	if sum, err := FileSHA256(path); err == nil {
+		res.Health.SHA256 = sum
+	}
 	return res, nil
 }
 

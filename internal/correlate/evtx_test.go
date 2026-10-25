@@ -66,7 +66,7 @@ func TestEVTXCorroboratesLikeSysmonXML(t *testing.T) {
 	if !strings.Contains(ee[0].Summary, "corroborated by sysmon process (sysmon:1 (record 77))") {
 		t.Fatalf("evidence note: %q", ee[0].Summary)
 	}
-	if !reflect.DeepEqual(xe, ee) || !reflect.DeepEqual(xr, er) || !reflect.DeepEqual(xf, ef) {
+	if !reflect.DeepEqual(xe, ee) || !reflect.DeepEqual(stripProvenance(xr), stripProvenance(er)) || !reflect.DeepEqual(xf, ef) {
 		t.Fatalf("xml and evtx disagree:\nxml  %+v\n%+v\n%+v\nevtx %+v\n%+v\n%+v", xe, xr, xf, ee, er, ef)
 	}
 }
@@ -92,4 +92,33 @@ func TestScriptBlocksCorroborateOnly(t *testing.T) {
 	if events[1].Corroboration != schema.StateObserved || len(f) != 0 || res.Contradicted != 0 || res.ScriptCorroborated != 1 || !res.CoverageStart.IsZero() {
 		t.Fatalf("script/service/log-clear records must not contradict or create coverage: %+v %+v %+v", events[1], res, f)
 	}
+}
+
+// stripProvenance clears what only says where records came from and how
+// complete their source is (file, record-id domain, computer name and the
+// coverage/health built from them), so two input formats of the same
+// events can be compared on the correlation itself.
+func stripProvenance(r *EndpointResult) *EndpointResult {
+	cp := *r
+	cp.KindCoverage, cp.Health, cp.Decisions = nil, nil, nil
+	strip := func(rec *endpoint.Record) { rec.Seq, rec.SeqDomain, rec.Host, rec.Origin = 0, "", "", "" }
+	cp.Matches = append([]Match(nil), r.Matches...)
+	for i := range cp.Matches {
+		strip(&cp.Matches[i].Record)
+		cp.Matches[i].SourceFile = ""
+		cp.Matches[i].Related = append([]RelatedRecord(nil), cp.Matches[i].Related...)
+		for j := range cp.Matches[i].Related {
+			strip(&cp.Matches[i].Related[j].Record)
+			cp.Matches[i].Related[j].SourceFile = ""
+		}
+	}
+	return &cp
+}
+
+func stripRecords(rs []endpoint.Record) []endpoint.Record {
+	out := append([]endpoint.Record(nil), rs...)
+	for i := range out {
+		out[i].Seq, out[i].SeqDomain, out[i].Host, out[i].Origin = 0, "", "", ""
+	}
+	return out
 }

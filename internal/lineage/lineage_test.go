@@ -132,7 +132,8 @@ func TestChainFromHumanToNetworkWithBases(t *testing.T) {
 func TestNoEdgeFromTimeProximity(t *testing.T) {
 	g, _ := Build(fixture(), Options{})
 	allowed := map[string]bool{BasisHumanPrompt: true, BasisSpawnMatch: true, BasisSpawnRecord: true, BasisParentID: true, BasisAgentID: true,
-		BasisNamedDest: true, BasisNamedFile: true, BasisNamedMCP: true, BasisEndpointPID: true, BasisEndpointPPID: true}
+		BasisNamedDest: true, BasisNamedFile: true, BasisNamedMCP: true, BasisEndpointPID: true, BasisEndpointPPID: true,
+		BasisOutcomeRecord: true, BasisOutcomeWitness: true}
 	for _, ed := range g.Edges {
 		head := ed.Basis
 		if i := strings.Index(head, ";"); i >= 0 {
