@@ -356,6 +356,21 @@ func FuzzOpen(f *testing.F) {
 		f.Add(uint8(i), uint32(11), []byte{0x00, 0x02, 0x01})
 		f.Add(uint8(i), uint32(0x60), []byte{0xff, 0xff, 0xff, 0x0f})
 	}
+	// Crafted LFN runs (stray sequence-0 fragments) over each FAT root.
+	for i, b := range bases[:3] {
+		g, err := parseBoot(b[:512])
+		if err != nil {
+			f.Fatal(err)
+		}
+		root := g.rootOff
+		if g.kind == "fat32" {
+			root = g.dataOff + int64(g.rootCluster-2)*g.clusterSize
+		}
+		for _, s := range craftedLFNSeeds() {
+			f.Add(uint8(i), uint32(root), s)
+			f.Add(uint8(i), uint32(root+64), s)
+		}
+	}
 	f.Fuzz(func(t *testing.T, which uint8, off uint32, patch []byte) {
 		base := bases[int(which)%len(bases)]
 		pr := &patched{base: base, off: int64(off) % int64(len(base)), patch: patch}

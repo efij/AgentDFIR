@@ -230,7 +230,12 @@ func (s *superblock) fsName() string {
 }
 
 // Probe reports whether r holds an ext2/3/4 superblock.
-func Probe(r io.ReaderAt, size int64) bool {
+func Probe(r io.ReaderAt, size int64) (ok bool) {
+	defer func() {
+		if recover() != nil {
+			ok = false
+		}
+	}()
 	if r == nil || size < sbOffset+1024 {
 		return false
 	}
@@ -256,7 +261,7 @@ type FS struct {
 	groups []group
 
 	mu       sync.Mutex
-	dirCache map[uint32][]dirent
+	dirCache map[uint32]*dirList
 	cached   int
 	counted  map[uint32]bool
 	cycles   map[[2]uint32]bool
@@ -267,7 +272,8 @@ type FS struct {
 
 // Open parses the superblock and group descriptors of the ext filesystem in
 // r (size bytes long) and returns it as an fs.FS.
-func Open(r io.ReaderAt, size int64) (fs.FS, error) {
+func Open(r io.ReaderAt, size int64) (_ fs.FS, err error) {
+	defer guard("open", ".", &err)
 	if r == nil || size < sbOffset+1024 {
 		return nil, corrupt("image too small (%d bytes)", size)
 	}
@@ -295,7 +301,7 @@ func Open(r io.ReaderAt, size int64) (fs.FS, error) {
 	}
 	f := &FS{
 		r: r, size: size, sb: sb,
-		dirCache: map[uint32][]dirent{},
+		dirCache: map[uint32]*dirList{},
 		counted:  map[uint32]bool{},
 		stats:    map[string]int64{"deleted_entries": 0, "unsupported_entries": 0, "corrupt_entries": 0, "dirs_read": 0},
 		cycles:   map[[2]uint32]bool{},
@@ -926,7 +932,7 @@ func (f *FS) slackDeleted(gap []byte) int {
 }
 
 // entries returns the live entries of directory inode in (unsorted).
-func (f *FS) entries(in *inode) ([]dirent, error) {
+func (f *FS) entries(in *inode) (*dirList, error) {
 	if in.flags&flagEncrypt != 0 {
 		return nil, unsupported("fscrypt-encrypted directory (inode %d)", in.ino)
 	}
@@ -985,11 +991,17 @@ func (f *FS) entries(in *inode) ([]dirent, error) {
 		}
 	}
 	if f.cached+len(out) > cacheLimit {
-		f.dirCache, f.cached = map[uint32][]dirent{}, 0
+		f.dirCache, f.cached = map[uint32]*dirList{}, 0
 	}
-	f.dirCache[in.ino] = out
+	dl := &dirList{ents: out, idx: make(map[string]uint32, len(out))}
+	for _, e := range out {
+		if _, ok := dl.idx[e.name]; !ok {
+			dl.idx[e.name] = e.ino
+		}
+	}
+	f.dirCache[in.ino] = dl
 	f.cached += len(out)
-	return out, nil
+	return dl, nil
 }
 
 // ---- fs.FS ----
@@ -1017,17 +1029,11 @@ func (f *FS) lookup(op, name string) (*inode, map[uint32]bool, error) {
 		if !in.isDir() {
 			return nil, nil, &fs.PathError{Op: op, Path: name, Err: fmt.Errorf("%w: not a directory", fs.ErrNotExist)}
 		}
-		ents, err := f.entries(in)
+		dl, err := f.entries(in)
 		if err != nil {
 			return nil, nil, &fs.PathError{Op: op, Path: name, Err: err}
 		}
-		var next uint32
-		for _, e := range ents {
-			if e.name == p {
-				next = e.ino
-				break
-			}
-		}
+		next := dl.idx[p]
 		if next == 0 {
 			return nil, nil, &fs.PathError{Op: op, Path: name, Err: fs.ErrNotExist}
 		}
@@ -1161,7 +1167,8 @@ func baseName(name string) string {
 
 // Open opens the named file or directory. Symlinks are not followed: the
 // returned file reports fs.ModeSymlink and its Read fails.
-func (f *FS) Open(name string) (fs.File, error) {
+func (f *FS) Open(name string) (_ fs.File, err error) {
+	defer guard("open", name, &err)
 	in, anc, err := f.lookup("open", name)
 	if err != nil {
 		return nil, err
@@ -1185,7 +1192,8 @@ func (f *FS) Open(name string) (fs.File, error) {
 }
 
 // Stat returns the FileInfo of name without following symlinks.
-func (f *FS) Stat(name string) (fs.FileInfo, error) {
+func (f *FS) Stat(name string) (_ fs.FileInfo, err error) {
+	defer guard("stat", name, &err)
 	in, _, err := f.lookup("stat", name)
 	if err != nil {
 		return nil, err
@@ -1194,7 +1202,8 @@ func (f *FS) Stat(name string) (fs.FileInfo, error) {
 }
 
 // ReadLink returns the target of the named symlink without resolving it.
-func (f *FS) ReadLink(name string) (string, error) {
+func (f *FS) ReadLink(name string) (_ string, err error) {
+	defer guard("readlink", name, &err)
 	in, _, err := f.lookup("readlink", name)
 	if err != nil {
 		return "", err
@@ -1210,7 +1219,8 @@ func (f *FS) ReadLink(name string) (string, error) {
 }
 
 // ReadDir returns the entries of the named directory sorted by name.
-func (f *FS) ReadDir(name string) ([]fs.DirEntry, error) {
+func (f *FS) ReadDir(name string) (_ []fs.DirEntry, err error) {
+	defer guard("readdir", name, &err)
 	in, anc, err := f.lookup("readdir", name)
 	if err != nil {
 		return nil, err
@@ -1222,13 +1232,14 @@ func (f *FS) readDir(name string, in *inode, anc map[uint32]bool) ([]fs.DirEntry
 	if !in.isDir() {
 		return nil, &fs.PathError{Op: "readdir", Path: name, Err: errors.New("not a directory")}
 	}
-	ents, err := f.entries(in)
+	dl, err := f.entries(in)
 	if err != nil {
 		if errors.Is(err, errors.ErrUnsupported) {
 			f.bump("unsupported_entries", 1)
 		}
 		return nil, &fs.PathError{Op: "readdir", Path: name, Err: err}
 	}
+	ents := dl.ents
 	if err := f.spend(len(ents)); err != nil {
 		return nil, &fs.PathError{Op: "readdir", Path: name, Err: err}
 	}
@@ -1303,7 +1314,8 @@ func (e *dirEntry) Type() fs.FileMode {
 	return fs.ModeIrregular
 }
 
-func (e *dirEntry) Info() (fs.FileInfo, error) {
+func (e *dirEntry) Info() (_ fs.FileInfo, err error) {
+	defer guard("stat", e.d.name, &err)
 	e.once.Do(func() {
 		in, err := e.f.readInode(e.d.ino)
 		if err != nil {
@@ -1332,19 +1344,21 @@ func (fl *file) Close() error {
 	return nil
 }
 
-func (fl *file) Read(p []byte) (int, error) {
+func (fl *file) Read(p []byte) (n int, err error) {
+	defer guard("read", fl.path, &err)
 	if fl.closed {
 		return 0, &fs.PathError{Op: "read", Path: fl.path, Err: fs.ErrClosed}
 	}
 	if fl.special {
 		return 0, &fs.PathError{Op: "read", Path: fl.path, Err: errors.New("not a regular file")}
 	}
-	n, err := fl.d.ReadAt(p, fl.off)
+	n, err = fl.d.ReadAt(p, fl.off)
 	fl.off += int64(n)
 	return n, err
 }
 
-func (fl *file) ReadAt(p []byte, off int64) (int, error) {
+func (fl *file) ReadAt(p []byte, off int64) (n int, err error) {
+	defer guard("read", fl.path, &err)
 	if fl.closed || fl.special {
 		return 0, &fs.PathError{Op: "read", Path: fl.path, Err: fs.ErrInvalid}
 	}
@@ -1392,7 +1406,8 @@ func (d *dirFile) Read([]byte) (int, error) {
 	return 0, &fs.PathError{Op: "read", Path: d.path, Err: errors.New("is a directory")}
 }
 
-func (d *dirFile) ReadDir(n int) ([]fs.DirEntry, error) {
+func (d *dirFile) ReadDir(n int) (_ []fs.DirEntry, err error) {
+	defer guard("readdir", d.path, &err)
 	if d.close {
 		return nil, &fs.PathError{Op: "readdir", Path: d.path, Err: fs.ErrClosed}
 	}

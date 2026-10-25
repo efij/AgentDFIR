@@ -229,7 +229,12 @@ func parseExFAT(b []byte) (*geometry, error) {
 }
 
 // Probe reports whether r starts with a FAT12/16/32 or exFAT boot sector.
-func Probe(r io.ReaderAt, size int64) bool {
+func Probe(r io.ReaderAt, size int64) (ok bool) {
+	defer func() {
+		if recover() != nil {
+			ok = false
+		}
+	}()
 	if r == nil || size < 512 {
 		return false
 	}
@@ -272,7 +277,7 @@ type FS struct {
 	fatPos int64
 
 	mu        sync.Mutex
-	dirCache  map[uint64][]*entry
+	dirCache  map[uint64]*dirList
 	cached    int
 	counted   map[uint64]bool
 	stats     map[string]int64
@@ -284,7 +289,8 @@ type FS struct {
 
 // Open parses the boot sector of the FAT or exFAT filesystem in r (size
 // bytes long) and returns it as an fs.FS.
-func Open(r io.ReaderAt, size int64) (fs.FS, error) {
+func Open(r io.ReaderAt, size int64) (_ fs.FS, err error) {
+	defer guard("open", ".", &err)
 	if r == nil || size < 512 {
 		return nil, corrupt("image too small (%d bytes)", size)
 	}
@@ -306,7 +312,7 @@ func Open(r io.ReaderAt, size int64) (fs.FS, error) {
 	}
 	f := &FS{
 		r: r, size: size, g: g,
-		dirCache:  map[uint64][]*entry{},
+		dirCache:  map[uint64]*dirList{},
 		counted:   map[uint64]bool{},
 		stats:     map[string]int64{"deleted_entries": 0, "corrupt_entries": 0, "dirs_read": 0},
 		cycles:    map[[2]uint64]bool{},
@@ -631,7 +637,9 @@ func (f *FS) parseFAT(buf []byte, base func(int) uint64, st map[string]int64) []
 				}
 				lfn, lfnNext, lfnSum = make([]uint16, seq*13), seq, e[13]
 			}
-			if lfn == nil || seq != lfnNext || e[13] != lfnSum {
+			// seq 0 would match lfnNext once a run is complete: reject it and
+			// anything outside the allocated run before indexing.
+			if lfn == nil || seq == 0 || seq*13 > len(lfn) || seq != lfnNext || e[13] != lfnSum {
 				lfn = nil
 				continue
 			}
@@ -819,7 +827,7 @@ func (f *FS) exEntry(set []byte, pos uint64) (*entry, bool) {
 }
 
 // entries returns the live entries of directory d (unsorted).
-func (f *FS) entries(d *entry) ([]*entry, error) {
+func (f *FS) entries(d *entry) (*dirList, error) {
 	if !d.dir {
 		return nil, errors.New("not a directory")
 	}
@@ -864,11 +872,12 @@ func (f *FS) entries(d *entry) ([]*entry, error) {
 		}
 	}
 	if f.cached+len(out) > cacheLimit {
-		f.dirCache, f.cached = map[uint64][]*entry{}, 0
+		f.dirCache, f.cached = map[uint64]*dirList{}, 0
 	}
-	f.dirCache[dirKey(d)] = out
+	dl := newDirList(out)
+	f.dirCache[dirKey(d)] = dl
 	f.cached += len(out)
-	return out, nil
+	return dl, nil
 }
 
 // Stats returns counters accumulated while directories were read:
@@ -929,25 +938,11 @@ func (f *FS) lookup(op, name string) (*entry, map[uint64]bool, error) {
 		if !cur.dir {
 			return nil, nil, &fs.PathError{Op: op, Path: name, Err: fmt.Errorf("%w: not a directory", fs.ErrNotExist)}
 		}
-		ents, err := f.entries(cur)
+		dl, err := f.entries(cur)
 		if err != nil {
 			return nil, nil, &fs.PathError{Op: op, Path: name, Err: err}
 		}
-		var next *entry
-		for _, e := range ents {
-			if e.name == p {
-				next = e
-				break
-			}
-		}
-		if next == nil {
-			for _, e := range ents {
-				if strings.EqualFold(e.name, p) {
-					next = e
-					break
-				}
-			}
-		}
+		next := dl.find(p)
 		if next == nil {
 			return nil, nil, &fs.PathError{Op: op, Path: name, Err: fs.ErrNotExist}
 		}
@@ -1057,7 +1052,8 @@ func baseName(name string) string {
 }
 
 // Open opens the named file or directory.
-func (f *FS) Open(name string) (fs.File, error) {
+func (f *FS) Open(name string) (_ fs.File, err error) {
+	defer guard("open", name, &err)
 	e, anc, err := f.lookup("open", name)
 	if err != nil {
 		return nil, err
@@ -1074,7 +1070,8 @@ func (f *FS) Open(name string) (fs.File, error) {
 }
 
 // Stat returns the FileInfo of name.
-func (f *FS) Stat(name string) (fs.FileInfo, error) {
+func (f *FS) Stat(name string) (_ fs.FileInfo, err error) {
+	defer guard("stat", name, &err)
 	e, _, err := f.lookup("stat", name)
 	if err != nil {
 		return nil, err
@@ -1083,7 +1080,8 @@ func (f *FS) Stat(name string) (fs.FileInfo, error) {
 }
 
 // ReadDir returns the entries of the named directory sorted by name.
-func (f *FS) ReadDir(name string) ([]fs.DirEntry, error) {
+func (f *FS) ReadDir(name string) (_ []fs.DirEntry, err error) {
+	defer guard("readdir", name, &err)
 	e, anc, err := f.lookup("readdir", name)
 	if err != nil {
 		return nil, err
@@ -1092,10 +1090,11 @@ func (f *FS) ReadDir(name string) ([]fs.DirEntry, error) {
 }
 
 func (f *FS) readDir(name string, d *entry, anc map[uint64]bool) ([]fs.DirEntry, error) {
-	ents, err := f.entries(d)
+	dl, err := f.entries(d)
 	if err != nil {
 		return nil, &fs.PathError{Op: "readdir", Path: name, Err: err}
 	}
+	ents := dl.ents
 	if err := f.spend(len(ents)); err != nil {
 		return nil, &fs.PathError{Op: "readdir", Path: name, Err: err}
 	}
@@ -1125,16 +1124,18 @@ func (fl *file) Close() error {
 	return nil
 }
 
-func (fl *file) Read(p []byte) (int, error) {
+func (fl *file) Read(p []byte) (n int, err error) {
+	defer guard("read", fl.path, &err)
 	if fl.closed {
 		return 0, &fs.PathError{Op: "read", Path: fl.path, Err: fs.ErrClosed}
 	}
-	n, err := fl.c.ReadAt(p, fl.off)
+	n, err = fl.c.ReadAt(p, fl.off)
 	fl.off += int64(n)
 	return n, err
 }
 
-func (fl *file) ReadAt(p []byte, off int64) (int, error) {
+func (fl *file) ReadAt(p []byte, off int64) (n int, err error) {
+	defer guard("read", fl.path, &err)
 	if fl.closed {
 		return 0, &fs.PathError{Op: "read", Path: fl.path, Err: fs.ErrClosed}
 	}
@@ -1182,7 +1183,8 @@ func (d *dirFile) Read([]byte) (int, error) {
 	return 0, &fs.PathError{Op: "read", Path: d.path, Err: errors.New("is a directory")}
 }
 
-func (d *dirFile) ReadDir(n int) ([]fs.DirEntry, error) {
+func (d *dirFile) ReadDir(n int) (_ []fs.DirEntry, err error) {
+	defer guard("readdir", d.path, &err)
 	if d.close {
 		return nil, &fs.PathError{Op: "readdir", Path: d.path, Err: fs.ErrClosed}
 	}
