@@ -1,0 +1,7 @@
+{
+  "verdict": "FAILED",
+  "description": "change case.json (operator and recorded signer), rewrite SHA256SUMS, re-sign with the forger's key",
+  "mutation": "rewrite-resealed-resigned",
+  "pubkey": "11e22664b88178f8036ef386c4550c85afed04d2e7fa8bdaf6b2b701c9eb0900",
+  "spec": "0.2"
+}

@@ -1,0 +1,6 @@
+{
+  "verdict": "FAILED",
+  "description": "remove a blob's line from SHA256SUMS",
+  "mutation": "sums-drop-raw-line",
+  "spec": "0.2"
+}

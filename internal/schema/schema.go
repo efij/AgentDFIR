@@ -81,7 +81,7 @@ type Event struct {
 	Summary        string `json:"summary,omitempty"` // short, sanitized extract
 	SourceArtifact string `json:"source_artifact"`   // artifact_id in the sealed zone
 	SourcePath     string `json:"source_logical_path,omitempty"`
-	SourceOffset   int64  `json:"source_offset"` // byte offset of the source line
+	SourceOffset   int64  `json:"source_offset"` // byte offset of the source line, or of the record within it
 	SourceLine     int    `json:"source_line"`
 	// SourceJSONPath is an RFC 6901 JSON Pointer to the value inside the
 	// source artifact this event was read from, for formats where a line

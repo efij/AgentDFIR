@@ -27,6 +27,7 @@ package genericchat
 // that happen to look like text in an encrypted blob are not evidence.
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -135,19 +136,72 @@ func (p *parser) parseContinueSession(data []byte, art casepkg.ArtifactRecord, c
 	meta.Summary = trim(strings.Join(parts, " "), 300)
 	p.emit(meta, art, 0, 0)
 
+	locs := continueItemLocs(data, len(items))
 	for i, raw := range items {
-		line := i + 1
+		loc := locs[i]
 		var it continueItem
 		if err := json.Unmarshal(raw, &it); err != nil || it.Message == nil {
-			p.gap(art, cfg, 0, line, "unrecognized Continue history item")
+			p.gap(art, cfg, loc.off, loc.line, "unrecognized Continue history item")
 			continue
 		}
-		p.continueItem(it, art, cfg, sid, cwd, line)
+		p.continueItem(it, art, cfg, sid, cwd, loc)
 	}
 	return nil
 }
 
-func (p *parser) continueItem(it continueItem, art casepkg.ArtifactRecord, cfg *productCfg, sid, cwd string, line int) {
+// srcLoc is where a history item starts in the session file: its line and
+// the byte offset of that line, the schema's source_line/source_offset.
+type srcLoc struct {
+	off  int64
+	line int
+}
+
+// continueItemLocs finds the start of each element of the top-level
+// "history" array. Items it cannot place (a file the decoder disagrees
+// with) cite line 1, the whole document, rather than a wrong line.
+func continueItemLocs(data []byte, n int) []srcLoc {
+	locs := make([]srcLoc, n)
+	for i := range locs {
+		locs[i] = srcLoc{0, 1}
+	}
+	dec := json.NewDecoder(bytes.NewReader(data))
+	if t, err := dec.Token(); err != nil || t != json.Delim('{') {
+		return locs
+	}
+	for dec.More() {
+		k, err := dec.Token()
+		if err != nil {
+			return locs
+		}
+		if k != "history" {
+			var skip json.RawMessage
+			if dec.Decode(&skip) != nil {
+				return locs
+			}
+			continue
+		}
+		if t, err := dec.Token(); err != nil || t != json.Delim('[') {
+			return locs
+		}
+		for i := 0; i < n && dec.More(); i++ {
+			start := int(dec.InputOffset())
+			for start < len(data) && (data[start] == ',' || data[start] == ' ' || data[start] == '\t' || data[start] == '\r' || data[start] == '\n') {
+				start++
+			}
+			lineStart := bytes.LastIndexByte(data[:start], '\n') + 1
+			locs[i] = srcLoc{int64(lineStart), bytes.Count(data[:start], []byte{'\n'}) + 1}
+			var skip json.RawMessage
+			if dec.Decode(&skip) != nil {
+				return locs
+			}
+		}
+		return locs
+	}
+	return locs
+}
+
+func (p *parser) continueItem(it continueItem, art casepkg.ArtifactRecord, cfg *productCfg, sid, cwd string, loc srcLoc) {
+	line := loc.line
 	msg := it.Message
 	mk := func() schema.Event {
 		ev := p.base(art, cfg, sid)
@@ -161,7 +215,7 @@ func (p *parser) continueItem(it continueItem, art casepkg.ArtifactRecord, cfg *
 		ev.EventType, ev.ActorType = schema.EventHumanPrompt, schema.ActorHuman
 		ev.Corroboration = schema.StateObserved
 		ev.Summary = trim(text, 200)
-		p.emit(ev, art, 0, line)
+		p.emit(ev, art, loc.off, line)
 	case "assistant", "thinking":
 		if text != "" {
 			ev := mk()
@@ -171,7 +225,7 @@ func (p *parser) continueItem(it continueItem, art casepkg.ArtifactRecord, cfg *
 				ev.Result = "thinking"
 			}
 			ev.Summary = trim(text, 200)
-			p.emit(ev, art, 0, line)
+			p.emit(ev, art, loc.off, line)
 		}
 	case "tool":
 		ev := mk()
@@ -179,20 +233,20 @@ func (p *parser) continueItem(it continueItem, art casepkg.ArtifactRecord, cfg *
 		ev.Corroboration = schema.StateObserved
 		ev.ToolCallID = msg.ToolCallID
 		ev.Summary = trim(text, 200)
-		p.emit(ev, art, 0, line)
+		p.emit(ev, art, loc.off, line)
 	case "system":
 		ev := mk()
 		ev.EventType, ev.ActorType = schema.EventSessionMeta, schema.ActorSystem
 		ev.Corroboration = schema.StateObserved
 		ev.Result = "system_message"
 		ev.Summary = trim(text, 200)
-		p.emit(ev, art, 0, line)
+		p.emit(ev, art, loc.off, line)
 	default:
 		ev := mk()
 		ev.EventType, ev.ActorType = schema.EventSessionMeta, schema.ActorSystem
 		ev.Corroboration = schema.StateObserved
 		ev.Result = "role:" + trim(msg.Role, 30)
-		p.emit(ev, art, 0, line)
+		p.emit(ev, art, loc.off, line)
 	}
 
 	// Context the user (or a provider) attached to the turn: files, URLs,
@@ -207,7 +261,7 @@ func (p *parser) continueItem(it continueItem, art casepkg.ArtifactRecord, cfg *
 			s += " " + c.URI.Value
 		}
 		ev.Summary = trim(s, 200)
-		p.emit(ev, art, 0, line)
+		p.emit(ev, art, loc.off, line)
 	}
 
 	// Tool calls: the per-call states carry the outcome; fall back to the
@@ -228,7 +282,7 @@ func (p *parser) continueItem(it continueItem, art casepkg.ArtifactRecord, cfg *
 		seen[tc.ID] = true
 		call := mk()
 		p.continueToolCall(&call, tc)
-		p.emit(call, art, 0, line)
+		p.emit(call, art, loc.off, line)
 		p.linkTool(call)
 		if st.Status != "" {
 			res := mk()
@@ -238,7 +292,7 @@ func (p *parser) continueItem(it continueItem, art casepkg.ArtifactRecord, cfg *
 			if len(st.Output) > 0 {
 				res.Summary = trim(fmt.Sprintf("%d output item(s): %s", len(st.Output), st.Output[0].Name), 200)
 			}
-			p.emit(res, art, 0, line)
+			p.emit(res, art, loc.off, line)
 		}
 	}
 	for _, tc := range msg.ToolCalls {
@@ -248,7 +302,7 @@ func (p *parser) continueItem(it continueItem, art casepkg.ArtifactRecord, cfg *
 		seen[tc.ID] = true
 		call := mk()
 		p.continueToolCall(&call, tc)
-		p.emit(call, art, 0, line)
+		p.emit(call, art, loc.off, line)
 		p.linkTool(call)
 	}
 }

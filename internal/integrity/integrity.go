@@ -196,3 +196,53 @@ func Finish(pkg string, s Signing, caseID string, round int, anchor bool) (Seale
 	}
 	return out, nil
 }
+
+// Check is what `agentdfir verify` found: the package verification and
+// the signature result, with every problem in Package.Problems.
+type Check struct {
+	Package   *casepkg.VerifyResult
+	Signature *seal.VerifyResult
+	SigErr    error
+}
+
+// VerifyPackage runs the full `agentdfir verify` check: every sealed file
+// and blob re-hashed, content addresses, both hash chains, and SEAL.sig
+// (pinned to pubkey when one is given).
+//
+// A signature that is missing is a problem when it was expected: when the
+// caller pinned a key, or when the round that wrote the current seal
+// recorded the key it was sealed for. Deleting SEAL.sig is otherwise a
+// silent downgrade from "signed" to "unsigned". A valid signature by a
+// different key is not a problem here unless a key is pinned, because
+// `agentdfir sign` legitimately re-signs a package; CheckPrior, which
+// guards adding a round, is stricter.
+func VerifyPackage(pkg, pubkey string) (*Check, error) {
+	res, err := casepkg.Verify(pkg)
+	if err != nil {
+		return nil, err
+	}
+	c := &Check{Package: res}
+	c.Signature, c.SigErr = seal.Verify(pkg, pubkey)
+	switch {
+	case c.SigErr != nil:
+	case c.Signature.Present && !c.Signature.Valid:
+		res.Problems = append(res.Problems, "SEAL.sig: "+c.Signature.Reason)
+	case !c.Signature.Present && pubkey != "":
+		res.Problems = append(res.Problems, "SEAL.sig: missing, but a signer key was pinned")
+	case !c.Signature.Present:
+		// Whether a signature was expected is read from case.json, which is
+		// itself sealed. If it cannot be read the question has no answer,
+		// and that is a problem in its own right, never a silent pass.
+		ci, err := casepkg.ReadCaseInfo(pkg)
+		if err != nil {
+			res.Problems = append(res.Problems, "SEAL.sig: missing, and case.json is unreadable, so whether the package was signed cannot be determined: "+err.Error())
+			break
+		}
+		if len(ci.Rounds) > 0 {
+			if last := ci.Rounds[len(ci.Rounds)-1]; last.Signer != "" {
+				res.Problems = append(res.Problems, fmt.Sprintf("SEAL.sig: missing, but round %d was sealed for key %s", last.Round, seal.Fingerprint(last.Signer)))
+			}
+		}
+	}
+	return c, nil
+}

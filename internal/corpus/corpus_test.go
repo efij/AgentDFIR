@@ -1,9 +1,6 @@
 package corpus
 
 import (
-	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,10 +9,7 @@ import (
 	"testing"
 
 	"github.com/efij/AgentDFIR/v3/internal/analysis"
-	"github.com/efij/AgentDFIR/v3/internal/casepkg"
 	"github.com/efij/AgentDFIR/v3/internal/catalog"
-	"github.com/efij/AgentDFIR/v3/internal/collector"
-	"github.com/efij/AgentDFIR/v3/internal/parsers/aiexport"
 	"github.com/efij/AgentDFIR/v3/internal/products"
 	"github.com/efij/AgentDFIR/v3/internal/schema"
 )
@@ -25,36 +19,8 @@ import (
 // passes here passes in the product.
 func analyseCase(t *testing.T, c Case) []schema.Finding {
 	t.Helper()
-	if c.Collect == CollectAIExport {
-		return analyseExportCase(t, c)
-	}
 	pkg := filepath.Join(t.TempDir(), "case.adfir")
-	b, err := casepkg.New(pkg, "CORPUS-"+c.Name, casepkg.CaseInfo{OperatorOSUser: "corpus"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer b.Close()
-	for _, pid := range c.ProductIDs() {
-		man, err := products.ManifestAllPlatforms(pid)
-		if err != nil || man == nil {
-			t.Fatalf("product %s: no manifest (%v)", pid, err)
-		}
-		prod, err := products.ByID(pid)
-		if err != nil {
-			t.Fatal(err)
-		}
-		configRoot := c.Dir
-		if len(prod.ConfigDirs) > 0 {
-			configRoot = filepath.Join(c.Dir, filepath.FromSlash(prod.ConfigDirs[0]))
-		}
-		if _, err := collector.Run(b, man, collector.Options{
-			ProfileRoot: c.Dir, ConfigRoot: configRoot,
-			SystemRoot: c.Dir, Product: pid,
-		}); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := b.Seal(); err != nil {
+	if err := BuildPackage(c, pkg, "CORPUS-"+c.Name, "corpus"); err != nil {
 		t.Fatal(err)
 	}
 	res, err := analysis.Run(pkg, analysis.Options{})
@@ -165,60 +131,6 @@ func TestEveryCaseExplainsItself(t *testing.T) {
 			t.Errorf("%s/%s: no profile for %v to collect", c.Kind, c.Name, c.ProductIDs())
 		}
 	}
-}
-
-// analyseExportCase seals a case's export/ tree the way
-// `collect --ai-export` does and runs the real analysis over it.
-func analyseExportCase(t *testing.T, c Case) []schema.Finding {
-	t.Helper()
-	root := t.TempDir()
-	src := filepath.Join(c.Dir, "export")
-	sum := sha256.Sum256([]byte("agentdfir corpus " + c.Name))
-	secret := "gh" + "p_" + hex.EncodeToString(sum[:])[:36]
-	err := filepath.Walk(src, func(p string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		rel, _ := filepath.Rel(src, p)
-		out := filepath.Join(root, rel)
-		if info.IsDir() {
-			return os.MkdirAll(out, 0o755)
-		}
-		data, err := os.ReadFile(p)
-		if err != nil {
-			return err
-		}
-		return os.WriteFile(out, bytes.ReplaceAll(data, []byte("@@RUNTIME_SECRET@@"), []byte(secret)), 0o644)
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	pl, err := aiexport.PlanTree(root, aiexport.PlanAll, nil)
-	if err != nil || !pl.Found() {
-		t.Fatalf("export not recognized: %v", err)
-	}
-	var specs []collector.FileSpec
-	for _, f := range pl.Files {
-		specs = append(specs, collector.FileSpec{Path: f.Path, Product: f.Product,
-			Entry: products.ManifestEntry{ID: f.Rule, Category: f.Type, Sensitivity: "high"}})
-	}
-	pkg := filepath.Join(t.TempDir(), "case.adfir")
-	b, err := casepkg.New(pkg, "CORPUS-"+c.Name, casepkg.CaseInfo{OperatorOSUser: "corpus"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer b.Close()
-	if _, err := collector.IngestFiles(b, specs, collector.Options{ProfileRoot: root, SystemRoot: root}); err != nil {
-		t.Fatal(err)
-	}
-	if err := b.Seal(); err != nil {
-		t.Fatal(err)
-	}
-	res, err := analysis.Run(pkg, analysis.Options{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	return res.Findings
 }
 
 // hasProfile reports whether a case directory holds a config directory of

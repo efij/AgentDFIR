@@ -29,6 +29,13 @@ jobs:
         run: go build -trimpath ./...
       - name: test
         run: go test -race ./...
+      # The synthetic benchmark's hard checks (detection, evidence states,
+      # provenance, tamper detection, compatibility, robustness). go test
+      # already ran the quick subset and, where python3 exists, the
+      # independent Python verifier against the conformance fixtures.
+      - name: benchmark (synthetic, no performance)
+        if: runner.os == 'Linux'
+        run: go run ./cmd/agentdfir benchmark --no-perf > /dev/null
 
   # Proves AgentDFIR's offline claim end to end: a real collect + analyze run,
   # as its own subject, under kernel containment, must open no socket, spawn no

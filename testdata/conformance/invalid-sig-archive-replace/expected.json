@@ -1,0 +1,6 @@
+{
+  "verdict": "FAILED",
+  "description": "replace the archived signature seals/SEAL.sig.1",
+  "mutation": "sig-archive-replace",
+  "spec": "0.2"
+}

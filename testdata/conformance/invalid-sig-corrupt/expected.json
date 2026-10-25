@@ -1,0 +1,6 @@
+{
+  "verdict": "FAILED",
+  "description": "corrupt the signature in SEAL.sig",
+  "mutation": "sig-corrupt",
+  "spec": "0.2"
+}

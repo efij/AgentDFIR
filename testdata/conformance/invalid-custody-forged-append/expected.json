@@ -1,0 +1,6 @@
+{
+  "verdict": "FAILED",
+  "description": "append a custody record with a correct prev and seq",
+  "mutation": "custody-forged-append",
+  "spec": "0.2"
+}

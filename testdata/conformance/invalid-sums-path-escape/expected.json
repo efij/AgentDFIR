@@ -1,0 +1,6 @@
+{
+  "verdict": "FAILED",
+  "description": "add a SHA256SUMS line naming a path outside the package",
+  "mutation": "sums-path-escape",
+  "spec": "0.2"
+}

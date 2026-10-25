@@ -126,6 +126,10 @@ type result struct {
 
 // Run walks every manifest entry and ingests matches into the builder.
 func Run(b *casepkg.Builder, man *products.CollectorManifest, opts Options) (*Stats, error) {
+	// products.Manifest returns (nil, nil) for an unknown product id.
+	if man == nil {
+		return nil, fmt.Errorf("no collector manifest for product %q", opts.Product)
+	}
 	if opts.MaxFileBytes == 0 {
 		opts.MaxFileBytes = DefaultMaxFileBytes
 	}
