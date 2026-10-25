@@ -1,0 +1,2 @@
+{"type":"system","subtype":"init","session_id":"d1","sessionId":"d1","timestamp":"2026-09-20T09:00:00Z","uuid":"d1i","tools":["Bash","mcp__notes__read","mcp__notes__search"]}
+{"type":"user","uuid":"d1u","sessionId":"d1","timestamp":"2026-09-20T09:00:02Z","cwd":"/repo","message":{"role":"user","content":"find my notes"}}

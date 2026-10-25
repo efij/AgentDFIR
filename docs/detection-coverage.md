@@ -4,8 +4,8 @@
 
 | | |
 |---|---|
-| Rules (built-in + shipped packs) | **196** (111 built-in, 85 in `rules/`) |
-| HIGH / CRITICAL rules | 134, of which **132** carry a MITRE mapping |
+| Rules (built-in + shipped packs) | **199** (114 built-in, 85 in `rules/`) |
+| HIGH / CRITICAL rules | 137, of which **135** carry a MITRE mapping |
 | Distinct MITRE ATLAS techniques covered | **28** (ATLAS 5.6.0) |
 | Distinct MITRE ATT&CK techniques covered | **73** |
 
@@ -28,7 +28,7 @@ agentdfir rules list --packs rules --json   # machine-readable
 | ATLAS technique | Name | Rules |
 |---|---|---|
 | `AML.T0010` | AI Supply Chain Compromise | `CHAIN_INJECTION_TO_PUSH`, `KNOWN_INCIDENT_IOC`, `MCP_ALL_PROJECT_SERVERS_TRUSTED`, `MCP_REMOTE_FETCH_COMMAND`, `MCP_SERVER_ADDED`, `MCP_SERVER_CHANGED`, `REPO_LIFECYCLE_SCRIPT_RISK`, `UNPINNED_MCP_PACKAGE` |
-| `AML.T0010.005` | AI Agent Tool | `MCP_PACKAGE_TYPOSQUAT`, `PLUGIN_HOOK_EXECUTES_REMOTE`, `PLUGIN_MARKETPLACE_UNTRUSTED`, `MCP_UNPINNED_PACKAGE` (agentdfir-community) |
+| `AML.T0010.005` | AI Agent Tool | `MCP_PACKAGE_TYPOSQUAT`, `PLUGIN_HOOK_EXECUTES_REMOTE`, `PLUGIN_MARKETPLACE_UNTRUSTED`, `SUPPLY_FLAGGED_COMPONENT_REUSED`, `SUPPLY_UNTRUSTED_COMPONENT_BEFORE_HIGH`, `MCP_UNPINNED_PACKAGE` (agentdfir-community) |
 | `AML.T0011` | User Execution | `REPO_DEVCONTAINER_HOST_COMMAND`, `REPO_EXECUTABLE_PATH_OVERRIDE`, `REPO_GIT_EXEC_CONFIG`, `REPO_GIT_REF_INJECTION`, `REPO_VSCODE_AUTORUN_TASK` |
 | `AML.T0011.000` | Unsafe AI Artifacts | `UNSAFE_MODEL_ARTIFACT_LOAD` (agentdfir-community) |
 | `AML.T0011.001` | Malicious Package | `AGENT_EXTERNAL_ARTIFACT_EXECUTION`, `DOWNLOAD_THEN_EXECUTE`, `PACKAGE_INSTALL_FROM_URL` (agentdfir-community) |
@@ -54,7 +54,7 @@ agentdfir rules list --packs rules --json   # machine-readable
 | `AML.T0099` | AI Agent Tool Data Poisoning | `CHAIN_MCP_RESULT_TO_DESTRUCTIVE`, `CHAIN_MCP_RESULT_TO_PRIVILEGED`, `MCP_TOOL_POISONING` |
 | `AML.T0101` | Data Destruction via AI Agent Tool Invocation | `CHAIN_ACTION_THEN_LOG_TAMPER`, `CLOUD_DESTRUCTIVE_BURST`, `DESTRUCTIVE_COMMAND`, `TRANSCRIPT_REWRITTEN`, `CLOUD_DATA_DESTRUCTION` (agentdfir-community), `CLOUD_RECOVERY_PROTECTION_REMOVED` (agentdfir-community), `CLOUD_RESOURCE_DELETION` (agentdfir-community), `DISK_WIPE` (agentdfir-community) |
 | `AML.T0103` | Deploy AI Agent | `AI_CLI_HEADLESS_BYPASS`, `NESTED_AGENT_PERMISSION_BYPASS` (agentdfir-community) |
-| `AML.T0110` | AI Agent Tool Poisoning | `MCP_TOOL_DEFINITION_CHANGED`, `MCP_TOOL_DESCRIPTION_POISONING`, `SKILL_HIDDEN_INSTRUCTIONS`, `TOOL_POISONING_INDICATOR` |
+| `AML.T0110` | AI Agent Tool Poisoning | `MCP_TOOL_DEFINITION_CHANGED`, `MCP_TOOL_DESCRIPTION_POISONING`, `SKILL_HIDDEN_INSTRUCTIONS`, `SUPPLY_MCP_TOOL_DRIFT_EXPANSION`, `TOOL_POISONING_INDICATOR` |
 
 ## MITRE ATT&CK techniques → rules
 
@@ -95,7 +95,7 @@ agentdfir rules list --packs rules --json   # machine-readable
 | [`T1136.001`](https://attack.mitre.org/techniques/T1136/001/) | `NEW_ACCOUNT_CREATED` (agentdfir-community) |
 | [`T1140`](https://attack.mitre.org/techniques/T1140/) | `BASE64_PIPE_SHELL` (agentdfir-community) |
 | [`T1195`](https://attack.mitre.org/techniques/T1195/) | `MCP_ALL_PROJECT_SERVERS_TRUSTED`, `MCP_PROJECT_SCOPED_SERVER` |
-| [`T1195.002`](https://attack.mitre.org/techniques/T1195/002/) | `CHAIN_INJECTION_TO_PUSH`, `EXTENSION_SIDELOADED_UNSIGNED`, `KNOWN_INCIDENT_IOC`, `MCP_PACKAGE_TYPOSQUAT`, `MCP_SERVER_ADDED`, `MCP_SERVER_CHANGED`, `MCP_TOOL_DEFINITION_CHANGED`, `PLUGIN_MARKETPLACE_UNTRUSTED`, `REPO_LIFECYCLE_SCRIPT_RISK`, `UNPINNED_MCP_PACKAGE`, `AGENT_ADDS_MCP_SERVER` (agentdfir-community), `MCP_UNPINNED_PACKAGE` (agentdfir-community), `PACKAGE_INSTALL_FROM_URL` (agentdfir-community), `PACKAGE_PUBLISH` (agentdfir-community) |
+| [`T1195.002`](https://attack.mitre.org/techniques/T1195/002/) | `CHAIN_INJECTION_TO_PUSH`, `EXTENSION_SIDELOADED_UNSIGNED`, `KNOWN_INCIDENT_IOC`, `MCP_PACKAGE_TYPOSQUAT`, `MCP_SERVER_ADDED`, `MCP_SERVER_CHANGED`, `MCP_TOOL_DEFINITION_CHANGED`, `PLUGIN_MARKETPLACE_UNTRUSTED`, `REPO_LIFECYCLE_SCRIPT_RISK`, `SUPPLY_FLAGGED_COMPONENT_REUSED`, `SUPPLY_MCP_TOOL_DRIFT_EXPANSION`, `SUPPLY_UNTRUSTED_COMPONENT_BEFORE_HIGH`, `UNPINNED_MCP_PACKAGE`, `AGENT_ADDS_MCP_SERVER` (agentdfir-community), `MCP_UNPINNED_PACKAGE` (agentdfir-community), `PACKAGE_INSTALL_FROM_URL` (agentdfir-community), `PACKAGE_PUBLISH` (agentdfir-community) |
 | [`T1204`](https://attack.mitre.org/techniques/T1204/) | `REPO_INSTRUCTION_INJECTION` |
 | [`T1204.002`](https://attack.mitre.org/techniques/T1204/002/) | `UNSAFE_MODEL_ARTIFACT_LOAD` (agentdfir-community) |
 | [`T1222`](https://attack.mitre.org/techniques/T1222/) | `CHMOD_WORLD_WRITABLE` (agentdfir-community) |
@@ -260,6 +260,9 @@ agentdfir rules list --packs rules --json   # machine-readable
 | HIGH | `SSH_PRIVATE_KEY_READ` | command | T1552.004 | AML.T0055 | agentdfir-community |
 | HIGH | `SUDOERS_NOPASSWD_PERSIST` | command | T1548.003 | - | agentdfir-community |
 | HIGH | `SUID_BIT_SET` | command | T1548.001 | - | agentdfir-community |
+| HIGH | `SUPPLY_FLAGGED_COMPONENT_REUSED` | config | T1195.002 | AML.T0010.005 | builtin |
+| HIGH | `SUPPLY_MCP_TOOL_DRIFT_EXPANSION` | mcp | T1195.002 | AML.T0110 | builtin |
+| HIGH | `SUPPLY_UNTRUSTED_COMPONENT_BEFORE_HIGH` | transcript | T1195.002 | AML.T0010.005 | builtin |
 | HIGH | `TOOLCHAIN_CREDENTIAL_FILE_ACCESS` | command | T1552.001 | AML.T0055 | agentdfir-community |
 | HIGH | `TOOL_POISONING_INDICATOR` | config | - | AML.T0110 | builtin |
 | HIGH | `TRANSCRIPT_REPLACED` | transcript | T1070 | - | builtin |
