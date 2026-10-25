@@ -50,7 +50,8 @@ COLLECT — where the evidence is
   agentdfir collect --archive <zip|tar|tgz>                                    CI artifact, support bundle, vendor export
   agentdfir collect --ai-export <zip|dir>                                      ChatGPT / Claude.ai / DeepSeek / Gemini Takeout export, UFDR
   agentdfir collect --suite-export <path>                                      UFDR, AXIOM CSV / Portable Case, Plaso timeline, Autopsy report (docs/forensic-suite-interop.md)
-  agentdfir collect --image <E01|raw|.001|vhd|vhdx|vmdk|qcow2>                  forensic disk image, read-only (NTFS, ext2/3/4, FAT, exFAT, XFS, Btrfs, LVM2; docs/disk-images.md)
+  agentdfir collect --image <E01|raw|.001|vhd|vhdx|vmdk|qcow2|dmg|sparsebundle>  forensic disk image, read-only (NTFS, ext2/3/4, FAT, exFAT, XFS, Btrfs, LVM2, APFS, HFS+; docs/disk-images.md)
+      --recover-deleted · --include-vss   NTFS: also seal recoverable deleted content (RECOVERED_UNVERIFIED) · read Volume Shadow Copies
       --include-browser   any mode above, and "run": also take browser history (opt-in; only AI-service visits are parsed)
       --include-macos-host  current-user / --path: also take macOS host state (launchd, BTM, TCC.db, keychain listing; opt-in)
   agentdfir verify <pkg>                                                       prove the package was not modified

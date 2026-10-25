@@ -7,6 +7,259 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [4.5.0] — 2026-10-26
+
+From "the agent says" to "here is the proof, and here is how complete it
+is". Disk images now include macOS (APFS, HFS+, `.dmg`, sparsebundle) and
+Linux (XFS, Btrfs, QCOW2, LVM2) layouts, and NTFS gives up its USN journal,
+deleted records and shadow copies. The second witness reaches macOS
+(Apple's `eslogger`, the unified log, host state), Linux eBPF tools and
+container runtimes, more Windows event channels and the exports forensic
+suites produce. Every tool call can be shown as one evidence chain with
+the coverage behind its state (`report --format proof`), and coverage is
+now judged per kind of telemetry, per host, with the collection health
+(sequence gaps, drop signals) of every telemetry file. New commands
+reconstruct one incident across several cases (`reconstruct`) and the
+supply chain of an agent environment (`supply-chain`); `monitor --record`
+keeps a journaled black box of transcripts, OS telemetry and MCP config
+changes on the host before anything happens; and a third party can
+re-run a recorded analysis (`verify --reproduce`) and check the findings
+fingerprint, the action graph and the STIX bundle without trusting the
+tool.
+
+Everything stays pure Go with no third-party dependency. There is no
+native Endpoint Security client and no in-tree eBPF loader: AgentDFIR
+reads what Apple's `eslogger` and the eBPF tools already recorded.
+
+217 rules (132 built-in including 13 attack chains, 85 in two shipped
+packs); 155 are HIGH/CRITICAL, 153 of them MITRE-mapped (202 of 217 rules
+carry a mapping), across 28 ATLAS and 80 ATT&CK techniques.
+
+### Added
+- **macOS disk images** (`collect --image`): UDIF `.dmg` (raw, zero-fill,
+  zlib/UDZO, bzip2/UDBZ chunks), sparsebundles (every band hashed before
+  and after), GPT with APFS and HFS+ partitions, APFS containers and
+  volumes (newest valid checkpoint, object maps, clones, sealed volumes,
+  snapshots readable as `.snapshots/<name>/`, several volumes as one
+  directory each) and HFS+/HFSX (catalog, extents overflow, hard links,
+  xattrs, zlib decmpfs; a dirty journal is reported, never replayed).
+  UNSUPPORTED, named with the route to read them: FileVault-encrypted
+  APFS volumes (no key handling), LZVN/LZFSE/LZBITMAP-compressed files,
+  ADC/LZFSE/LZMA `.dmg` chunks, UDSP sparse images, Fusion containers and
+  the Apple Partition Map; encrypted images are reported ENCRYPTED.
+  Fixtures were made with `hdiutil`, `diskutil` and `ditto`; snapshot and
+  zlib-decmpfs cases are hand-built and labelled so. See
+  `docs/macos-filesystems.md`.
+- **Linux disk images**: XFS v5 and v4 (CRC mismatches counted, the dirty
+  log not replayed), Btrfs on one device (subvolumes and snapshots, zlib
+  extents, superblock mirrors as fallback), QCOW2 v2/v3 (deflate clusters)
+  and LVM2 linear logical volumes. UNSUPPORTED with the reason: XFS
+  realtime files, Btrfs multi-device/RAID and lzo/zstd extents, QCOW2
+  backing files, zstd clusters and encryption (ENCRYPTED), LVM2 thin,
+  snapshot, raid, mirror and multi-device striped LVs. Fixtures were made
+  by the real tools in a container; the non-linear LVM2 metadata is
+  partly hand-written and the README says so. See
+  `docs/linux-filesystems.md`.
+- **NTFS USN journal, deleted records and Volume Shadow Copies.** Every NTFS
+  volume `collect --image` reads also seals `usn.jsonl` (USN_RECORD_V2/V3,
+  reasons decoded, paths resolved and reused MFT entries marked; V4
+  range records UNSUPPORTED) and `deleted.jsonl` (deleted MFT records that
+  still have a name, with what state their content is in).
+  `--recover-deleted` seals recoverable content labelled
+  `RECOVERED_UNVERIFIED`; `--include-vss` extracts agent evidence from each
+  shadow copy (at most 64 per volume) with `vss_snapshot` provenance. The
+  VSS store fixture is synthetic, built from the documented layout. See
+  `docs/disk-images.md`.
+- **macOS telemetry and host state.** `--endpoint` reads `eslogger` JSON
+  (exec, fork, exit, file, auth, BTM launch items, TCC, UNIX sockets,
+  signals; unmapped event types counted as UNSUPPORTED) as a full host
+  witness and the unified log (`log show --style ndjson|json`) as a
+  partial one; auth and TCC records are trusted only from the exact system
+  binary and subsystem. `sudo agentdfir monitor --es` streams Apple's own
+  `/usr/bin/eslogger` (root and Full Disk Access, macOS 13+, no
+  entitlement needed) into a journaled capture. `collect
+  --include-macos-host` (opt-in) seals LaunchAgents/Daemons, the BTM store,
+  login items, `TCC.db` and a metadata-only keychain listing (no keychain
+  is opened). Endpoint Security has no IP network events, so `eslogger`
+  never confirms or contradicts a destination. Rules
+  `MACOS_LAUNCHD_PERSISTENCE_BY_AGENT`, `MACOS_TCC_MODIFIED_BY_AGENT`,
+  `MACOS_KEYCHAIN_ACCESS_BY_AGENT`. The eslogger fixture is synthetic; one
+  unified-log fixture is real, scrubbed output. See
+  `docs/macos-telemetry.md`.
+- **Linux eBPF-tool and container witnesses.** `--endpoint` imports
+  Tetragon (counts as process coverage, like auditd), Falco, bpftrace
+  (`-f json` with a documented printf field contract), `docker events` and
+  `podman events` (sightings: they corroborate, never contradict).
+  AgentDFIR loads no eBPF program itself. Endpoint records gain container,
+  pod, namespace, capability and privilege-change fields; sudo, su, PAM,
+  pkexec and polkit lines become privilege-change records. `collect` and
+  `run` take a Linux persistence inventory (systemd units and timers,
+  cron, shell init files, `ld.so.preload`, authorized keys by
+  fingerprint). Rules `AGENT_SYSTEMD_PERSISTENCE`, `AGENT_CRONTAB_MODIFIED`,
+  `AGENT_NAMESPACE_ESCAPE`, `AGENT_BPF_LOAD`. Fixtures are synthetic,
+  written from each tool's documented schema. See
+  `docs/linux-telemetry.md`.
+- **More Windows events** from `.evtx`, `wevtutil` XML and `evtx_dump`
+  JSON: Sysmon 5/12/13/14, Security 4689/4625/4648/4672/4697, PowerShell
+  4103, Task Scheduler 106/140/141/200/201 and WMI-Activity 5857–5861, as
+  context records that never corroborate or contradict a tool call. Rules
+  `WIN_AGENT_REGISTRY_PERSISTENCE`, `WIN_AGENT_SCHEDULED_TASK`,
+  `WIN_AGENT_WMI_PERSISTENCE`, `WIN_AGENT_EXPLICIT_CREDENTIALS`, with
+  rule-relevant records kept outside the per-kind bound so a noise flood
+  cannot push them out. Fixtures are synthetic. See
+  `docs/endpoint-corroboration.md`.
+- **Forensic-suite interop** (`collect --suite-export`, also recognized by
+  `--import`, `--ai-export` and `--archive`): Cellebrite UFDR `report.xml`
+  (streamed, parsed generically from its `modelType/model/field` shape),
+  `.ufd`/`.ufdx` descriptors (linked to `--image`), Magnet AXIOM CSV
+  exports and Portable Cases, Plaso `json_line`/`l2tcsv` (also usable as a
+  partial witness with `--endpoint`) and Autopsy "Files - Text" reports.
+  Originals are sealed byte for byte, device identifiers are masked in
+  normalized output, and every event is classed `forensic-suite`: another
+  tool's decoding, never proof of execution. AXIOM `Case.mfdb` is sealed
+  and its tables inventoried but always reported
+  `AXIOM_CASE_DB_UNSUPPORTED` (undocumented schema; export to CSV or
+  Portable Case instead). All suite fixtures are synthetic. See
+  `docs/forensic-suite-interop.md`.
+- **`agentdfir report <pkg> --format proof`** — for every recorded tool
+  call, the claim and its evidence chain (human → agent → tool call →
+  process → file / network / cloud resource → outcome), each step's state,
+  assurance (`verified`, `corroborated`, `inferred`) and limitations, and
+  the coverage facts behind the state, under a "Telemetry coverage &
+  health" section. The JSON names every artifact by content hash and every
+  telemetry record by its file's SHA-256. The action graph gains `outcome`
+  nodes (only where a record of the effect exists). See
+  `docs/action-proof.md`.
+- **Collection health.** `detections/corroboration.json` gains
+  `collection_health`: per telemetry file, sequence domains and gaps (EVTX
+  EventRecordID per channel, audit serial, eslogger `seq_num` /
+  `global_seq_num`, journald `__SEQNUM`), drop signals (Tetragon rate limit
+  and throttle, bpftrace lost events, auditd daemon errors, log clears)
+  and a verdict: `HEALTHY`, `PARTIAL` or `UNKNOWN`.
+- **`agentdfir monitor --record`** — a black-box recorder on the existing
+  monitor: agent transcripts, MCP config changes, `--es` (macOS),
+  `--auditd <path>` and `--tail <file>` (any growing endpoint export,
+  rotation-aware), every captured range in the hash-chained journal.
+  `--retain 7d,2GB` prunes old captures and journals each prune;
+  `agentdfir monitor status` reports sources, gaps and retention offline;
+  `journal verify` tells pruned from deleted captures; `replay` and `run
+  --endpoint <state dir>` read a recording. See
+  `docs/black-box-recorder.md`.
+- **`agentdfir reconstruct <pkg|case> [...]`** — one incident across
+  several analyzed cases: a merged timeline, delegation, hand-offs, what
+  links the hosts, attack stages in kill-chain order and, for each, the
+  telemetry that would confirm or refute it. Deterministic, assembled from
+  lineage, `correlate-cases` and `gaps`; cases are joined only by an
+  identifier the evidence carries. `--json`, `--mermaid`, `--dot`. See
+  `docs/reconstruct.md`.
+- **`agentdfir supply-chain [<pkg>]`** — every plugin, marketplace, skill,
+  command, sub-agent, hook, MCP server, IDE extension, instruction file and
+  settings file: origin, first and last seen (naming the clock), hash
+  history across rounds and baselines, MCP tool-definition and settings
+  drift, and the path from a component to the invocations and commands
+  that followed, with verified and inferred links kept apart. Stored as
+  `normalized/supplychain.json`. Rules `SUPPLY_MCP_TOOL_DRIFT_EXPANSION`,
+  `SUPPLY_UNTRUSTED_COMPONENT_BEFORE_HIGH`, `SUPPLY_FLAGGED_COMPONENT_REUSED`.
+  See `docs/supply-chain.md`.
+- **Reproducible analysis.** `analyze` writes
+  `detections/analysis-manifest.json` (tool version, analysis-code hash,
+  rule packs by SHA-256, the seal analyzed, every option and input file)
+  with a `findings_fingerprint`. `agentdfir verify --reproduce <pkg>`
+  re-runs the recorded analysis and compares fingerprints; `verify` also
+  checks the analysis overlay and production sets, and production
+  manifests are signed. See `docs/open-evidence-standard.md`.
+- **`.adfir` spec revision 0.2.2** — optional analysis files: the analysis
+  manifest, action-graph rules (every edge cites its evidence; a
+  CORROBORATED edge cites telemetry), a STIX 2.1 profile and production
+  sets, with JSON Schemas and positive and negative conformance fixtures.
+  The independent Python verifier checks all of them and reports separate
+  integrity and analysis verdicts. See `docs/adfir-spec.md`.
+- **v4.5 detections**, after checking 18 proposed items against every
+  existing rule (11 were already covered; the verdicts are in
+  `docs/detection-v45.md`): host-witness rules
+  `WIN_AGENT_SUSPICIOUS_POWERSHELL`, `AGENT_PRIVILEGE_ELEVATION`,
+  `AGENT_LOGGING_DISRUPTED`, `AGENT_EVIDENCE_SOURCE_DELETED`,
+  `PACKAGE_SCRIPT_TOUCHED_AGENT`, and chains
+  `CHAIN_STAGED_DATA_TO_TRANSFER` and `CHAIN_SECRET_TO_NEW_REMOTE_PUSH`.
+  Host rules declare the telemetry they need and say "not evaluated" when
+  it is missing; their silence means nothing. Each rule has an attack
+  case, a benign twin and an incomplete-telemetry case.
+- **Cross-platform benchmark suites** — acquisition (41 disk-image
+  fixtures, every file compared with a manifest or reference image where
+  one exists, source unchanged 41/41), per-OS corroboration (72/72 checks
+  on Windows, macOS and Linux telemetry), forensic interop (17/17 records,
+  13/13 originals sealed byte-identical), detection by platform
+  (precision and recall 100% on 79 labeled positives, 0 false positives)
+  and evidence integrity (24/24 mutations; the Python verifier says
+  VERIFIED on 27/27 packages with `--repo` / `--python-verifier`). All
+  synthetic or tool-generated, and no comparison with any other product.
+  See `docs/benchmark.md`.
+- **Explorer views**: **Proof** (the per-action evidence chain), a
+  collection-health badge, **Supply chain**, **Reconstruct**, and the
+  **Coverage** view shows health per telemetry kind.
+
+### Changed
+- **`reports/findings.stix.json` is now a valid STIX 2.1 bundle**: an
+  identity, a report, finding notes, real IOC observables and
+  relationships, with deterministic UUIDv5 ids. Consumers of the earlier
+  shape need updating.
+- **`agentdfir verify` exits 1 when the analysis overlay is inconsistent**
+  (a findings fingerprint that does not match, a broken action graph or
+  STIX bundle). The evidence verdict is reported separately; an
+  inconsistent overlay says nothing about the sealed evidence.
+- **Image extraction limits apply per image, not per volume**: one byte and
+  file budget covers live agent evidence first, then shadow copies, the
+  USN journal, recovered files and deleted records; whatever it cuts is
+  named in the volume note.
+- **ext4 "unsupported operation" errors are classified UNSUPPORTED**, like
+  every other reader, instead of a generic read error.
+- Coverage is per (host, kind) and per telemetry file (see Fixed); records
+  and correlation results carry new optional provenance fields; existing
+  fields are unchanged and earlier action graphs still validate.
+- Honeytokens are recorded in the analysis manifest by count only, never as
+  a digest of the planted values.
+- Module path stays `github.com/efij/AgentDFIR/v4`; `.adfir` packages
+  written by earlier versions verify and analyze as before.
+
+### Fixed
+- **Telemetry of one kind could make another kind look covered.** v4
+  computed one coverage window across every record kind, so a network or
+  file record could stretch it and process telemetry that had already
+  stopped could still contradict a command. Coverage is now per kind, per
+  host and per source file, carries the source's collection health, and a
+  claim whose coverage is `partial` (a sequence gap or drop signal in its
+  match window) is never DISPROVED. Sources without sequence numbers keep
+  the v4 behaviour, labelled "completeness unverified".
+- Exec argv in endpoint records is no longer read as shell text: it is
+  tokenized per invocation (quotes and escapes removed), and `sh -c`
+  scripts are parsed as shell, so crontab, systemctl and nsenter forms are
+  matched correctly.
+
+### Security
+- **Escape and injection**: crafted overlay values are neutralized in the
+  proof report, supply-chain timeline output is sanitized and URL
+  credentials are stripped, unified-log records are trusted only from
+  genuine senders, and auditd container ids are taken only from
+  kernel-written fields.
+- **Budget bypasses closed**: NTFS artifacts, recovered files and shadow-copy
+  extraction draw on one image-wide budget; Windows context records have
+  per-kind bounds that a noise flood cannot use to push rule-relevant
+  records out or hide a cleared log.
+- **Symlink-safe writes**: the recorder writes `status.json` through an
+  exclusive temp file, and a root monitor uses the effective user's home
+  and refuses a state directory it does not own.
+- **Fail-closed allowlists**: the agent-install exemption in
+  `PACKAGE_SCRIPT_TOUCHED_AGENT` rejects aliases, direct references and
+  registry overrides; three host-rule bypasses found in review are closed;
+  journal prune records are accepted only for recorder captures whose
+  journaled content they match, and an unverifiable prune never excuses a
+  missing capture.
+- **Decompression and parser caps**: APFS decmpfs, xattr and sparse-stream
+  sizes are bounded by the compression ratio and container size; suite
+  XML refuses external entities and entity expansion; the benchmark runs
+  the Python verifier only from a named checkout and refuses unsafe
+  archive entries when it unpacks fixtures. Every new binary parser has `Fuzz*` targets.
+
 ## [4.0.0] — 2026-10-25
 
 From coding agents to every AI evidence source. A case can now start from a

@@ -128,48 +128,46 @@ through another tool.
 **Expected failures.** A check can be marked as failing on this build for
 a documented reason. It is then reported **XFAIL** and does not fail the
 run; if it passes, it is reported **XPASS** and the run warns, so the
-mark can be removed. On this build the per-OS sequence-gap and
-stopped-kind checks (two per platform, six in all) are XFAIL with the
-reason "fixed by per-kind coverage": correlation still treats the
-telemetry as one time window for every record kind and every file, and
-does not track sequence numbers, so a missing record inside a gap, or
-after a process file stopped, still reads as absence. The labeled
-control in each scenario (a claim where coverage is contiguous) passes
-as DISPROVED either way.
+mark can be removed. No check is marked on this build. The six per-OS
+sequence-gap and stopped-kind checks (two per platform) were XFAIL while
+correlation treated the telemetry as one time window for every record
+kind; with per-kind coverage and collection health
+([action-proof.md](action-proof.md)) they pass, and the marks were
+removed. The labeled control in each scenario (a claim where coverage is
+contiguous) passes as DISPROVED either way.
 
 ## Current numbers
 
-A 4.5.0 development build (it still reports `4.0.0` until the release
-version bump), `benchmark --no-perf --repo .` from a source checkout,
-darwin/arm64, 11 CPUs, go1.27.1, 14 s wall time. Synthetic.
+AgentDFIR 4.5.0, `benchmark --no-perf --repo .` from a source checkout,
+darwin/arm64, go1.27.1, 12.5 s wall time. Synthetic.
 
 | Section | Result |
 |---|---|
-| Detection | precision 100.0%, recall 100.0% (69 TP, 0 FP, 0 FN) over 29 attack cases, 8 scenarios, 48 benign cases |
-| Rule coverage | 60 of 206 alert rules have an attack fixture; 146 have none (listed in the report); 4 building blocks |
-| Evidence states | 12/12 labeled checks, 0 contract violations over 25 events |
-| Provenance | 0 dangling over 124 packages: 637 of 669 events resolved to artifact, line and line start (the other 32 describe a whole artifact, line 0); 337 of 381 finding references resolved, 44 cite external endpoint logs |
+| Detection | precision 100.0%, recall 100.0% (79 TP, 0 FP, 0 FN) over 34 attack cases, 8 scenarios, 58 benign cases |
+| Rule coverage | 69 of 213 alert rules have an attack fixture; 144 have none (listed in the report); 4 building blocks |
+| Evidence states | 14/14 labeled checks, 0 contract violations over 30 events |
+| Provenance | 0 dangling over 149 packages: 733 of 765 events resolved to artifact, line and line start (the other 32 describe a whole artifact, line 0); 374 of 460 finding references resolved, 86 cite external witness logs |
 | Integrity mutations | 24/24 detected |
 | Compatibility | 5/5 historical packages verify and analyze |
 | Robustness | 7/7 cases |
-| Performance | not measured in this run (`--no-perf`). A full run on the same loaded machine measured 4,504 ms and 178.1 MiB peak heap on 48,800 events, 26% over the recorded baseline (3,574 ms, 152.3 MiB): a warning, not a failure |
+| Performance | not measured in this run (`--no-perf`) |
 
 Cross-platform suites, same run:
 
 | Suite | Verdict | Measured |
 |---|---|---|
-| Acquisition | PASS | 41 fixtures in 2.4 s (35 compared with a manifest or the image they wrap, 6 enumerated only); 45 volumes; 16,031 files enumerated, 16,026 read; manifest files 14,179 of 14,185 recovered with matching SHA-256, the other 6 reported UNSUPPORTED as documented (ext4 fscrypt directory, the Btrfs zstd extent in the raw image and both QCOW2 copies, the LZVN-compressed file on APFS and HFS+); 17 UNSUPPORTED / ENCRYPTED states in all (also: QCOW2 backing file and zstd cluster type, DMG LZFSE chunks, encrypted DMG, the FileVault volume, five non-linear LVM2 LVs); source unchanged 41/41 |
-| Per-OS corroboration | PASS | 57 of 63 checks pass, 6 XFAIL (above). Windows (Sysmon .evtx): CORROBORATED 5 of 5 labeled; macOS (eslogger, unified log): 5 of 5; Linux (auditd, Tetragon, Falco, docker events): 10 of 10. Corpus cases with telemetry: 8 Windows, 2 macOS, 2 Linux, every expected rule fired, 0 contract violations |
-| Forensic interop | PASS | 6 exports; 17 of 17 expected records (UFDR 5, AXIOM CSV 4, Portable Case 2, Plaso 4, Autopsy 2, UFD 0); 13 of 13 originals sealed byte-identical; UNSUPPORTED notices: Case.mfdb (with the `AXIOM_CASE_DB_UNSUPPORTED` finding) and the unknown UFDR element; Plaso's 2 unparsable lines reported |
-| Detection quality | PASS | as above; by platform: Windows 4 attack / 4 benign fixtures, macOS 1 / 1, Linux 1 / 1, transcript-only 31 / 42, each 100.0% / 100.0% |
-| Evidence integrity | PASS | 24/24 mutations, 5/5 historical packages; Python 3.12 verifier: 27 of 27 packages VERIFIED (the signed reference package, the 21 packages the suites built, the 5 historical ones) |
+| Acquisition | PASS | 41 fixtures in 2.3 s (35 compared with a manifest or the image they wrap, 6 enumerated only); 45 volumes; 16,031 files enumerated; manifest files 14,179 of 14,185 recovered with matching SHA-256, the other 6 reported UNSUPPORTED as documented (ext4 fscrypt directory, the Btrfs zstd extent in the raw image and both QCOW2 copies, the LZVN-compressed file on APFS and HFS+); 17 UNSUPPORTED / ENCRYPTED states in all (also: QCOW2 backing file and zstd cluster type, DMG LZFSE chunks, encrypted DMG, the FileVault volume, the non-linear LVM2 LVs); source unchanged 41/41 |
+| Per-OS corroboration | PASS | 72 of 72 checks, 0 expected failures. Windows (Sysmon .evtx): 4 scenarios, CORROBORATED 5 of 5 labeled, 11 corpus cases; macOS (eslogger, unified log): 5 scenarios, 5 of 5, 5 corpus cases; Linux (auditd, Tetragon, Falco, docker events): 6 scenarios, 10 of 10, 5 corpus cases |
+| Forensic interop | PASS | 6 exports; 17 of 17 expected records; 13 of 13 originals sealed byte-identical; 2 UNSUPPORTED notices: Case.mfdb (with the `AXIOM_CASE_DB_UNSUPPORTED` finding) and the unknown UFDR element |
+| Detection quality | PASS | as above; by platform: Windows 5 attack / 6 benign fixtures (6 rules), macOS 2 / 3 (6 rules), Linux 2 / 3 (5 rules), transcript-only 33 / 46 (53 rules), each 100.0% / 100.0% |
+| Evidence integrity | PASS | 24/24 mutations, 5/5 historical packages; Python 3.12 verifier: 27 of 27 packages VERIFIED |
 
 Read the detection line for what it is. The labels were written next to
 the rules, and the corpus gates the build, so 100% means the rules still
 do what their fixtures say, not that they are 100% accurate. The number
-that carries information is the coverage gap: 146 alert rules have no
-attack fixture at all. The per-platform rows are small (one attack
-fixture each on macOS and Linux). The performance baseline was recorded
+that carries information is the coverage gap: 144 alert rules have no
+attack fixture at all. The per-platform rows are small (two attack
+fixtures each on macOS and Linux). The performance baseline was recorded
 on a shared, loaded machine; re-record it with `--save-baseline` on a
 quiet one before relying on the 25% warning.
 

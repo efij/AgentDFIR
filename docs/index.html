@@ -425,7 +425,7 @@ footer a:hover{color:var(--text)}
       AgentDFIR
     </a>
     <nav class="nav-links" aria-label="Main">
-      <a href="#v4">New in v4</a>
+      <a href="#v45">New in v4.5</a>
       <a href="#evidence">Evidence</a>
       <a href="#chains">Attack chains</a>
       <a href="#incidents">Incidents</a>
@@ -436,7 +436,7 @@ footer a:hover{color:var(--text)}
       <a href="#docs">Docs</a>
     </nav>
     <div class="nav-r">
-      <a class="ver" href="https://github.com/efij/AgentDFIR/releases/latest">v4.0.0</a>
+      <a class="ver" href="https://github.com/efij/AgentDFIR/releases/latest">v4.5.0</a>
       <a class="btn" href="https://github.com/efij/AgentDFIR">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55v-2.17c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.75 2.69 1.25 3.35.95.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.79 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.12 3.05.74.81 1.18 1.83 1.18 3.09 0 4.41-2.69 5.38-5.25 5.66.41.35.77 1.05.77 2.12v3.15c0 .3.21.66.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></svg>
         GitHub
@@ -451,7 +451,7 @@ footer a:hover{color:var(--text)}
   <div class="wrap">
     <div class="hero-grid">
       <div>
-        <a class="status" href="https://github.com/efij/AgentDFIR/blob/main/CHANGELOG.md"><i aria-hidden="true"></i>v4.0.0 — disk images, AI-service exports, .evtx and DNS witnesses, gaps and lineage</a>
+        <a class="status" href="https://github.com/efij/AgentDFIR/blob/main/CHANGELOG.md"><i aria-hidden="true"></i>v4.5.0 — action proof, macOS and Linux images, eslogger and eBPF witnesses, suite exports</a>
         <h1 id="h1">Incident response for <span class="a">AI agents</span>.</h1>
         <p class="sub">Claude Code, Codex, Cursor and thirteen other agents run shell commands, read credentials and call MCP servers with your privileges. AgentDFIR acquires what they leave on disk into sealed, hash-chained evidence, reconstructs the attack chain, and puts the exact log line behind every finding.</p>
         <div class="ctas">
@@ -484,8 +484,8 @@ footer a:hover{color:var(--text)}
 
     <div class="spec stg" role="list">
       <div role="listitem"><b>16</b><span>AI agents parsed</span></div>
-      <div role="listitem"><b>196</b><span>deterministic detections</span></div>
-      <div role="listitem"><b>11</b><span>attack chains</span></div>
+      <div role="listitem"><b>217</b><span>deterministic detections</span></div>
+      <div role="listitem"><b>13</b><span>attack chains</span></div>
       <div role="listitem"><b>ATLAS 5.6</b><span>+ ATT&amp;CK mapping</span></div>
       <div role="listitem"><b>SHA-256</b><span>sealed, hash-chained</span></div>
       <div role="listitem"><b>0</b><span>runtime dependencies</span></div>
@@ -618,7 +618,40 @@ footer a:hover{color:var(--text)}
   </div>
 </section>
 
-<section id="v4" class="band">
+<section id="v45" class="band">
+  <div class="wrap split">
+    <div class="rv">
+      <h2>The proof behind every action, and how complete it is.</h2>
+      <p class="sub" style="margin-top:18px">New in v4.5. Every tool call can be shown as one evidence chain, with the telemetry coverage behind its state and the collection health of every telemetry file. A gap in the telemetry is a reason to look, never proof that nothing happened.</p>
+      <ul class="stg points">
+        <li><b><code>report --format proof</code> — the chain, step by step.</b> Human → agent → tool call → process → file, network or cloud resource → outcome, each step with its evidence state, how the link is known and what it does not show. Coverage is judged per kind of telemetry and per host; sequence gaps and drop signals mark a file <code>PARTIAL</code>, and a partial window never disproves a command.</li>
+        <li><b>macOS and Linux images, NTFS history.</b> APFS, HFS+, <code>.dmg</code> and sparsebundles; XFS, Btrfs, QCOW2 and LVM2; the NTFS USN journal, deleted records (<code>--recover-deleted</code>) and Volume Shadow Copies (<code>--include-vss</code>). Pure Go, nothing mounted. FileVault volumes and LZVN/LZFSE files are named UNSUPPORTED.</li>
+        <li><b>New witnesses.</b> Endpoint Security through Apple's own <code>eslogger</code> (root and Full Disk Access, no entitlement), the unified log, Tetragon, Falco, bpftrace and container events (AgentDFIR loads no eBPF program), and Windows registry, scheduled-task, WMI and logon events.</li>
+        <li><b>Forensic-suite exports.</b> <code>collect --suite-export</code> reads UFDR, AXIOM CSV and Portable Case, Plaso and Autopsy exports, generically. A suite's record is another tool's decoding, never proof of execution; AXIOM <code>Case.mfdb</code> is sealed and reported UNSUPPORTED.</li>
+        <li><b><code>monitor --record</code>, <code>reconstruct</code>, <code>supply-chain</code>, <code>verify --reproduce</code>.</b> A journaled black box of transcripts, OS telemetry and MCP config changes; one incident across several cases; where every skill, plugin, hook and MCP server came from and how it drifted; and a recorded analysis anyone can re-run and compare.</li>
+      </ul>
+    </div>
+    <div class="rv">
+      <div class="panel">
+        <div class="ph"><span>$ agentdfir report IR-042.adfir --format proof</span><span class="ok">exit 0</span></div>
+<pre>  <b>TELEMETRY COVERAGE &amp; HEALTH</b>
+    PARTIAL  audit.log  412 record(s)
+        sequence auditd/audit.log: 1..417, 1 gap(s), 5 missing
+          gap: 5 missing after 14 (10:00:30–10:00:50)
+
+  [3] Bash  RECORDED
+      claim:    curl -sS https://paste.example/u
+      coverage: process (needed) partial: sequence gap
+      chain:    human → agent → tool call → process?
+
+<span class="c"># synthetic case: the gap keeps the call unverified, not DISPROVED</span></pre>
+      </div>
+      <p class="sub" style="margin-top:18px;font-size:15px">Synthetic and tool-generated benchmark suites, stated as such and compared with no other product: 41 disk-image fixtures read with the source unchanged 41/41; 72 of 72 per-OS corroboration checks; 17 of 17 suite records; the independent Python verifier says VERIFIED on 27 of 27 packages. <a class="more" style="margin:0" href="https://github.com/efij/AgentDFIR/blob/main/docs/benchmark.md">How it is measured</a></p>
+    </div>
+  </div>
+</section>
+
+<section id="v4">
   <div class="wrap split rev">
     <div class="rv">
       <h2>From coding agents to every AI evidence source.</h2>
@@ -786,6 +819,9 @@ Result:             <span class="bad">FAILED — 2 problem(s):</span>
       <div class="cell"><code class="k">collect --live</code><h3>Volatile acquisition</h3><p>RFC 3227 order of volatility: running agent processes, open files and connections first, then the on-disk evidence, with torn-read detection for files still being written.</p></div>
       <div class="cell"><code class="k">agentdfir simulate</code><h3>Adversary emulation</h3><p>Generate orphan-agent and toxic-chain incidents to validate your detections and train responders before the real one.</p></div>
       <div class="cell"><code class="k">rules/*.json</code><h3>Rules you can read</h3><p>No model in the analysis path. Detections are deterministic Go and JSON rule packs, signed pack updates, and a coverage matrix generated from the binary.</p></div>
+      <div class="cell"><code class="k">monitor --record</code><h3>Black-box recorder</h3><p>Agent transcripts, auditd, eslogger or any growing endpoint export and MCP config changes, every byte range in a hash-chained journal, with retention that journals every prune.</p></div>
+      <div class="cell"><code class="k">agentdfir supply-chain</code><h3>Agent supply chain</h3><p>Every skill, plugin, hook, MCP server and extension: where it came from, how its hash changed across rounds, and the commands that followed its use. Verified and inferred links kept apart.</p></div>
+      <div class="cell"><code class="k">agentdfir reconstruct</code><h3>One incident, many hosts</h3><p>Several verified cases laid out as one timeline with delegation, hand-offs and attack stages, joined only by identifiers the evidence carries.</p></div>
     </div>
   </div>
 </section>
@@ -813,12 +849,12 @@ Result:             <span class="bad">FAILED — 2 problem(s):</span>
         </tbody>
       </table>
     </div>
-    <a class="more" href="https://github.com/efij/AgentDFIR/blob/main/docs/detection-coverage.md">Full matrix: 196 detections, 28 ATLAS and 73 ATT&amp;CK techniques</a>
+    <a class="more" href="https://github.com/efij/AgentDFIR/blob/main/docs/detection-coverage.md">Full matrix: 217 detections, 28 ATLAS and 80 ATT&amp;CK techniques</a>
 
     <div class="stg integ" style="margin-top:56px">
-      <div><h3>Collect from anywhere</h3><p>this machine · --path · --import KAPE/Velociraptor/CyLR<br>--image E01 · raw · VHD(X) · VMDK<br>--ai-export ChatGPT · Claude.ai · DeepSeek · Gemini<br>--docker · --archive CI</p></div>
-      <div><h3>Second witness</h3><p>auditd · Sysmon XML · raw .evtx<br>EDR JSONL/CSV · eslogger<br>DNS · proxy · auth.log · journald<br>CloudTrail · Azure · GCP · Kubernetes · GitHub/GitLab<br>MCP gateway logs</p></div>
-      <div><h3>Export to your stack</h3><p>OCSF 1.3 · SARIF 2.1 · STIX 2.1<br>Sigma · OTel · Timesketch<br>l2tcsv · PDF · HTML<br>RSMF 2.0 · production sets</p></div>
+      <div><h3>Collect from anywhere</h3><p>this machine · --path · --import KAPE/Velociraptor/CyLR<br>--image E01 · raw · VHD(X) · VMDK · QCOW2 · DMG<br>NTFS · ext · XFS · Btrfs · LVM2 · APFS · HFS+<br>--suite-export UFDR · AXIOM · Plaso · Autopsy<br>--ai-export ChatGPT · Claude.ai · DeepSeek · Gemini<br>--docker · --archive CI</p></div>
+      <div><h3>Second witness</h3><p>auditd · Sysmon XML · raw .evtx<br>eslogger · unified log<br>Tetragon · Falco · bpftrace · docker<br>EDR JSONL/CSV · Plaso<br>DNS · proxy · auth.log · journald<br>CloudTrail · Azure · GCP · Kubernetes · GitHub/GitLab<br>MCP gateway logs</p></div>
+      <div><h3>Export to your stack</h3><p>proof report · STIX 2.1 bundle<br>OCSF 1.3 · SARIF 2.1<br>Sigma · OTel · Timesketch<br>l2tcsv · PDF · HTML<br>RSMF 2.0 · production sets</p></div>
       <div><h3>Deploy at scale</h3><p>KAPE target + module<br>Velociraptor artifact<br>signed product packs</p></div>
     </div>
   </div>
@@ -857,9 +893,9 @@ Result:             <span class="bad">FAILED — 2 problem(s):</span>
         <details><summary>Is anything sent off the machine?</summary><p>No. No account, no cloud, no telemetry, no language model in the analysis. The explorer binds to 127.0.0.1, serves a strict CSP with no external resources, and never writes to the sealed evidence.</p></details>
       </div>
       <div>
-        <details open><summary>What is an attack chain?</summary><p>An ordered sequence of agent events that is unremarkable alone and an attack together: instruction-override content in a tool result, then the agent writing its own settings, then a shell command, in one session within a time window. Eleven chains ship built in; you can add your own in JSON.</p></details>
-        <details><summary>Does it work on a disk image or a KAPE collection?</summary><p>Yes. <code>collect --image</code> reads an E01, raw, VHD, VHDX or VMDK image directly, without mounting it (NTFS, ext2/3/4, FAT and exFAT; encrypted and unsupported volumes are named, with the route to read them), <code>collect --path</code> takes a copied home or a mounted image, <code>--import</code> takes a KAPE, Velociraptor or CyLR tree with every user and every agent, <code>--docker</code> snapshots a container read-only and <code>--archive</code> ingests CI artifacts and support bundles.</p></details>
-        <details><summary>What does it detect?</summary><p>196 deterministic rules: orphan agents, cross-agent messaging, destructive and exfiltrating commands, agents editing their own instructions or hooks, credentials read from agent config, poisoned or unpinned MCP servers, honeytoken hits and transcript integrity gaps. See the <a href="https://github.com/efij/AgentDFIR/blob/main/docs/detection-coverage.md">coverage matrix</a>.</p></details>
+        <details open><summary>What is an attack chain?</summary><p>An ordered sequence of agent events that is unremarkable alone and an attack together: instruction-override content in a tool result, then the agent writing its own settings, then a shell command, in one session within a time window. Thirteen chains ship built in; you can add your own in JSON.</p></details>
+        <details><summary>Does it work on a disk image or a KAPE collection?</summary><p>Yes. <code>collect --image</code> reads an E01, raw, VHD, VHDX, VMDK, QCOW2, <code>.dmg</code> or sparsebundle image directly, without mounting it (NTFS with its USN journal, deleted records and shadow copies, ext2/3/4, FAT, exFAT, XFS, Btrfs, LVM2, APFS and HFS+; encrypted and unsupported volumes are named, with the route to read them), <code>--suite-export</code> reads UFDR, AXIOM, Plaso and Autopsy exports, <code>collect --path</code> takes a copied home or a mounted image, <code>--import</code> takes a KAPE, Velociraptor or CyLR tree with every user and every agent, <code>--docker</code> snapshots a container read-only and <code>--archive</code> ingests CI artifacts and support bundles.</p></details>
+        <details><summary>What does it detect?</summary><p>217 deterministic rules: orphan agents, cross-agent messaging, destructive and exfiltrating commands, agents editing their own instructions or hooks, credentials read from agent config, poisoned or unpinned MCP servers, honeytoken hits and transcript integrity gaps. See the <a href="https://github.com/efij/AgentDFIR/blob/main/docs/detection-coverage.md">coverage matrix</a>.</p></details>
       </div>
     </div>
   </div>
@@ -877,18 +913,29 @@ Result:             <span class="bad">FAILED — 2 problem(s):</span>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/evidence-authentication.md"><b>Evidence authentication</b><span>Seal chain, custody package, FRE 902(13)/(14) certification. Not legal advice.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/selfcheck.md"><b>Offline self-check</b><span>Prove on your own machine: no socket, no child process, no stray writes.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/serve.md"><b>Case explorer</b><span>Overview, findings, story diagram, coverage, lineage, AI conversations, compare.</span></a>
-      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/detection-coverage.md"><b>Detection coverage</b><span>196 detections mapped to MITRE ATLAS 5.6 and ATT&amp;CK.</span></a>
+      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/detection-coverage.md"><b>Detection coverage</b><span>217 detections mapped to MITRE ATLAS 5.6 and ATT&amp;CK.</span></a>
+      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/action-proof.md"><b>Action proof</b><span>Per-action evidence chain, per-kind coverage, collection health.</span></a>
+      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/macos-filesystems.md"><b>macOS filesystems</b><span>APFS, HFS+, DMG, sparsebundle; what is UNSUPPORTED.</span></a>
+      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/linux-filesystems.md"><b>Linux filesystems</b><span>XFS, Btrfs, QCOW2, LVM2; what is UNSUPPORTED.</span></a>
+      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/macos-telemetry.md"><b>macOS telemetry</b><span>eslogger, unified log, launchd, TCC and keychain listing.</span></a>
+      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/linux-telemetry.md"><b>Linux telemetry</b><span>Tetragon, Falco, bpftrace, containers, persistence.</span></a>
+      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/forensic-suite-interop.md"><b>Forensic-suite interop</b><span>UFDR, AXIOM CSV and Portable Case, Plaso, Autopsy.</span></a>
+      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/black-box-recorder.md"><b>Black-box recorder</b><span>monitor --record: journaled transcripts, OS telemetry, MCP config changes.</span></a>
+      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/reconstruct.md"><b>Reconstruct</b><span>One incident across hosts: timeline, delegation, hand-offs, stages.</span></a>
+      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/supply-chain.md"><b>Agent supply chain</b><span>Skills, plugins, hooks, MCP servers: origin, hash history, drift.</span></a>
+      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/detection-v45.md"><b>v4.5 detections</b><span>Host-witness rules and chains, and the proposals already covered.</span></a>
+      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/open-evidence-standard.md"><b>Verify without trusting us</b><span>What a third party can check, and how, with the Python verifier.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/detection-v4.md"><b>v4 detections</b><span>New agent-behaviour rules and chains, and why some proposals were not built.</span></a>
-      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/attack-chains.md"><b>Attack chains</b><span>The eleven built-in chains and how to write your own.</span></a>
+      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/attack-chains.md"><b>Attack chains</b><span>The thirteen built-in chains and how to write your own.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/claude-code-forensic-artifacts.md"><b>Claude Code artifacts</b><span>Every on-disk location and the JSONL session schema.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/mcp-audit.md"><b>MCP supply-chain audit</b><span>Inventory, risky configuration, poisoning and drift.</span></a>
-      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/endpoint-corroboration.md"><b>Endpoint corroboration</b><span>auditd, Sysmon, raw .evtx, EDR, DNS, proxy, auth and cloud audit logs as a second witness.</span></a>
+      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/endpoint-corroboration.md"><b>Endpoint corroboration</b><span>auditd, Sysmon, raw .evtx incl. registry, task and WMI events, EDR, DNS, proxy, auth and cloud audit logs.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/provenance.md"><b>Instruction provenance</b><span>Who wrote each line of an agent's instruction files.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/realtime-detection.md"><b>Real-time detection</b><span>Webhook, syslog or file alerts within seconds.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/dfir-interop.md"><b>DFIR interop</b><span>KAPE, Velociraptor, CyLR in; Timesketch and l2tcsv out.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/siem-interop.md"><b>SIEM interop</b><span>OCSF 1.3, SARIF 2.1 and Sigma export.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/container-ci-collection.md"><b>Containers and CI</b><span>Read-only container snapshots, CI archive ingestion.</span></a>
-      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/disk-images.md"><b>Disk images</b><span>E01, raw, VHD, VHDX, VMDK; NTFS, ext, FAT, exFAT; what is not read.</span></a>
+      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/disk-images.md"><b>Disk images</b><span>E01, raw, VHD, VHDX, VMDK, QCOW2; NTFS (USN, deleted, VSS), ext, FAT, exFAT; what is not read.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/ai-service-exports.md"><b>AI-service exports</b><span>ChatGPT, Claude.ai, DeepSeek, Gemini Takeout, UFDR layout.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/browser-ai-sessions.md"><b>Browser AI sessions</b><span>Opt-in: AI-service visits from browser history, never content.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/ai-ide-products.md"><b>Continue and Windsurf</b><span>Collectors, parsed sessions and what stays UNSUPPORTED.</span></a>
@@ -896,7 +943,7 @@ Result:             <span class="bad">FAILED — 2 problem(s):</span>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/extensions-plugins.md"><b>Extensions and plugins</b><span>IDE extensions, agent plugins and skills: hidden loaders, remote hooks.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/ediscovery.md"><b>eDiscovery</b><span>RSMF 2.0, production sets, derivative-only redaction.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/benchmark.md"><b>Benchmark</b><span>Synthetic accuracy, tamper detection, an independent Python verifier.</span></a>
-      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/adfir-spec.md"><b>.adfir package spec</b><span>Revision 0.2.1: two zones, content addressing, hash chaining, verification, conformance.</span></a>
+      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/adfir-spec.md"><b>.adfir package spec</b><span>Revision 0.2.2: two zones, content addressing, hash chaining, analysis manifest, action graph, STIX profile, conformance.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/product-packs.md"><b>Product packs</b><span>Add a new AI agent with one signed JSON file.</span></a>
       <a href="https://github.com/efij/AgentDFIR/tree/main/compliance"><b>Compliance mappings</b><span>ISO/IEC 27037, NIST AI RMF, GDPR, EU AI Act.</span></a>
       <a href="schema/event.schema.json"><b>Event schema</b><span>Unified agent event, JSON Schema 2020-12.</span></a>
