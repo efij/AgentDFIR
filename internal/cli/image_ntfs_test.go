@@ -96,7 +96,7 @@ func TestNTFSArtifactsUSN(t *testing.T) {
 		t.Fatal(err)
 	}
 	dir := t.TempDir()
-	arts, notes := ntfsVolumeArtifacts(nv, 2, dir, imageExtras{recoverDeleted: true}, 1<<20)
+	arts, notes := ntfsVolumeArtifacts(nv, 2, dir, imageExtras{recoverDeleted: true}, 1<<20, newImageBudget(diskimage.DefaultLimits()))
 	got := map[string]sealedExtra{}
 	for _, a := range arts {
 		got[a.logical] = a
@@ -124,6 +124,96 @@ func TestNTFSArtifactsUSN(t *testing.T) {
 	}
 }
 
+func usnFixtureVolume(t *testing.T) *ntfs.Volume {
+	t.Helper()
+	f, err := os.Open(filepath.Join("..", "diskimage", "ntfs", "testdata", "usn-deleted.ntfs.gz"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	zr, _ := gzip.NewReader(f)
+	b, _ := io.ReadAll(zr)
+	nv, err := ntfs.OpenVolume(bytes.NewReader(b), int64(len(b)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return nv
+}
+
+func TestNTFSArtifactsBudget(t *testing.T) {
+	nv := usnFixtureVolume(t)
+	ex := imageExtras{recoverDeleted: true}
+	// File cap: usn.jsonl and one recovered file use it up; the second
+	// recovery and deleted.jsonl are refused with notices.
+	b := &imageBudget{bytes: 1 << 30, files: 2}
+	arts, notes := ntfsVolumeArtifacts(nv, 1, t.TempDir(), ex, 1<<20, b)
+	joined := strings.Join(notes, " | ")
+	if len(arts) != 2 || b.files != 0 || !strings.Contains(joined, "list not written") {
+		t.Fatalf("file cap: %d artifacts, budget %+v, notes %s", len(arts), b, joined)
+	}
+	// Byte cap: the journal is cut short, nothing is recovered, and the
+	// total written never passes the budget.
+	b = &imageBudget{bytes: 3000, files: 100}
+	arts, notes = ntfsVolumeArtifacts(nv, 1, t.TempDir(), ex, 1<<20, b)
+	joined = strings.Join(notes, " | ")
+	var total int64
+	for _, a := range arts {
+		fi, err := os.Stat(a.path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		total += fi.Size()
+		if strings.Contains(a.logical, "/recovered/") && fi.Size() > 16 {
+			t.Fatalf("large recovery passed the byte budget: %s", a.logical)
+		}
+	}
+	if total > 3000 || b.bytes < 0 || !strings.Contains(joined, "usn journal: TRUNCATED") {
+		t.Fatalf("byte cap: wrote %d, budget %+v, notes %s", total, b, joined)
+	}
+	if !strings.Contains(joined, "recoverable not written") && !strings.Contains(joined, "list not written") && !strings.Contains(joined, "TRUNCATED:") {
+		t.Fatalf("no recovery/list truncation notice: %s", joined)
+	}
+	// Exhausted budget: nothing written at all.
+	b = &imageBudget{bytes: 0, files: 0}
+	if arts, _ := ntfsVolumeArtifacts(nv, 1, t.TempDir(), ex, 1<<20, b); len(arts) != 0 {
+		t.Fatalf("artifacts written with no budget: %v", arts)
+	}
+}
+
+func TestVSSBudgetAndCap(t *testing.T) {
+	f, err := os.Open(filepath.Join("..", "diskimage", "ntfs", "vss", "testdata", "vss-synthetic.ntfs.gz"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	zr, _ := gzip.NewReader(f)
+	img, _ := io.ReadAll(zr)
+	vol := diskimage.Volume{Index: 1, Size: int64(len(img))}
+	cands := func(*ntfs.Volume) []string { return []string{"Users/alice/report.txt"} }
+	// One file left: snapshot 1 takes it, snapshot 2 is skipped and named.
+	b := &imageBudget{bytes: 1 << 30, files: 1}
+	_, notes, n := vssSnapshotFiles(vol, bytes.NewReader(img), t.TempDir(), cands, diskimage.DefaultLimits(), b, imageProvenance{})
+	joined := strings.Join(notes, " | ")
+	if n != 1 || b.files != 0 || !strings.Contains(joined, "2-20260815T090000Z (image-wide limit)") {
+		t.Fatalf("files %d budget %+v notes %s", n, b, joined)
+	}
+	// Bytes left for less than one file: ExtractFiles refuses it.
+	b = &imageBudget{bytes: 100, files: 10}
+	_, _, n = vssSnapshotFiles(vol, bytes.NewReader(img), t.TempDir(), cands, diskimage.DefaultLimits(), b, imageProvenance{})
+	if n != 0 || b.bytes != 100 {
+		t.Fatalf("byte budget: files %d budget %+v", n, b)
+	}
+	// Snapshot cap.
+	old := maxVSSSnapshots
+	maxVSSSnapshots = 1
+	defer func() { maxVSSSnapshots = old }()
+	b = newImageBudget(diskimage.DefaultLimits())
+	_, notes, n = vssSnapshotFiles(vol, bytes.NewReader(img), t.TempDir(), cands, diskimage.DefaultLimits(), b, imageProvenance{})
+	if n != 1 || !strings.Contains(strings.Join(notes, " "), "2-20260815T090000Z (snapshot cap)") {
+		t.Fatalf("cap: %d %v", n, notes)
+	}
+}
+
 func TestVSSSnapshotStaging(t *testing.T) {
 	f, err := os.Open(filepath.Join("..", "diskimage", "ntfs", "vss", "testdata", "vss-synthetic.ntfs.gz"))
 	if err != nil {
@@ -135,7 +225,7 @@ func TestVSSSnapshotStaging(t *testing.T) {
 	vol := diskimage.Volume{Index: 1, Size: int64(len(b))}
 	staging := t.TempDir()
 	cands := func(*ntfs.Volume) []string { return []string{"Users/alice/report.txt"} }
-	prov, notes, n := vssSnapshotFiles(vol, bytes.NewReader(b), staging, cands, diskimage.DefaultLimits(), imageProvenance{})
+	prov, notes, n := vssSnapshotFiles(vol, bytes.NewReader(b), staging, cands, diskimage.DefaultLimits(), newImageBudget(diskimage.DefaultLimits()), imageProvenance{})
 	if n != 2 || len(prov) != 2 {
 		t.Fatalf("files %d prov %d notes %v", n, len(prov), notes)
 	}
@@ -150,7 +240,7 @@ func TestVSSSnapshotStaging(t *testing.T) {
 		}
 	}
 	// A volume without a store says so.
-	_, notes, n = vssSnapshotFiles(vol, bytes.NewReader(make([]byte, 1<<16)), staging, cands, diskimage.DefaultLimits(), imageProvenance{})
+	_, notes, n = vssSnapshotFiles(vol, bytes.NewReader(make([]byte, 1<<16)), staging, cands, diskimage.DefaultLimits(), newImageBudget(diskimage.DefaultLimits()), imageProvenance{})
 	if n != 0 || !strings.Contains(notes[0], "no shadow copy header") {
 		t.Fatalf("%v", notes)
 	}

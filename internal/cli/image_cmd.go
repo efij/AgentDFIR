@@ -152,6 +152,7 @@ func collectImage(path string, o importOpts, verifyStored bool, extras imageExtr
 	var prov []imageProvenance
 	var extraFiles []sealedExtra
 	artDir := filepath.Join(staging, "ntfs-artifacts") // sealed directly, never imported as a tree
+	budget := newImageBudget(lim)                      // shared by every extraction from this image
 	for _, v := range pt.Volumes {
 		rep := &volumeReport{vol: v}
 		reports = append(reports, rep)
@@ -162,7 +163,8 @@ func collectImage(path string, o importOpts, verifyStored bool, extras imageExtr
 			continue
 		}
 		rep.status = "read"
-		if nv, ok := res.FS.(*ntfs.Volume); ok {
+		nv, isNTFS := res.FS.(*ntfs.Volume)
+		if isNTFS {
 			st := nv.Stats()
 			rep.notes = append(rep.notes, fmt.Sprintf("%d deleted MFT records skipped, %d orphans, %d corrupt records, %d parent loops, %d self-parent", st.Deleted, st.Orphans, st.Corrupt, st.ParentLoops, st.SelfParent))
 			if st.ShadowStore > 0 && !extras.includeVSS {
@@ -171,12 +173,48 @@ func collectImage(path string, o importOpts, verifyStored bool, extras imageExtr
 			for _, p := range st.Problems {
 				rep.notes = append(rep.notes, "ntfs: "+p)
 			}
-			arts, notes := ntfsVolumeArtifacts(nv, v.Index, artDir, extras, lim.MaxFileBytes)
-			extraFiles = append(extraFiles, arts...)
-			rep.notes = append(rep.notes, notes...)
 		}
 		volStaging := filepath.Join(staging, fmt.Sprintf("vol%d", v.Index))
-		if _, ok := res.FS.(*ntfs.Volume); ok && extras.includeVSS {
+		// Live agent evidence first: it gets the image's byte and file
+		// budget before shadow copies and NTFS artifacts do.
+		cands := diskimage.FindCandidates(res.FS, prods, lim)
+		rep.notes = append(rep.notes, cands.Problems...)
+		if len(cands.Files) > 0 {
+			if vl, ok := budget.limits(lim); !ok {
+				rep.notes = append(rep.notes, fmt.Sprintf("stopped: image-wide extraction limit reached; %d candidate file(s) not extracted", len(cands.Files)))
+			} else {
+				rep.staging = volStaging
+				ex := diskimage.ExtractFiles(res.FS, cands.Files, rep.staging, vl)
+				rep.notes = append(rep.notes, ex.Problems...)
+				for _, f := range ex.Files {
+					pr := imageProvenance{
+						ImagePath: abs, ImageSegments: before, ContainerType: im.Format,
+						PartitionScheme: v.Scheme, PartitionIndex: v.Index, PartitionOffset: v.Offset, PartitionType: v.Type,
+						FSType: res.Type, OriginalPath: "/" + f.FSPath, Size: f.Size, SHA256: f.SHA256,
+						E01Verification: e01, Problem: f.Problem,
+					}
+					if f.Staged != "" {
+						rel, _ := filepath.Rel(staging, f.Staged)
+						pr.StagedPath = filepath.ToSlash(rel)
+						rep.files++
+						budget.spend(0, 1)
+					}
+					fillTimes(&pr, f.Sys)
+					// The reader names the exact variant (ext2, fat32, exfat…);
+					// FAT stores local wall-clock time with no zone, which the
+					// provenance must say rather than imply UTC.
+					if v, ok := f.Sys["fs"].(string); ok && v != "" {
+						pr.FSType = v
+					}
+					if v, ok := f.Sys["tz"].(string); ok {
+						pr.TimeZone = v
+					}
+					prov = append(prov, pr)
+				}
+				budget.spend(ex.Bytes, 0)
+			}
+		}
+		if isNTFS && extras.includeVSS {
 			base := imageProvenance{
 				ImagePath: abs, ImageSegments: before, ContainerType: im.Format,
 				PartitionScheme: v.Scheme, PartitionIndex: v.Index, PartitionOffset: v.Offset, PartitionType: v.Type,
@@ -187,7 +225,7 @@ func collectImage(path string, o importOpts, verifyStored bool, extras imageExtr
 				rep.notes = append(rep.notes, c.Problems...)
 				return c.Files
 			}
-			vp, notes, n := vssSnapshotFiles(v, v.Section(im), volStaging, cf, lim, base)
+			vp, notes, n := vssSnapshotFiles(v, v.Section(im), volStaging, cf, lim, budget, base)
 			rep.notes = append(rep.notes, notes...)
 			for i := range vp {
 				if vp[i].StagedPath != "" {
@@ -201,37 +239,10 @@ func collectImage(path string, o importOpts, verifyStored bool, extras imageExtr
 				rep.staging = volStaging
 			}
 		}
-		cands := diskimage.FindCandidates(res.FS, prods, lim)
-		rep.notes = append(rep.notes, cands.Problems...)
-		if len(cands.Files) == 0 {
-			continue
-		}
-		rep.staging = volStaging
-		ex := diskimage.ExtractFiles(res.FS, cands.Files, rep.staging, lim)
-		rep.notes = append(rep.notes, ex.Problems...)
-		for _, f := range ex.Files {
-			pr := imageProvenance{
-				ImagePath: abs, ImageSegments: before, ContainerType: im.Format,
-				PartitionScheme: v.Scheme, PartitionIndex: v.Index, PartitionOffset: v.Offset, PartitionType: v.Type,
-				FSType: res.Type, OriginalPath: "/" + f.FSPath, Size: f.Size, SHA256: f.SHA256,
-				E01Verification: e01, Problem: f.Problem,
-			}
-			if f.Staged != "" {
-				rel, _ := filepath.Rel(staging, f.Staged)
-				pr.StagedPath = filepath.ToSlash(rel)
-				rep.files++
-			}
-			fillTimes(&pr, f.Sys)
-			// The reader names the exact variant (ext2, fat32, exfat…);
-			// FAT stores local wall-clock time with no zone, which the
-			// provenance must say rather than imply UTC.
-			if v, ok := f.Sys["fs"].(string); ok && v != "" {
-				pr.FSType = v
-			}
-			if v, ok := f.Sys["tz"].(string); ok {
-				pr.TimeZone = v
-			}
-			prov = append(prov, pr)
+		if isNTFS {
+			arts, notes := ntfsVolumeArtifacts(nv, v.Index, artDir, extras, lim.MaxFileBytes, budget)
+			extraFiles = append(extraFiles, arts...)
+			rep.notes = append(rep.notes, notes...)
 		}
 	}
 	for _, p := range pt.Problems {

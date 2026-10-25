@@ -101,6 +101,12 @@ A summary of each (record counts, skipped bytes, UNSUPPORTED snapshots) is in th
 `image_volume_<N>` case note. The case is still refused when no volume holds agent evidence:
 these artifacts accompany agent evidence, they do not replace it.
 
+One byte and file budget (`--max-file-mb` per file; 8 GiB and 200,000 files in total) covers
+everything taken from one image, in this order: live agent evidence, then shadow-copy
+extraction (at most 64 snapshots per volume, each given only what is left), then `usn.jsonl`,
+recovered files and `deleted.jsonl`. Whatever the budget cuts is named in the volume note
+(`TRUNCATED`, `not written`, or the list of snapshots NOT examined).
+
 **USN journal.** `$J` is read through its data runs; sparse runs (the deallocated head of a
 wrapped journal) are skipped by run, never scanned. USN_RECORD_V2 and V3 are decoded: file
 and parent reference (record + sequence), USN, timestamp (UTC), reason flags, source info,
