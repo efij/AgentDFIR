@@ -54,6 +54,15 @@ type EndpointResult struct {
 	WitnessRecords      int `json:"witness_records,omitempty"`
 	WitnessCorroborated int `json:"witness_corroborated,omitempty"` // proxy host(+path), sudo/journal command line
 	WitnessPartial      int `json:"witness_partial,omitempty"`      // DNS lookup or ssh login only
+
+	// The time range the imported cloud audit records span (RFC 3339).
+	CloudCoverageStart string `json:"cloud_coverage_start,omitempty"`
+	CloudCoverageEnd   string `json:"cloud_coverage_end,omitempty"`
+
+	// Matches are the pairings behind the corroborated counts (see Match),
+	// at most MaxMatches; MatchesOmitted counts the ones past the bound.
+	Matches        []Match `json:"matches,omitempty"`
+	MatchesOmitted int     `json:"matches_omitted,omitempty"`
 }
 
 // Endpoint correlates events in place and returns findings.
@@ -114,6 +123,7 @@ func endpointHost(events []schema.Event, records []endpoint.Record, opts Endpoin
 	agentNames := agentBinaryNames(opts.AgentBinaries)
 	lineage := buildLineage(records, agentNames)
 	matchedRec := make([]bool, len(records))
+	pids := newPIDIndex(records)
 
 	// Pass 1: tool calls → endpoint records.
 	var findings []schema.Finding
@@ -148,6 +158,7 @@ func endpointHost(events []schema.Event, records []endpoint.Record, opts Endpoin
 				ev.Corroboration = schema.StateCorroborated
 			}
 			ev.Summary = appendNote(ev.Summary, fmt.Sprintf("corroborated by %s %s (%s)", r.Source, r.Kind, r.Ref))
+			addMatch(res, "endpoint", ev, r, bestScore, opts.Window, pids.relatedOf(records, best))
 			res.Corroborated++
 			continue
 		}

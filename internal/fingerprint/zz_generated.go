@@ -4,5 +4,5 @@ package fingerprint
 
 const (
 	parse    = "859811c8fa99de86b31d0118c13e9504ee5ef7b02ffc9715c46c3893cc45d460"
-	analysis = "cc8f568a479dcb4b30e9ca29f88631e569decf6991d42da9c02c31687b2cc6f8"
+	analysis = "2bb6016dbaab4b1d0c1f7ee4997b07a3023f1e3541126516d6bc0278787a3d20"
 )
