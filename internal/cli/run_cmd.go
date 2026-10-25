@@ -14,6 +14,7 @@ import (
 	"github.com/efij/AgentDFIR/v4/internal/casepkg"
 	"github.com/efij/AgentDFIR/v4/internal/collector"
 	"github.com/efij/AgentDFIR/v4/internal/gentle"
+	"github.com/efij/AgentDFIR/v4/internal/hostpersist"
 	"github.com/efij/AgentDFIR/v4/internal/integrity"
 	"github.com/efij/AgentDFIR/v4/internal/normalize"
 	"github.com/efij/AgentDFIR/v4/internal/products"
@@ -329,6 +330,14 @@ func cmdRun(args []string) int {
 			fmt.Fprintf(w, "  %-16s %d new · %d carried forward · %s\n", pid, st.Acquired, st.Carried, humanBytes(st.TotalBytes))
 		default:
 			fmt.Fprintf(w, "  %-16s %d artifacts · %s\n", pid, st.Acquired, humanBytes(st.TotalBytes))
+		}
+	}
+	if hostpersist.Applies("/") {
+		// Linux persistence state, read-only (see internal/hostpersist).
+		if pst, pErr := hostpersist.Collect(b, collector.Options{ProfileRoot: home, SystemRoot: "/", Host: host, User: osUser, Pace: tune.Pace}); pErr != nil {
+			fmt.Fprintf(w, "  %s: %v (continuing)\n", hostpersist.Product, pErr)
+		} else {
+			fmt.Fprintf(w, "  %-16s %d files · inventory host/linux-persistence.json\n", hostpersist.Product, pst.Acquired+pst.Carried)
 		}
 	}
 	if pauses, paused := gov.Stats(); pauses > 0 {

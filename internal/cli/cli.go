@@ -13,6 +13,7 @@ import (
 
 	"github.com/efij/AgentDFIR/v4/internal/casepkg"
 	"github.com/efij/AgentDFIR/v4/internal/collector"
+	"github.com/efij/AgentDFIR/v4/internal/hostpersist"
 	"github.com/efij/AgentDFIR/v4/internal/integrity"
 	"github.com/efij/AgentDFIR/v4/internal/live"
 	"github.com/efij/AgentDFIR/v4/internal/products"
@@ -461,6 +462,15 @@ func cmdCollect(args []string) int {
 		bst, bErr := collectBrowser(b, opts, false)
 		addStats(st, bst)
 		runErr = bErr
+	}
+	if runErr == nil && productID != browserProductID && hostpersist.Applies(systemRoot) {
+		// Linux persistence state (systemd, cron, shell init, ld.so.preload,
+		// authorized_keys): read-only, denied paths recorded with the reason.
+		pst, pErr := hostpersist.Collect(b, opts)
+		addStats(st, pst)
+		if pErr != nil {
+			fmt.Fprintln(os.Stderr, "linux persistence collection (continuing):", pErr)
+		}
 	}
 	roundStats := b.Stats()
 	signing := prepareSigning(b, *signKey, *noSign)
