@@ -28,6 +28,7 @@ var aliases = map[string][]string{
 	"dest_host":  {"DestinationHostname", "dest_host", "hostname", "destination.domain", "Event.EventData.DestinationHostname", "domain"},
 	"file_path":  {"TargetFilename", "target_path", "file_path", "filename", "FileName", "file.path", "event.create.destination.existing_file.path", "event.create.destination.new_path.filename", "event.unlink.target.path", "event.open.file.path", "Event.EventData.TargetFilename"},
 	"event_id":   {"EventID", "event_id", "System.EventID", "Event.System.EventID", "EventId"},
+	"url":        {"url", "URL", "request_url", "requestUrl", "url.full", "url.original", "http.url", "cs-uri", "request.url", "uri"},
 	"event_type": {"event_type", "type", "action", "kind", "Type", "Action", "Operation", "operation"},
 }
 
@@ -147,6 +148,7 @@ func (res *LoadResult) add(flat map[string]string, ref string) {
 		rec.DestIP = get("dest_ip")
 		rec.DestPort, _ = strconv.Atoi(get("dest_port"))
 		rec.DestHost = get("dest_host")
+		rec.URL = get("url")
 		if rec.DestIP == "" && rec.DestHost == "" {
 			res.problem(ref + ": network event without destination")
 			return
@@ -165,6 +167,15 @@ func (res *LoadResult) add(flat map[string]string, ref string) {
 		if rec.FilePath == "" {
 			res.problem(ref + ": file event without path")
 			return
+		}
+	case rec.Cmdline == "" && urlHost(get("url")) != "":
+		// Web proxy / secure web gateway exports: a request with a URL and
+		// no command line. A proxy sees only proxied traffic, so these records
+		// corroborate but never give coverage (IsSighting).
+		rec.Kind, rec.Source, rec.URL = "network", "proxy-export", get("url")
+		rec.DestHost, rec.DestPort, _ = hostOfURL(rec.URL)
+		if rec.User == "" {
+			rec.User = flat["user_name"]
 		}
 	case rec.Cmdline != "" || rec.Exe != "":
 		rec.Kind = "process"
@@ -211,4 +222,14 @@ func flatten(doc map[string]any) map[string]string {
 	}
 	walk("", doc)
 	return out
+}
+
+// urlHost is the host of an absolute http(s) URL, or "".
+func urlHost(u string) string {
+	l := strings.ToLower(u)
+	if !strings.HasPrefix(l, "http://") && !strings.HasPrefix(l, "https://") {
+		return ""
+	}
+	h, _, _ := hostOfURL(u)
+	return h
 }
