@@ -16,10 +16,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v3/internal/casepkg"
-	"github.com/efij/AgentDFIR/v3/internal/notes"
-	"github.com/efij/AgentDFIR/v3/internal/sanitize"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/casepkg"
+	"github.com/efij/AgentDFIR/v4/internal/notes"
+	"github.com/efij/AgentDFIR/v4/internal/sanitize"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
 // Case bundles everything a report renders.

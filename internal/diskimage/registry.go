@@ -6,9 +6,9 @@ import (
 	"io"
 	"io/fs"
 
-	"github.com/efij/AgentDFIR/v3/internal/diskimage/ext4"
-	"github.com/efij/AgentDFIR/v3/internal/diskimage/fat"
-	"github.com/efij/AgentDFIR/v3/internal/diskimage/ntfs"
+	"github.com/efij/AgentDFIR/v4/internal/diskimage/ext4"
+	"github.com/efij/AgentDFIR/v4/internal/diskimage/fat"
+	"github.com/efij/AgentDFIR/v4/internal/diskimage/ntfs"
 )
 
 // Filesystem is one registered read-only filesystem reader.

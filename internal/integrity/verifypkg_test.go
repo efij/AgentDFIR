@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v3/internal/seal"
+	"github.com/efij/AgentDFIR/v4/internal/seal"
 )
 
 func TestVerifyPackageCleanAndSigned(t *testing.T) {

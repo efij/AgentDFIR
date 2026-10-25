@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v3/internal/notes"
-	"github.com/efij/AgentDFIR/v3/internal/sanitize"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
-	"github.com/efij/AgentDFIR/v3/internal/version"
+	"github.com/efij/AgentDFIR/v4/internal/notes"
+	"github.com/efij/AgentDFIR/v4/internal/sanitize"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/version"
 )
 
 // PDF report. A deliberately small PDF 1.4 writer (standard library only,

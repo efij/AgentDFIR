@@ -19,9 +19,9 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/efij/AgentDFIR/v3/internal/casepkg"
-	"github.com/efij/AgentDFIR/v3/internal/seal"
-	"github.com/efij/AgentDFIR/v3/internal/store"
+	"github.com/efij/AgentDFIR/v4/internal/casepkg"
+	"github.com/efij/AgentDFIR/v4/internal/seal"
+	"github.com/efij/AgentDFIR/v4/internal/store"
 )
 
 // Status values recorded in a round's prior_integrity.

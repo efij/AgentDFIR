@@ -15,9 +15,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/efij/AgentDFIR/v3/internal/detect"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
-	"github.com/efij/AgentDFIR/v3/internal/watch"
+	"github.com/efij/AgentDFIR/v4/internal/detect"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/watch"
 )
 
 type memSink struct {

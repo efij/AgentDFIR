@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
 // Claude.ai exports a flat, already-linearized message list per

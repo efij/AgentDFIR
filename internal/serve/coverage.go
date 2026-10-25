@@ -9,12 +9,12 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/efij/AgentDFIR/v3/internal/analysis"
-	"github.com/efij/AgentDFIR/v3/internal/chain"
-	"github.com/efij/AgentDFIR/v3/internal/correlate"
-	"github.com/efij/AgentDFIR/v3/internal/gaps"
-	"github.com/efij/AgentDFIR/v3/internal/overlay"
-	"github.com/efij/AgentDFIR/v3/internal/sanitize"
+	"github.com/efij/AgentDFIR/v4/internal/analysis"
+	"github.com/efij/AgentDFIR/v4/internal/chain"
+	"github.com/efij/AgentDFIR/v4/internal/correlate"
+	"github.com/efij/AgentDFIR/v4/internal/gaps"
+	"github.com/efij/AgentDFIR/v4/internal/overlay"
+	"github.com/efij/AgentDFIR/v4/internal/sanitize"
 )
 
 // The investigation layer the explorer shows next to the findings: what the

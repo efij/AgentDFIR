@@ -6,8 +6,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v3/internal/provenance"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/provenance"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
 // Gap codes. Each is a rule a reader can check by hand against the row.

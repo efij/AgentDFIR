@@ -25,14 +25,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v3/internal/accounts"
-	"github.com/efij/AgentDFIR/v3/internal/chain"
-	"github.com/efij/AgentDFIR/v3/internal/correlate"
-	"github.com/efij/AgentDFIR/v3/internal/detect"
-	"github.com/efij/AgentDFIR/v3/internal/endpoint"
-	"github.com/efij/AgentDFIR/v3/internal/netdest"
-	"github.com/efij/AgentDFIR/v3/internal/notes"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/accounts"
+	"github.com/efij/AgentDFIR/v4/internal/chain"
+	"github.com/efij/AgentDFIR/v4/internal/correlate"
+	"github.com/efij/AgentDFIR/v4/internal/detect"
+	"github.com/efij/AgentDFIR/v4/internal/endpoint"
+	"github.com/efij/AgentDFIR/v4/internal/netdest"
+	"github.com/efij/AgentDFIR/v4/internal/notes"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
 // Schema identifies the document this package writes.

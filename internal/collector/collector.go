@@ -27,8 +27,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/efij/AgentDFIR/v3/internal/casepkg"
-	"github.com/efij/AgentDFIR/v3/internal/products"
+	"github.com/efij/AgentDFIR/v4/internal/casepkg"
+	"github.com/efij/AgentDFIR/v4/internal/products"
 )
 
 // Options controls one collection run.

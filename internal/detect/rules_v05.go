@@ -4,15 +4,15 @@ package detect
 
 import (
 	"fmt"
-	"github.com/efij/AgentDFIR/v3/internal/shellshape"
+	"github.com/efij/AgentDFIR/v4/internal/shellshape"
 	"regexp"
 	"sort"
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v3/internal/casepkg"
-	"github.com/efij/AgentDFIR/v3/internal/netdest"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/casepkg"
+	"github.com/efij/AgentDFIR/v4/internal/netdest"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
 const defaultSpawnThreshold = 10

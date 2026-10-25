@@ -8,8 +8,8 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v3/internal/overlay"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/overlay"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
 func TestRequiredLiterals(t *testing.T) {

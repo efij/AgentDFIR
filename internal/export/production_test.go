@@ -19,14 +19,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/efij/AgentDFIR/v3/internal/analysis"
-	"github.com/efij/AgentDFIR/v3/internal/casepkg"
-	"github.com/efij/AgentDFIR/v3/internal/collector"
-	"github.com/efij/AgentDFIR/v3/internal/export"
-	"github.com/efij/AgentDFIR/v3/internal/notes"
-	"github.com/efij/AgentDFIR/v3/internal/products"
-	"github.com/efij/AgentDFIR/v3/internal/redact"
-	"github.com/efij/AgentDFIR/v3/internal/report"
+	"github.com/efij/AgentDFIR/v4/internal/analysis"
+	"github.com/efij/AgentDFIR/v4/internal/casepkg"
+	"github.com/efij/AgentDFIR/v4/internal/collector"
+	"github.com/efij/AgentDFIR/v4/internal/export"
+	"github.com/efij/AgentDFIR/v4/internal/notes"
+	"github.com/efij/AgentDFIR/v4/internal/products"
+	"github.com/efij/AgentDFIR/v4/internal/redact"
+	"github.com/efij/AgentDFIR/v4/internal/report"
 )
 
 // Synthetic values that must never appear in a redacted derivative.

@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
 // writeOverlay lays out a package with just the normalized overlay in it,

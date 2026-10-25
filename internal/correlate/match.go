@@ -4,8 +4,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/efij/AgentDFIR/v3/internal/endpoint"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/endpoint"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
 // Match records which independent record explained which tool call, and

@@ -4,10 +4,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v3/internal/casepkg"
-	"github.com/efij/AgentDFIR/v3/internal/integrity"
-	"github.com/efij/AgentDFIR/v3/internal/seal"
-	"github.com/efij/AgentDFIR/v3/internal/simulate"
+	"github.com/efij/AgentDFIR/v4/internal/casepkg"
+	"github.com/efij/AgentDFIR/v4/internal/integrity"
+	"github.com/efij/AgentDFIR/v4/internal/seal"
+	"github.com/efij/AgentDFIR/v4/internal/simulate"
 )
 
 func simHome(t *testing.T) {

@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/efij/AgentDFIR/v3/internal/endpoint"
-	w "github.com/efij/AgentDFIR/v3/internal/endpoint/evtx/evtxtest"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/endpoint"
+	w "github.com/efij/AgentDFIR/v4/internal/endpoint/evtx/evtxtest"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
 func writeFile(t *testing.T, name string, b []byte) string {

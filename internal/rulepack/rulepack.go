@@ -14,7 +14,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/efij/AgentDFIR/v3/internal/shellshape"
+	"github.com/efij/AgentDFIR/v4/internal/shellshape"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -23,9 +23,9 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/efij/AgentDFIR/v3/internal/artmemo"
-	"github.com/efij/AgentDFIR/v3/internal/casepkg"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/artmemo"
+	"github.com/efij/AgentDFIR/v4/internal/casepkg"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
 // Rule is one declarative detection.

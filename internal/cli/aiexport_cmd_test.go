@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v3/internal/casepkg"
+	"github.com/efij/AgentDFIR/v4/internal/casepkg"
 )
 
 // zipTree writes files (in-archive path → content) into a zip.

@@ -2,11 +2,11 @@ package detect
 
 import (
 	"fmt"
-	"github.com/efij/AgentDFIR/v3/internal/shellshape"
+	"github.com/efij/AgentDFIR/v4/internal/shellshape"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v3/internal/netdest"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/netdest"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
 // oneToolCallRules evaluates the stateless-and-per-session tool-call rules

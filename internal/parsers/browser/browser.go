@@ -29,11 +29,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v3/internal/casepkg"
-	"github.com/efij/AgentDFIR/v3/internal/parsers/segment"
-	"github.com/efij/AgentDFIR/v3/internal/parsers/sqlitero"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
-	"github.com/efij/AgentDFIR/v3/internal/version"
+	"github.com/efij/AgentDFIR/v4/internal/casepkg"
+	"github.com/efij/AgentDFIR/v4/internal/parsers/segment"
+	"github.com/efij/AgentDFIR/v4/internal/parsers/sqlitero"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/version"
 )
 
 // Category is the artifact type the browser collector writes. It is not

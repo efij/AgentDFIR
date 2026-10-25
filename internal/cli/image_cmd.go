@@ -13,10 +13,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v3/internal/casepkg"
-	"github.com/efij/AgentDFIR/v3/internal/diskimage"
-	"github.com/efij/AgentDFIR/v3/internal/diskimage/ntfs"
-	"github.com/efij/AgentDFIR/v3/internal/sanitize"
+	"github.com/efij/AgentDFIR/v4/internal/casepkg"
+	"github.com/efij/AgentDFIR/v4/internal/diskimage"
+	"github.com/efij/AgentDFIR/v4/internal/diskimage/ntfs"
+	"github.com/efij/AgentDFIR/v4/internal/sanitize"
 )
 
 // imageProvenanceName is the sealed sidecar that ties every extracted

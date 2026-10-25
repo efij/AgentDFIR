@@ -29,10 +29,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v3/internal/casepkg"
-	"github.com/efij/AgentDFIR/v3/internal/correlate"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
-	"github.com/efij/AgentDFIR/v3/internal/witness"
+	"github.com/efij/AgentDFIR/v4/internal/casepkg"
+	"github.com/efij/AgentDFIR/v4/internal/correlate"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/witness"
 )
 
 // Schema identifies the document this package writes.

@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/efij/AgentDFIR/v3/internal/endpoint/evtx"
-	. "github.com/efij/AgentDFIR/v3/internal/endpoint/evtx/evtxtest"
+	"github.com/efij/AgentDFIR/v4/internal/endpoint/evtx"
+	. "github.com/efij/AgentDFIR/v4/internal/endpoint/evtx/evtxtest"
 )
 
 var t0 = time.Date(2026, 8, 30, 10, 0, 7, 123456700, time.UTC)

@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v3/internal/casepkg"
+	"github.com/efij/AgentDFIR/v4/internal/casepkg"
 )
 
 // Planning decides, before anything is sealed, which files of a tree are

@@ -32,10 +32,10 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/efij/AgentDFIR/v3/internal/products"
-	"github.com/efij/AgentDFIR/v3/internal/sanitize"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
-	"github.com/efij/AgentDFIR/v3/internal/version"
+	"github.com/efij/AgentDFIR/v4/internal/products"
+	"github.com/efij/AgentDFIR/v4/internal/sanitize"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/version"
 )
 
 // RSMFVersion is the manifest/header version this writer emits.

@@ -13,9 +13,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v3/internal/casepkg"
-	"github.com/efij/AgentDFIR/v3/internal/hashchain"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/casepkg"
+	"github.com/efij/AgentDFIR/v4/internal/hashchain"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
 type rec struct {

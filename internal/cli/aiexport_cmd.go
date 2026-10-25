@@ -6,12 +6,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v3/internal/casepkg"
-	"github.com/efij/AgentDFIR/v3/internal/collector"
-	"github.com/efij/AgentDFIR/v3/internal/parsers/aiexport"
-	"github.com/efij/AgentDFIR/v3/internal/products"
-	"github.com/efij/AgentDFIR/v3/internal/sanitize"
-	"github.com/efij/AgentDFIR/v3/internal/unpack"
+	"github.com/efij/AgentDFIR/v4/internal/casepkg"
+	"github.com/efij/AgentDFIR/v4/internal/collector"
+	"github.com/efij/AgentDFIR/v4/internal/parsers/aiexport"
+	"github.com/efij/AgentDFIR/v4/internal/products"
+	"github.com/efij/AgentDFIR/v4/internal/sanitize"
+	"github.com/efij/AgentDFIR/v4/internal/unpack"
 )
 
 // collectAIExport seals an AI-service account export — a ChatGPT,

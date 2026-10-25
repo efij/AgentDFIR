@@ -33,13 +33,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v3/internal/custody"
-	"github.com/efij/AgentDFIR/v3/internal/overlay"
-	"github.com/efij/AgentDFIR/v3/internal/redact"
-	"github.com/efij/AgentDFIR/v3/internal/report"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
-	"github.com/efij/AgentDFIR/v3/internal/seal"
-	"github.com/efij/AgentDFIR/v3/internal/version"
+	"github.com/efij/AgentDFIR/v4/internal/custody"
+	"github.com/efij/AgentDFIR/v4/internal/overlay"
+	"github.com/efij/AgentDFIR/v4/internal/redact"
+	"github.com/efij/AgentDFIR/v4/internal/report"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/seal"
+	"github.com/efij/AgentDFIR/v4/internal/version"
 )
 
 // ProductionSchema versions the manifest layout.

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
 // TestQuickBenchmark runs the fast subset end to end: a sample of the

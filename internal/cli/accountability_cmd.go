@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v3/internal/accountability"
-	"github.com/efij/AgentDFIR/v3/internal/analysis"
-	"github.com/efij/AgentDFIR/v3/internal/custody"
-	"github.com/efij/AgentDFIR/v3/internal/sanitize"
+	"github.com/efij/AgentDFIR/v4/internal/accountability"
+	"github.com/efij/AgentDFIR/v4/internal/analysis"
+	"github.com/efij/AgentDFIR/v4/internal/custody"
+	"github.com/efij/AgentDFIR/v4/internal/sanitize"
 )
 
 const accountabilityUsage = `usage: agentdfir report accountability [<case.adfir>] [--session <id>] [--since <rfc3339>] [--until <rfc3339>]

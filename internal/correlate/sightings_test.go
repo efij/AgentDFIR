@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v3/internal/endpoint"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/endpoint"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
 func TestDNSLookupPartlyCorroboratesNetworkCommand(t *testing.T) {

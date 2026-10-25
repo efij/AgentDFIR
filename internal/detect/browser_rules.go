@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
 // Browser-history rules. History is opt-in evidence (--include-browser)

@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v3/internal/fingerprint/compute"
+	"github.com/efij/AgentDFIR/v4/internal/fingerprint/compute"
 )
 
 // TestCurrent fails when a parser, rule or analysis stage changed without

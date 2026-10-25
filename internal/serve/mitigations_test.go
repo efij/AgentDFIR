@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v3/internal/mitigate"
+	"github.com/efij/AgentDFIR/v4/internal/mitigate"
 )
 
 // postMit is what the Protect tab sends: same-origin headers plus the token.

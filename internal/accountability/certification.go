@@ -5,10 +5,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v3/internal/casepkg"
-	"github.com/efij/AgentDFIR/v3/internal/custody"
-	"github.com/efij/AgentDFIR/v3/internal/seal"
-	"github.com/efij/AgentDFIR/v3/internal/version"
+	"github.com/efij/AgentDFIR/v4/internal/casepkg"
+	"github.com/efij/AgentDFIR/v4/internal/custody"
+	"github.com/efij/AgentDFIR/v4/internal/seal"
+	"github.com/efij/AgentDFIR/v4/internal/version"
 )
 
 // CertFields are the human-supplied parts of a certification. Any left

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v3/internal/casepkg"
+	"github.com/efij/AgentDFIR/v4/internal/casepkg"
 )
 
 func imageFixture(t *testing.T, dir, name string) string {

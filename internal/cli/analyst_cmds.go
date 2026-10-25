@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/efij/AgentDFIR/v3/internal/analysis"
+	"github.com/efij/AgentDFIR/v4/internal/analysis"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -14,15 +14,15 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/efij/AgentDFIR/v3/internal/detect"
-	"github.com/efij/AgentDFIR/v3/internal/journal"
-	"github.com/efij/AgentDFIR/v3/internal/normalize"
-	"github.com/efij/AgentDFIR/v3/internal/products"
-	"github.com/efij/AgentDFIR/v3/internal/realtime"
-	"github.com/efij/AgentDFIR/v3/internal/sanitize"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
-	"github.com/efij/AgentDFIR/v3/internal/seal"
-	"github.com/efij/AgentDFIR/v3/internal/watch"
+	"github.com/efij/AgentDFIR/v4/internal/detect"
+	"github.com/efij/AgentDFIR/v4/internal/journal"
+	"github.com/efij/AgentDFIR/v4/internal/normalize"
+	"github.com/efij/AgentDFIR/v4/internal/products"
+	"github.com/efij/AgentDFIR/v4/internal/realtime"
+	"github.com/efij/AgentDFIR/v4/internal/sanitize"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/seal"
+	"github.com/efij/AgentDFIR/v4/internal/watch"
 )
 
 // cmdInvestigate is an interactive, read-only explorer over a package:

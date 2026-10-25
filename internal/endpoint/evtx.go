@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v3/internal/endpoint/evtx"
+	"github.com/efij/AgentDFIR/v4/internal/endpoint/evtx"
 )
 
 // Native Windows .evtx files, read with the pure-Go parser in

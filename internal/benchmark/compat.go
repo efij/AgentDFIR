@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/efij/AgentDFIR/v3/internal/analysis"
-	"github.com/efij/AgentDFIR/v3/internal/compat"
-	"github.com/efij/AgentDFIR/v3/internal/integrity"
+	"github.com/efij/AgentDFIR/v4/internal/analysis"
+	"github.com/efij/AgentDFIR/v4/internal/compat"
+	"github.com/efij/AgentDFIR/v4/internal/integrity"
 )
 
 // Compat is the compatibility section: packages written by released

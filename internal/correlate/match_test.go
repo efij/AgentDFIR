@@ -3,8 +3,8 @@ package correlate
 import (
 	"testing"
 
-	"github.com/efij/AgentDFIR/v3/internal/endpoint"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/endpoint"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
 // Every corroboration is backed by a recorded pairing that says which

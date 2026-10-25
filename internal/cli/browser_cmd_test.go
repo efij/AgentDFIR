@@ -6,9 +6,9 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v3/internal/analysis"
-	"github.com/efij/AgentDFIR/v3/internal/casepkg"
-	"github.com/efij/AgentDFIR/v3/internal/simulate"
+	"github.com/efij/AgentDFIR/v4/internal/analysis"
+	"github.com/efij/AgentDFIR/v4/internal/casepkg"
+	"github.com/efij/AgentDFIR/v4/internal/simulate"
 )
 
 // chromeProfileDir is where Chrome keeps its default profile on the OS the

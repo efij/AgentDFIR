@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/efij/AgentDFIR/v3/internal/sanitize"
+	"github.com/efij/AgentDFIR/v4/internal/sanitize"
 )
 
 // WriteText prints the report for a terminal: the summary line, then the

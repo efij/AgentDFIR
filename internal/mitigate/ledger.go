@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v3/internal/hashchain"
+	"github.com/efij/AgentDFIR/v4/internal/hashchain"
 )
 
 // The ledger answers "who changed this machine's agent config, when, and

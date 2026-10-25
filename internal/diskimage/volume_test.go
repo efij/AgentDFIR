@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/efij/AgentDFIR/v3/internal/products"
+	"github.com/efij/AgentDFIR/v4/internal/products"
 )
 
 func TestGPT(t *testing.T) {

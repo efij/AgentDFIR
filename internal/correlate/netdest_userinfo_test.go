@@ -3,9 +3,9 @@ package correlate
 import (
 	"testing"
 
-	"github.com/efij/AgentDFIR/v3/internal/endpoint"
-	"github.com/efij/AgentDFIR/v3/internal/netdest"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/endpoint"
+	"github.com/efij/AgentDFIR/v4/internal/netdest"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
 // normalize fills NetworkDest from netdest.Extract; the host pass matches

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	w "github.com/efij/AgentDFIR/v3/internal/endpoint/evtx/evtxtest"
+	w "github.com/efij/AgentDFIR/v4/internal/endpoint/evtx/evtxtest"
 )
 
 // analyze --endpoint Sysmon.evtx: the native file is sniffed and drives

@@ -9,8 +9,8 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v3/internal/compat"
-	"github.com/efij/AgentDFIR/v3/internal/integrity"
+	"github.com/efij/AgentDFIR/v4/internal/compat"
+	"github.com/efij/AgentDFIR/v4/internal/integrity"
 )
 
 // Conformance fixtures for the .adfir format live at the repository root,

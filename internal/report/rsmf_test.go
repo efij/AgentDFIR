@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v3/internal/redact"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/redact"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
 func rsmfCase() *Case {

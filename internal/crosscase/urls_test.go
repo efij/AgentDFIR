@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v3/internal/overlay"
+	"github.com/efij/AgentDFIR/v4/internal/overlay"
 )
 
 func TestURLIdentityCarriesNoCredential(t *testing.T) {

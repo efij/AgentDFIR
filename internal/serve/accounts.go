@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"sort"
 
-	"github.com/efij/AgentDFIR/v3/internal/accounts"
-	"github.com/efij/AgentDFIR/v3/internal/sanitize"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/accounts"
+	"github.com/efij/AgentDFIR/v4/internal/sanitize"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
 // ---- accounts ----

@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/efij/AgentDFIR/v3/internal/accounts"
-	"github.com/efij/AgentDFIR/v3/internal/casepkg"
-	"github.com/efij/AgentDFIR/v3/internal/correlate"
-	"github.com/efij/AgentDFIR/v3/internal/gaps"
-	"github.com/efij/AgentDFIR/v3/internal/lineage"
-	"github.com/efij/AgentDFIR/v3/internal/overlay"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
-	"github.com/efij/AgentDFIR/v3/internal/witness"
+	"github.com/efij/AgentDFIR/v4/internal/accounts"
+	"github.com/efij/AgentDFIR/v4/internal/casepkg"
+	"github.com/efij/AgentDFIR/v4/internal/correlate"
+	"github.com/efij/AgentDFIR/v4/internal/gaps"
+	"github.com/efij/AgentDFIR/v4/internal/lineage"
+	"github.com/efij/AgentDFIR/v4/internal/overlay"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/witness"
 )
 
 // Overlay files of the investigation layer, under normalized/. Both are

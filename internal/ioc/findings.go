@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
 // Findings turns verdict hits into KNOWN_INCIDENT_IOC findings, one per

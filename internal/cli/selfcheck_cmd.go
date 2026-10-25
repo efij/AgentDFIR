@@ -8,8 +8,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/efij/AgentDFIR/v3/internal/sanitize"
-	"github.com/efij/AgentDFIR/v3/internal/selfcheck"
+	"github.com/efij/AgentDFIR/v4/internal/sanitize"
+	"github.com/efij/AgentDFIR/v4/internal/selfcheck"
 )
 
 const selfcheckUsage = `usage: agentdfir selfcheck --offline [--profile <dir>] [--scenario <id>] [--no-canary] [--json] [--keep]

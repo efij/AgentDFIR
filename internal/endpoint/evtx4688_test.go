@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	w "github.com/efij/AgentDFIR/v3/internal/endpoint/evtx/evtxtest"
+	w "github.com/efij/AgentDFIR/v4/internal/endpoint/evtx/evtxtest"
 )
 
 // Security 4688 without command-line auditing becomes a "process-image"

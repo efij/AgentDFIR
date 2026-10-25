@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/efij/AgentDFIR/v3/internal/analysis"
+	"github.com/efij/AgentDFIR/v4/internal/analysis"
 )
 
 // Performance is the performance section. It is measured, compared with

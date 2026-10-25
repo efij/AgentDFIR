@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v3/internal/casepkg"
+	"github.com/efij/AgentDFIR/v4/internal/casepkg"
 )
 
 // configCategories are the artifact categories captured in a baseline.

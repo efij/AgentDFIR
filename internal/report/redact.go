@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/efij/AgentDFIR/v3/internal/redact"
+	"github.com/efij/AgentDFIR/v4/internal/redact"
 )
 
 // RedactCase returns a redacted deep copy of c for derivative outputs. The

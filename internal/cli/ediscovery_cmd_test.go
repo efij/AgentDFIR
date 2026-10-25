@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v3/internal/custody"
-	"github.com/efij/AgentDFIR/v3/internal/report"
-	"github.com/efij/AgentDFIR/v3/internal/simulate"
+	"github.com/efij/AgentDFIR/v4/internal/custody"
+	"github.com/efij/AgentDFIR/v4/internal/report"
+	"github.com/efij/AgentDFIR/v4/internal/simulate"
 )
 
 func runCase(t *testing.T) string {

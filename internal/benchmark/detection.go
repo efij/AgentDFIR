@@ -6,11 +6,11 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/efij/AgentDFIR/v3/internal/analysis"
-	"github.com/efij/AgentDFIR/v3/internal/catalog"
-	"github.com/efij/AgentDFIR/v3/internal/corpus"
-	"github.com/efij/AgentDFIR/v3/internal/rulepack"
-	"github.com/efij/AgentDFIR/v3/internal/simulate"
+	"github.com/efij/AgentDFIR/v4/internal/analysis"
+	"github.com/efij/AgentDFIR/v4/internal/catalog"
+	"github.com/efij/AgentDFIR/v4/internal/corpus"
+	"github.com/efij/AgentDFIR/v4/internal/rulepack"
+	"github.com/efij/AgentDFIR/v4/internal/simulate"
 )
 
 // RuleStat is one rule's score over every labeled fixture.

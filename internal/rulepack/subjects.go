@@ -3,8 +3,8 @@ package rulepack
 import (
 	"strings"
 
-	"github.com/efij/AgentDFIR/v3/internal/schema"
-	"github.com/efij/AgentDFIR/v3/internal/shellshape"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/shellshape"
 )
 
 // subjects prepares each event's match subject once for every rule that

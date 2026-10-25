@@ -6,10 +6,10 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v3/internal/decode"
-	"github.com/efij/AgentDFIR/v3/internal/netdest"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
-	"github.com/efij/AgentDFIR/v3/internal/shellshape"
+	"github.com/efij/AgentDFIR/v4/internal/decode"
+	"github.com/efij/AgentDFIR/v4/internal/netdest"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/shellshape"
 )
 
 // Findings derived from the inventory. Heuristics, deliberately

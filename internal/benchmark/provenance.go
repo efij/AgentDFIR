@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v3/internal/casepkg"
-	"github.com/efij/AgentDFIR/v3/internal/catalog"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/casepkg"
+	"github.com/efij/AgentDFIR/v4/internal/catalog"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
 // Provenance is the provenance section: whether every event and finding

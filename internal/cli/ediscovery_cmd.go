@@ -9,14 +9,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v3/internal/analysis"
-	"github.com/efij/AgentDFIR/v3/internal/casepkg"
-	"github.com/efij/AgentDFIR/v3/internal/custody"
-	"github.com/efij/AgentDFIR/v3/internal/export"
-	"github.com/efij/AgentDFIR/v3/internal/notes"
-	"github.com/efij/AgentDFIR/v3/internal/redact"
-	"github.com/efij/AgentDFIR/v3/internal/report"
-	"github.com/efij/AgentDFIR/v3/internal/sanitize"
+	"github.com/efij/AgentDFIR/v4/internal/analysis"
+	"github.com/efij/AgentDFIR/v4/internal/casepkg"
+	"github.com/efij/AgentDFIR/v4/internal/custody"
+	"github.com/efij/AgentDFIR/v4/internal/export"
+	"github.com/efij/AgentDFIR/v4/internal/notes"
+	"github.com/efij/AgentDFIR/v4/internal/redact"
+	"github.com/efij/AgentDFIR/v4/internal/report"
+	"github.com/efij/AgentDFIR/v4/internal/sanitize"
 )
 
 const reportRSMFUsage = `usage: agentdfir report <package-dir> --format rsmf [--out dir] [--session ID ...] [--redact secrets,emails,paths,ips[,custom:<file>]]

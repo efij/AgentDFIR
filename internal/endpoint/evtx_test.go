@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	w "github.com/efij/AgentDFIR/v3/internal/endpoint/evtx/evtxtest"
+	w "github.com/efij/AgentDFIR/v4/internal/endpoint/evtx/evtxtest"
 )
 
 const sysmonProv, sysmonChan = "Microsoft-Windows-Sysmon", "Microsoft-Windows-Sysmon/Operational"

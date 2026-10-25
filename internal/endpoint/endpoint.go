@@ -20,7 +20,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v3/internal/endpoint/evtx"
+	"github.com/efij/AgentDFIR/v4/internal/endpoint/evtx"
 )
 
 // Record is one endpoint observation.
