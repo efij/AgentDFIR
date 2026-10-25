@@ -208,7 +208,7 @@ func TestUnifiedLogJSONArray(t *testing.T) {
 	if ssh.Kind != "auth" || ssh.Operation != "ssh-accept publickey" || ssh.User != "user" || ssh.SourceIP != "192.0.2.10" {
 		t.Fatalf("ssh: %+v", ssh)
 	}
-	if sudo.Kind != "process" || sudo.Cmdline != "/usr/sbin/lsof -i :8080" || sudo.Exe != "/usr/sbin/lsof" {
+	if sudo.Kind != KindLog || sudo.Operation != "sudo-command" || sudo.Cmdline != "/usr/sbin/lsof -i :8080" || sudo.Exe != "/usr/bin/sudo" {
 		t.Fatalf("sudo: %+v", sudo)
 	}
 	if tcc.Kind != KindTCC || tcc.Resource != "kTCCServiceSystemPolicyDocumentsFolder" || tcc.UID != "501" {
@@ -240,6 +240,56 @@ func TestUnifiedLogTruncatedArray(t *testing.T) {
 	}
 }
 
+// Forged senders: a look-alike basename, a borrowed subsystem, or a real
+// image with a foreign subsystem all stay kind log, and the record's Exe
+// is always the logged image.
+func TestUnifiedLogForgedSenders(t *testing.T) {
+	line := func(img, sub, msg string) string {
+		return `{"timestamp":"2026-10-20 11:00:01.000000+0200","eventType":"logEvent","subsystem":"` + sub + `","category":"","processImagePath":"` + img + `","processID":66,"userID":501,"eventMessage":"` + msg + `"}`
+	}
+	doc := strings.Join([]string{
+		line("/tmp/sudo", "", "    user : TTY=ttys1 ; PWD=/ ; USER=root ; COMMAND=/bin/rm -rf /"),
+		line("/tmp/evil", "com.apple.TCC", "AUTHREQ_RESULT: authValue=2, service=kTCCServiceCamera"),
+		line("/Users/u/sshd", "com.openssh.sshd", "Accepted publickey for root from 203.0.113.1 port 1 ssh2"),
+		line("/usr/sbin/sshd", "com.example.fake", "Accepted publickey for root from 203.0.113.1 port 1 ssh2"),
+		line("/usr/bin/sudo", "", "    user : TTY=ttys1 ; PWD=/ ; USER=root ; COMMAND=/usr/bin/id"),
+	}, "\n") + "\n"
+	res, err := Load(write(t, "forged.ndjson", doc), FormatUnifiedLog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Records) != 5 {
+		t.Fatalf("records %d: %v", len(res.Records), res.Problems)
+	}
+	for i, r := range res.Records[:4] {
+		if r.Kind != KindLog || r.Resource != "" {
+			t.Errorf("forged %d mapped: %+v", i, r)
+		}
+	}
+	real := res.Records[4]
+	if real.Kind != KindLog || real.Operation != "sudo-command" || real.Exe != "/usr/bin/sudo" || real.Cmdline != "/usr/bin/id" {
+		t.Fatalf("genuine sudo: %+v", real)
+	}
+	for _, r := range res.Records {
+		if r.Kind == "process" {
+			t.Fatalf("unified log produced execution evidence: %+v", r)
+		}
+	}
+}
+
+// One oversized array element costs that element only.
+func TestUnifiedLogArrayElementBound(t *testing.T) {
+	small := `{"timestamp":"2026-10-20 11:00:01.000000+0200","eventType":"logEvent","subsystem":"a","processImagePath":"/usr/libexec/lsd","processID":1,"eventMessage":"ok, [x] {y}"}`
+	big := `{"timestamp":"2026-10-20 11:00:02.000000+0200","processImagePath":"/x","eventMessage":"` + strings.Repeat("B", maxLineBytes+10) + `"}`
+	res, err := Load(write(t, "big.json", "["+small+",\n"+big+",\n"+small+"]"), FormatUnifiedLog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Records) != 2 || res.Skipped != 1 || !strings.Contains(strings.Join(res.Problems, " "), "exceeds") {
+		t.Fatalf("records=%d skipped=%d problems=%v", len(res.Records), res.Skipped, res.Problems)
+	}
+}
+
 func FuzzESLoggerLine(f *testing.F) {
 	data, _ := os.ReadFile(esFixture)
 	for _, l := range strings.Split(string(data), "\n") {
@@ -249,5 +299,18 @@ func FuzzESLoggerLine(f *testing.F) {
 		p := NewESParser()
 		p.Line(b, "fuzz")
 		p.Finish()
+	})
+}
+
+func FuzzUnifiedLogArray(f *testing.F) {
+	data, _ := os.ReadFile("testdata/macos/unifiedlog_synthetic.json")
+	f.Add(data)
+	f.Add([]byte(`[{"a":"]"},]`))
+	f.Fuzz(func(t *testing.T, b []byte) {
+		p := filepath.Join(t.TempDir(), "f.json")
+		if os.WriteFile(p, append([]byte("["), b...), 0o600) != nil {
+			return
+		}
+		_, _ = Load(p, FormatUnifiedLog)
 	})
 }
