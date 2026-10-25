@@ -40,7 +40,8 @@ type imageProvenance struct {
 	PartitionOffset int64         `json:"partition_offset"`
 	PartitionType   string        `json:"partition_type,omitempty"`
 	FSType          string        `json:"fs_type"`
-	Inode           uint64        `json:"inode"` // MFT record number on NTFS
+	TimeZone        string        `json:"time_zone,omitempty"` // FAT: "local-unknown" (times are wall clock, zone not recorded)
+	Inode           uint64        `json:"inode"`               // MFT record number on NTFS
 	OriginalPath    string        `json:"original_path"`
 	StagedPath      string        `json:"staged_path,omitempty"` // relative to the staging root the import read
 	Size            int64         `json:"size"`
@@ -188,6 +189,15 @@ func collectImage(path string, o importOpts, verifyStored bool) int {
 				rep.files++
 			}
 			fillTimes(&pr, f.Sys)
+			// The reader names the exact variant (ext2, fat32, exfat…);
+			// FAT stores local wall-clock time with no zone, which the
+			// provenance must say rather than imply UTC.
+			if v, ok := f.Sys["fs"].(string); ok && v != "" {
+				pr.FSType = v
+			}
+			if v, ok := f.Sys["tz"].(string); ok {
+				pr.TimeZone = v
+			}
 			prov = append(prov, pr)
 		}
 	}

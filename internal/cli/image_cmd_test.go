@@ -154,3 +154,71 @@ func TestCollectImageErrors(t *testing.T) {
 		t.Fatalf("empty image: exit %d, want 1", code)
 	}
 }
+
+// TestCollectImageExtAndFAT runs collect --image over bare ext and FAT
+// filesystem images (no partition table): the registered ext4 and fat
+// readers must find the profile and the provenance must name the fs.
+func TestCollectImageExtAndFAT(t *testing.T) {
+	cases := []struct{ pkgDir, name, fsType string }{
+		{"ext4", "ext4.img", "ext4"},
+		{"ext4", "ext2.img", "ext2"},
+		{"fat", "fat32.img", "fat32"},
+		{"fat", "exfat.img", "exfat"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			dir := t.TempDir()
+			src, err := os.Open(filepath.Join("..", "diskimage", c.pkgDir, "testdata", c.name+".gz"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer src.Close()
+			zr, err := gzip.NewReader(src)
+			if err != nil {
+				t.Fatal(err)
+			}
+			raw, err := io.ReadAll(zr)
+			if err != nil {
+				t.Fatal(err)
+			}
+			img := filepath.Join(dir, c.name)
+			if err := os.WriteFile(img, raw, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			pkg := filepath.Join(dir, "case.adfir")
+			if code := Main([]string{"collect", "--image", img, "--out", pkg, "--no-sign"}); code != 0 {
+				t.Fatalf("collect --image exit %d", code)
+			}
+			if after, _ := os.ReadFile(img); !bytes.Equal(raw, after) {
+				t.Fatal("image modified")
+			}
+			if code := Main([]string{"verify", pkg}); code != 0 {
+				t.Fatalf("verify exit %d", code)
+			}
+			man, err := casepkg.ReadManifest(pkg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			st := casepkg.NewStore(pkg, man)
+			var sess, prov *casepkg.ArtifactRecord
+			for i, a := range man.Artifacts {
+				if a.Status != casepkg.StatusOK {
+					continue
+				}
+				if strings.HasSuffix(a.LogicalPath, "session.jsonl") {
+					sess = &man.Artifacts[i]
+				}
+				if a.LogicalPath == imageProvenanceName {
+					prov = &man.Artifacts[i]
+				}
+			}
+			if sess == nil || prov == nil {
+				t.Fatalf("session=%v provenance=%v", sess != nil, prov != nil)
+			}
+			pdata, _ := st.ReadAll(prov.ArtifactID, 1<<20)
+			if !bytes.Contains(pdata, []byte(`"`+c.fsType+`"`)) {
+				t.Fatalf("provenance does not name %s: %s", c.fsType, pdata)
+			}
+		})
+	}
+}

@@ -6,6 +6,8 @@ import (
 	"io"
 	"io/fs"
 
+	"github.com/efij/AgentDFIR/v3/internal/diskimage/ext4"
+	"github.com/efij/AgentDFIR/v3/internal/diskimage/fat"
 	"github.com/efij/AgentDFIR/v3/internal/diskimage/ntfs"
 )
 
@@ -20,8 +22,8 @@ type Filesystem struct {
 // one line: a package exposing Probe and Open with these signatures.
 var filesystems = []Filesystem{
 	{"ntfs", ntfs.Probe, ntfs.Open},
-	// {"ext4", ext4.Probe, ext4.Open},
-	// {"fat", fat.Probe, fat.Open},
+	{"ext4", ext4.Probe, ext4.Open},
+	{"fat", fat.Probe, fat.Open},
 }
 
 // Register adds a reader at the end of the registry (for readers that
@@ -52,9 +54,9 @@ var signatures = []signature{
 	{"zfs", func(h []byte) bool {
 		return len(h) > 0x20000 && bytes.Contains(h[0x20000:], []byte{0x0c, 0xb1, 0xba, 0x00, 0x00, 0x00, 0x00, 0x00})
 	}, "ZFS pool member; import it read-only (zpool import -o readonly=on), then " + mountWorkaround},
-	{"ext", func(h []byte) bool { return len(h) > 1081 && h[1080] == 0x53 && h[1081] == 0xEF }, "ext2/3/4 volume (no ext reader registered in this build); " + mountWorkaround},
-	{"exfat", func(h []byte) bool { return at(h, 3, "EXFAT   ") }, "exFAT volume (no exFAT reader registered in this build); " + mountWorkaround},
-	{"fat", func(h []byte) bool { return at(h, 54, "FAT12") || at(h, 54, "FAT16") || at(h, 82, "FAT32") }, "FAT volume (no FAT reader registered in this build); " + mountWorkaround},
+	{"ext", func(h []byte) bool { return len(h) > 1081 && h[1080] == 0x53 && h[1081] == 0xEF }, "ext2/3/4 volume the built-in reader could not open (unusual feature set or damage); " + mountWorkaround},
+	{"exfat", func(h []byte) bool { return at(h, 3, "EXFAT   ") }, "exFAT volume the built-in reader could not open (unusual feature set or damage); " + mountWorkaround},
+	{"fat", func(h []byte) bool { return at(h, 54, "FAT12") || at(h, 54, "FAT16") || at(h, 82, "FAT32") }, "FAT volume the built-in reader could not open (unusual feature set or damage); " + mountWorkaround},
 	{"swap", func(h []byte) bool { return at(h, 4086, "SWAPSPACE2") || at(h, 4086, "SWAP-SPACE") }, "swap space; holds no filesystem"},
 }
 
