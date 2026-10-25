@@ -257,6 +257,38 @@ func TestHostileRecursionBounded(t *testing.T) {
 	}
 }
 
+// Attribute text is charged to the render budgets: one substitution
+// repeated thousands of times inside an attribute cannot amplify a
+// small record into megabytes per record, or tens of megabytes per chunk.
+func TestAttributeAmplificationBounded(t *testing.T) {
+	amplifier := func(refs int) *Template {
+		parts := make([]Node, refs)
+		for i := range parts {
+			parts[i] = Sub{ID: 0, Type: TString}
+		}
+		return &Template{ID: uint32(refs), Body: Elem{Name: "Event", Attrs: []Attr{{Name: "x", Value: parts}}}}
+	}
+	blob := String(strings.Repeat("A", 1000))
+
+	// Per record: 5000 × 1000 bytes is over the 4 MiB record budget.
+	evs, st := parse(t, Build([]Record{{ID: 1, Written: t0, Template: amplifier(5000), Values: []Value{blob}}}, Options{}))
+	if len(evs) != 0 || st.BadRecords != 1 || !strings.Contains(strings.Join(st.Problems, "\n"), "budget") {
+		t.Fatalf("record budget: %d events %+v", len(evs), st)
+	}
+
+	// Per chunk: 2 MB per record stays under the record budget, but the
+	// chunk budget stops the rest of the chunk.
+	tmpl := amplifier(2000)
+	var recs []Record
+	for i := 0; i < 25; i++ {
+		recs = append(recs, Record{ID: uint64(i + 1), Written: t0, Template: tmpl, Values: []Value{blob}})
+	}
+	evs, st = parse(t, Build(recs, Options{}))
+	if st.Chunks != 1 || len(evs) == 0 || len(evs) >= 25 || st.BadRecords != 25-len(evs) {
+		t.Fatalf("chunk budget: %d events %+v", len(evs), st)
+	}
+}
+
 func FuzzChunk(f *testing.F) {
 	img := Build(Events([]Event{sysmon1(1, t0, "cmd.exe /c rmdir /s /q build"), sysmon1(2, t0, "x")}), Options{})
 	f.Add(img[4096:])

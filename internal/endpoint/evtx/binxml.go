@@ -655,23 +655,36 @@ func (r *renderer) render(nodes []*node, vals []value, depth int) ([]*Elem, stri
 	return elems, text.String(), nil
 }
 
-func (r *renderer) element(n *node, vals []value, depth int) (*Elem, error) {
+// spend charges one node and n text bytes to the per-record and
+// per-chunk render budgets, failing once any of them is exceeded.
+func (r *renderer) spend(n int) error {
 	r.nodes++
-	if r.nodes > maxRenderNodes {
-		return nil, errBudget
+	r.p.rendered++
+	r.textBytes += n
+	r.p.renderedText += n
+	if r.nodes > maxRenderNodes || r.textBytes > maxRenderText ||
+		r.p.rendered > maxChunkRenderNodes || r.p.renderedText > maxChunkRenderText {
+		return errBudget
+	}
+	return nil
+}
+
+func (r *renderer) element(n *node, vals []value, depth int) (*Elem, error) {
+	if err := r.spend(0); err != nil {
+		return nil, err
 	}
 	e := &Elem{Name: n.name}
 	for _, a := range n.attrs {
 		var sb strings.Builder
 		omit := len(a.parts) > 0
 		for _, part := range a.parts {
-			r.nodes++
-			if r.nodes > maxRenderNodes || r.textBytes+sb.Len() > maxRenderText {
-				return nil, errBudget
-			}
+			var t string
 			switch part.kind {
 			case tokNormalSub, tokOptionalSub:
 				if int(part.sub) >= len(vals) {
+					if err := r.spend(0); err != nil {
+						return nil, err
+					}
 					continue
 				}
 				v := vals[part.sub]
@@ -679,18 +692,23 @@ func (r *renderer) element(n *node, vals []value, depth int) (*Elem, error) {
 					omit = false
 				}
 				if v.typ == vtBinXML {
-					_, t, err := r.nested(v, depth+1)
+					_, nt, err := r.nested(v, depth+1)
 					if err != nil {
 						return nil, err
 					}
-					sb.WriteString(t)
-					continue
+					t = nt
+				} else {
+					t = r.p.format(v)
 				}
-				sb.WriteString(r.p.format(v))
 			default:
 				omit = false
-				sb.WriteString(literal(part))
+				t = literal(part)
 			}
+			// Attribute text counts against the same budgets as content.
+			if err := r.spend(len(t)); err != nil {
+				return nil, err
+			}
+			sb.WriteString(t)
 		}
 		if !omit {
 			e.Attrs = append(e.Attrs, Attr{Name: a.name, Value: sb.String()})

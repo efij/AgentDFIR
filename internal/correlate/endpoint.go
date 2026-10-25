@@ -40,6 +40,7 @@ type EndpointResult struct {
 	Unlogged       int       `json:"unlogged_agent_records"`
 
 	ScriptCorroborated int `json:"script_corroborated,omitempty"` // by PowerShell script-block records
+	ImagePartial       int `json:"image_partial,omitempty"`       // program name only (4688 without command line)
 
 	CloudRecords      int `json:"cloud_records,omitempty"`
 	CloudCommands     int `json:"cloud_commands_checked,omitempty"`
@@ -71,9 +72,11 @@ func Endpoint(events []schema.Event, records []endpoint.Record, opts EndpointOpt
 	// PowerShell script-block records (native .evtx) are the same kind of
 	// witness one step removed: they can corroborate a command but are not
 	// exhaustive process telemetry, so they never contradict and never
-	// widen coverage. Service-install and log-cleared records are notices
-	// for the operator, not correlation input.
-	var host, cloud, witnessCloud, sightings, script []endpoint.Record
+	// widen coverage. Security 4688 records without a command line
+	// ("process-image") are weaker still: they name only the program, so
+	// they can at most partly corroborate. Service-install and log-cleared
+	// records are notices for the operator, not correlation input.
+	var host, cloud, witnessCloud, sightings, script, image []endpoint.Record
 	for _, r := range records {
 		switch {
 		case endpoint.IsWitnessCloud(r):
@@ -84,6 +87,8 @@ func Endpoint(events []schema.Event, records []endpoint.Record, opts EndpointOpt
 			sightings = append(sightings, r)
 		case r.Kind == "script":
 			script = append(script, r)
+		case r.Kind == endpoint.KindProcessImage:
+			image = append(image, r)
 		case r.Kind == "service", r.Kind == "log-clear":
 		default:
 			host = append(host, r)
@@ -94,54 +99,8 @@ func Endpoint(events []schema.Event, records []endpoint.Record, opts EndpointOpt
 	findings = append(findings, witnessCloudPass(events, witnessCloud, res)...)
 	sightingPass(events, sightings, opts, res)
 	scriptPass(events, script, opts, res)
+	imagePass(events, image, opts, res)
 	return res, findings
-}
-
-// scriptPass matches commands not yet corroborated against PowerShell
-// script blocks. A command the host pass already contradicted keeps
-// that state; the matching block is noted next to it, because an
-// in-process PowerShell host runs scripts without spawning a process.
-func scriptPass(events []schema.Event, records []endpoint.Record, opts EndpointOptions, res *EndpointResult) {
-	if len(records) == 0 {
-		return
-	}
-	sort.SliceStable(records, func(i, j int) bool { return records[i].Time.Before(records[j].Time) })
-	used := make([]bool, len(records))
-	for i := range events {
-		ev := &events[i]
-		if ev.EventType != schema.EventToolCall || ev.Command == "" || ev.Corroboration == schema.StateCorroborated {
-			continue
-		}
-		t, ok := parseEventTime(ev.Timestamp)
-		if !ok {
-			continue
-		}
-		best, bestScore := -1, 0
-		for j := lowerBound(records, t.Add(-opts.Window)); j < len(records) && !records[j].Time.After(t.Add(opts.Window)); j++ {
-			if used[j] {
-				continue
-			}
-			r := records[j]
-			r.Kind = "process"
-			if s := score(ev, r); s > bestScore {
-				best, bestScore = j, s
-			}
-		}
-		if best < 0 {
-			continue
-		}
-		used[best] = true
-		r := records[best]
-		if ev.Corroboration == schema.StateContradicted {
-			ev.Summary = appendNote(ev.Summary, fmt.Sprintf("PowerShell script block log shows a matching script (%s)", r.Ref))
-			continue
-		}
-		if ev.Corroboration == schema.StateObserved || ev.Corroboration == schema.StateReported || ev.Corroboration == schema.StateUnknown {
-			ev.Corroboration = schema.StateCorroborated
-		}
-		ev.Summary = appendNote(ev.Summary, fmt.Sprintf("corroborated by %s %s (%s)", r.Source, r.Kind, r.Ref))
-		res.ScriptCorroborated++
-	}
 }
 
 // endpointHost correlates process, file and network telemetry.

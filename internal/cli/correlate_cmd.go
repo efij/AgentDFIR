@@ -131,6 +131,9 @@ func runEndpointCorrelation(pkg string, logs []string, f endpoint.Format, opts c
 	if res.ScriptCorroborated > 0 {
 		fmt.Printf("PowerShell script blocks: %d more tool call(s) CORROBORATED.\n", res.ScriptCorroborated)
 	}
+	if res.ImagePartial > 0 {
+		fmt.Printf("Process creations without command lines: %d tool call(s) PARTIALLY_CORROBORATED by program name.\n", res.ImagePartial)
+	}
 	if res.CloudRecords > 0 {
 		fmt.Printf("Cloud audit correlation: %d cloud record(s), %d cloud command(s) checked — %d CORROBORATED (%d refused by the cloud); %d destructive burst(s).\n",
 			res.CloudRecords, res.CloudCommands, res.CloudCorroborated, res.CloudRefused, res.CloudBursts)
