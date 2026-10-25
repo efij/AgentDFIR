@@ -1,9 +1,12 @@
 package benchmark
 
 import (
+	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -246,5 +249,78 @@ func TestSuiteReportRendering(t *testing.T) {
 	}
 	if err := json.Unmarshal(js.Bytes(), &back); err != nil || len(back.Suites) != 2 || back.Suites[1].Status != SuiteSkip {
 		t.Fatalf("json suites: %v %+v", err, back.Suites)
+	}
+}
+
+// TestUntarRefusesUnsafeEntries: only regular files and directories with
+// local, slash-separated names are extracted.
+func TestUntarRefusesUnsafeEntries(t *testing.T) {
+	mk := func(h *tar.Header, body string) string {
+		var buf bytes.Buffer
+		zw := gzip.NewWriter(&buf)
+		tw := tar.NewWriter(zw)
+		h.Size = int64(len(body))
+		if h.Typeflag != tar.TypeReg {
+			h.Size = 0
+		}
+		if err := tw.WriteHeader(h); err != nil {
+			t.Fatal(err)
+		}
+		tw.Write([]byte(body)[:h.Size])
+		tw.Close()
+		zw.Close()
+		p := filepath.Join(t.TempDir(), "x.tar.gz")
+		os.WriteFile(p, buf.Bytes(), 0o600)
+		return p
+	}
+	bad := []*tar.Header{
+		{Name: "../escape", Typeflag: tar.TypeReg, Mode: 0o600},
+		{Name: `a\..\..\escape`, Typeflag: tar.TypeReg, Mode: 0o600},
+		{Name: "C:escape", Typeflag: tar.TypeReg, Mode: 0o600},
+		{Name: "/abs", Typeflag: tar.TypeReg, Mode: 0o600},
+		{Name: "link", Typeflag: tar.TypeSymlink, Linkname: "/etc/passwd"},
+		{Name: "hard", Typeflag: tar.TypeLink, Linkname: "../x"},
+	}
+	for _, h := range bad {
+		dir := t.TempDir()
+		if err := untarGz(mk(h, "x"), dir); err == nil {
+			t.Errorf("%q (type %c) extracted", h.Name, h.Typeflag)
+		}
+	}
+	dir := t.TempDir()
+	if err := untarGz(mk(&tar.Header{Name: "b.sparsebundle/bands/0", Typeflag: tar.TypeReg, Mode: 0o600}, "data"), dir); err != nil {
+		t.Fatal(err)
+	}
+	if b, err := os.ReadFile(filepath.Join(dir, "b.sparsebundle", "bands", "0")); err != nil || string(b) != "data" {
+		t.Fatalf("%q %v", b, err)
+	}
+}
+
+// TestPythonVerifierNeedsOptIn: the verifier script is executed only from
+// a checkout the operator named (--repo) or opted into (--python-verifier).
+func TestPythonVerifierNeedsOptIn(t *testing.T) {
+	run := func(o Options) *EvidenceIntegrity {
+		r := newReport()
+		r.Integrity, r.Compat = Integrity{Detected: 1, Total: 1}, Compat{OK: 1, Total: 1}
+		runEvidenceIntegrity(r, o, filepath.Join(t.TempDir(), "suites", "integrity"))
+		return r.IntegritySet
+	}
+	if v := run(Options{}).Verifier; v.Status != SuiteSkip || !strings.Contains(v.Reason, "--python-verifier") || v.Script != "" {
+		t.Fatalf("ran without opt-in: %+v", v)
+	}
+	// A directory that merely looks for a script must not be trusted.
+	fake := t.TempDir()
+	os.MkdirAll(filepath.Join(fake, "tools", "adfir-verify"), 0o755)
+	os.WriteFile(filepath.Join(fake, "tools", "adfir-verify", "adfir_verify.py"), []byte("raise SystemExit(0)\n"), 0o644)
+	if v := run(Options{RepoRoot: fake}).Verifier; v.Status != SuiteSkip || v.Script != "" {
+		t.Fatalf("ran from a directory that is not a checkout: %+v", v)
+	}
+	if _, err := exec.LookPath("python3"); err != nil {
+		t.Skip("python3 not on PATH")
+	}
+	root := findRepoRoot("")
+	v := run(Options{RepoRoot: root}).Verifier
+	if v.Status != SuitePass || v.Script != filepath.Join(root, "tools", "adfir-verify", "adfir_verify.py") || len(v.Packages) == 0 {
+		t.Fatalf("--repo: %+v", v)
 	}
 }

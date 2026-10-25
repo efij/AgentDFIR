@@ -182,7 +182,7 @@ func (r *Report) writeSuites(p func(string, ...any)) {
 		if v.Status == SuiteSkip {
 			p("Python verifier: SKIP (%s).", v.Reason)
 		} else {
-			p("Python verifier (`tools/adfir-verify/adfir_verify.py`, %s), packages this run built and the historical ones:", v.Python)
+			p("Python verifier (`%s`, %s), packages this run built and the historical ones:", v.Script, v.Python)
 			p("")
 			p("| Package | Verdict |")
 			p("|---|---|")

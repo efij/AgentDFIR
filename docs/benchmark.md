@@ -22,7 +22,8 @@ agentdfir benchmark --no-perf            # everything except the performance cas
 agentdfir benchmark --corpus <dir>       # score a different labeled corpus (benign/, attack/)
 agentdfir benchmark --baseline f.json    # compare performance with another baseline
 agentdfir benchmark --save-baseline f.json   # write this run's performance numbers as a baseline
-agentdfir benchmark --repo <checkout>    # where the disk-image, telemetry and interop fixtures are
+agentdfir benchmark --repo <checkout>    # where the disk-image, telemetry and interop fixtures are; also runs the Python verifier
+agentdfir benchmark --python-verifier    # run the Python verifier from the checkout found from the working directory
 ```
 
 Progress goes to stderr. The corpus, the historical packages and the
@@ -30,7 +31,12 @@ performance baseline are built into the binary. The disk-image, telemetry
 and interop fixtures and the Python verifier are not (they would add
 megabytes to every binary): the suites that need them look for a source
 checkout from the working directory up, or where `--repo` points, and
-report SKIP with the reason when there is none. Everything is written to
+report SKIP with the reason when there is none. Those suites only read
+the fixtures. The Python verifier is different: it is a script, and a
+checkout found by walking up from the working directory may be anyone's
+directory, so it runs only with `--repo` (which must name a checkout of
+this module) or `--python-verifier`, and the report and stderr print the
+resolved script path. Everything is written to
 a temporary directory that is removed afterwards; decompressed disk
 images are written sparse and deleted one at a time.
 
@@ -117,7 +123,7 @@ through another tool.
 | Per-OS corroboration | generated Claude Code sessions whose tool calls claim commands, a file write and network use, with synthetic telemetry in each source's documented shape: Windows Sysmon in a native `.evtx`, macOS eslogger JSON and unified log ndjson, Linux auditd, Tetragon, Falco and docker events; then every labeled corpus case that carries endpoint telemetry | each claim's labeled state and the expected CORROBORATED count per scenario; the evidence-state contract on every event; for corpus cases, the expected rules fire. The incomplete-telemetry contract, per platform, on observable states: telemetry without file or network records never contradicts a write or a fetch; a sequence gap (EVTX EventRecordID, eslogger seq_num / global_seq_num, audit serial) never turns a claim inside it into DISPROVED, while a claim where numbering is contiguous still is; a process file that stops does not keep processes "covered" because a file of another kind goes on; Falco, docker events and the unified log corroborate, never contradict |
 | Forensic interop | the hand-made UFDR, UFD/UFDX, AXIOM CSV, AXIOM Portable Case, Plaso (json_line, l2tcsv) and Autopsy fixtures in `internal/parsers/suite/testdata`, sealed the way `collect --suite-export` seals them and analyzed | record, UNSUPPORTED and unparsed-line counts equal the ones the reader's own tests pin; every original sealed byte-identical; `Case.mfdb` yields the `AXIOM_CASE_DB_UNSUPPORTED` finding |
 | Detection quality | the detection section above | as above, plus a breakdown by the platform of each fixture's telemetry (windows, macos, linux; "any" for transcript-only fixtures), and each of the three platforms has labeled attack fixtures |
-| Evidence integrity | the integrity and compatibility sections above, and `tools/adfir-verify/adfir_verify.py` (Python 3 standard library) over every package this run built and the five historical packages | every mutation detected, every historical package verifies, the Python verifier says VERIFIED on every package; SKIP, with the reason, when `python3` is not on `PATH` |
+| Evidence integrity | the integrity and compatibility sections above, and `tools/adfir-verify/adfir_verify.py` (Python 3 standard library) over every package this run built and the five historical packages | every mutation detected, every historical package verifies, the Python verifier says VERIFIED on every package; SKIP, with the reason, without `--repo` / `--python-verifier` or when `python3` is not on `PATH` |
 
 **Expected failures.** A check can be marked as failing on this build for
 a documented reason. It is then reported **XFAIL** and does not fail the
@@ -134,8 +140,8 @@ as DISPROVED either way.
 ## Current numbers
 
 A 4.5.0 development build (it still reports `4.0.0` until the release
-version bump), `benchmark --no-perf` from a source checkout,
-darwin/arm64, 11 CPUs, go1.27.1, 12 s wall time. Synthetic.
+version bump), `benchmark --no-perf --repo .` from a source checkout,
+darwin/arm64, 11 CPUs, go1.27.1, 14 s wall time. Synthetic.
 
 | Section | Result |
 |---|---|

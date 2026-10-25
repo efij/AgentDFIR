@@ -31,6 +31,7 @@ type VerifierCheck struct {
 	Status   string           `json:"status"` // PASS | FAIL | SKIP
 	Reason   string           `json:"reason,omitempty"`
 	Python   string           `json:"python,omitempty"`
+	Script   string           `json:"script,omitempty"` // the verifier that ran, resolved path
 	Packages []VerifierResult `json:"packages,omitempty"`
 }
 
@@ -55,11 +56,25 @@ func runEvidenceIntegrity(r *Report, o Options, work string) {
 	ei.Checks = append(ei.Checks, c)
 
 	v := &ei.Verifier
-	root := repoFinder(o.RepoRoot)
+	// The verifier is a script from the checkout, so it runs only when
+	// the operator named the checkout (--repo) or opted in
+	// (--python-verifier): a checkout found by walking up from the
+	// working directory may be anyone's directory.
+	root := ""
+	switch {
+	case o.RepoRoot != "":
+		if abs, err := filepath.Abs(o.RepoRoot); err == nil && isRepoRoot(abs) {
+			root = abs
+		}
+	case o.PythonVerifier:
+		root = repoFinder("")
+	}
 	py, err := exec.LookPath("python3")
 	switch {
+	case o.RepoRoot == "" && !o.PythonVerifier:
+		v.Status, v.Reason = SuiteSkip, "the Python verifier is a script in the source checkout and runs only when asked: pass --repo <checkout> or --python-verifier"
 	case root == "":
-		v.Status, v.Reason = SuiteSkip, "tools/adfir-verify/adfir_verify.py is in the source repository, not in the binary; run from a checkout or pass --repo <checkout>"
+		v.Status, v.Reason = SuiteSkip, "tools/adfir-verify/adfir_verify.py not found: --repo does not name a checkout of this module, or no checkout was found from the working directory"
 	case err != nil:
 		v.Status, v.Reason = SuiteSkip, "python3 is not on PATH"
 	default:
@@ -68,6 +83,8 @@ func runEvidenceIntegrity(r *Report, o Options, work string) {
 			v.Python = strings.TrimSpace(string(out))
 		}
 		script := filepath.Join(root, "tools", "adfir-verify", "adfir_verify.py")
+		v.Script = script
+		logf(o, "evidence integrity: running %s", script)
 		var pkgs, names []string
 		if ref := filepath.Join(work, "..", "..", "integrity", "reference.adfir"); dirExists(ref) {
 			pkgs, names = append(pkgs, ref), append(names, "integrity reference package (signed, 2 rounds)")
@@ -117,6 +134,12 @@ func runEvidenceIntegrity(r *Report, o Options, work string) {
 	}
 	s := verdict("evidence integrity", sum, ei.Checks, v.Status == SuiteFail)
 	r.Suites = append(r.Suites, s)
+}
+
+func logf(o Options, format string, a ...any) {
+	if o.Log != nil {
+		fmt.Fprintf(o.Log, format+"\n", a...)
+	}
 }
 
 // pyVerify runs the Python verifier on one package: exit 0 verified, 1

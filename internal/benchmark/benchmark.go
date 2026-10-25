@@ -81,6 +81,10 @@ type Options struct {
 	// working directory. Without one those suites are skipped, with the
 	// reason in the report.
 	RepoRoot string
+	// PythonVerifier runs tools/adfir-verify from a checkout found by
+	// searching from the working directory. Without it (or RepoRoot) the
+	// script, which executes, is never run: the directory may be anyone's.
+	PythonVerifier bool
 }
 
 // Report is everything one run measured.

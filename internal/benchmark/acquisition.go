@@ -814,7 +814,7 @@ func untarGz(src, dir string) error {
 			return err
 		}
 		name := path.Clean(strings.TrimPrefix(h.Name, "./"))
-		if !fs.ValidPath(name) {
+		if !fs.ValidPath(name) || !filepath.IsLocal(filepath.FromSlash(name)) || strings.ContainsAny(h.Name, `\:`) {
 			return fmt.Errorf("unsafe path %q", h.Name)
 		}
 		p := filepath.Join(dir, filepath.FromSlash(name))
@@ -836,6 +836,10 @@ func untarGz(src, dir string) error {
 			if err != nil {
 				return err
 			}
+		default:
+			// Links and devices could point outside dir; a sparsebundle
+			// holds only directories and band files.
+			return fmt.Errorf("%q: tar entry type %q refused (regular files and directories only)", h.Name, h.Typeflag)
 		}
 	}
 }
