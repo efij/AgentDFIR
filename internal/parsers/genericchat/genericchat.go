@@ -1,7 +1,7 @@
 // Package genericchat normalizes session evidence from the remaining
 // supported AI agent products — Gemini CLI, Cursor, Copilot CLI, Cline,
-// Roo Code and OpenClaw — into the unified schema. One tolerant engine
-// handles the message shapes these products persist:
+// Roo Code, OpenClaw, Continue and Windsurf — into the unified schema.
+// One tolerant engine handles the message shapes these products persist:
 //
 //   - Gemini API style:      {"role":"user|model","parts":[{"text"|"functionCall"|"functionResponse"}]}
 //   - Anthropic style:       {"role":"user|assistant","content":[{"type":"text|tool_use|tool_result"}]}
@@ -94,6 +94,8 @@ var productTable = []productCfg{
 	{rulePrefix: "copilotchat.", product: "copilot-chat-vscode", vendor: "github"},
 	{rulePrefix: "aider.", product: "aider", vendor: "aider"},
 	{rulePrefix: "warp.", product: "warp", vendor: "warp"},
+	{rulePrefix: "continue.", product: "continue", vendor: "continue"},
+	{rulePrefix: "windsurf.", product: "windsurf", vendor: "codeium"},
 	{rulePrefix: "archive.", product: "ci-archive", vendor: "unknown"},
 }
 
@@ -193,6 +195,11 @@ type parser struct {
 
 // parseArtifact dispatches on file shape.
 func (p *parser) parseArtifact(store *casepkg.Store, art casepkg.ArtifactRecord, cfg *productCfg) error {
+	if art.CollectorRule == ruleWindsurfCascade || art.CollectorRule == ruleWindsurfMemories {
+		// Opaque (encrypted / schema-less protobuf) stores: metadata only,
+		// whatever their size.
+		return p.parseOpaqueStore(store, art, cfg)
+	}
 	if art.Size > MaxFileBytes {
 		p.gap(art, cfg, 0, 1, fmt.Sprintf("session file exceeds %d-byte bound; preserved unparsed", MaxFileBytes))
 		return nil
@@ -211,6 +218,10 @@ func (p *parser) parseArtifact(store *casepkg.Store, art casepkg.ArtifactRecord,
 		return p.parseAiderMarkdown(data, art, cfg)
 	case art.CollectorRule == "aider.input_history":
 		return p.parseAiderInput(data, art, cfg)
+	case art.CollectorRule == ruleContinueSessions && base == "sessions.json":
+		return p.parseContinueIndex(data, art, cfg)
+	case art.CollectorRule == ruleContinueSessions && strings.HasSuffix(base, ".json"):
+		return p.parseContinueSession(data, art, cfg, sessionID)
 	case strings.HasSuffix(base, ".db") || isBinary(data):
 		// Cursor store.db and friends: forensic string-carving.
 		msgs := CarveMessages(data)
