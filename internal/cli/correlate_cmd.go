@@ -23,6 +23,10 @@ Second witness: match the agent transcript against OS telemetry.
   auditd      /var/log/audit/audit.log (SYSCALL/EXECVE/PATH/SOCKADDR)
   sysmon-xml  wevtutil qe Microsoft-Windows-Sysmon/Operational /f:xml   (events 1, 3, 11, 23)
   jsonl/csv   Velociraptor, osquery, evtx_dump JSON, macOS eslogger — field names auto-mapped
+  zeek, dns-log, squid    Zeek dns/http/ssl, BIND/dnsmasq/Pi-hole/Unbound/Windows DNS, Squid
+  authlog, journald       /var/log/auth.log or /var/log/secure, journalctl -o json
+  k8s-audit, git-audit, storage-access   Kubernetes audit, GitHub/GitLab audit export, S3/GCS/Azure Storage logs
+  (these corroborate only: they never contradict a tool call)
 Format is sniffed per file. Results are written back to normalized/events.jsonl
 (OBSERVED → CORROBORATED / CONTRADICTED) and detections/corroboration.json.
 `
@@ -123,6 +127,10 @@ func runEndpointCorrelation(pkg string, logs []string, f endpoint.Format, opts c
 	if res.CloudRecords > 0 {
 		fmt.Printf("Cloud audit correlation: %d cloud record(s), %d cloud command(s) checked — %d CORROBORATED (%d refused by the cloud); %d destructive burst(s).\n",
 			res.CloudRecords, res.CloudCommands, res.CloudCorroborated, res.CloudRefused, res.CloudBursts)
+	}
+	if res.WitnessRecords > 0 {
+		fmt.Printf("DNS/proxy/auth-log correlation: %d record(s) — %d tool call(s) CORROBORATED, %d PARTLY CONFIRMED; these logs never contradict.\n",
+			res.WitnessRecords, res.WitnessCorroborated, res.WitnessPartial)
 	}
 	return findings, res, 0
 }

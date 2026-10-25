@@ -23,7 +23,7 @@ import (
 // Record is one endpoint observation.
 type Record struct {
 	Time      time.Time `json:"time"`
-	Kind      string    `json:"kind"` // process | network | file | cloud
+	Kind      string    `json:"kind"` // process | network | file | cloud | dns | auth
 	PID       int       `json:"pid,omitempty"`
 	PPID      int       `json:"ppid,omitempty"`
 	Exe       string    `json:"exe,omitempty"`
@@ -35,6 +35,8 @@ type Record struct {
 	DestHost  string    `json:"dest_host,omitempty"`
 	FilePath  string    `json:"file_path,omitempty"`
 	FileOp    string    `json:"file_op,omitempty"` // create | delete | modify | open
+	URL       string    `json:"url,omitempty"`     // proxy/HTTP records: the requested URL (kind network)
+	Answers   string    `json:"answers,omitempty"` // DNS records: space-separated answers, when the log has them
 	// Cloud control-plane records (kind cloud): who did what to which
 	// resource, from where, and whether the cloud allowed it.
 	Provider  string `json:"provider,omitempty"`  // aws | azure | gcp
@@ -96,7 +98,10 @@ func Load(path string, f Format) (*LoadResult, error) {
 	case FormatCloud:
 		res, err = loadCloud(path)
 	default:
-		return nil, fmt.Errorf("unknown endpoint format %q", f)
+		var ok bool
+		if res, ok, err = loadTelemetry(path, f); !ok {
+			return nil, fmt.Errorf("unknown endpoint format %q", f)
+		}
 	}
 	if err != nil {
 		return nil, err
@@ -116,6 +121,9 @@ func Sniff(path string) (Format, error) {
 	head := make([]byte, 64<<10)
 	n, _ := io.ReadFull(f, head)
 	head = bytes.TrimLeft(head[:n], "\xef\xbb\xbf \t\r\n")
+	if tf := sniffTelemetry(head); tf != "" {
+		return tf, nil
+	}
 	switch {
 	case bytes.HasPrefix(head, []byte("type=")) || bytes.Contains(head[:min(len(head), 4096)], []byte("\ntype=")):
 		return FormatAuditd, nil
@@ -133,7 +141,7 @@ func Sniff(path string) (Format, error) {
 	if bytes.Count(first, []byte(",")) >= 2 {
 		return FormatCSV, nil
 	}
-	return "", errors.New("cannot determine endpoint log format; pass --format auditd|sysmon-xml|jsonl|csv|cloud-audit")
+	return "", errors.New("cannot determine endpoint log format; pass --format auditd|sysmon-xml|jsonl|csv|cloud-audit|" + telemetryFormatList)
 }
 
 func min(a, b int) int {

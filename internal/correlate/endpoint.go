@@ -44,6 +44,11 @@ type EndpointResult struct {
 	CloudCorroborated int `json:"cloud_corroborated,omitempty"`
 	CloudRefused      int `json:"cloud_refused,omitempty"` // matched, and the cloud denied it
 	CloudBursts       int `json:"cloud_destructive_bursts,omitempty"`
+
+	// Partial-coverage witnesses: DNS, proxy, auth.log and journal records.
+	WitnessRecords      int `json:"witness_records,omitempty"`
+	WitnessCorroborated int `json:"witness_corroborated,omitempty"` // proxy host(+path), sudo/journal command line
+	WitnessPartial      int `json:"witness_partial,omitempty"`      // DNS lookup or ssh login only
 }
 
 // Endpoint correlates events in place and returns findings.
@@ -56,16 +61,26 @@ func Endpoint(events []schema.Event, records []endpoint.Record, opts EndpointOpt
 	// its own rules: they never contradict a command (the export may cover
 	// another account), and they must not widen the host telemetry's
 	// coverage or every tool call outside it would look unexplained.
-	var host, cloud []endpoint.Record
+	// DNS, proxy and auth-log records ("sightings") and the cloud-like
+	// audit sources (Kubernetes, Git hosting, object storage) follow the
+	// same rule: they can only ever corroborate.
+	var host, cloud, witnessCloud, sightings []endpoint.Record
 	for _, r := range records {
-		if r.Kind == "cloud" {
+		switch {
+		case endpoint.IsWitnessCloud(r):
+			witnessCloud = append(witnessCloud, r)
+		case r.Kind == "cloud":
 			cloud = append(cloud, r)
-		} else {
+		case endpoint.IsSighting(r):
+			sightings = append(sightings, r)
+		default:
 			host = append(host, r)
 		}
 	}
 	findings := endpointHost(events, host, opts, res)
 	findings = append(findings, cloudPass(events, cloud, res)...)
+	findings = append(findings, witnessCloudPass(events, witnessCloud, res)...)
+	sightingPass(events, sightings, opts, res)
 	return res, findings
 }
 

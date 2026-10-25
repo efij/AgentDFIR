@@ -392,6 +392,10 @@ func Run(pkg string, o Options) (*Result, error) {
 				o.logf("Cloud audit correlation: %d cloud command(s) checked — %d CORROBORATED (%d refused by the cloud); %d destructive burst(s)",
 					cres.CloudCommands, cres.CloudCorroborated, cres.CloudRefused, cres.CloudBursts)
 			}
+			if cres.WitnessRecords > 0 {
+				o.logf("DNS/proxy/auth-log correlation: %d record(s) — %d CORROBORATED, %d PARTLY CONFIRMED",
+					cres.WitnessRecords, cres.WitnessCorroborated, cres.WitnessPartial)
+			}
 		}
 	}
 	if dirty {
