@@ -172,12 +172,13 @@ type HistoryEntry struct {
 
 // RedactionSummary is the redaction log of the production.
 type RedactionSummary struct {
-	Applied    bool           `json:"applied"`
-	Scope      string         `json:"scope"`
-	Spec       redact.Spec    `json:"spec"`
-	Totals     map[string]int `json:"totals"`
-	Log        []redact.Entry `json:"log"`
-	MarkerForm string         `json:"marker_form,omitempty"`
+	Applied      bool           `json:"applied"`
+	Scope        string         `json:"scope"`
+	Spec         redact.Spec    `json:"spec"`
+	Totals       map[string]int `json:"totals"`
+	Log          []redact.Entry `json:"log"`
+	MarkerForm   string         `json:"marker_form,omitempty"`
+	ExaminerNote string         `json:"examiner_note"`
 }
 
 // Limitation is a missing record or a known limit of the production.
@@ -371,8 +372,14 @@ func Produce(pkg string, c *report.Case, opts ProductionOptions) (*ProductionRes
 	man.History = history(pkg, c, man.Examiner.Name, producedAt, r)
 	r.Walk(&man.Case, "production-manifest case")
 	man.Limitations = limitations(c, rc, omitted, opts.Sessions, without)
+	// Limitations quote evidence-derived text (verify problems, session
+	// ids, artifact paths and errors); mask it like every other derivative.
+	for i := range man.Limitations {
+		r.Walk(&man.Limitations[i], fmt.Sprintf("production-manifest missing_records_and_limitations[%d]", i))
+	}
 	man.Redaction = RedactionSummary{Applied: r != nil, Spec: r.Spec(), Totals: r.Totals(), Log: r.Log(),
-		Scope: "derivative files in this production only; the sealed evidence and the package are not modified"}
+		Scope:        "derivative files in this production only; the sealed evidence and the package are not modified",
+		ExaminerNote: "examiner identity is never redacted: the examiner is the producing party, and masking them would break accountability"}
 	if man.Redaction.Spec.Categories == nil {
 		man.Redaction.Spec.Categories = []string{}
 	}
@@ -500,13 +507,13 @@ func examiner(flag string, c *report.Case) Examiner {
 	}
 	if c.CaseInfo != nil {
 		if c.CaseInfo.OperatorAsserted != "" {
-			return Examiner{Name: c.CaseInfo.OperatorAsserted, Source: "case operator (asserted at collection; no --examiner given)"}
+			return Examiner{Name: c.CaseInfo.OperatorAsserted, Source: "case operator"}
 		}
 		if c.CaseInfo.OperatorOSUser != "" {
-			return Examiner{Name: c.CaseInfo.OperatorOSUser, Source: "case operator OS account (no --examiner given)"}
+			return Examiner{Name: c.CaseInfo.OperatorOSUser, Source: "os user"}
 		}
 	}
-	return Examiner{Name: "", Source: "not recorded (no --examiner given and the case names no operator)"}
+	return Examiner{Name: "", Source: "not recorded"}
 }
 
 func signatureState(pkg string) string {
@@ -580,14 +587,16 @@ func history(pkg string, c *report.Case, examiner, producedAt string, r *redact.
 		{"timeline", "timeline.csv, findings.csv"},
 		{"manifest", "traceability.csv, production manifest"},
 	}
+	// Evidence-derived history is masked; this run's own stages are
+	// tool-written text whose actor is the examiner, never redacted.
+	for i := range h {
+		r.Walk(&h[i], fmt.Sprintf("production-manifest processing_history[%d]", i))
+	}
 	for _, s := range stages {
 		if s.ev == "redact" && r == nil {
 			continue
 		}
 		h = append(h, HistoryEntry{Source: "this_production", TS: producedAt, Event: s.ev, Actor: examiner, Detail: s.detail})
-	}
-	for i := range h {
-		r.Walk(&h[i], fmt.Sprintf("production-manifest processing_history[%d]", i))
 	}
 	return h
 }

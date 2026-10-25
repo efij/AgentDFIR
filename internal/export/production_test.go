@@ -350,6 +350,56 @@ func TestProductionEmptyAndRefusals(t *testing.T) {
 	}
 }
 
+// TestRedactionCoversEveryOutput plants a secret, an email, a path, an IP
+// and a custom-pattern value in the integrity problems (free text the
+// manifest quotes) on top of the transcript values, runs every --redact
+// category, and greps every produced file for each value.
+func TestRedactionCoversEveryOutput(t *testing.T) {
+	pkg := build(t, false)
+	before := treeHashes(t, pkg)
+	c := loadCase(t, pkg)
+	c.Verify.Problems = append(c.Verify.Problems,
+		"raw/blob: sha256 mismatch near "+fakeKey+" mailed to "+fakeMail+" from "+fakePath+" via 10.20.30.40 tag CODENAME-ORCA")
+	pat := filepath.Join(t.TempDir(), "custom.txt")
+	os.WriteFile(pat, []byte("CODENAME-[A-Z]+\n"), 0o600)
+	r, err := redact.Parse("secrets,emails,paths,ips,custom:" + pat)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(t.TempDir(), "prod")
+	res, err := export.Produce(pkg, c, export.ProductionOptions{Out: out, Redactor: r, Examiner: "examiner@corp-example.org", ProducedAt: fixedTime})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var integ bool
+	for _, l := range res.Manifest.Limitations {
+		integ = integ || l.Code == "INTEGRITY_FAILED"
+	}
+	if !integ {
+		t.Fatal("INTEGRITY_FAILED not listed")
+	}
+	leaks := []string{fakeKey, fakeMail, "/Users/alice/secret-project", "10.20.30.40", "CODENAME-ORCA"}
+	for rel := range treeHashes(t, out) {
+		b, _ := os.ReadFile(filepath.Join(out, filepath.FromSlash(rel)))
+		raw := string(b) + decodeRSMFZip(t, b)
+		for _, leak := range leaks {
+			if strings.Contains(raw, leak) {
+				t.Errorf("%s leaks %q", rel, leak)
+			}
+		}
+	}
+	// The examiner is the producing party and is never redacted.
+	m, _ := os.ReadFile(filepath.Join(out, export.ProductionManifestJSON))
+	if !strings.Contains(string(m), `"name": "examiner@corp-example.org"`) || !strings.Contains(string(m), "examiner identity is never redacted") {
+		t.Error("examiner identity was redacted or the redaction log does not say it never is")
+	}
+	for p, h := range treeHashes(t, pkg) {
+		if before[p] != h {
+			t.Errorf("package file %s changed", p)
+		}
+	}
+}
+
 func TestProductionSessionScope(t *testing.T) {
 	pkg := build(t, false)
 	r, _ := redact.Parse("")
