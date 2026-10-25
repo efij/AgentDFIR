@@ -16,7 +16,6 @@ import (
 	"github.com/efij/AgentDFIR/v3/internal/casepkg"
 	"github.com/efij/AgentDFIR/v3/internal/diskimage"
 	"github.com/efij/AgentDFIR/v3/internal/diskimage/ntfs"
-	"github.com/efij/AgentDFIR/v3/internal/products"
 	"github.com/efij/AgentDFIR/v3/internal/sanitize"
 )
 
@@ -136,7 +135,9 @@ func collectImage(path string, o importOpts, verifyStored bool) int {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
 	}
-	prods, err := products.All()
+	// The same discovery set as --import: browser history is extracted
+	// from the image only with --include-browser.
+	prods, err := discoveryProducts(o.includeBrowser)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
