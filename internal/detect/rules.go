@@ -201,7 +201,7 @@ func traceGaps(res *schema.Normalized) []schema.Finding {
 		if ev.EventType != schema.EventTraceGap {
 			continue
 		}
-		out = append(out, schema.Finding{
+		f := schema.Finding{
 			RuleID:       "TRACE_GAP",
 			Severity:     "MEDIUM",
 			Title:        "Transcript Integrity Gap",
@@ -210,7 +210,9 @@ func traceGaps(res *schema.Normalized) []schema.Finding {
 			EvidenceRefs: []string{evidenceRef(ev)},
 			Status:       schema.StateObserved,
 			Endpoint:     schema.StateUnknown,
-		})
+		}
+		unsupportedGap(&f, ev)
+		out = append(out, f)
 	}
 	return out
 }
