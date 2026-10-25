@@ -316,6 +316,16 @@ var Builtin = []Rule{
 	{ID: "SKILL_HIDDEN_INSTRUCTIONS", Package: "extinv", Surface: "config", MaxSeverity: "HIGH",
 		Title: "Hidden or Overriding Instructions in an Agent Skill", Summary: "Skill, sub-agent, command or extension context markdown with tag/variation-selector characters or an instruction-override phrase (live scans; in a case the content scan covers the same files).",
 		MitreATLAS: "AML.T0110"},
+	// ------------------------------------------------------- supplychain
+	{ID: "SUPPLY_FLAGGED_COMPONENT_REUSED", Package: "supplychain", Surface: "config", MaxSeverity: "HIGH",
+		Title: "Component Flagged as Malicious Was Used in Several Sessions", Summary: "A skill, plugin, hook, MCP server or extension that a malicious-indicating finding cites ran in two or more sessions (logged invocations), or the hash-identical component is present in another case.",
+		MitreATTACK: "T1195.002", MitreATLAS: "AML.T0010.005"},
+	{ID: "SUPPLY_MCP_TOOL_DRIFT_EXPANSION", Package: "supplychain", Surface: "mcp", MaxSeverity: "HIGH",
+		Title: "MCP Server Gained Capabilities Between Snapshots", Summary: "The same MCP server across collection rounds, baselines, cached tool manifests or logged session tool lists gained tools, env keys, auto-approvals, headers or filesystem path arguments.",
+		MitreATTACK: "T1195.002", MitreATLAS: "AML.T0110"},
+	{ID: "SUPPLY_UNTRUSTED_COMPONENT_BEFORE_HIGH", Package: "supplychain", Surface: "transcript", MaxSeverity: "HIGH",
+		Title: "Untrusted Agent Component Ran Shortly Before a High-Severity Command", Summary: "A skill, command or plugin hook from a third-party, unregistered or repository origin was invoked (verified) and within the window a command in the same session drew a HIGH/CRITICAL finding (temporal link, inferred).",
+		MitreATTACK: "T1195.002", MitreATLAS: "AML.T0010.005"},
 	// --------------------------------------------------------------- ioc
 	{ID: "KNOWN_INCIDENT_IOC", Package: "ioc", Surface: "transcript", MaxSeverity: "CRITICAL",
 		Title: "Indicator of a Known Incident", Summary: "A verified indicator from an embedded incident pack (s1ngularity, Shai-Hulud 1/2, keyv wave, SANDWORM_MODE, postmark-mcp, codexui-android, Amazon Q wiper) or an imported STIX/MISP feed, classified by where it was seen.",

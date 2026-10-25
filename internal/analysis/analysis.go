@@ -573,6 +573,13 @@ func Run(pkg string, o Options) (*Result, error) {
 		res.StageNotes = append(res.StageNotes, "incident IOC check skipped: "+err.Error())
 	}
 
+	// Agent-environment supply chain (normalized/supplychain.json): origins,
+	// hash history across rounds, MCP and settings drift, and component →
+	// invocation → command links, verified apart from inferred.
+	sf, snotes := supplyOverlay(pkg, allEvents(), findings, res.Correlation, inv, ext)
+	findings = append(findings, sf...)
+	res.StageNotes = append(res.StageNotes, snotes...)
+
 	o.stage(6, "provenance")
 	// ---- 6. instruction & memory provenance.
 	if prov, err := provenance.Run(pkg, allEvents(), ""); err == nil {
