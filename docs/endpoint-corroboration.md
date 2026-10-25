@@ -15,12 +15,13 @@ An agent's transcript is witness #1: the agent's own diary. It can be wrong (the
 ```sh
 agentdfir correlate CASE-42.adfir /var/log/audit/audit.log            # Linux auditd
 agentdfir correlate CASE-42.adfir sysmon.xml                           # Windows Sysmon (XML export)
+agentdfir correlate CASE-42.adfir Sysmon.evtx Security.evtx            # raw Windows event logs, no export step
 agentdfir correlate CASE-42.adfir procs.jsonl netconns.csv             # Velociraptor / osquery / eslogger / EDR exports
 agentdfir analyze   CASE-42.adfir --endpoint audit.log                 # same, inside the one-shot analysis
 agentdfir analyze   CASE-42.adfir --endpoint cloudtrail.json           # cloud audit export: the agent's az / aws / gcloud commands
 ```
 
-Format is sniffed per file (`--format auditd|sysmon-xml|jsonl|csv|cloud-audit` to override). `--window 3s` sets the match window. Results are written back to `normalized/events.jsonl` (states + an evidence note naming the confirming record) and to `detections/corroboration.json`; `triage` merges the findings so every downstream report, OCSF/SARIF export and PDF carries the upgraded states.
+Format is sniffed per file (`--format auditd|sysmon-xml|evtx|jsonl|csv|cloud-audit` to override). `--window 3s` sets the match window. Results are written back to `normalized/events.jsonl` (states + an evidence note naming the confirming record) and to `detections/corroboration.json`; `triage` merges the findings so every downstream report, OCSF/SARIF export and PDF carries the upgraded states.
 
 ## Supported telemetry
 
@@ -28,6 +29,7 @@ Format is sniffed per file (`--format auditd|sysmon-xml|jsonl|csv|cloud-audit` t
 |---|---|---|
 | **auditd** | `/var/log/audit/audit.log` (execve auditing: `-a always,exit -F arch=b64 -S execve`) | process (SYSCALL+EXECVE, hex args decoded, CWD), network (SOCKADDR AF_INET/6), file (PATH create/delete, write opens) |
 | **Sysmon** | `wevtutil qe Microsoft-Windows-Sysmon/Operational /f:xml > sysmon.xml` | EventID 1 process, 3 network, 11/23/2 file |
+| **Windows .evtx** | the raw files: `C:\Windows\System32\winevt\Logs\*.evtx` (or a KAPE/triage copy) | Sysmon, Security 4688, PowerShell 4104 and more — see [Native .evtx files](#native-evtx-files) |
 | **Generic JSONL / CSV** | Velociraptor (`Linux.Events.ProcessExecutions`, `Windows.System.Pslist`…), osquery `process_events`, `evtx_dump -o jsonl`, macOS `eslogger exec open create unlink` | nested JSON flattened; ~90 field aliases cover pid/ppid/exe/cmdline/parent/user/dest ip+port/file path |
 
 | **AWS CloudTrail** | the trail's S3 objects (`{"Records":[…]}`), `aws cloudtrail lookup-events` output, or events one per line | cloud: service and API call, principal ARN, source IP, request resource names, error code |
@@ -36,7 +38,49 @@ Format is sniffed per file (`--format auditd|sysmon-xml|jsonl|csv|cloud-audit` t
 
 Cloud exports are read from files only: nothing calls a cloud API.
 
-Raw `.evtx` is not parsed — export first (documented limitation). macOS unified log lacks exec argv; use `eslogger` (Endpoint Security) output.
+macOS unified log lacks exec argv; use `eslogger` (Endpoint Security) output.
+
+## Native .evtx files
+
+Raw Windows event log files are read directly by a parser written for AgentDFIR (Go standard library only, no Windows API, no third-party code). Pass the file as is: the `ElfFile` signature is sniffed, or force it with `--format evtx`. One file per argument; `--endpoint` does not take directories.
+
+| Provider (channel) | Event ID | Becomes | Fields used |
+|---|---|---|---|
+| Microsoft-Windows-Sysmon (Sysmon/Operational) | 1 | process | Image, CommandLine, ProcessId, ParentProcessId, ParentImage, User |
+| | 3 | network | DestinationIp, DestinationPort, DestinationHostname |
+| | 11 / 2 / 23 / 26 | file (create / modify / delete / delete) | TargetFilename |
+| | 22 | network (DNS query) | QueryName → destination host, Image, ProcessId |
+| Microsoft-Windows-Security-Auditing (Security) | 4688 | process | NewProcessName, CommandLine (image only if command-line auditing is off), NewProcessId / ProcessId (hex), ParentProcessName, user |
+| Microsoft-Windows-PowerShell (PowerShell/Operational) | 4104 | script | ScriptBlockText, Execution ProcessID, MessageNumber/MessageTotal, Path |
+| Service Control Manager (System) | 7045 | service + operator notice | ServiceName, ImagePath, AccountName |
+| Microsoft-Windows-Eventlog (Security / System) | 1102 / 104 | log-clear + operator notice | SubjectUserName, SubjectDomainName, Channel |
+
+Sysmon events go through the same mapping as the XML export, so the same events read from `Sysmon.evtx` or from `wevtutil … /f:xml` give identical records, notes and states.
+
+Script blocks (4104) are a weaker witness: they can **corroborate** a command (`powershell -c Remove-Item …` matches the logged block), but they are not complete process telemetry, so they never contradict a command and never extend the telemetry's coverage window. If a command was already CONTRADICTED by process telemetry and a matching script block exists, the state stays CONTRADICTED and the block is named in the evidence note (an in-process PowerShell host runs scripts without starting a process).
+
+Service installs and cleared logs are not correlation input. They are listed as `notice:` lines under the log's summary (`agentdfir correlate`, and the `analyze` / `run` log). No new detection rule is attached to them.
+
+What the parser checks and how it handles damage:
+
+| Check | On failure |
+|---|---|
+| File signature `ElfFile` | not an .evtx file: format error (other formats are then not tried) |
+| File header CRC32 (first 120 bytes) | noted; chunks are still read |
+| Format version 3.x | other versions noted as `UNSUPPORTED evtx format version …`; parsing is attempted |
+| Chunk signature `ElfChnk` | chunk skipped and counted; all-zero (preallocated) chunks are skipped silently |
+| Chunk header CRC32 and event-records CRC32 | noted; the chunk's records are still read, and each one's reference ends in `chunk checksum mismatch` |
+| Record signature, size and trailing size copy | rest of that chunk skipped, next chunk read |
+| Binary XML inside a record | that record skipped and counted, next record read |
+| Truncated file or last chunk | what is present is read; the truncation is noted |
+
+Binary XML support: fragment headers, elements with and without the dependency identifier, attributes, value text, CDATA, character and entity references, processing instructions (ignored as content), template instances with inline or back-referenced definitions (cached per chunk), normal and optional substitutions, names inline or by chunk offset, and all value types (strings UTF-16 and ANSI, signed/unsigned 8–64-bit integers, hex integers, reals, bool, binary, GUID, size_t, FILETIME, SYSTEMTIME, SID, arrays of these, nested BinXml).
+
+Not read, by design: records left in chunk slack space after the free-space offset (counted and noted, not parsed), the header's dirty flag (noted; records are read as found), registry events (Sysmon 12–14), process termination (Sysmon 5), logons (Security 4624/4625) and every other provider/event ID (a single note counts them and names the most common). Message strings from provider DLLs are not resolved; only the event's own data is used.
+
+Bounds: files up to 2 GiB, read one 64 KiB chunk at a time; nesting depth 32; per-chunk and per-record caps on parsed nodes, rendered nodes and rendered text; a fault inside one record is converted to a recorded problem.
+
+Fixtures are synthetic. The tests build .evtx files with a test-only writer (`internal/endpoint/evtx/evtxtest`) that emits valid headers, chunks with correct CRCs and string/template tables, and templates with substitution arrays; no real Windows logs are committed. A fuzz test (`FuzzChunk`) mutates chunks seeded from that writer.
 
 ## What the engine does
 
