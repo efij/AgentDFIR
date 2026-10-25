@@ -42,8 +42,6 @@ type FilesReport struct {
 
 type fileRec struct {
 	rec
-	Reason        string `json:"reason"`
-	JournaledSize *int64 `json:"journaled_size"`
 }
 
 // VerifyFiles checks every file the journal recorded whose path resolve

@@ -116,3 +116,69 @@ func TestCaseCheckSeparatesPruningFromDeletion(t *testing.T) {
 		t.Fatalf("deletion findings: %+v", deleted)
 	}
 }
+
+// collectRoot collects a profile root into a sealed case and analyzes it.
+func collectRoot(t *testing.T, root string) *Result {
+	t.Helper()
+	pkg := filepath.Join(t.TempDir(), "c.adfir")
+	b, err := casepkg.New(pkg, "BB", casepkg.CaseInfo{OperatorOSUser: "t"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	man, _ := products.ManifestAllPlatforms("claude-code")
+	if _, err := collector.Run(b, man, collector.Options{ProfileRoot: root, ConfigRoot: filepath.Join(root, ".claude"), SystemRoot: root, Product: "claude-code"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := b.Seal(); err != nil {
+		t.Fatal(err)
+	}
+	res, err := Run(pkg, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return res
+}
+
+// A forged prune record cannot launder a deleted transcript, and a capture
+// edited before retention deleted it is caught by its prune hash.
+func TestCaseCheckRejectsForgedOrMismatchedPrune(t *testing.T) {
+	root := t.TempDir()
+	proj := filepath.Join(root, ".claude", "projects", "p")
+	_ = os.MkdirAll(proj, 0o755)
+	keep := filepath.Join(proj, "keep.jsonl")
+	gone := filepath.Join(proj, "gone.jsonl")
+	line := `{"type":"user","uuid":"u1","sessionId":"s1","timestamp":"2026-08-30T10:00:00Z","message":{"role":"user","content":"hi"}}` + "\n"
+	_ = os.WriteFile(keep, []byte(line), 0o644)
+	_ = os.WriteFile(gone, []byte(line), 0o644)
+	state := filepath.Join(root, ".agentdfir", "monitor")
+	jn, err := journal.Open(filepath.Join(state, "journal.jsonl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	jn.Baseline(gone)
+	jn.Prune(gone, int64(len(line)), "00", "retention: forged") // not a capture
+	_ = os.Remove(gone)
+
+	c := recorder.NewCapture(state, "auditd", ".log", jn, nil)
+	_, _ = c.Write([]byte("type=SYSCALL msg=audit(1788084005.300:1): pid=1 exe=\"/bin/sh\"\n"))
+	_ = c.Close()
+	data, _ := os.ReadFile(c.Path())
+	data[20] ^= 1 // edited, same size
+	_ = os.WriteFile(c.Path(), data, 0o600)
+	old := time.Now().Add(-30 * 24 * time.Hour)
+	_ = os.Chtimes(c.Path(), old, old)
+	if p, _ := (recorder.Retention{MaxAge: 24 * time.Hour}).Prune(state, nil, jn, time.Now()); len(p) != 1 {
+		t.Fatalf("pruned %v", p)
+	}
+	_ = jn.Close()
+
+	titles := map[string]string{}
+	for _, f := range collectRoot(t, root).Findings {
+		if f.RuleID == "TRANSCRIPT_DELETED" {
+			titles[f.Title] = f.Severity
+		}
+	}
+	if titles["Prune Record for a File the Recorder Does Not Own"] != "HIGH" || titles["Pruned Capture Does Not Match What Was Journaled"] != "HIGH" {
+		t.Fatalf("findings: %v", titles)
+	}
+}
