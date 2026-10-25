@@ -36,10 +36,8 @@ import (
 
 var (
 	systemdUnitRe = regexp.MustCompile(`(?:^|/)(?:etc/systemd/(?:system|user)|(?:usr/)?lib/systemd/(?:system|user)|run/systemd/(?:system|user)|\.config/systemd/user|\.local/share/systemd/user)(?:/[^/]+\.wants)?/[^/]+\.(service|timer|socket|path)$`)
-	systemctlRe   = regexp.MustCompile(`(?:^|[\s/])systemctl\s+(?:--\S+\s+)*(?:enable|link|preset|reenable)\b`)
 	systemdRunRe  = regexp.MustCompile(`(?:^|[\s/])systemd-run\s.*--on-(?:calendar|active|boot|startup|unit-active|unit-inactive)\b`)
 	cronPathRe    = regexp.MustCompile(`^(?:/etc/crontab|/etc/anacrontab|/etc/cron\.(?:d|hourly|daily|weekly|monthly)/[^/]+|/var/spool/cron/(?:crontabs/)?[^/]+)$`)
-	nsenterRe     = regexp.MustCompile(`(?:^|[\s/])nsenter\s(?:.*\s)?(?:-t\s*1|--target[=\s]1)(?:\s|$)`)
 	bpftoolRe     = regexp.MustCompile(`(?:^|[\s/])bpftool\s+(?:-\S+\s+)*(?:prog\s+(?:load|loadall|attach)|net\s+attach|cgroup\s+attach)\b`)
 	runtimeSockRe = regexp.MustCompile(`/(?:docker|containerd|crio|podman)\.sock\b`)
 )
@@ -62,7 +60,7 @@ var linuxRules = []linuxRule{
 					return r.FileOp + " " + r.FilePath, true
 				}
 			case "process":
-				if systemctlRe.MatchString(r.Cmdline) || systemdRunRe.MatchString(r.Cmdline) {
+				if systemctlEnables(r.Cmdline) || systemdRunRe.MatchString(r.Cmdline) {
 					return r.Cmdline, true
 				}
 			}
@@ -94,7 +92,7 @@ var linuxRules = []linuxRule{
 			op := strings.ToLower(r.Operation)
 			switch r.Kind {
 			case "process":
-				if nsenterRe.MatchString(r.Cmdline) {
+				if nsenterTargetsInit(r.Cmdline) {
 					return r.Cmdline, true
 				}
 				if inContainer && runtimeSockRe.MatchString(r.Cmdline) {
@@ -139,27 +137,157 @@ var linuxRules = []linuxRule{
 
 func isWriteOp(op string) bool { return op == "create" || op == "modify" }
 
-// crontabWrites: `crontab` installing, editing or removing a table
-// (`crontab file`, `crontab -`, `crontab -e`, `crontab -r`, or bare
-// `crontab` reading stdin). Listing (-l) is not a change.
-func crontabWrites(cmd string) bool {
-	f := strings.Fields(cmd)
-	for i, tok := range f {
-		if exeName(tok) != "crontab" {
-			continue
+// invocations splits a command line into argv lists, one per command:
+// whitespace separates arguments; ;, |, &, newlines and the operators made
+// of them (&&, ||) end a command even when written without spaces.
+func invocations(cmd string) [][]string {
+	var out [][]string
+	var cur []string
+	var tok strings.Builder
+	flushTok := func() {
+		if tok.Len() > 0 {
+			cur = append(cur, tok.String())
+			tok.Reset()
 		}
-		args := f[i+1:]
-		for j := 0; j < len(args); j++ {
-			switch {
-			case args[j] == "-l" || args[j] == "-T":
-				return false
-			case args[j] == "-u":
-				j++
-			case args[j] == "|" || args[j] == "&&" || args[j] == ";":
-				return true
+	}
+	flushCmd := func() {
+		flushTok()
+		if len(cur) > 0 {
+			out = append(out, cur)
+			cur = nil
+		}
+	}
+	for i := 0; i < len(cmd) && len(out) < 256; i++ {
+		switch c := cmd[i]; c {
+		case ' ', '\t':
+			flushTok()
+		case ';', '|', '&', '\n', '\r', '(', ')', '`':
+			flushCmd()
+		default:
+			tok.WriteByte(c)
+		}
+	}
+	flushCmd()
+	return out
+}
+
+// commandsNamed returns the arguments of every invocation of prog,
+// skipping sudo/env/exec style prefixes.
+func commandsNamed(cmd, prog string) [][]string {
+	var out [][]string
+	for _, argv := range invocations(cmd) {
+		for i, a := range argv {
+			if exeName(strings.Trim(a, `"'`)) == prog {
+				out = append(out, argv[i+1:])
+				break
 			}
 		}
-		return true
+	}
+	return out
+}
+
+// crontabWrites: a `crontab` invocation installing, editing or removing a
+// table (`crontab file`, `crontab -`, `-e`, `-r`, or bare `crontab`
+// reading stdin). Listing (-l) or testing (-T) ends only that invocation;
+// a later one on the same command line is still judged.
+func crontabWrites(cmd string) bool {
+	for _, args := range commandsNamed(cmd, "crontab") {
+		write := true
+		for j := 0; j < len(args); j++ {
+			if args[j] == "-u" {
+				j++
+				continue
+			}
+			if strings.HasPrefix(args[j], "-") && !strings.HasPrefix(args[j], "--") && len(args[j]) > 1 &&
+				(strings.ContainsAny(args[j][1:], "lT")) {
+				write = false
+				break
+			}
+		}
+		if write {
+			return true
+		}
+	}
+	return false
+}
+
+// systemctlValued are systemctl options that take a separate value.
+var systemctlValued = map[string]bool{"-H": true, "-M": true, "-t": true, "-p": true, "-n": true, "-o": true, "-s": true,
+	"--host": true, "--machine": true, "--type": true, "--property": true, "--lines": true, "--output": true, "--signal": true,
+	"--root": true, "--state": true, "--kill-whom": true, "--job-mode": true, "--what": true, "--image": true}
+
+// systemctlEnables: `systemctl [options] enable|link|preset|reenable …`,
+// with any option tokens (short, long, clustered) before the verb.
+func systemctlEnables(cmd string) bool {
+	for _, args := range commandsNamed(cmd, "systemctl") {
+		for j := 0; j < len(args); j++ {
+			a := args[j]
+			if strings.HasPrefix(a, "-") {
+				if systemctlValued[a] {
+					j++
+				}
+				continue
+			}
+			switch a {
+			case "enable", "link", "preset", "reenable", "preset-all", "add-wants", "add-requires":
+				return true
+			}
+			break
+		}
+	}
+	return false
+}
+
+// nsenterTargetsInit: an nsenter invocation whose target pid is 1, parsed
+// the way getopt parses util-linux nsenter: short clusters (-at1, -t1,
+// -a -t 1), --target 1, --target=1. Options with an optional attached
+// argument (-m[file] and the other namespace flags, -r, -w) consume the
+// rest of their cluster.
+func nsenterTargetsInit(cmd string) bool {
+	for _, args := range commandsNamed(cmd, "nsenter") {
+		target := ""
+	scan:
+		for j := 0; j < len(args); j++ {
+			a := args[j]
+			switch {
+			case a == "--":
+				break scan
+			case a == "--target" && j+1 < len(args):
+				target = args[j+1]
+				j++
+			case strings.HasPrefix(a, "--target="):
+				target = strings.TrimPrefix(a, "--target=")
+			case strings.HasPrefix(a, "--"):
+				if a == "--setuid" || a == "--setgid" {
+					j++
+				}
+			case strings.HasPrefix(a, "-") && len(a) > 1:
+			cluster:
+				for k := 1; k < len(a); k++ {
+					switch a[k] {
+					case 't', 'S', 'G':
+						v := a[k+1:]
+						if v == "" && j+1 < len(args) {
+							j++
+							v = args[j]
+						}
+						if a[k] == 't' {
+							target = v
+						}
+						break cluster
+					case 'm', 'u', 'i', 'n', 'p', 'U', 'C', 'T', 'r', 'w':
+						if k+1 < len(a) {
+							break cluster // the rest is this option's file argument
+						}
+					}
+				}
+			default:
+				break scan // the program to run
+			}
+		}
+		if target == "1" {
+			return true
+		}
 	}
 	return false
 }
