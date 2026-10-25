@@ -41,8 +41,20 @@ type Case struct {
 	// reason. Anything else counts as a false positive.
 	Allow map[string]string `json:"allow,omitempty"`
 
+	// Collect selects how the case directory becomes a package. Empty means
+	// a Claude Code profile (.claude/ under the case). "ai-export" means
+	// the export/ subdirectory is an AI-service account export, sealed the
+	// way `collect --ai-export` seals one. Export cases may write
+	// @@RUNTIME_SECRET@@ where a credential-shaped string belongs; the
+	// harness builds one at run time, because a key-shaped literal in the
+	// repository is refused by push protection.
+	Collect string `json:"collect,omitempty"`
+
 	Dir string `json:"-"`
 }
+
+// CollectAIExport is the Case.Collect value for AI-service export cases.
+const CollectAIExport = "ai-export"
 
 // Budget caps how many false positives a rule may produce across the whole
 // benign corpus. Zero means the rule must not fire on benign activity at
