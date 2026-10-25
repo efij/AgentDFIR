@@ -33,6 +33,15 @@
       ],
       "config_files": [],
       "binaries": []
+    },
+    {
+      "id": "macos-host",
+      "name": "macOS host state (persistence, TCC, keychain indicators; opt-in)",
+      "config_dirs": [
+        "Library"
+      ],
+      "config_files": [],
+      "binaries": []
     }
   ],
   "manifests": [
@@ -418,6 +427,91 @@
           ],
           "category": "browser_history",
           "sensitivity": "high"
+        }
+      ]
+    },
+    {
+      "product": "macos-host",
+      "entries": [
+        {
+          "id": "macos.launch_agents_user",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/LaunchAgents/*.plist"
+          ],
+          "category": "macos_launchd_plist",
+          "sensitivity": "low"
+        },
+        {
+          "id": "macos.launch_agents_system",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${SYSTEM_ROOT}/Library/LaunchAgents/*.plist"
+          ],
+          "category": "macos_launchd_plist",
+          "sensitivity": "low"
+        },
+        {
+          "id": "macos.launch_daemons",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${SYSTEM_ROOT}/Library/LaunchDaemons/*.plist"
+          ],
+          "category": "macos_launchd_plist",
+          "sensitivity": "low"
+        },
+        {
+          "id": "macos.btm",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${SYSTEM_ROOT}/private/var/db/com.apple.backgroundtaskmanagement/BackgroundItems-v*.btm"
+          ],
+          "category": "macos_btm",
+          "sensitivity": "medium"
+        },
+        {
+          "id": "macos.login_items",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/com.apple.backgroundtaskmanagementagent/backgrounditems.btm",
+            "${PROFILE_ROOT}/Library/Preferences/com.apple.loginitems.plist"
+          ],
+          "category": "macos_login_items",
+          "sensitivity": "medium"
+        },
+        {
+          "id": "macos.tcc_user",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/com.apple.TCC/TCC.db",
+            "${PROFILE_ROOT}/Library/Application Support/com.apple.TCC/TCC.db-wal"
+          ],
+          "category": "macos_tcc_db",
+          "sensitivity": "medium"
+        },
+        {
+          "id": "macos.tcc_system",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${SYSTEM_ROOT}/Library/Application Support/com.apple.TCC/TCC.db",
+            "${SYSTEM_ROOT}/Library/Application Support/com.apple.TCC/TCC.db-wal"
+          ],
+          "category": "macos_tcc_db",
+          "sensitivity": "medium"
         }
       ]
     }
