@@ -56,7 +56,7 @@ or a partial/changed acquisition (sealed with what was taken); 2 the path is not
 | VMDK | monolithicSparse, streamOptimized (compressed grains, footer GD), monolithicFlat / twoGbMax* via descriptor, multi-extent descriptors (FLAT/SPARSE/ZERO extents next to the descriptor) | delta/snapshot disks (parent hint reported), ESX COWD / SESparse, extents outside the descriptor's directory |
 | other containers | — | QCOW2, VDI, DMG, and compressed files (gzip/xz/zip/7z…) are named and refused |
 | Partitions | MBR (incl. extended/logical, loop-guarded), GPT (header + entry CRC-32, backup compared; primary damaged → backup used) | APM (Apple Partition Map), LVM, dynamic disks (LDM), Storage Spaces |
-| NTFS | boot sector, `$MFT` via its own data runs, update-sequence fixups, `$STANDARD_INFORMATION` times, `$FILE_NAME` (Win32/POSIX over DOS), resident and non-resident `$DATA`, sparse runs, `$ATTRIBUTE_LIST`, LZNT1 compression, hard links | EFS-encrypted file content (per file, UNSUPPORTED), reparse points (recorded, not followed), `$I30` index slack, `$LogFile`/`$UsnJrnl` parsing, deleted files (skipped and counted), Volume Shadow Copies (presence of the store is noted, copies are not parsed) |
+| NTFS | boot sector, `$MFT` via its own data runs, update-sequence fixups, `$STANDARD_INFORMATION` times, `$FILE_NAME` (Win32/POSIX over DOS), resident and non-resident `$DATA`, sparse runs, `$ATTRIBUTE_LIST`, LZNT1 compression, hard links | EFS-encrypted file content (per file, UNSUPPORTED), reparse points (recorded, not followed), `$I30` index slack, `$LogFile` parsing, USN_RECORD_V4 range records (counted, UNSUPPORTED); the USN journal, deleted records and Volume Shadow Copies are covered in [NTFS artifacts](#ntfs-artifacts-usn-journal-deleted-records-shadow-copies) |
 | ext2 / ext3 / ext4 | superblock (rev 0 and dynamic), 32/64-byte group descriptors, flex_bg, meta_bg, extent trees and legacy block maps, inline_data, htree directories (read linearly), sparse and large files, nanosecond and creation times; symlinks reported, never followed | journal never replayed (a volume that needs recovery is read as on disk and flagged), fscrypt-encrypted files (listed, UNSUPPORTED), deleted entries (skipped and counted), external journal devices and the compression/dirdata/unknown incompatible features (volume UNSUPPORTED) |
 | FAT12 / FAT16 / FAT32, exFAT | BPB and FAT type by cluster count, VFAT long names (checksum-verified), exFAT entry sets with checksums, NoFatChain, ValidDataLength; FAT times as local wall-clock (`tz` = `local-unknown`), exFAT times with their recorded UTC offset | deleted entries (skipped and counted), exFAT up-case table and allocation bitmap, TexFAT; a FAT/exFAT/ext volume the reader cannot open is named by signature and reported UNSUPPORTED |
 | BitLocker, LUKS | — | ENCRYPTED, with the unlock-then-mount route |
@@ -85,6 +85,65 @@ notes yourself.
   `compressed`, `sparse`, `encrypted`, `reparse_point` when relevant.
 * Alternate data streams are listed in metadata only, never extracted as files.
 
+## NTFS artifacts: USN journal, deleted records, shadow copies
+
+Sealed into the case for every NTFS volume `collect --image` reads (they sit beside the
+import tree, not inside it, so they are preserved but not parsed as agent sessions):
+
+| Logical path | Default | Content |
+|---|---|---|
+| `image/vol<N>/ntfs/usn.jsonl` | on (when the volume has a journal) | one line per `$Extend\$UsnJrnl:$J` record |
+| `image/vol<N>/ntfs/deleted.jsonl` | on | one line per deleted MFT record that still has a name |
+| `image/vol<N>/ntfs/recovered/<mft_ref>_<name>` | `--recover-deleted` | recoverable deleted content, labelled `RECOVERED_UNVERIFIED` |
+| `vss/<n>-<creation time>/…` (inside the import tree) | `--include-vss` | agent evidence extracted from each shadow copy; provenance lines carry `vss_snapshot` |
+
+A summary of each (record counts, skipped bytes, UNSUPPORTED snapshots) is in the volume's
+`image_volume_<N>` case note. The case is still refused when no volume holds agent evidence:
+these artifacts accompany agent evidence, they do not replace it.
+
+**USN journal.** `$J` is read through its data runs; sparse runs (the deallocated head of a
+wrapped journal) are skipped by run, never scanned. USN_RECORD_V2 and V3 are decoded: file
+and parent reference (record + sequence), USN, timestamp (UTC), reason flags, source info,
+security id, file attributes and name, with flag names decoded (undocumented bits are kept as
+hex). V4 range-tracking records are counted and emitted with `status: UNSUPPORTED`. Every
+record's length, alignment, version and name bounds are checked; anything implausible is
+skipped 8 bytes at a time until the scanner resynchronizes, and the skipped bytes and resync
+count are reported. `path` is resolved from the parent reference against the current MFT:
+`path_status` is `resolved`, `unresolved` (parent record not in use), or `reused-mft-entry`
+when the parent record's sequence number no longer matches — the path then starts with
+`(reused-mft-entry)` instead of naming the record's current occupant. A path reflects the
+volume at acquisition time, not at the time of the journal entry.
+
+**Deleted records.** MFT base records with IN_USE clear but a valid `FILE` signature and
+update-sequence fixups (torn records are counted as corrupt, not listed). Each line has the
+name, parent path (same resolution as above), size, `$STANDARD_INFORMATION` and `$FILE_NAME`
+times, attributes, ADS names, whether `$DATA` is resident, and `content_state`:
+`resident` or `clusters-unallocated` (recoverable), `overwritten-or-reallocated` (some
+cluster is allocated again in `$Bitmap`; content is never returned), `no-data`,
+`sparse-only`, or `UNSUPPORTED` with a reason (EFS, broken run list, unreadable `$Bitmap`).
+Recovered content is labelled `RECOVERED_UNVERIFIED`: free clusters can have been rewritten
+and freed again after the delete, so it is a lead, not proof. Records whose extension records
+were reused are reported with a problem rather than stitched together.
+
+**Volume Shadow Copies** (`internal/diskimage/ntfs/vss`). Read-only, per the libvshadow format
+documentation: VSS volume header at 0x1e00, catalog (store information and store location
+entries), store header, block list and current bitmap. Each snapshot is presented as a
+read-only volume: a 16 KiB block described in its store comes from the store, otherwise from
+the next newer store, otherwise from the current volume; overlay descriptors replace only the
+sectors their bitmap names; forwarders redirect to another block in the newer layers. The
+NTFS reader then opens that volume unchanged. UNSUPPORTED (with the reason, nothing
+extracted): header or block version other than 1, unknown descriptor flags, offsets outside
+the volume, a snapshot larger than the volume, broken or looping chains, and any read that
+would have to pass through a newer store that is itself unsupported. Block range lists and
+the previous bitmap are not used; bitmaps are counted only, never used to zero blocks.
+
+**Fixture origin.** The USN/deleted fixture (`internal/diskimage/ntfs/testdata/`) is a real
+ntfs-3g volume whose journal content is synthetic (ntfs-3g does not write one). The VSS
+fixture (`internal/diskimage/ntfs/vss/testdata/`) is a real ntfs-3g volume carrying a
+**synthetic, hand-built store**: it shows the reader matches our reading of the documented
+layout, not that it matches every store Windows writes. Each directory's README says how it
+was made.
+
 ## Hostile-input bounds
 
 * Every size read from an image is checked against the file/volume size before it drives an
@@ -98,7 +157,9 @@ notes yourself.
   elements containing `\`, `:`, control characters, `..`, trailing dots/spaces, or Windows
   device names (`CON`, `NUL`, `COM1`…) are refused; the joined path must stay inside staging;
   files are created with `O_EXCL` and symlinks inside staging are never followed.
-* Fuzz tests cover NTFS record parsing, whole-volume walks, E01 table parsing and E01 open/read.
+* Fuzz tests cover NTFS record parsing, whole-volume walks, USN record parsing and `$J` scanning,
+  the USN/deleted readers on mutated volumes, the VSS catalog/block-list parser, E01 table
+  parsing and E01 open/read.
 
 ## Fixtures
 
