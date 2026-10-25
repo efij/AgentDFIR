@@ -20,11 +20,12 @@ type importOpts struct {
 	noSign                                      bool
 	maxFileMB                                   int64
 	args                                        []string
-	notes                                       map[string]string // extra case notes (docker/archive provenance)
-	fallback                                    bool              // archive mode: ingest loose session files when no profile is found
-	aiPlan                                      *aiexport.Plan    // AI-service export / UFDR files found in the tree (nil: search the tree)
-	aiOnly                                      bool              // --ai-export: seal the plan only, no profile discovery
-	includeBrowser                              bool              // --include-browser: also collect browser history (opt-in)
+	notes                                       map[string]string              // extra case notes (docker/archive provenance)
+	fallback                                    bool                           // archive mode: ingest loose session files when no profile is found
+	aiPlan                                      *aiexport.Plan                 // AI-service export / UFDR files found in the tree (nil: search the tree)
+	aiOnly                                      bool                           // --ai-export: seal the plan only, no profile discovery
+	includeBrowser                              bool                           // --include-browser: also collect browser history (opt-in)
+	beforeSeal                                  func(b *casepkg.Builder) error // image mode: provenance sidecar + log entries
 }
 
 // collectImport acquires from a KAPE / Velociraptor / CyLR / image tree:
@@ -183,6 +184,11 @@ func collectImport(o importOpts) int {
 		total.Failed += st.Failed
 		total.TotalBytes += st.TotalBytes
 		fmt.Printf("  no profile layout found — preserved %d loose JSON/JSONL file(s) as archive.sessions\n", st.Acquired)
+	}
+	if o.beforeSeal != nil {
+		if err := o.beforeSeal(b); err != nil && firstErr == nil {
+			firstErr = err
+		}
 	}
 	_ = b.Log("import_finished", map[string]any{"duration_ms": time.Since(start).Milliseconds()})
 	signing := prepareSigning(b, o.signKey, o.noSign)
