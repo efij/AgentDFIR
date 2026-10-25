@@ -14,9 +14,9 @@ import (
 	"time"
 
 	"github.com/efij/AgentDFIR/v4/internal/casepkg"
-	"github.com/efij/AgentDFIR/v4/internal/parsers/suite"
 	"github.com/efij/AgentDFIR/v4/internal/diskimage"
 	"github.com/efij/AgentDFIR/v4/internal/diskimage/ntfs"
+	"github.com/efij/AgentDFIR/v4/internal/parsers/suite"
 	"github.com/efij/AgentDFIR/v4/internal/sanitize"
 )
 

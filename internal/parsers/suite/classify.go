@@ -112,7 +112,7 @@ func Sniff(head []byte, rel string) (Detection, bool) {
 		}
 		return d, true
 	case ".ufd":
-		if t := bytes.TrimLeft(decodeUTF16(head), "\xef\xbb\xbf \t\r\n"); len(t) > 0 && t[0] == '[' {
+		if iniHead(decodeUTF16(head)) {
 			return Detection{Kind: KindUFD, Rule: RuleUFD, Type: TypeExport, Product: ProductUFDR}, true
 		}
 		return Detection{}, false
@@ -173,4 +173,18 @@ func isAutopsyHeader(h []string) bool {
 		}
 	}
 	return n >= 2
+}
+
+// iniHead reports whether the first line that is not blank or a ; / #
+// comment is a [section] header.
+func iniHead(b []byte) bool {
+	b = bytes.TrimPrefix(b, []byte("\xef\xbb\xbf"))
+	for _, line := range bytes.Split(b, []byte("\n")) {
+		line = bytes.TrimSpace(line)
+		if len(line) == 0 || line[0] == ';' || line[0] == '#' {
+			continue
+		}
+		return line[0] == '['
+	}
+	return false
 }

@@ -130,15 +130,19 @@ var modelElements = map[string]bool{
 }
 
 // budgetReader fails a read once more than max bytes were consumed since
-// the last reset; the decoder is reset after every token.
+// the last reset; the decoder is reset after every token. Once tripped it
+// stays failed: a decoder hands back the partial token first and must not
+// carry on reading after the next reset.
 type budgetReader struct {
-	r   io.Reader
-	n   int64
-	max int64
+	r       io.Reader
+	n       int64
+	max     int64
+	tripped bool
 }
 
 func (b *budgetReader) Read(p []byte) (int, error) {
-	if b.n >= b.max {
+	if b.tripped || b.n >= b.max {
+		b.tripped = true
 		return 0, errTokenTooLarge
 	}
 	if rem := b.max - b.n; int64(len(p)) > rem {

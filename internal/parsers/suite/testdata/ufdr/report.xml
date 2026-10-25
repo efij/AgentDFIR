@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SYNTHETIC fixture: hand-made from the publicly described UFDR report.xml structure. Not produced by Cellebrite software. -->
+<project id="11111111-2222-3333-4444-555555555555" name="SYNTHETIC-CASE" reportVersion="7.0.0.0" containsGarbage="False" extractionType="AdvancedLogical" xmlns="http://pa.cellebrite.com/report/2.0">
+  <sourceExtractions>
+    <extractionInfo id="0" name="Advanced Logical" type="AdvancedLogical" deviceName="SYNTHETIC Phone" fullName="Apple iPhone (synthetic)" index="0" IsPartialData="False" />
+  </sourceExtractions>
+  <caseInformation>
+    <field name="Case number" isSystem="True" fieldType="CaseNumber"><value type="String"><![CDATA[CASE-SYN-001]]></value></field>
+    <field name="Examiner name" isSystem="True" fieldType="ExaminerName"><value type="String"><![CDATA[Synthetic Examiner]]></value></field>
+  </caseInformation>
+  <metadata section="Extraction Data">
+    <item name="DeviceInfoExtractionStartDateTime" sourceExtraction="0"><![CDATA[2025-03-01T10:00:00.000+00:00]]></item>
+    <item name="DeviceInfoExtractionEndDateTime" sourceExtraction="0"><![CDATA[2025-03-01T10:45:00.000+00:00]]></item>
+    <item name="ExtractionType" sourceExtraction="0"><![CDATA[AdvancedLogical]]></item>
+    <item name="UFED_PA_Version"><![CDATA[7.99.0.1 (synthetic)]]></item>
+  </metadata>
+  <metadata section="Device Info">
+    <item name="DeviceInfoSelectedManufacturer" sourceExtraction="0"><![CDATA[Apple]]></item>
+    <item name="DeviceInfoDetectedPhoneModel" sourceExtraction="0"><![CDATA[iPhone 15 (synthetic)]]></item>
+    <item name="DeviceInfoOSVersion" sourceExtraction="0"><![CDATA[17.3]]></item>
+    <item name="IMEI" sourceExtraction="0"><![CDATA[490154203237518]]></item>
+    <item name="Serial" sourceExtraction="0"><![CDATA[SYNSERIAL0001]]></item>
+  </metadata>
+  <taggedFiles>
+    <file fs="Apple" path="/private/var/mobile/a.jpg" size="10" id="f1" extractionId="0" deleted="Intact" />
+  </taggedFiles>
+  <decodedData>
+    <modelType type="Chat">
+      <model type="Chat" id="chat-ai-1" deleted_state="Intact" decoding_confidence="High" extractionId="0">
+        <multiModelField name="Messages">
+          <model type="InstantMessage" id="msg-1" deleted_state="Intact">
+            <field name="Body" type="String"><value type="String"><![CDATA[How do I rotate an API key?]]></value></field>
+            <field name="TimeStamp" type="TimeStamp"><value type="TimeStamp"><![CDATA[2025-02-28T09:15:00.000+00:00]]></value></field>
+            <modelField name="From"><model type="Party" id="party-1"><field name="Identifier" type="String"><value type="String">+15555550100</value></field></model></modelField>
+          </model>
+          <model type="InstantMessage" id="msg-2" deleted_state="Deleted">
+            <field name="Body" type="String"><value type="String"><![CDATA[Open the settings page and revoke the old key.]]></value></field>
+            <field name="TimeStamp" type="TimeStamp"><value type="TimeStamp"><![CDATA[2025-02-28T09:15:05.000+00:00]]></value></field>
+          </model>
+        </multiModelField>
+        <field name="Source" type="String"><value type="String"><![CDATA[ChatGPT]]></value></field>
+        <field name="Id" type="String"><value type="String"><![CDATA[conv-abc]]></value></field>
+      </model>
+      <model type="Chat" id="chat-wa-1" deleted_state="Intact">
+        <field name="Source" type="String"><value type="String"><![CDATA[WhatsApp]]></value></field>
+        <multiModelField name="Messages">
+          <model type="InstantMessage" id="msg-wa-1"><field name="Body" type="String"><value type="String">dinner at 8?</value></field></model>
+          <model type="InstantMessage" id="msg-wa-2"><field name="Body" type="String"><value type="String">see https://claude.ai/share/0123abcd-4567-89ef-0123-456789abcdef</value></field></model>
+        </multiModelField>
+      </model>
+    </modelType>
+    <modelType type="VisitedPage">
+      <model type="VisitedPage" id="vp-1" deleted_state="Intact">
+        <field name="Url" type="String"><value type="String"><![CDATA[https://chatgpt.com/c/6650aaaa-bbbb-cccc-dddd-eeeeffff0000]]></value></field>
+        <field name="Title" type="String"><value type="String"><![CDATA[Key rotation help]]></value></field>
+        <field name="LastVisited" type="TimeStamp"><value type="TimeStamp"><![CDATA[2025-02-28T09:14:00.000+00:00]]></value></field>
+        <field name="Source" type="String"><value type="String"><![CDATA[Safari]]></value></field>
+      </model>
+      <model type="VisitedPage" id="vp-2"><field name="Url" type="String"><value type="String">https://example.com/news</value></field></model>
+    </modelType>
+    <modelType type="Contact">
+      <model type="Contact" id="c-1"><field name="Name" type="String"><value type="String">Synthetic Person</value></field></model>
+      <model type="Contact" id="c-2"><field name="Name" type="String"><value type="String">Other Person</value></field></model>
+    </modelType>
+    <modelType type="FutureModelKind">
+      <model type="FutureModelKind" id="z-1"><field name="Whatever" type="String"><value type="String">x</value></field><jumptargets><targetid>f1</targetid></jumptargets></model>
+      <weirdElement/>
+    </modelType>
+  </decodedData>
+</project>
