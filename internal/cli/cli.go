@@ -15,6 +15,7 @@ import (
 	"github.com/efij/AgentDFIR/v4/internal/collector"
 	"github.com/efij/AgentDFIR/v4/internal/integrity"
 	"github.com/efij/AgentDFIR/v4/internal/live"
+	"github.com/efij/AgentDFIR/v4/internal/macoshost"
 	"github.com/efij/AgentDFIR/v4/internal/products"
 	"github.com/efij/AgentDFIR/v4/internal/sanitize"
 	"github.com/efij/AgentDFIR/v4/internal/seal"
@@ -48,6 +49,7 @@ COLLECT — where the evidence is
   agentdfir collect --ai-export <zip|dir>                                      ChatGPT / Claude.ai / DeepSeek / Gemini Takeout export, UFDR
   agentdfir collect --image <E01|raw|.001|vhd|vhdx|vmdk>                        forensic disk image, read-only (NTFS, ext2/3/4, FAT, exFAT; docs/disk-images.md)
       --include-browser   any mode above, and "run": also take browser history (opt-in; only AI-service visits are parsed)
+      --include-macos-host  current-user / --path: also take macOS host state (launchd, BTM, TCC.db, keychain listing; opt-in)
   agentdfir verify <pkg>                                                       prove the package was not modified
   agentdfir compact <pkg>                                                      delete the regenerable analysis overlay (analyze rebuilds it)
   agentdfir store status | store gc                                            shared evidence store: what it holds, reclaim what no case uses
@@ -288,6 +290,7 @@ func cmdCollect(args []string) int {
 	archive := fs.String("archive", "", "zip / tar / tar.gz: GitHub Actions artifact, support bundle, vendor data export")
 	aiExport := fs.String("ai-export", "", "AI-service account export (ChatGPT, Claude.ai, DeepSeek, Gemini Takeout) or Cellebrite UFDR: zip/tar or unpacked directory")
 	includeBrowser := fs.Bool("include-browser", false, "also collect browser history databases (opt-in: AI-service visits are parsed, the rest is sealed unread)")
+	includeMacHost := fs.Bool("include-macos-host", false, "also collect macOS host state: launchd plists, BTM, login items, TCC.db, keychain file listing (opt-in; keychains never opened)")
 	image := fs.String("image", "", "forensic disk image (raw/dd, split .001/.aa, E01, VHD, VHDX, VMDK): read-only, agent evidence only")
 	skipImageVerify := fs.Bool("skip-image-verify", false, "with --image: do not re-read an E01 to check its stored MD5/SHA-1")
 	if err := fs.Parse(args); err != nil {
@@ -398,6 +401,9 @@ func cmdCollect(args []string) int {
 	if *includeBrowser || productID == browserProductID {
 		info.Notes["browser_history"] = browserNote
 	}
+	if *includeMacHost || productID == macoshost.Product {
+		info.Notes["macos_host"] = macHostNote
+	}
 	if *offlineRoot != "" {
 		info.Notes["mode"] = "offline-path"
 		info.Notes["offline_root"] = *offlineRoot
@@ -461,6 +467,13 @@ func cmdCollect(args []string) int {
 		bst, bErr := collectBrowser(b, opts, false)
 		addStats(st, bst)
 		runErr = bErr
+	}
+	if (*includeMacHost || productID == macoshost.Product) && runErr == nil {
+		// Opt-in pass: macOS host state (or, for --product macos-host, the
+		// keychain listing the manifest cannot express).
+		mst, mErr := collectMacOSHost(b, opts, productID != macoshost.Product)
+		addStats(st, mst)
+		runErr = mErr
 	}
 	roundStats := b.Stats()
 	signing := prepareSigning(b, *signKey, *noSign)
