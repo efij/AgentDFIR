@@ -74,7 +74,9 @@ func TestEVTXContextKinds(t *testing.T) {
 			t.Errorf("%s: %+v (found %v)", key, r, found)
 		}
 	}
-	chk("sysmon:5 (record 1", func(r Record) bool { return r.Kind == KindProcessExit && r.PID == 4411 && baseName(r.Exe) == "cmd.exe" && r.Time.Equal(at0) })
+	chk("sysmon:5 (record 1", func(r Record) bool {
+		return r.Kind == KindProcessExit && r.PID == 4411 && baseName(r.Exe) == "cmd.exe" && r.Time.Equal(at0)
+	})
 	chk("sysmon:12 (record 2", func(r Record) bool {
 		return r.Kind == KindRegistry && r.Operation == "create-key" && strings.HasSuffix(r.Resource, `Services\updsvc`) && r.ValueName == "" && r.PID == 4412
 	})
@@ -82,7 +84,9 @@ func TestEVTXContextKinds(t *testing.T) {
 		return r.Kind == KindRegistry && r.Operation == "set-value" && r.Resource == runKey && r.ValueName == "Updater" && strings.HasSuffix(r.Details, `u.exe`)
 	})
 	chk("sysmon:14 (record 4", func(r Record) bool { return r.Operation == "rename-key" && r.Details == `HKCU\Software\New` })
-	chk("security:4689 (record 5", func(r Record) bool { return r.Kind == KindProcessExit && r.PID == 0x113c && r.User == `DESK\dev` && r.Details == "" })
+	chk("security:4689 (record 5", func(r Record) bool {
+		return r.Kind == KindProcessExit && r.PID == 0x113c && r.User == `DESK\dev` && r.Details == ""
+	})
 	chk("security:4625 (record 6", func(r Record) bool {
 		return r.Kind == KindAuth && r.Operation == "logon-failed" && r.User == `DESK\admin` && r.LogonType == "3" && r.SourceIP == "10.0.0.9" && r.Failed == "%%2313"
 	})
@@ -93,7 +97,9 @@ func TestEVTXContextKinds(t *testing.T) {
 	chk("security:4672 (record 8", func(r Record) bool {
 		return r.Operation == "special-privileges" && r.User == `DESK\dev` && r.Details == "SeDebugPrivilege SeBackupPrivilege"
 	})
-	chk("security:4697 (record 9", func(r Record) bool { return r.Kind == "service" && strings.HasSuffix(r.Exe, "u.exe") && r.User == "LocalSystem" })
+	chk("security:4697 (record 9", func(r Record) bool {
+		return r.Kind == "service" && strings.HasSuffix(r.Exe, "u.exe") && r.User == "LocalSystem"
+	})
 	chk("powershell:4103 (record 10", func(r Record) bool {
 		return r.Kind == "script" && r.Operation == "module" && r.PID == 6000 && strings.Contains(r.Cmdline, `value="build"`) && strings.Contains(r.Ref, "module Remove-Item")
 	})
@@ -102,11 +108,19 @@ func TestEVTXContextKinds(t *testing.T) {
 	})
 	chk("taskscheduler:140 (record 12", func(r Record) bool { return r.Operation == "updated" })
 	chk("taskscheduler:141 (record 13", func(r Record) bool { return r.Operation == "deleted" })
-	chk("taskscheduler:200 (record 14", func(r Record) bool { return r.Operation == "action-started" && baseName(r.Exe) == "u.exe" && r.PID == 1288 })
+	chk("taskscheduler:200 (record 14", func(r Record) bool {
+		return r.Operation == "action-started" && baseName(r.Exe) == "u.exe" && r.PID == 1288
+	})
 	chk("taskscheduler:201 (record 15", func(r Record) bool { return r.Operation == "action-completed" && r.Failed == "" })
-	chk("wmi:5857 (record 16", func(r Record) bool { return r.Kind == KindWMI && r.Operation == "provider-started" && r.Resource == "CIMWin32" })
-	chk("wmi:5858 (record 17", func(r Record) bool { return r.Operation == "client-failure" && r.Failed == "0x80041010" && r.PID == 4412 })
-	chk("wmi:5859 (record 18", func(r Record) bool { return r.Operation == "permanent-subscription" && strings.Contains(r.Details, "Win32_Process") && r.PID == 1500 })
+	chk("wmi:5857 (record 16", func(r Record) bool {
+		return r.Kind == KindWMI && r.Operation == "provider-started" && r.Resource == "CIMWin32"
+	})
+	chk("wmi:5858 (record 17", func(r Record) bool {
+		return r.Operation == "client-failure" && r.Failed == "0x80041010" && r.PID == 4412
+	})
+	chk("wmi:5859 (record 18", func(r Record) bool {
+		return r.Operation == "permanent-subscription" && strings.Contains(r.Details, "Win32_Process") && r.PID == 1500
+	})
 	chk("wmi:5860 (record 19", func(r Record) bool { return r.Operation == "temporary-subscription" })
 	chk("wmi:5861 (record 20", func(r Record) bool {
 		return r.Operation == "consumer-binding" && strings.Contains(r.Resource, `CommandLineEventConsumer="Updater"`) && strings.Contains(r.Details, "CommandLineTemplate")
@@ -151,8 +165,12 @@ func TestContextKindsSameAcrossInputs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ft := func(s int) string { return at0.Add(time.Duration(s) * time.Second).Format("2006-01-02T15:04:05.0000000Z") }
-	esc := func(s string) string { return strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", `"`, "&quot;").Replace(s) }
+	ft := func(s int) string {
+		return at0.Add(time.Duration(s) * time.Second).Format("2006-01-02T15:04:05.0000000Z")
+	}
+	esc := func(s string) string {
+		return strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", `"`, "&quot;").Replace(s)
+	}
 	xmlDoc := `<?xml version="1.0" encoding="utf-8"?>
 <Events>
 <Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event"><System><Provider Name="Microsoft-Windows-Sysmon" Guid="{5770385F-C22A-43E0-BF4C-06F5698FFBD9}"/><EventID>13</EventID><TimeCreated SystemTime="` + ft(2) + `"/><EventRecordID>3</EventRecordID><Execution ProcessID="3056" ThreadID="4012"/><Channel>Microsoft-Windows-Sysmon/Operational</Channel><Computer>DESK-01</Computer></System>
@@ -243,4 +261,23 @@ func TestContextKindsBounded(t *testing.T) {
 			t.Fatalf("details not bounded: %d %q", len(r.Details), r.Details[len(r.Details)-30:])
 		}
 	}
+}
+
+// FuzzContextXML: arbitrary Windows XML exports never panic the context
+// mapping and every kept record has a kind and a time.
+func FuzzContextXML(f *testing.F) {
+	f.Add(`<Event><System><Provider Name="Microsoft-Windows-WMI-Activity"/><EventID>5861</EventID><TimeCreated SystemTime="2026-08-30T10:00:00Z"/></System><UserData><X><CONSUMER>a</CONSUMER></X></UserData></Event>`)
+	f.Add(`<Event><System><Provider Name="Microsoft-Windows-Sysmon"/><EventID>13</EventID></System><EventData><Data Name="UtcTime">2026-08-30 10:00:00.000</Data><Data Name="TargetObject">HKCU\x</Data></EventData></Event>`)
+	f.Fuzz(func(t *testing.T, doc string) {
+		p := write(t, "f.xml", doc)
+		res, err := Load(p, FormatSysmon)
+		if err != nil {
+			return
+		}
+		for _, r := range res.Records {
+			if r.Kind == "" || r.Time.IsZero() || len(r.Details) > maxContextDetail+64 {
+				t.Fatalf("bad record %+v", r)
+			}
+		}
+	})
 }
