@@ -308,3 +308,63 @@ func TestV45ViewsReachable(t *testing.T) {
 		}
 	}
 }
+
+// TestNewViewsRedactSecrets: a token-shaped value in supply-chain drift
+// (a settings change that added an environment variable), in a
+// reconstruction and in collection health never leaves the process raw.
+func TestNewViewsRedactSecrets(t *testing.T) {
+	const gh = "ghp_" + "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8"
+	const aws = "AKIA" + "IOSFODNN7EXAMPLE"
+	pkg := buildPkg(t)
+	_, srv := loadSrv(t, pkg)
+	rep := supplychain.Report{Schema: supplychain.Schema, CaseID: "SRV", Window: "10m0s",
+		Components: []supplychain.Component{},
+		Drift: []supplychain.Drift{{Kind: "settings_changed", Component: "settings:x", Subject: "env",
+			From: supplychain.Snapshot{Label: "round 1"}, To: supplychain.Snapshot{Label: "round 2"},
+			Added: []string{"GITHUB_TOKEN=" + gh}, Removed: []string{"AWS_ACCESS_KEY_ID=" + aws}, Changed: []string{"token " + gh},
+			Expansion: []string{"Bash(curl -H 'Authorization: token " + gh + "')"}, Class: supplychain.Verified, Basis: gh}},
+		Relations:   supplychain.Relations{Verified: []supplychain.Relation{}, Inferred: []supplychain.Relation{}},
+		Unsupported: []string{"unsupported " + gh}, Notes: []string{aws}}
+	scp := filepath.Join(pkg, "normalized", supplychain.File)
+	removeOverlay(t, scp)
+	if err := overlay.WriteJSON(scp, rep); err != nil {
+		t.Fatal(err)
+	}
+	_, body := get(t, srv, "/api/supplychain", "")
+	if strings.Contains(string(body), gh) || strings.Contains(string(body), aws) {
+		t.Fatalf("secret reached the page: %s", body)
+	}
+	if !strings.Contains(string(body), "[REDACTED:secret:") || !strings.Contains(string(body), "GITHUB_TOKEN=") {
+		t.Fatalf("drift lost instead of masked: %s", body)
+	}
+
+	rr, err := reconstruct.Run([]string{pkg}, reconstruct.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rr.Timeline = append(rr.Timeline, reconstruct.Entry{Seq: 999, Case: "C1", Kind: "tool_call", Summary: "export GITHUB_TOKEN=" + gh})
+	rr.Notes = append(rr.Notes, aws)
+	if err := reconstruct.WriteOverlay(pkg, rr); err != nil {
+		t.Fatal(err)
+	}
+	_, body = get(t, srv, "/api/reconstruct", "")
+	if strings.Contains(string(body), gh) || strings.Contains(string(body), aws) {
+		t.Fatalf("secret reached the page: %.400s", body)
+	}
+
+	s2, err := Load(buildPkg(t), Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s2.Close()
+	s2.corr.once.Do(func() {
+		s2.corr.res = &correlate.EndpointResult{Records: 1, Health: []endpoint.SourceHealth{{File: gh + ".log", Verdict: endpoint.HealthPartial, Note: aws}}}
+		s2.corr.byEvent = map[string][]int{}
+	})
+	srv2 := httptest.NewServer(s2.Handler())
+	defer srv2.Close()
+	_, body = get(t, srv2, "/api/health", "")
+	if strings.Contains(string(body), gh) || strings.Contains(string(body), aws) {
+		t.Fatalf("secret reached the badge: %s", body)
+	}
+}

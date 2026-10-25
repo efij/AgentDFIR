@@ -11,6 +11,7 @@ import (
 	"github.com/efij/AgentDFIR/v4/internal/overlay"
 	"github.com/efij/AgentDFIR/v4/internal/proof"
 	"github.com/efij/AgentDFIR/v4/internal/reconstruct"
+	"github.com/efij/AgentDFIR/v4/internal/redact"
 	"github.com/efij/AgentDFIR/v4/internal/sanitize"
 	"github.com/efij/AgentDFIR/v4/internal/supplychain"
 )
@@ -55,8 +56,8 @@ func (s *Server) apiProof(w http.ResponseWriter, r *http.Request) {
 			s.missing(w, "The proof report could not be encoded.")
 			return
 		}
-		cached = map[string]any{"available": true, "report": boundLists(sanitizeJSON(v), proofMaxActions, 0),
-			"health": healthSummary(rep.Telemetry.Sources), "cli": sanitize.Terminal("agentdfir proof " + s.pkg)}
+		cached = redactSecrets(map[string]any{"available": true, "report": boundLists(sanitizeJSON(v), proofMaxActions, 0),
+			"health": healthSummary(rep.Telemetry.Sources), "cli": sanitize.Terminal("agentdfir proof " + s.pkg)}).(map[string]any)
 		s.pmu.Lock()
 		if s.pcache == nil || len(s.pcache) >= 8 {
 			s.pcache = map[string]map[string]any{}
@@ -132,7 +133,7 @@ func (s *Server) apiHealth(w http.ResponseWriter, r *http.Request) {
 		out["reason"] = "This case was analyzed before collection-health reporting existed; re-run the analysis to assess it."
 		out["regenerate"] = sanitize.Terminal(s.regenerate())
 	}
-	writeJSON(w, out)
+	writeJSON(w, redactSecrets(out))
 }
 
 // ---- /api/supplychain ----
@@ -155,7 +156,7 @@ func (s *Server) apiSupplyChain(w http.ResponseWriter, r *http.Request) {
 		s.missing(w, "The supply-chain report in this case uses a format this version does not read ("+sanitize.Terminal(trimTo(sch, 60))+"); UNSUPPORTED.")
 		return
 	}
-	writeJSON(w, map[string]any{"available": true, "report": boundLists(sanitizeJSON(v), 2000, 0), "regenerate": sanitize.Terminal(s.regenerate())})
+	writeJSON(w, map[string]any{"available": true, "report": redactSecrets(boundLists(sanitizeJSON(v), 2000, 0)), "regenerate": sanitize.Terminal(s.regenerate())})
 }
 
 // ---- /api/reconstruct ----
@@ -182,5 +183,43 @@ func (s *Server) apiReconstruct(w http.ResponseWriter, r *http.Request) {
 		none("The reconstruction in this case uses a format this version does not read (" + sanitize.Terminal(trimTo(sch, 60)) + "); UNSUPPORTED. Run the command below to rebuild it.")
 		return
 	}
-	writeJSON(w, map[string]any{"available": true, "report": boundLists(sanitizeJSON(v), 5000, 0), "regenerate": cmd})
+	writeJSON(w, map[string]any{"available": true, "report": redactSecrets(boundLists(sanitizeJSON(v), 5000, 0)), "regenerate": cmd})
+}
+
+// redactSecrets masks credential-shaped values (the secret patterns of
+// internal/redact, the same ones `--redact secrets` uses) in every string
+// of a decoded value. These views carry configuration drift, hook
+// commands and environment-bearing command lines, which can hold live
+// tokens; the page masks them too, but the value never needs to leave the
+// process. A Redactor is not safe for concurrent use, so each call builds
+// its own.
+func redactSecrets(v any) any {
+	r, err := redact.Parse("secrets")
+	if err != nil || r == nil {
+		return v
+	}
+	var walk func(v any, depth int) any
+	walk = func(v any, depth int) any {
+		if depth > 64 {
+			return nil
+		}
+		switch t := v.(type) {
+		case string:
+			return r.String(t, "")
+		case []any:
+			for i := range t {
+				t[i] = walk(t[i], depth+1)
+			}
+		case []map[string]any:
+			for i := range t {
+				walk(t[i], depth+1)
+			}
+		case map[string]any:
+			for k, val := range t {
+				t[k] = walk(val, depth+1)
+			}
+		}
+		return v
+	}
+	return walk(v, 0)
 }
