@@ -48,6 +48,22 @@ type Detection struct {
 	RuleUniverse   int        `json:"rule_universe"`   // built-in rules + embedded pack rules
 	BuildingBlocks int        `json:"building_blocks"` // context rules, never scored as alerts
 	Uncovered      []string   `json:"uncovered"`       // alert rules no attack fixture expects
+	// Platforms breaks the score down by the OS a fixture's telemetry
+	// comes from (windows, macos, linux; "any" for transcript-only).
+	Platforms []PlatformStat `json:"platforms,omitempty"`
+}
+
+// PlatformStat is the detection score over one platform's fixtures.
+type PlatformStat struct {
+	Platform    string   `json:"platform"`
+	AttackCases int      `json:"attack_cases"`
+	BenignCases int      `json:"benign_cases"`
+	TP          int      `json:"tp"`
+	FP          int      `json:"fp"`
+	FN          int      `json:"fn"`
+	Precision   *float64 `json:"precision"`
+	Recall      *float64 `json:"recall"`
+	Rules       []string `json:"rules"` // rules this platform's attack fixtures expect
 }
 
 // fixture is one labeled input.
@@ -60,6 +76,7 @@ type fixture struct {
 	prods   []string // products to collect
 	write   func(root string) error
 	case_   *corpus.Case // corpus fixture: built the way the corpus test builds it
+	os      string       // platform of the fixture's telemetry (casePlatform)
 }
 
 func loadFixtures(o Options, work string) ([]fixture, *corpus.Budget, error) {
@@ -82,12 +99,12 @@ func loadFixtures(o Options, work string) ([]fixture, *corpus.Budget, error) {
 	for _, c := range cases {
 		c := c
 		fx = append(fx, fixture{name: "corpus/" + c.Kind + "/" + c.Name, attack: c.Kind == "attack",
-			expect: c.Expect, allow: c.Allow, profile: c.Dir, prods: c.ProductIDs(), case_: &c})
+			expect: c.Expect, allow: c.Allow, profile: c.Dir, prods: c.ProductIDs(), case_: &c, os: casePlatform(c)})
 	}
 	for _, sc := range simulate.Catalog {
 		sc := sc
 		fx = append(fx, fixture{name: "simulate/" + sc.ID, attack: true, expect: sc.Expect,
-			prods: []string{"claude-code", "host-shell"}, write: sc.Run})
+			prods: []string{"claude-code", "host-shell"}, write: sc.Run, os: "any"})
 	}
 	return fx, budget, nil
 }
@@ -159,6 +176,14 @@ func runDetection(r *Report, o Options, work string, prov *provenanceChecker) er
 	}
 	benignFP := map[string]int{}
 	unlabeled := map[string]int{}
+	plat := map[string]*PlatformStat{}
+	platRules := map[string]map[string]bool{}
+	pstat := func(os string) *PlatformStat {
+		if plat[os] == nil {
+			plat[os], platRules[os] = &PlatformStat{Platform: os}, map[string]bool{}
+		}
+		return plat[os]
+	}
 	for i, f := range run {
 		profile := f.profile
 		if f.write != nil {
@@ -183,8 +208,10 @@ func runDetection(r *Report, o Options, work string, prov *provenanceChecker) er
 		for _, fd := range a.findings {
 			got[fd.RuleID]++
 		}
+		ps := pstat(f.os)
 		if f.attack {
 			d.AttackCases++
+			ps.AttackCases++
 			if f.write != nil {
 				d.AttackCases--
 				d.Scenarios++
@@ -192,9 +219,12 @@ func runDetection(r *Report, o Options, work string, prov *provenanceChecker) er
 			want := map[string]bool{}
 			for _, id := range f.expect {
 				want[id] = true
+				platRules[f.os][id] = true
 				if got[id] > 0 {
 					stat(id).TP++
+					ps.TP++
 				} else {
+					ps.FN++
 					stat(id).FN++
 					d.Missed = append(d.Missed, f.name+": "+id)
 				}
@@ -207,6 +237,7 @@ func runDetection(r *Report, o Options, work string, prov *provenanceChecker) er
 			continue
 		}
 		d.BenignCases++
+		ps.BenignCases++
 		ids := sortedKeys(got)
 		for _, id := range ids {
 			n := got[id]
@@ -218,6 +249,7 @@ func runDetection(r *Report, o Options, work string, prov *provenanceChecker) er
 				continue
 			}
 			stat(id).FP += n
+			ps.FP += n
 			benignFP[id] += n
 			d.BenignFirings = append(d.BenignFirings, fmt.Sprintf("%s: %s ×%d", f.name, id, n))
 		}
@@ -229,6 +261,12 @@ func runDetection(r *Report, o Options, work string, prov *provenanceChecker) er
 		d.Rules = append(d.Rules, *s)
 	}
 	d.Precision, d.Recall = ratio(d.TP, d.TP+d.FP), ratio(d.TP, d.TP+d.FN)
+	for _, os := range sortedKeys(plat) {
+		ps := plat[os]
+		ps.Precision, ps.Recall = ratio(ps.TP, ps.TP+ps.FP), ratio(ps.TP, ps.TP+ps.FN)
+		ps.Rules = sortedKeys(platRules[os])
+		d.Platforms = append(d.Platforms, *ps)
+	}
 	for _, id := range sortedKeys(unlabeled) {
 		d.Unlabeled = append(d.Unlabeled, fmt.Sprintf("%s ×%d", id, unlabeled[id]))
 	}

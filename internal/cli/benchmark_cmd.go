@@ -23,8 +23,10 @@ func cmdBenchmark(args []string) int {
 	sessions := fs.Int("perf-sessions", 0, "size of the generated performance case in sessions (default 400; the baseline is recorded at 400)")
 	baselinePath := fs.String("baseline", "", "performance baseline JSON to compare against (default: the recorded one)")
 	saveBaseline := fs.String("save-baseline", "", "write this run's performance numbers as a baseline JSON file")
+	pyVerifier := fs.Bool("python-verifier", false, "run the Python verifier (tools/adfir-verify) from the checkout found from the working directory; implied by --repo")
+	repo := fs.String("repo", "", "source checkout holding the disk-image, telemetry and interop fixtures and the Python verifier (default: searched from the working directory; without one those suites are skipped)")
 	fs.Usage = func() {
-		fmt.Fprintln(os.Stderr, "usage: agentdfir benchmark [--json] [--out report.md|report.json] [--quick] [--no-perf] [--corpus dir] [--baseline f] [--save-baseline f]")
+		fmt.Fprintln(os.Stderr, "usage: agentdfir benchmark [--json] [--out report.md|report.json] [--quick] [--no-perf] [--corpus dir] [--baseline f] [--save-baseline f] [--repo checkout] [--python-verifier]")
 		fmt.Fprintln(os.Stderr, "SYNTHETIC: measured on labeled synthetic fixtures; not evidence of real-world accuracy.")
 		fs.PrintDefaults()
 	}
@@ -34,7 +36,7 @@ func cmdBenchmark(args []string) int {
 		}
 		return 2
 	}
-	o := benchmark.Options{Quick: *quick, SkipPerf: *noPerf, CorpusDir: *corpusDir, PerfSessions: *sessions, Log: os.Stderr}
+	o := benchmark.Options{Quick: *quick, SkipPerf: *noPerf, CorpusDir: *corpusDir, PerfSessions: *sessions, Log: os.Stderr, RepoRoot: *repo, PythonVerifier: *pyVerifier}
 	if *baselinePath != "" {
 		data, err := os.ReadFile(*baselinePath)
 		if err != nil {
