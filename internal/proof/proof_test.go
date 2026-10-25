@@ -122,9 +122,6 @@ func TestProofReport(t *testing.T) {
 	var buf bytes.Buffer
 	WriteText(&buf, r)
 	text := buf.String()
-	if os.Getenv("PROOF_DUMP") != "" {
-		t.Log(text)
-	}
 	for _, want := range []string{"TELEMETRY COVERAGE & HEALTH", "PARTIAL  audit.log", "sequence auditd/audit.log", "gap: 5 missing after 14",
 		"DISPROVED", "coverage:   process (needed) healthy", "coverage:   process (needed) partial", "─executed_as→ process", "─resulted_in→ outcome", "CHECKING THIS REPORT"} {
 		if !strings.Contains(text, want) {
