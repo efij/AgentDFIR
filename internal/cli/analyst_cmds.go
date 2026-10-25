@@ -255,7 +255,11 @@ func cmdMonitor(args []string) int {
 	var jnl *journal.Journal
 	var rcd *recorder.Recorder
 	if *useJournal || *anchorFile != "" || rec.enabled() {
-		home, _ := os.UserHomeDir()
+		home, err := monitorHome() // effective user's home; a root monitor refuses a state dir it does not own
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "monitor:", err)
+			return 1
+		}
 		jp := journal.DefaultPath(home)
 		jn, err := journal.Open(jp)
 		if err != nil {
@@ -289,7 +293,11 @@ func cmdMonitor(args []string) int {
 		fmt.Printf("journal: %s (verify later: agentdfir journal verify --anchor <head>)\n", jp)
 	}
 	if rec.enabled() {
-		home, _ := os.UserHomeDir()
+		home, err := monitorHome() // effective user's home; a root monitor refuses a state dir it does not own
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "monitor:", err)
+			return 1
+		}
 		r, err := rec.start(jnl, home, *anchorFile, *interval)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "monitor:", err)
@@ -303,7 +311,11 @@ func cmdMonitor(args []string) int {
 		fmt.Printf("recorder: %s (health: agentdfir monitor status)\n", r.Dir)
 	}
 	if *useES {
-		home, _ := os.UserHomeDir()
+		home, err := monitorHome() // effective user's home; a root monitor refuses a state dir it does not own
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "monitor:", err)
+			return 1
+		}
 		startES(endpoint.NewESLauncher(), *esEvents, *quiet, jnl, home, es)
 		defer es.Stop()
 		if jnl == nil {

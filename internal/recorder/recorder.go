@@ -22,6 +22,7 @@ package recorder
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -452,11 +453,51 @@ func (r *Recorder) Save() error {
 	if err != nil {
 		return err
 	}
-	tmp := filepath.Join(r.Dir, StatusFile+".tmp")
-	if err := os.WriteFile(tmp, append(b, '\n'), 0o600); err != nil {
+	// A fresh, exclusively created temp file: a name planted in the state
+	// dir (a symlink to /etc/…) can never be written through, even by a
+	// root monitor. rename replaces a planted status.json link itself.
+	f, err := os.CreateTemp(r.Dir, "status-*.tmp")
+	if err != nil {
 		return err
 	}
-	return os.Rename(tmp, filepath.Join(r.Dir, StatusFile))
+	tmp := f.Name()
+	_, werr := f.Write(append(b, '\n'))
+	cerr := f.Close()
+	if werr != nil || cerr != nil {
+		_ = os.Remove(tmp)
+		if werr != nil {
+			return werr
+		}
+		return cerr
+	}
+	if err := os.Rename(tmp, filepath.Join(r.Dir, StatusFile)); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	return nil
+}
+
+// CheckDir refuses a state directory a root monitor must not write into:
+// one that is a symlink, or not owned by the effective uid. Unprivileged
+// monitors only write where their own user can.
+func CheckDir(dir string) error {
+	if !runningAsRoot() {
+		return nil
+	}
+	fi, err := os.Lstat(dir)
+	if os.IsNotExist(err) {
+		return nil // created 0700 by root
+	}
+	if err != nil {
+		return err
+	}
+	if fi.Mode()&os.ModeSymlink != 0 || !fi.IsDir() {
+		return fmt.Errorf("refusing state dir %s: not a plain directory", dir)
+	}
+	if uid, ok := ownerUID(fi); ok && uid != effectiveUID() {
+		return fmt.Errorf("refusing state dir %s: owned by uid %d, the monitor runs as uid %d", dir, uid, effectiveUID())
+	}
+	return nil
 }
 
 // Start runs Tick every Interval until Stop.

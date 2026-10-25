@@ -95,6 +95,20 @@ func (f *recordFlags) start(jn *journal.Journal, home, anchorFile string, interv
 	return r, nil
 }
 
+// monitorHome is where the monitor keeps its state: the effective user's
+// home (resolved from the uid when root, never from an inherited $HOME),
+// with the state dir checked before anything is written into it.
+func monitorHome() (string, error) {
+	home, err := recorder.Home()
+	if err != nil {
+		return "", err
+	}
+	if err := recorder.CheckDir(recorder.Dir(home)); err != nil {
+		return "", err
+	}
+	return home, nil
+}
+
 // wireTranscripts counts journaled transcript appends as a source.
 func wireTranscripts(w *watch.Watcher, r *recorder.Recorder, paths []string) {
 	src := r.AddSource("transcripts", "transcripts", strings.Join(paths, ", "))
@@ -141,7 +155,7 @@ func cmdMonitorStatus(args []string) int {
 		return 2
 	}
 	if *dir == "" {
-		home, _ := os.UserHomeDir()
+		home, _ := recorder.Home()
 		*dir = recorder.Dir(home)
 	}
 	out := monitorStatusOut{Dir: *dir}
