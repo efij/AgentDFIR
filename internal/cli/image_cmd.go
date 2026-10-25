@@ -157,6 +157,14 @@ func collectImage(path string, o importOpts, verifyStored bool, extras imageExtr
 	for _, v := range pt.Volumes {
 		rep := &volumeReport{vol: v}
 		reports = append(reports, rep)
+		switch {
+		case v.Unsupported != "": // e.g. an LVM2 LV that is not linear
+			rep.fsType, rep.status, rep.reason = v.Type, "UNSUPPORTED", v.Unsupported
+			continue
+		case v.LVM != "": // an LVM2 PV whose LVs follow as their own volumes
+			rep.fsType, rep.status, rep.reason = "lvm2-pv", statusLVMPV, v.LVM
+			continue
+		}
 		res := diskimage.OpenFS(v.Section(im), v.Size)
 		rep.fsType = res.Type
 		if res.FS == nil {
@@ -173,6 +181,11 @@ func collectImage(path string, o importOpts, verifyStored bool, extras imageExtr
 			}
 			for _, p := range st.Problems {
 				rep.notes = append(rep.notes, "ntfs: "+p)
+			}
+		}
+		if pr, ok := res.FS.(interface{ Problems() []string }); ok {
+			for _, p := range pr.Problems() {
+				rep.notes = append(rep.notes, res.Type+": "+p)
 			}
 		}
 		volStaging := filepath.Join(staging, fmt.Sprintf("vol%d", v.Index))
@@ -316,6 +329,8 @@ func collectImage(path string, o importOpts, verifyStored bool, extras imageExtr
 		v := fmt.Sprintf("%s offset=%d size=%d type=%s fs=%s status=%s", r.vol.Scheme, r.vol.Offset, r.vol.Size, r.vol.Type, r.fsType, r.status)
 		if r.status == "read" {
 			v += fmt.Sprintf(" extracted=%d", r.files)
+		} else if r.status == statusLVMPV {
+			v += " reason=" + r.reason
 		} else {
 			v += " reason=" + r.reason
 			unread = append(unread, fmt.Sprintf("#%d %s (%s)", r.vol.Index, r.fsType, r.status))
@@ -387,6 +402,10 @@ func collectImage(path string, o importOpts, verifyStored bool, extras imageExtr
 	}
 	return code
 }
+
+// statusLVMPV marks an LVM2 physical volume: a container whose logical
+// volumes are reported as volumes of their own, so it is not "not read".
+const statusLVMPV = "LVM-PV"
 
 func errStatus(err error) string {
 	switch {

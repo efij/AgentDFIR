@@ -49,7 +49,7 @@ COLLECT — where the evidence is
   agentdfir collect --archive <zip|tar|tgz>                                    CI artifact, support bundle, vendor export
   agentdfir collect --ai-export <zip|dir>                                      ChatGPT / Claude.ai / DeepSeek / Gemini Takeout export, UFDR
   agentdfir collect --suite-export <path>                                      UFDR, AXIOM CSV / Portable Case, Plaso timeline, Autopsy report (docs/forensic-suite-interop.md)
-  agentdfir collect --image <E01|raw|.001|vhd|vhdx|vmdk>                        forensic disk image, read-only (NTFS, ext2/3/4, FAT, exFAT; docs/disk-images.md)
+  agentdfir collect --image <E01|raw|.001|vhd|vhdx|vmdk|qcow2>                  forensic disk image, read-only (NTFS, ext2/3/4, FAT, exFAT, XFS, Btrfs, LVM2; docs/disk-images.md)
       --include-browser   any mode above, and "run": also take browser history (opt-in; only AI-service visits are parsed)
       --include-macos-host  current-user / --path: also take macOS host state (launchd, BTM, TCC.db, keychain listing; opt-in)
   agentdfir verify <pkg>                                                       prove the package was not modified
@@ -298,7 +298,7 @@ func cmdCollect(args []string) int {
 	suiteExport := fs.String("suite-export", "", "forensic-suite export: UFDR, AXIOM CSV export / Portable Case, Plaso psort timeline, Autopsy Files - Text report (file, zip/tar or directory)")
 	includeBrowser := fs.Bool("include-browser", false, "also collect browser history databases (opt-in: AI-service visits are parsed, the rest is sealed unread)")
 	includeMacHost := fs.Bool("include-macos-host", false, "also collect macOS host state: launchd plists, BTM, login items, TCC.db, keychain file listing (opt-in; keychains never opened)")
-	image := fs.String("image", "", "forensic disk image (raw/dd, split .001/.aa, E01, VHD, VHDX, VMDK): read-only, agent evidence only")
+	image := fs.String("image", "", "forensic disk image (raw/dd, split .001/.aa, E01, VHD, VHDX, VMDK, QCOW2): read-only, agent evidence only")
 	skipImageVerify := fs.Bool("skip-image-verify", false, "with --image: do not re-read an E01 to check its stored MD5/SHA-1")
 	recoverDeleted := fs.Bool("recover-deleted", false, "with --image: also seal recoverable deleted NTFS file content (RECOVERED_UNVERIFIED); metadata is always listed")
 	includeVSS := fs.Bool("include-vss", false, "with --image: also extract agent evidence from each NTFS Volume Shadow Copy (read-only)")

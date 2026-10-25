@@ -4,9 +4,9 @@
 //
 // Layers:
 //
-//	container  raw / split raw / E01 / VHD / VHDX / VMDK  → one io.ReaderAt (logical disk)
-//	partition  MBR (+ extended) / GPT / none              → volumes (offset + size)
-//	filesystem registry (NTFS here; ext4, FAT plug in)     → io/fs.FS
+//	container  raw / split raw / E01 / VHD / VHDX / VMDK / QCOW2 → one io.ReaderAt (logical disk)
+//	partition  MBR (+ extended) / GPT / none, then LVM2 linear LVs → volumes
+//	filesystem registry (NTFS, ext4, FAT, XFS, Btrfs)             → io/fs.FS
 //
 // Inputs are hostile. Every size read from an image is bounded before it
 // drives an allocation or a loop, and every failure is a typed *Error, so
@@ -63,6 +63,7 @@ const (
 	FormatVHDDynamic = "vhd-dynamic"
 	FormatVHDX       = "vhdx"
 	FormatVMDK       = "vmdk"
+	FormatQCOW2      = "qcow2"
 )
 
 // maxSegments bounds how many files one image may span.
@@ -164,8 +165,7 @@ func Open(path string) (*Image, error) {
 		f.Close()
 		return nil, unsupported("vmdk", "ESX %s extents are not supported; convert with qemu-img convert -O raw", strings.TrimPrefix(kind, "vmdk-"))
 	case "qcow":
-		f.Close()
-		return nil, unsupported("qcow2", "QCOW images are not supported; convert with qemu-img convert -O raw")
+		return openQCOW2(f, fi.Size(), path)
 	case "vdi":
 		f.Close()
 		return nil, unsupported("vdi", "VirtualBox VDI images are not supported; convert with qemu-img convert -O raw")
