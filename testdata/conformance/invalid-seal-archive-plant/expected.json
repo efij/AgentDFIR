@@ -1,0 +1,6 @@
+{
+  "verdict": "FAILED",
+  "description": "add an unlisted seals/SHA256SUMS.0",
+  "mutation": "seal-archive-plant",
+  "spec": "0.2"
+}

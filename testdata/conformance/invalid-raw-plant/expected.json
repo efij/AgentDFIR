@@ -1,0 +1,6 @@
+{
+  "verdict": "FAILED",
+  "description": "add an unlisted blob to raw/",
+  "mutation": "raw-plant",
+  "spec": "0.2"
+}

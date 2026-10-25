@@ -1,0 +1,6 @@
+{
+  "verdict": "FAILED",
+  "description": "swap two lines of collection.jsonl",
+  "mutation": "chain-reorder",
+  "spec": "0.2"
+}

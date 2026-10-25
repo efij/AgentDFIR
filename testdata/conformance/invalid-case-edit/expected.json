@@ -1,0 +1,6 @@
+{
+  "verdict": "FAILED",
+  "description": "change the operator in case.json",
+  "mutation": "case-edit",
+  "spec": "0.2"
+}

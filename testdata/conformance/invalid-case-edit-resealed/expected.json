@@ -1,0 +1,6 @@
+{
+  "verdict": "FAILED",
+  "description": "change case.json and rewrite SHA256SUMS to match (signature left alone)",
+  "mutation": "case-edit-resealed",
+  "spec": "0.2"
+}

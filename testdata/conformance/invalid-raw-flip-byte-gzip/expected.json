@@ -1,0 +1,6 @@
+{
+  "verdict": "FAILED",
+  "description": "flip one byte in a gzip blob",
+  "mutation": "raw-flip-byte-gzip",
+  "spec": "0.2"
+}

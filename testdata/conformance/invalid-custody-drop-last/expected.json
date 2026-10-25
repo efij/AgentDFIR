@@ -1,0 +1,6 @@
+{
+  "verdict": "FAILED",
+  "description": "remove the last custody record",
+  "mutation": "custody-drop-last",
+  "spec": "0.2"
+}

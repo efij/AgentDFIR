@@ -82,7 +82,7 @@ func BuildReference(pkg, keyPath, srcDir string) (*Reference, error) {
 		return nil, err
 	}
 	bs := newSession("bbbbbbbb-0002-4000-8000-000000000002", t0)
-	for i := 0; i < 200; i++ {
+	for i := 0; i < 40; i++ {
 		bs.bash(float64(i*3), fmt.Sprintf("echo step %d", i), "step done")
 	}
 	if err := os.WriteFile(big, bs.bytes(), 0o644); err != nil {
@@ -116,7 +116,7 @@ func BuildReference(pkg, keyPath, srcDir string) (*Reference, error) {
 		return nil, err
 	}
 	// The big transcript grows; round 2 stores only the tail.
-	for i := 200; i < 230; i++ {
+	for i := 40; i < 50; i++ {
 		bs.bash(float64(i*3), fmt.Sprintf("echo step %d", i), "step done")
 	}
 	if err := os.WriteFile(big, bs.bytes(), 0o644); err != nil {
@@ -316,7 +316,12 @@ func Mutations() []Mutation {
 		}},
 		{ID: "rewrite-resealed-resigned", What: "change case.json (operator and recorded signer), rewrite SHA256SUMS, re-sign with the forger's key", Pinned: true,
 			Apply: func(p string, r *Reference) error {
-				key := filepath.Join(filepath.Dir(p), "forger.key")
+				dir, err := os.MkdirTemp("", "forger-")
+				if err != nil {
+					return err
+				}
+				defer os.RemoveAll(dir)
+				key := filepath.Join(dir, "forger.key")
 				if err := seal.GenerateKey(key, key+".pub"); err != nil {
 					return err
 				}

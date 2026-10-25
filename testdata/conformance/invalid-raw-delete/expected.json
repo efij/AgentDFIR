@@ -1,0 +1,6 @@
+{
+  "verdict": "FAILED",
+  "description": "delete a blob",
+  "mutation": "raw-delete",
+  "spec": "0.2"
+}

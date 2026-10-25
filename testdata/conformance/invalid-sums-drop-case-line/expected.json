@@ -1,0 +1,6 @@
+{
+  "verdict": "FAILED",
+  "description": "remove case.json's line from SHA256SUMS",
+  "mutation": "sums-drop-case-line",
+  "spec": "0.2"
+}

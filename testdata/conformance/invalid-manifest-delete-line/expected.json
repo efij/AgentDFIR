@@ -1,0 +1,6 @@
+{
+  "verdict": "FAILED",
+  "description": "delete one artifact record from manifest.jsonl",
+  "mutation": "manifest-delete-line",
+  "spec": "0.2"
+}
