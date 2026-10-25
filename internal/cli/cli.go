@@ -472,11 +472,12 @@ func cmdVerify(args []string) int {
 		return 2
 	}
 	pkgArg := fs.Arg(0)
-	res, err := casepkg.Verify(pkgArg)
+	chk, err := integrity.VerifyPackage(pkgArg, *pubkey)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
 	}
+	res := chk.Package
 	fmt.Printf("Depth:              %s (every stored blob re-hashed)\n", res.Depth)
 	fmt.Printf("Rounds:             %d\n", res.Rounds)
 	fmt.Printf("Files checked:      %d\n", res.FilesChecked)
@@ -486,7 +487,9 @@ func cmdVerify(args []string) int {
 	}
 	fmt.Printf("Collection records: %d (hash chain)\n", res.CollectionRecs)
 	fmt.Printf("Custody records:    %d (hash chain)\n", res.CustodyRecs)
-	sigRes, sigErr := seal.Verify(pkgArg, *pubkey)
+	// VerifyPackage already counted a bad or an expected-but-missing
+	// signature among the problems.
+	sigRes, sigErr := chk.Signature, chk.SigErr
 	switch {
 	case sigErr != nil:
 		fmt.Printf("Signature:          error: %v\n", sigErr)
@@ -496,7 +499,6 @@ func cmdVerify(args []string) int {
 		fmt.Printf("Signature:          VALID (ed25519, key %.16s…)\n", sigRes.PublicKey)
 	default:
 		fmt.Printf("Signature:          INVALID — %s\n", sanitize.Terminal(sigRes.Reason))
-		res.Problems = append(res.Problems, "SEAL.sig: "+sigRes.Reason)
 	}
 	if len(res.Problems) == 0 {
 		fmt.Println("Result:             VERIFIED — no modifications detected")
