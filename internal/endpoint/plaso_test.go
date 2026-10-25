@@ -10,7 +10,7 @@ func TestPlasoWitness(t *testing.T) {
 		file          string
 		net, proc, fs int
 	}{
-		{"timeline.jsonl", 2, 1, 1}, // the undated and the non-JSON line are skipped
+		{"timeline.jsonl", 2, 1, 1},  // the undated and the non-JSON line are skipped
 		{"timeline.l2tcsv", 1, 0, 0}, // the CET line keeps no time; FILE lines are not fs: data types
 	} {
 		path := filepath.Join("..", "parsers", "suite", "testdata", "plaso", c.file)
