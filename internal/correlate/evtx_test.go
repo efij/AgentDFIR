@@ -105,9 +105,11 @@ func stripProvenance(r *EndpointResult) *EndpointResult {
 	cp.Matches = append([]Match(nil), r.Matches...)
 	for i := range cp.Matches {
 		strip(&cp.Matches[i].Record)
+		cp.Matches[i].SourceFile = ""
 		cp.Matches[i].Related = append([]RelatedRecord(nil), cp.Matches[i].Related...)
 		for j := range cp.Matches[i].Related {
 			strip(&cp.Matches[i].Related[j].Record)
+			cp.Matches[i].Related[j].SourceFile = ""
 		}
 	}
 	return &cp

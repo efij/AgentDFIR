@@ -55,6 +55,28 @@ const (
 	KindFile     = "file"
 	KindCloud    = "cloud_resource"
 	KindMCP      = "mcp_server"
+	// KindOutcome is the effect of an action as an independent record
+	// shows it: a file written or deleted, a connection opened, a cloud
+	// API call accepted or refused. Outcome nodes hang off the file,
+	// network or cloud node they happened to.
+	KindOutcome = "outcome"
+)
+
+// Edge assurance: how the edge is known, independent of the evidence
+// state of the step it belongs to.
+//
+//	verified      an identifier or record both ends carry (a recorded
+//	              parent id or tool_use id, a pid/ppid in the telemetry,
+//	              a telemetry record of the effect itself, the host
+//	              witness reading the file)
+//	corroborated  a scored correlation between two independent sources
+//	              (time window plus matching fields)
+//	inferred      only named: a destination or path in the recorded
+//	              command or tool input, a spawn whose call is missing
+const (
+	AssuranceVerified     = "verified"
+	AssuranceCorroborated = "corroborated"
+	AssuranceInferred     = "inferred"
 )
 
 // Edge bases, in words. Correlated edges extend basisCorrelated with the
@@ -71,6 +93,10 @@ const (
 	BasisEndpointPID  = "endpoint pid"
 	BasisEndpointPPID = "endpoint ppid"
 	basisCorrelated   = "correlated"
+	// Outcome edges (file/network/cloud node → outcome): the effect is
+	// shown by a record of it, never inferred from the command.
+	BasisOutcomeRecord  = "telemetry record of the effect"
+	BasisOutcomeWitness = "host witness read the file at acquisition"
 )
 
 // AccountFunc resolves the AI login a transcript ran under (see package
@@ -151,8 +177,14 @@ type Edge struct {
 	Refs       []Ref  `json:"source_refs"`
 	// Limitations say what the edge does not show, in words: set by
 	// limitations() from the edge's own basis, state and references, never
-	// guessed.
+	// guessed, plus what telemetry coverage and collection health say
+	// about the step (correlate.AssessCoverage).
 	Limitations []string `json:"limitations,omitempty"`
+	// Assurance is how the edge itself is known: verified, corroborated
+	// or inferred (see the constants).
+	Assurance string `json:"assurance,omitempty"`
+
+	coverage []string // coverage limitations, appended in finish
 }
 
 // Ref locates the evidence for a node or edge: a sealed artifact line, or
@@ -526,8 +558,18 @@ func (g *builder) toolCall(e schema.Event, ms []correlate.Match) {
 		return
 	}
 	ref := []Ref{eventRef(e)}
+	needs := "process"
+	switch {
+	case e.Command != "":
+	case e.NetworkDest != "":
+		needs = "network"
+	case e.File != "":
+		needs = "file"
+	default:
+		needs = ""
+	}
 	if e.AgentID != "" {
-		g.edge(Edge{From: agentID(e.AgentID), To: tid, Relation: "invoked", Basis: BasisAgentID, State: e.Corroboration, Refs: ref})
+		g.edge(Edge{From: agentID(e.AgentID), To: tid, Relation: "invoked", Basis: BasisAgentID, State: e.Corroboration, Refs: ref, coverage: g.coverage(e, needs)})
 	}
 	// What the record itself names.
 	dests := netdest.Extract(e.FullCommand())
@@ -541,7 +583,7 @@ func (g *builder) toolCall(e schema.Event, ms []correlate.Match) {
 		h := strings.ToLower(netdest.Host(d))
 		if g.node(Node{ID: "network:" + h, Kind: KindNetwork, Label: h}) != nil {
 			g.edge(Edge{From: tid, To: "network:" + h, Relation: "named_destination", Basis: BasisNamedDest, State: e.Corroboration,
-				Note: "the command names it; a connection is shown only by a telemetry edge", Refs: ref})
+				Note: "the command names it; a connection is shown only by a telemetry edge", Refs: ref, coverage: g.coverage(e, "network")})
 		}
 	}
 	if e.File != "" {
@@ -554,7 +596,13 @@ func (g *builder) toolCall(e schema.Event, ms []correlate.Match) {
 			basis += "; " + detect.MaskSecrets(e.WitnessNote)
 		}
 		if g.node(Node{ID: "file:" + e.File, Kind: KindFile, Label: detect.MaskSecrets(e.File)}) != nil {
-			g.edge(Edge{From: tid, To: "file:" + e.File, Relation: rel, Basis: basis, State: e.Corroboration, Refs: ref})
+			g.edge(Edge{From: tid, To: "file:" + e.File, Relation: rel, Basis: basis, State: e.Corroboration, Refs: ref, coverage: g.coverage(e, "file")})
+			// The host witness read the file at acquisition and found the
+			// claimed content: the write's effect, shown by the disk.
+			if strings.Contains(e.WitnessNote, "host witness:") && e.Corroboration == schema.StateCorroborated && (rel == "wrote" || rel == "edited") {
+				g.outcome("file:"+e.File, "file_written", "file written: "+detect.MaskSecrets(e.File)+" (content on disk at acquisition)", e.Corroboration, ref,
+					BasisOutcomeWitness+"; "+detect.MaskSecrets(e.WitnessNote), "the host witness shows the content at acquisition time, not when or by which process it was written")
+			}
 		}
 	}
 	if e.MCPServer != "" {
@@ -581,7 +629,7 @@ func (g *builder) correlated(e schema.Event, tid string, m correlate.Match) {
 		if pid == "" {
 			return
 		}
-		g.edge(Edge{From: tid, To: pid, Relation: "executed_as", Basis: basis, State: e.Corroboration, Confidence: m.Confidence, Note: note, Refs: refs})
+		g.edge(Edge{From: tid, To: pid, Relation: "executed_as", Basis: basis, State: e.Corroboration, Confidence: m.Confidence, Note: note, Refs: refs, coverage: g.coverage(e, "process")})
 		for _, rel := range m.Related {
 			g.related(pid, rel)
 		}
@@ -617,12 +665,14 @@ func (g *builder) correlated(e schema.Event, tid string, m correlate.Match) {
 		}
 	case "file":
 		if g.node(Node{ID: "file:" + r.FilePath, Kind: KindFile, Label: detect.MaskSecrets(r.FilePath)}) != nil {
-			g.edge(Edge{From: tid, To: "file:" + r.FilePath, Relation: "touched", Basis: basis, State: e.Corroboration, Confidence: m.Confidence, Note: note, Refs: refs})
+			g.edge(Edge{From: tid, To: "file:" + r.FilePath, Relation: "touched", Basis: basis, State: e.Corroboration, Confidence: m.Confidence, Note: note, Refs: refs, coverage: g.coverage(e, "file")})
+			g.fileOutcome(r, e.Corroboration)
 		}
 	case "network":
 		h := destOf(r)
 		if h != "" && g.node(Node{ID: "network:" + h, Kind: KindNetwork, Label: h}) != nil {
-			g.edge(Edge{From: tid, To: "network:" + h, Relation: "connected_to", Basis: basis, State: e.Corroboration, Confidence: m.Confidence, Note: note, Refs: refs})
+			g.edge(Edge{From: tid, To: "network:" + h, Relation: "connected_to", Basis: basis, State: e.Corroboration, Confidence: m.Confidence, Note: note, Refs: refs, coverage: g.coverage(e, "network")})
+			g.networkOutcome(r, h, e.Corroboration)
 		}
 	case "cloud":
 		res := r.Resource
@@ -639,6 +689,7 @@ func (g *builder) correlated(e schema.Event, tid string, m correlate.Match) {
 		}
 		if g.node(Node{ID: id, Kind: KindCloud, Label: detect.MaskSecrets(r.Provider + " " + res), Attrs: attrs}) != nil {
 			g.edge(Edge{From: tid, To: id, Relation: "acted_on", Basis: basis, State: e.Corroboration, Confidence: m.Confidence, Note: note, Refs: refs})
+			g.cloudOutcome(r, id, e.Corroboration)
 		}
 	}
 }
@@ -689,18 +740,20 @@ func (g *builder) related(pid string, rel correlate.RelatedRecord) {
 		if h := destOf(r); h != "" && g.node(Node{ID: "network:" + h, Kind: KindNetwork, Label: h}) != nil {
 			g.edge(Edge{From: pid, To: "network:" + h, Relation: "connected_to", Basis: rel.Basis, State: schema.StateObserved,
 				Note: noteIf(fmt.Sprintf("port %d", r.DestPort), r.DestPort != 0), Refs: refs})
+			g.networkOutcome(r, h, schema.StateObserved)
 		}
 	case r.Kind == "file" && r.FilePath != "":
 		if g.node(Node{ID: "file:" + r.FilePath, Kind: KindFile, Label: detect.MaskSecrets(r.FilePath)}) != nil {
 			g.edge(Edge{From: pid, To: "file:" + r.FilePath, Relation: "touched", Basis: rel.Basis, State: schema.StateObserved,
 				Note: noteIf("file operation "+r.FileOp, r.FileOp != ""), Refs: refs})
+			g.fileOutcome(r, schema.StateObserved)
 		}
 	}
 }
 
 // ---- finish: cut to the finding, order, bound
 
-var kindRank = map[string]int{KindHuman: 0, KindAgent: 1, KindSubagent: 2, KindToolCall: 3, KindProcess: 4, KindMCP: 5, KindNetwork: 6, KindFile: 7, KindCloud: 8}
+var kindRank = map[string]int{KindHuman: 0, KindAgent: 1, KindSubagent: 2, KindToolCall: 3, KindProcess: 4, KindMCP: 5, KindNetwork: 6, KindFile: 7, KindCloud: 8, KindOutcome: 9}
 
 func (g *builder) finish() {
 	if g.seeds != nil {
@@ -718,7 +771,11 @@ func (g *builder) finish() {
 	})
 	edges := make([]Edge, 0, len(g.edges))
 	for _, e := range g.edges {
-		e.Limitations = limitations(*e)
+		e.Limitations = append(limitations(*e), e.coverage...)
+		if e.Assurance == "" {
+			e.Assurance = assurance(*e)
+		}
+		e.coverage = nil
 		edges = append(edges, *e)
 	}
 	sort.Slice(edges, func(i, j int) bool {
@@ -782,6 +839,112 @@ func limitations(e Edge) []string {
 		out = append(out, fmt.Sprintf("source references are capped at %d; more records may support this edge", maxRefs))
 	}
 	return out
+}
+
+// assurance says how an edge is known (see the Assurance constants).
+func assurance(e Edge) string {
+	switch {
+	case e.Confidence != "":
+		return AssuranceCorroborated
+	case e.Relation == "named_destination", e.Relation == "named_file", e.Basis == BasisSpawnRecord, e.Basis == BasisNamedMCP:
+		return AssuranceInferred
+	case strings.HasPrefix(e.Basis, BasisNamedFile):
+		if strings.Contains(e.Basis, "host witness:") {
+			return AssuranceCorroborated
+		}
+		return AssuranceInferred
+	}
+	return AssuranceVerified
+}
+
+// coverage states what telemetry coverage and collection health say
+// about the kind of telemetry a step needs, at its time and host. Empty
+// when no endpoint telemetry was correlated (the graph then says nothing
+// about coverage, as before) or when coverage was healthy.
+func (g *builder) coverage(e schema.Event, kind string) []string {
+	c := g.in.Correlation
+	if c == nil || len(c.KindCoverage) == 0 || kind == "" {
+		return nil
+	}
+	t, err := time.Parse(time.RFC3339Nano, e.Timestamp)
+	if err != nil {
+		return nil
+	}
+	window := time.Duration(c.WindowMS) * time.Millisecond
+	if window <= 0 {
+		window = 3 * time.Second
+	}
+	return CoverageLimitations(correlate.AssessCoverage(c.KindCoverage, e.Host, kind, t, window), kind)
+}
+
+// CoverageLimitations words a coverage assessment as edge limitations.
+func CoverageLimitations(a correlate.Assessment, kind string) []string {
+	switch a.Coverage {
+	case correlate.CoverPartial:
+		return []string{a.Reason}
+	case correlate.CoverUnverified:
+		return []string{"completeness unverified: " + kind + " telemetry carries no sequence numbers"}
+	case correlate.CoverNoKind:
+		return []string{a.Reason}
+	case correlate.CoverOutside:
+		return []string{a.Reason}
+	}
+	if strings.Contains(a.Reason, "host attribution unverified") {
+		return []string{a.Reason}
+	}
+	return nil
+}
+
+// outcome adds an outcome node under target and the edge to it.
+func (g *builder) outcome(target, effect, label, state string, refs []Ref, basis string, limits ...string) {
+	ident := target
+	if i := strings.IndexByte(target, ':'); i >= 0 {
+		ident = target[i+1:]
+	}
+	id := "outcome:" + effect + ":" + ident
+	if g.node(Node{ID: id, Kind: KindOutcome, Label: label, State: state, Attrs: map[string]string{"effect": effect}, Refs: refs}) == nil {
+		return
+	}
+	g.edge(Edge{From: target, To: id, Relation: "resulted_in", Basis: basis, State: state, Refs: refs, Assurance: AssuranceVerified, coverage: limits})
+}
+
+// fileOutcome: a telemetry record of a write, create, delete or rename.
+func (g *builder) fileOutcome(r endpoint.Record, state string) {
+	effect := ""
+	switch r.FileOp {
+	case "create", "modify":
+		effect = "file_written"
+	case "delete":
+		effect = "file_deleted"
+	case "rename":
+		effect = "file_renamed"
+	default:
+		return // an open or read changes nothing
+	}
+	label := strings.ReplaceAll(effect, "_", " ") + ": " + detect.MaskSecrets(r.FilePath)
+	g.outcome("file:"+r.FilePath, effect, label, state, []Ref{{External: r.Source + " " + r.Ref}},
+		BasisOutcomeRecord+"; file operation "+r.FileOp, "the record shows the operation, not the content written")
+}
+
+// networkOutcome: a telemetry record of an outbound connection.
+func (g *builder) networkOutcome(r endpoint.Record, host, state string) {
+	label := "connection to " + host
+	if r.DestPort != 0 {
+		label += fmt.Sprintf(":%d", r.DestPort)
+	}
+	g.outcome("network:"+host, "destination_reached", label+" observed", state, []Ref{{External: r.Source + " " + r.Ref}},
+		BasisOutcomeRecord+"; network connection", "a connection record shows the connection was made, not what was sent or received")
+}
+
+// cloudOutcome: the cloud audit record of the API call's result.
+func (g *builder) cloudOutcome(r endpoint.Record, target, state string) {
+	effect, label := "cloud_api_accepted", "cloud API "+r.Operation+" accepted"
+	lim := "the audit record shows the API call was accepted, not the resource's resulting state"
+	if r.Failed != "" {
+		effect, label = "cloud_api_refused", "cloud API "+r.Operation+" refused ("+r.Failed+")"
+		lim = "the cloud refused the call: no change was made by it"
+	}
+	g.outcome(target, effect, detect.MaskSecrets(label), state, []Ref{{External: r.Source + " " + r.Ref}}, BasisOutcomeRecord+"; cloud audit record of the call", lim)
 }
 
 // cut keeps what leads to the finding's nodes (ancestors) and what they

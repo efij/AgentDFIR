@@ -40,7 +40,7 @@
       "enum": ["", "REQUESTED", "REPORTED", "OBSERVED", "PARTIALLY_CORROBORATED", "CORROBORATED", "CONTRADICTED", "UNKNOWN"]
     },
     "knownKind": {
-      "description": "Node kinds AgentDFIR writes. human: the account that prompted; agent / subagent; tool_call (a recorded tool invocation; 'tool' is reserved for a tool definition); process (from endpoint telemetry); file; network (a host, address or login); cloud_resource; mcp_server; resource and outcome are reserved for the proof engine (an affected resource, the effect of an action).",
+      "description": "Node kinds AgentDFIR writes. human: the account that prompted; agent / subagent; tool_call (a recorded tool invocation; 'tool' is reserved for a tool definition); process (from endpoint telemetry); file; network (a host, address or login); cloud_resource; mcp_server; outcome is the effect of an action as an independent record shows it (attributes.effect: file_written, file_deleted, file_renamed, destination_reached, cloud_api_accepted, cloud_api_refused), reached from the file, network or cloud_resource node by a resulted_in edge; resource is reserved.",
       "enum": ["human", "agent", "subagent", "tool_call", "tool", "process", "file", "network", "cloud_resource", "resource", "mcp_server", "outcome"]
     },
     "node": {
@@ -61,13 +61,14 @@
       "properties": {
         "from": {"type": "string", "minLength": 1, "description": "A node id in this graph."},
         "to": {"type": "string", "minLength": 1, "description": "A node id in this graph."},
-        "relation": {"type": "string", "minLength": 1, "examples": ["prompted", "spawned", "invoked", "named_destination", "wrote", "edited", "read", "named_file", "called", "executed_as", "ran_script", "looked_up", "logged_in", "touched", "connected_to", "acted_on", "child_process"]},
+        "relation": {"type": "string", "minLength": 1, "examples": ["prompted", "spawned", "invoked", "named_destination", "wrote", "edited", "read", "named_file", "called", "executed_as", "ran_script", "looked_up", "logged_in", "touched", "connected_to", "acted_on", "child_process", "resulted_in"]},
         "basis": {"type": "string", "description": "Why the edge exists, in words: a recorded id, a pid/ppid, a named path or destination, or a scored correlation."},
         "evidence_state": {"$ref": "#/$defs/evidenceState", "description": "The corroboration state of the recorded step the edge derives from."},
         "confidence": {"type": "string", "description": "Present on correlated edges only: the correlation's own confidence (correlate.MatchBasis). A correlated edge cites both the agent record and the telemetry record it was paired with."},
         "note": {"type": "string"},
         "source_refs": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/sourceRef"}},
-        "limitations": {"type": "array", "items": {"type": "string"}, "description": "What the edge does not show, in words (0.2.2)."}
+        "limitations": {"type": "array", "items": {"type": "string"}, "description": "What the edge does not show, in words (0.2.2). Includes what telemetry coverage and collection health say about the step: e.g. 'process telemetry partial: sequence gap in …', 'completeness unverified: process telemetry carries no sequence numbers', 'no network telemetry for this host'."},
+        "assurance": {"enum": ["verified", "corroborated", "inferred"], "description": "How the edge itself is known (optional). verified: an identifier or record both ends carry (recorded parent or tool_use id, pid/ppid in telemetry, a telemetry record of the effect, the host witness reading the file); corroborated: a scored correlation between two independent sources; inferred: only named in the recorded command or tool input."}
       }
     },
     "sourceRef": {

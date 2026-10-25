@@ -31,12 +31,16 @@ type Match struct {
 	// starting no earlier than it and within relatedHorizon. They are linked
 	// by process identity in the telemetry, never by time alone.
 	Related []RelatedRecord `json:"related,omitempty"`
+	// SourceFile is the telemetry file the record came from (its base
+	// name; collection_health lists it with its SHA-256).
+	SourceFile string `json:"source_file,omitempty"`
 }
 
 // RelatedRecord is one record tied to a matched process by pid or ppid.
 type RelatedRecord struct {
-	Basis  string          `json:"basis"` // "endpoint pid" | "endpoint ppid"
-	Record endpoint.Record `json:"record"`
+	Basis      string          `json:"basis"` // "endpoint pid" | "endpoint ppid"
+	Record     endpoint.Record `json:"record"`
+	SourceFile string          `json:"source_file,omitempty"`
 }
 
 // Bounds on what a match keeps. Matches are persisted with the summary in
@@ -141,7 +145,7 @@ func addMatchBasis(res *EndpointResult, witness string, ev *schema.Event, r endp
 		return
 	}
 	m := Match{EventID: ev.EventID, Witness: witness, Score: score, Basis: basis, Confidence: conf,
-		WindowMS: window.Milliseconds(), Record: boundRecord(r), Related: related}
+		WindowMS: window.Milliseconds(), Record: boundRecord(r), Related: related, SourceFile: originFile(r.Origin)}
 	if t, ok := parseEventTime(ev.Timestamp); ok {
 		m.DeltaMS = r.Time.Sub(t).Milliseconds()
 	}
@@ -189,17 +193,25 @@ func (ix *pidIndex) relatedOf(records []endpoint.Record, j int) []RelatedRecord 
 		if k == j || records[k].Kind == "process" || !in(records[k]) {
 			continue
 		}
-		out = append(out, RelatedRecord{Basis: "endpoint pid", Record: boundRecord(records[k])})
+		out = append(out, RelatedRecord{Basis: "endpoint pid", Record: boundRecord(records[k]), SourceFile: originFile(records[k].Origin)})
 	}
 	for _, k := range ix.byPPID[p.PID] {
 		if k == j || !in(records[k]) {
 			continue
 		}
-		out = append(out, RelatedRecord{Basis: "endpoint ppid", Record: boundRecord(records[k])})
+		out = append(out, RelatedRecord{Basis: "endpoint ppid", Record: boundRecord(records[k]), SourceFile: originFile(records[k].Origin)})
 	}
 	sort.SliceStable(out, func(a, b int) bool { return out[a].Record.Time.Before(out[b].Record.Time) })
 	if len(out) > maxRelated {
 		out = out[:maxRelated]
 	}
 	return out
+}
+
+// originFile is the base name of the file a record was loaded from.
+func originFile(origin string) string {
+	if origin == "" {
+		return ""
+	}
+	return baseName(origin)
 }
