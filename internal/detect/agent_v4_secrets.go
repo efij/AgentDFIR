@@ -25,9 +25,9 @@ type secretSighting struct {
 // maxSightings bounds what one artifact can contribute.
 const maxSightings = 256
 
-// SecretFingerprint is the one-way fingerprint secret-reuse findings name:
+// secretValueFingerprint is the one-way fingerprint secret-reuse findings name:
 // enough to say "the same value", never enough to recover it.
-func SecretFingerprint(value []byte) string {
+func secretValueFingerprint(value []byte) string {
 	h := sha256.Sum256(value)
 	return hex.EncodeToString(h[:8])
 }
@@ -64,7 +64,7 @@ func scanSightings(store *casepkg.Store, a casepkg.ArtifactRecord) []secretSight
 				if isPlaceholderSecret(v) {
 					continue
 				}
-				fp := SecretFingerprint(v)
+				fp := secretValueFingerprint(v)
 				if seen[fp] {
 					continue
 				}
