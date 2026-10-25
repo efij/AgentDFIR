@@ -4,10 +4,10 @@
 
 | | |
 |---|---|
-| Rules (built-in + shipped packs) | **196** (111 built-in, 85 in `rules/`) |
-| HIGH / CRITICAL rules | 134, of which **132** carry a MITRE mapping |
+| Rules (built-in + shipped packs) | **199** (114 built-in, 85 in `rules/`) |
+| HIGH / CRITICAL rules | 137, of which **135** carry a MITRE mapping |
 | Distinct MITRE ATLAS techniques covered | **28** (ATLAS 5.6.0) |
-| Distinct MITRE ATT&CK techniques covered | **73** |
+| Distinct MITRE ATT&CK techniques covered | **76** |
 
 Every HIGH/CRITICAL rule must map to at least one MITRE technique; every
 `mitre_atlas` value must exist in the embedded ATLAS release. Both are
@@ -104,6 +104,7 @@ agentdfir rules list --packs rules --json   # machine-readable
 | [`T1490`](https://attack.mitre.org/techniques/T1490/) | `CLOUD_RECOVERY_PROTECTION_REMOVED` (agentdfir-community) |
 | [`T1496`](https://attack.mitre.org/techniques/T1496/) | `CRYPTOMINER_EXECUTION` (agentdfir-community) |
 | [`T1543`](https://attack.mitre.org/techniques/T1543/) | `SERVICE_PERSISTENCE` (agentdfir-community) |
+| [`T1543.001`](https://attack.mitre.org/techniques/T1543/001/) | `MACOS_LAUNCHD_PERSISTENCE_BY_AGENT` |
 | [`T1546`](https://attack.mitre.org/techniques/T1546/) | `REPO_AGENT_HOOK_AUTORUN`, `REPO_CODEX_PROJECT_CONFIG`, `REPO_DEVCONTAINER_HOST_COMMAND`, `REPO_GIT_EXEC_CONFIG`, `REPO_VSCODE_AUTORUN_TASK`, `AGENT_CONFIG_SHELL_WRITE` (agentdfir-community), `GIT_HOOK_INSTALL` (agentdfir-community), `MEMORY_INSTRUCTION_CALLOUT` (agentdfir-community) |
 | [`T1546.004`](https://attack.mitre.org/techniques/T1546/004/) | `SHELL_RC_PERSISTENCE` (agentdfir-community) |
 | [`T1547`](https://attack.mitre.org/techniques/T1547/) | `INSTRUCTION_FROM_TOOL_RESULT` |
@@ -112,11 +113,13 @@ agentdfir rules list --packs rules --json   # machine-readable
 | [`T1548`](https://attack.mitre.org/techniques/T1548/) | `AGENT_PERMISSION_BOUNDARY_CROSSING`, `AGENT_UNEXPECTED_AUTONOMOUS_RETRY`, `MCP_AUTO_APPROVE`, `MCP_GATEWAY_DENIED_CALL`, `MCP_WILDCARD_TOOL_PERMISSION` |
 | [`T1548.001`](https://attack.mitre.org/techniques/T1548/001/) | `SUID_BIT_SET` (agentdfir-community) |
 | [`T1548.003`](https://attack.mitre.org/techniques/T1548/003/) | `SUDOERS_NOPASSWD_PERSIST` (agentdfir-community) |
+| [`T1548.006`](https://attack.mitre.org/techniques/T1548/006/) | `MACOS_TCC_MODIFIED_BY_AGENT` |
 | [`T1552`](https://attack.mitre.org/techniques/T1552/) | `AGENT_CROSS_SESSION_SECRET_REUSE`, `CHAIN_MCP_RESULT_TO_PRIVILEGED`, `POTENTIAL_SECRET_EXPOSURE`, `SECRET_ACCESS`, `ENV_SECRET_ECHO` (agentdfir-community), `SECRET_IN_URL` (agentdfir-community) |
 | [`T1552.001`](https://attack.mitre.org/techniques/T1552/001/) | `HEADLESS_AGENT_SECRET_HUNT`, `MCP_SECRET_IN_CONFIG`, `SENSITIVE_FILE_READ`, `AGENT_CREDENTIAL_STORE_ACCESS` (agentdfir-community), `GIT_CREDENTIAL_EXPOSURE` (agentdfir-community), `TERRAFORM_STATE_ACCESS` (agentdfir-community), `TOOLCHAIN_CREDENTIAL_FILE_ACCESS` (agentdfir-community) |
 | [`T1552.004`](https://attack.mitre.org/techniques/T1552/004/) | `SSH_PRIVATE_KEY_READ` (agentdfir-community) |
 | [`T1552.005`](https://attack.mitre.org/techniques/T1552/005/) | `UNEXPECTED_NETWORK_DESTINATION`, `CLOUD_CREDENTIAL_EXPORT` (agentdfir-community), `CLOUD_METADATA_ACCESS` (agentdfir-community) |
 | [`T1552.007`](https://attack.mitre.org/techniques/T1552/007/) | `KUBE_SECRET_DUMP` (agentdfir-community) |
+| [`T1555.001`](https://attack.mitre.org/techniques/T1555/001/) | `MACOS_KEYCHAIN_ACCESS_BY_AGENT` |
 | [`T1555.003`](https://attack.mitre.org/techniques/T1555/003/) | `BROWSER_CREDENTIAL_ACCESS` (agentdfir-community) |
 | [`T1557`](https://attack.mitre.org/techniques/T1557/) | `INSECURE_MCP_TRANSPORT`, `MCP_INSECURE_TRANSPORT` (agentdfir-community) |
 | [`T1560.001`](https://attack.mitre.org/techniques/T1560/001/) | `CREDENTIAL_DIR_ARCHIVE` (agentdfir-community) |
@@ -221,6 +224,9 @@ agentdfir rules list --packs rules --json   # machine-readable
 | HIGH | `KUBE_SECRET_DUMP` | command | T1552.007 | AML.T0055 | agentdfir-community |
 | HIGH | `LD_PRELOAD_INJECT` | command | T1574.006 | - | agentdfir-community |
 | HIGH | `LOG_DELETION` | command | T1070.004 | - | builtin |
+| HIGH | `MACOS_KEYCHAIN_ACCESS_BY_AGENT` | endpoint | T1555.001 | - | builtin |
+| HIGH | `MACOS_LAUNCHD_PERSISTENCE_BY_AGENT` | endpoint | T1543.001 | - | builtin |
+| HIGH | `MACOS_TCC_MODIFIED_BY_AGENT` | endpoint | T1548.006 | - | builtin |
 | HIGH | `MCP_ALL_PROJECT_SERVERS_TRUSTED` | mcp | T1195 | AML.T0010 | builtin |
 | HIGH | `MCP_AUTO_APPROVE` | mcp | T1548 | AML.T0053 | builtin |
 | HIGH | `MCP_GATEWAY_CONTRADICTED_CALL` | mcp | T1562 | - | builtin |
