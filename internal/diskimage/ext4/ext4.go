@@ -31,7 +31,13 @@
 // features, and any unknown incompatible feature bit.
 //
 // Every allocation is bounded by the filesystem size; malformed structures
-// produce errors, never panics.
+// produce errors, never panics. Traversal is bounded too: a directory
+// entry pointing back to a directory on the current path (or to the root)
+// is not listed and not resolved, and is counted in
+// Stats()["corrupt_entries"]; the total number of entries listed over the
+// life of the FS is capped proportionally to the filesystem size. Walkers
+// that want to skip hard-linked directories reached twice can deduplicate
+// by Sys()["dir_id"] (the directory's inode number).
 package ext4
 
 import (
@@ -253,6 +259,9 @@ type FS struct {
 	dirCache map[uint32][]dirent
 	cached   int
 	counted  map[uint32]bool
+	cycles   map[[2]uint32]bool
+	work     int64
+	workMax  int64
 	stats    map[string]int64
 }
 
@@ -289,6 +298,8 @@ func Open(r io.ReaderAt, size int64) (fs.FS, error) {
 		dirCache: map[uint32][]dirent{},
 		counted:  map[uint32]bool{},
 		stats:    map[string]int64{"deleted_entries": 0, "unsupported_entries": 0, "corrupt_entries": 0, "dirs_read": 0},
+		cycles:   map[[2]uint32]bool{},
+		workMax:  max(size/16, 1<<20),
 	}
 	if err := f.loadGroups(); err != nil {
 		return nil, err
@@ -983,28 +994,32 @@ func (f *FS) entries(in *inode) ([]dirent, error) {
 
 // ---- fs.FS ----
 
-func (f *FS) lookup(op, name string) (*inode, error) {
+// lookup resolves name. The returned set holds the inode numbers of every
+// directory on the path (root included), the target included when it is
+// a directory.
+func (f *FS) lookup(op, name string) (*inode, map[uint32]bool, error) {
 	if !fs.ValidPath(name) {
-		return nil, &fs.PathError{Op: op, Path: name, Err: fs.ErrInvalid}
+		return nil, nil, &fs.PathError{Op: op, Path: name, Err: fs.ErrInvalid}
 	}
 	in, err := f.readInode(rootIno)
 	if err != nil {
-		return nil, &fs.PathError{Op: op, Path: name, Err: err}
+		return nil, nil, &fs.PathError{Op: op, Path: name, Err: err}
 	}
 	if name == "." {
-		return in, nil
+		return in, map[uint32]bool{rootIno: true}, nil
 	}
 	parts := strings.Split(name, "/")
 	if len(parts) > maxPathDeep {
-		return nil, &fs.PathError{Op: op, Path: name, Err: errors.New("path too deep")}
+		return nil, nil, &fs.PathError{Op: op, Path: name, Err: errors.New("path too deep")}
 	}
+	anc := map[uint32]bool{rootIno: true}
 	for _, p := range parts {
 		if !in.isDir() {
-			return nil, &fs.PathError{Op: op, Path: name, Err: fmt.Errorf("%w: not a directory", fs.ErrNotExist)}
+			return nil, nil, &fs.PathError{Op: op, Path: name, Err: fmt.Errorf("%w: not a directory", fs.ErrNotExist)}
 		}
 		ents, err := f.entries(in)
 		if err != nil {
-			return nil, &fs.PathError{Op: op, Path: name, Err: err}
+			return nil, nil, &fs.PathError{Op: op, Path: name, Err: err}
 		}
 		var next uint32
 		for _, e := range ents {
@@ -1014,13 +1029,20 @@ func (f *FS) lookup(op, name string) (*inode, error) {
 			}
 		}
 		if next == 0 {
-			return nil, &fs.PathError{Op: op, Path: name, Err: fs.ErrNotExist}
+			return nil, nil, &fs.PathError{Op: op, Path: name, Err: fs.ErrNotExist}
+		}
+		if anc[next] {
+			f.noteCycle(in.ino, next)
+			return nil, nil, &fs.PathError{Op: op, Path: name, Err: corrupt("directory cycle: %q points back to an ancestor", p)}
 		}
 		if in, err = f.readInode(next); err != nil {
-			return nil, &fs.PathError{Op: op, Path: name, Err: err}
+			return nil, nil, &fs.PathError{Op: op, Path: name, Err: err}
+		}
+		if in.isDir() {
+			anc[next] = true
 		}
 	}
-	return in, nil
+	return in, anc, nil
 }
 
 func fileMode(m uint16) fs.FileMode {
@@ -1083,6 +1105,9 @@ func (f *FS) info(name string, in *inode) *fileInfo {
 		"links": in.links,
 		"flags": in.flags,
 	}
+	if in.isDir() {
+		sys["dir_id"] = uint64(in.ino)
+	}
 	if in.flags&flagInline != 0 {
 		sys["inline_data"] = true
 	}
@@ -1137,13 +1162,13 @@ func baseName(name string) string {
 // Open opens the named file or directory. Symlinks are not followed: the
 // returned file reports fs.ModeSymlink and its Read fails.
 func (f *FS) Open(name string) (fs.File, error) {
-	in, err := f.lookup("open", name)
+	in, anc, err := f.lookup("open", name)
 	if err != nil {
 		return nil, err
 	}
 	info := f.info(baseName(name), in)
 	if in.isDir() {
-		return &dirFile{f: f, in: in, info: info, path: name}, nil
+		return &dirFile{f: f, in: in, info: info, path: name, anc: anc}, nil
 	}
 	if in.flags&flagEncrypt != 0 {
 		f.bump("unsupported_entries", 1)
@@ -1161,7 +1186,7 @@ func (f *FS) Open(name string) (fs.File, error) {
 
 // Stat returns the FileInfo of name without following symlinks.
 func (f *FS) Stat(name string) (fs.FileInfo, error) {
-	in, err := f.lookup("stat", name)
+	in, _, err := f.lookup("stat", name)
 	if err != nil {
 		return nil, err
 	}
@@ -1170,7 +1195,7 @@ func (f *FS) Stat(name string) (fs.FileInfo, error) {
 
 // ReadLink returns the target of the named symlink without resolving it.
 func (f *FS) ReadLink(name string) (string, error) {
-	in, err := f.lookup("readlink", name)
+	in, _, err := f.lookup("readlink", name)
 	if err != nil {
 		return "", err
 	}
@@ -1186,14 +1211,14 @@ func (f *FS) ReadLink(name string) (string, error) {
 
 // ReadDir returns the entries of the named directory sorted by name.
 func (f *FS) ReadDir(name string) ([]fs.DirEntry, error) {
-	in, err := f.lookup("readdir", name)
+	in, anc, err := f.lookup("readdir", name)
 	if err != nil {
 		return nil, err
 	}
-	return f.readDir(name, in)
+	return f.readDir(name, in, anc)
 }
 
-func (f *FS) readDir(name string, in *inode) ([]fs.DirEntry, error) {
+func (f *FS) readDir(name string, in *inode, anc map[uint32]bool) ([]fs.DirEntry, error) {
 	if !in.isDir() {
 		return nil, &fs.PathError{Op: "readdir", Path: name, Err: errors.New("not a directory")}
 	}
@@ -1204,12 +1229,44 @@ func (f *FS) readDir(name string, in *inode) ([]fs.DirEntry, error) {
 		}
 		return nil, &fs.PathError{Op: "readdir", Path: name, Err: err}
 	}
+	if err := f.spend(len(ents)); err != nil {
+		return nil, &fs.PathError{Op: "readdir", Path: name, Err: err}
+	}
 	out := make([]fs.DirEntry, 0, len(ents))
 	for _, e := range ents {
+		if anc[e.ino] || e.ino == rootIno {
+			f.noteCycle(in.ino, e.ino) // points back to an ancestor or root
+			continue
+		}
 		out = append(out, &dirEntry{f: f, d: e})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name() < out[j].Name() })
 	return out, nil
+}
+
+// noteCycle counts a directory entry pointing back to an ancestor once per
+// (parent, child) pair.
+func (f *FS) noteCycle(parent, child uint32) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	k := [2]uint32{parent, child}
+	if !f.cycles[k] {
+		f.cycles[k] = true
+		f.stats["corrupt_entries"]++
+	}
+}
+
+// spend charges n listed entries against the total-work budget, which is
+// proportional to the filesystem size, so that hostile hard-linked
+// directory graphs cannot make a walk explode.
+func (f *FS) spend(n int) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.work += int64(n)
+	if f.work > f.workMax {
+		return corrupt("work budget exhausted after listing %d entries", f.work)
+	}
+	return nil
 }
 
 type dirEntry struct {
@@ -1317,6 +1374,7 @@ func (fl *file) Seek(offset int64, whence int) (int64, error) {
 type dirFile struct {
 	f     *FS
 	in    *inode
+	anc   map[uint32]bool
 	info  *fileInfo
 	path  string
 	ents  []fs.DirEntry
@@ -1339,7 +1397,7 @@ func (d *dirFile) ReadDir(n int) ([]fs.DirEntry, error) {
 		return nil, &fs.PathError{Op: "readdir", Path: d.path, Err: fs.ErrClosed}
 	}
 	if !d.read {
-		ents, err := d.f.readDir(d.path, d.in)
+		ents, err := d.f.readDir(d.path, d.in, d.anc)
 		if err != nil {
 			return nil, err
 		}

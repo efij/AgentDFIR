@@ -103,7 +103,7 @@ func TestExt4Contents(t *testing.T) {
 		}
 	}
 	// The fragmented file really is fragmented (an index level).
-	in, err := fsys.lookup("stat", "fragmented.bin")
+	in, _, err := fsys.lookup("stat", "fragmented.bin")
 	if err != nil {
 		t.Fatal(err)
 	}
