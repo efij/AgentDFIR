@@ -45,11 +45,11 @@ const UnknownType fs.FileMode = 1<<32 - 1
 // errors (never panic) on malformed input; panics are contained anyway.
 type Backend interface {
 	Root() (*Node, error)
-	List(dir *Node) ([]Dirent, error)    // live entries, "." and ".." excluded
-	Load(d Dirent) (*Node, error)        // the node a directory entry names
-	Data(n *Node) (io.ReaderAt, error)   // contents of a regular file (n.Size bytes)
-	Link(n *Node) (string, error)        // target of a symlink
-	FSName() string                      // fs name for errors
+	List(dir *Node) ([]Dirent, error)  // live entries, "." and ".." excluded
+	Load(d Dirent) (*Node, error)      // the node a directory entry names
+	Data(n *Node) (io.ReaderAt, error) // contents of a regular file (n.Size bytes)
+	Link(n *Node) (string, error)      // target of a symlink
+	FSName() string                    // fs name for errors
 }
 
 // FS is the fs.FS view of a Backend. It is safe for concurrent use when the
