@@ -23,7 +23,7 @@ func analyseCase(t *testing.T, c Case) []schema.Finding {
 	if err := BuildPackage(c, pkg, "CORPUS-"+c.Name, "corpus"); err != nil {
 		t.Fatal(err)
 	}
-	res, err := analysis.Run(pkg, analysis.Options{})
+	res, err := analysis.Run(pkg, analysis.Options{EndpointLogs: c.EndpointPaths()})
 	if err != nil {
 		t.Fatal(err)
 	}

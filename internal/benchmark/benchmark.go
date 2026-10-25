@@ -188,6 +188,7 @@ func buildAndAnalyze(work, name string, c corpus.Case, ao analysis.Options) (a *
 	if err := corpus.BuildPackage(c, pkg, "BENCH-"+name, "benchmark"); err != nil {
 		return nil, err
 	}
+	ao.EndpointLogs = append(ao.EndpointLogs, c.EndpointPaths()...)
 	res, err := analysis.Run(pkg, ao)
 	if err != nil {
 		return nil, err

@@ -53,7 +53,21 @@ type Case struct {
 	// repository is refused by push protection.
 	Collect string `json:"collect,omitempty"`
 
+	// Endpoint lists OS telemetry files in the case directory (eslogger
+	// JSON, auditd, …) passed to analysis as --endpoint logs. They are
+	// not collected into the package.
+	Endpoint []string `json:"endpoint,omitempty"`
+
 	Dir string `json:"-"`
+}
+
+// EndpointPaths returns the case's endpoint logs as paths on disk.
+func (c Case) EndpointPaths() []string {
+	var out []string
+	for _, e := range c.Endpoint {
+		out = append(out, filepath.Join(c.Dir, filepath.FromSlash(e)))
+	}
+	return out
 }
 
 // CollectAIExport is the Case.Collect value for AI-service export cases.
