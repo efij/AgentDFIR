@@ -293,6 +293,8 @@ func cmdCollect(args []string) int {
 	includeBrowser := fs.Bool("include-browser", false, "also collect browser history databases (opt-in: AI-service visits are parsed, the rest is sealed unread)")
 	image := fs.String("image", "", "forensic disk image (raw/dd, split .001/.aa, E01, VHD, VHDX, VMDK): read-only, agent evidence only")
 	skipImageVerify := fs.Bool("skip-image-verify", false, "with --image: do not re-read an E01 to check its stored MD5/SHA-1")
+	recoverDeleted := fs.Bool("recover-deleted", false, "with --image: also seal recoverable deleted NTFS file content (RECOVERED_UNVERIFIED); metadata is always listed")
+	includeVSS := fs.Bool("include-vss", false, "with --image: also extract agent evidence from each NTFS Volume Shadow Copy (read-only)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -308,7 +310,7 @@ func cmdCollect(args []string) int {
 	case *aiExport != "":
 		return collectAIExport(*aiExport, base)
 	case *image != "":
-		return collectImage(*image, base, !*skipImageVerify)
+		return collectImage(*image, base, !*skipImageVerify, imageExtras{recoverDeleted: *recoverDeleted, includeVSS: *includeVSS})
 	}
 
 	productID := *product

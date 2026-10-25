@@ -172,6 +172,10 @@ type Volume struct {
 	nodes map[uint64]*node
 	root  *node
 	stats Stats
+
+	deleted   []uint64 // not-in-use base records with a $FILE_NAME, in MFT order
+	bitmap    *stream  // $Bitmap, opened on first use
+	bitmapErr error
 }
 
 // Stats reports what the MFT walk found (deleted records skipped,

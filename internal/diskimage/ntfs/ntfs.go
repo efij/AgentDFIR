@@ -8,7 +8,9 @@
 // needed. File content comes from resident or non-resident $DATA (data
 // runs, sparse runs, $ATTRIBUTE_LIST extension records, LZNT1
 // compression). Named $DATA streams (ADS) are listed in metadata, never
-// presented as files. Deleted records are skipped and counted.
+// presented as files. Deleted records are not part of the tree; they are
+// counted, and listed (with recovery where it is safe) by DeletedFiles.
+// The USN change journal is decoded by WalkUSN.
 //
 // Every value read from the volume is bounded before it drives an
 // allocation or a loop; parent chains are cycle-guarded by construction
@@ -351,6 +353,11 @@ func (f *Volume) scan(raw []byte, num uint64) {
 	if !rec.inUse() {
 		if hasAttr(rec.attrs, atFileName) {
 			st.Deleted++
+			if len(f.deleted) < maxDeletedListed {
+				f.deleted = append(f.deleted, num)
+			} else if len(f.deleted) == maxDeletedListed && st.Deleted == maxDeletedListed+1 {
+				st.problem("more than %d deleted records; DeletedFiles lists the first %d", maxDeletedListed, maxDeletedListed)
+			}
 		}
 		return
 	}
