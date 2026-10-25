@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/efij/AgentDFIR/v4/internal/casepkg"
+	"github.com/efij/AgentDFIR/v4/internal/detect"
 	"github.com/efij/AgentDFIR/v4/internal/mcpaudit"
 )
 
@@ -354,7 +355,7 @@ func compareServers(old, cur mcpaudit.Server) *Drift {
 		d.Changed = append(d.Changed, fmt.Sprintf("command %q → %q", trim(old.Command, 80), trim(cur.Command, 80)))
 	}
 	if strings.Join(old.Args, "\x00") != strings.Join(cur.Args, "\x00") {
-		d.Changed = append(d.Changed, fmt.Sprintf("args %q → %q", trim(strings.Join(old.Args, " "), 120), trim(strings.Join(cur.Args, " "), 120)))
+		d.Changed = append(d.Changed, fmt.Sprintf("args %q → %q", detect.MaskSecrets(trim(strings.Join(old.Args, " "), 120)), detect.MaskSecrets(trim(strings.Join(cur.Args, " "), 120))))
 		had := map[string]bool{}
 		for _, a := range old.Args {
 			had[a] = true
@@ -366,7 +367,7 @@ func compareServers(old, cur mcpaudit.Server) *Drift {
 		}
 	}
 	if old.URL != cur.URL {
-		d.Changed = append(d.Changed, fmt.Sprintf("url %q → %q", old.URL, cur.URL))
+		d.Changed = append(d.Changed, fmt.Sprintf("url %q → %q", safeURL(old.URL), safeURL(cur.URL)))
 	}
 	if old.Transport != cur.Transport {
 		d.Changed = append(d.Changed, fmt.Sprintf("transport %s → %s", old.Transport, cur.Transport))

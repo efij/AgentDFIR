@@ -545,9 +545,19 @@ func sortTimeline(t []TimelineEntry) {
 	})
 }
 
+// timeline adds one entry with its time normalized to RFC 3339 UTC. A time
+// from evidence that does not parse is not printed as given: the entry is
+// kept, flagged, and sorts after the dated ones.
 func (b *builder) timeline(e TimelineEntry) {
 	if e.Time == "" {
 		return
+	}
+	if t, ok := parseTS(e.Time); ok {
+		e.Time = rfc(t)
+	} else {
+		e.Text = "(unparseable time in evidence) " + e.Text
+		e.Time = "unparseable"
+		e.TimeSource += ":unparseable"
 	}
 	b.rep.Timeline = append(b.rep.Timeline, e)
 }

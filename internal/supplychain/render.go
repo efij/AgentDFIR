@@ -36,31 +36,31 @@ func WriteText(w io.Writer, r *Report) {
 		}
 		p("Rounds: %s\n", s(strings.Join(rs, ", ")))
 	}
-	p("Inference window: %s\n", r.Window)
+	p("Inference window: %s\n", s(r.Window))
 
 	p("\nCOMPONENTS (%d)\n", len(r.Components))
 	for _, c := range r.Components {
-		p("  [%s] %s", c.Kind, s(c.Name))
+		p("  [%s] %s", s(c.Kind), s(c.Name))
 		if c.Host != "" {
 			p("  (%s)", s(c.Host))
 		}
 		if c.Observed {
 			p("  observed only")
 		}
-		p("\n    origin: %s, trust %s — %s\n", s(originText(c.Origin)), c.Origin.Trust, s(c.Origin.Basis))
+		p("\n    origin: %s, trust %s — %s\n", s(originText(c.Origin)), s(c.Origin.Trust), s(c.Origin.Basis))
 		if c.Origin.Version != "" || c.Origin.GitCommit != "" {
 			p("    version %s  commit %s\n", s(c.Origin.Version), s(c.Origin.GitCommit))
 		}
 		if c.SHA256 != "" {
-			p("    sha256 %s (%s)\n", short(c.SHA256), c.HashBasis)
+			p("    sha256 %s (%s)\n", s(short(c.SHA256)), s(c.HashBasis))
 		}
 		if c.FirstSeen != nil || c.LastSeen != nil {
-			p("    first seen %s · last seen %s\n", stamp(c.FirstSeen), stamp(c.LastSeen))
+			p("    first seen %s · last seen %s\n", s(stamp(c.FirstSeen)), s(stamp(c.LastSeen)))
 		}
 		if len(c.History) > 1 {
 			var hs []string
 			for _, v := range c.History {
-				hs = append(hs, fmt.Sprintf("%s %s", s(v.Label), short(v.SHA256)))
+				hs = append(hs, fmt.Sprintf("%s %s", s(v.Label), s(short(v.SHA256))))
 			}
 			p("    hash history: %s\n", strings.Join(hs, " · "))
 		}
@@ -68,13 +68,13 @@ func WriteText(w io.Writer, r *Report) {
 			p("    invocations: %d in %d session(s)\n", c.Invocations, len(c.Sessions))
 		}
 		if len(c.Flags) > 0 {
-			p("    flagged by: %s\n", strings.Join(c.Flags, ", "))
+			p("    flagged by: %s\n", s(strings.Join(c.Flags, ", ")))
 		}
 	}
 
 	p("\nDRIFT (%d)\n", len(r.Drift))
 	for _, d := range r.Drift {
-		p("  %s  %s: %s → %s  [%s]\n", d.Kind, s(d.Subject), s(d.From.Label), s(d.To.Label), d.Class)
+		p("  %s  %s: %s → %s  [%s]\n", s(d.Kind), s(d.Subject), s(d.From.Label), s(d.To.Label), s(d.Class))
 		for _, x := range d.Added {
 			p("    + %s\n", s(x))
 		}
@@ -95,7 +95,7 @@ func WriteText(w io.Writer, r *Report) {
 		if class == "" {
 			class = "-"
 		}
-		p("  %s  %-16s %-8s %-14s %s\n", t.Time, t.TimeSource, class, t.Kind, s(t.Text))
+		p("  %s  %-16s %-8s %-14s %s\n", s(t.Time), s(t.TimeSource), s(class), s(t.Kind), s(t.Text))
 	}
 
 	relations := func(title string, rs []Relation) {
@@ -105,12 +105,12 @@ func WriteText(w io.Writer, r *Report) {
 				p("  … %d more (see --json)\n", len(rs)-textRelations)
 				break
 			}
-			p("  %s  -[%s]->  %s", s(x.From), x.Type, s(x.To))
+			p("  %s  -[%s]->  %s", s(x.From), s(x.Type), s(x.To))
 			if x.Label != "" {
 				p("  %s", s(trim(x.Label, 100)))
 			}
 			if x.Confidence != "" {
-				p("  confidence %s", x.Confidence)
+				p("  confidence %s", s(x.Confidence))
 			}
 			p("\n    basis: %s\n", s(x.Basis))
 		}
@@ -120,7 +120,7 @@ func WriteText(w io.Writer, r *Report) {
 
 	p("\nREUSE (%d)\n", len(r.Reuse))
 	for _, x := range r.Reuse {
-		p("  %s  [%s]", s(x.Component), x.Class)
+		p("  %s  [%s]", s(x.Component), s(x.Class))
 		if len(x.Sessions) > 0 {
 			p("  %d session(s)", len(x.Sessions))
 		}
@@ -132,7 +132,7 @@ func WriteText(w io.Writer, r *Report) {
 
 	p("\nFINDINGS (%d)\n", len(r.Findings))
 	for _, f := range r.Findings {
-		p("  %s %s — %s\n    %s\n", f.Severity, f.RuleID, s(f.Title), s(f.Description))
+		p("  %s %s — %s\n    %s\n", s(f.Severity), s(f.RuleID), s(f.Title), s(f.Description))
 	}
 	if len(r.Unsupported) > 0 {
 		p("\nUNSUPPORTED\n")
@@ -147,7 +147,7 @@ func WriteText(w io.Writer, r *Report) {
 		}
 	}
 	if len(r.Omitted) > 0 {
-		p("\nOMITTED (bounds): %v\n", r.Omitted)
+		p("\nOMITTED (bounds): %s\n", s(fmt.Sprint(r.Omitted)))
 	}
 	p("\nLIMITS\n")
 	for _, l := range r.Limits {

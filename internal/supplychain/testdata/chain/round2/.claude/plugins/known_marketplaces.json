@@ -1,0 +1,9 @@
+{
+  "evil-tools": {
+    "source": {
+      "source": "github",
+      "repo": "attacker/agent-tools"
+    },
+    "lastUpdated": "2026-09-01T09:00:00.000Z"
+  }
+}

@@ -79,9 +79,9 @@ func (b *builder) extComponents(inv *extinv.Inventory) {
 	for _, m := range inv.Marketplaces {
 		mkts[m.Host+"\x00"+m.Name] = m
 		c := Component{ID: "marketplace:" + m.Host + ":" + m.Name, Kind: KindMarketplace, Name: m.Name, Host: m.Host,
-			Origin: Origin{Type: m.Kind, Trust: trustOf(m.Default), Location: m.Location, Basis: "marketplace registry " + m.Evidence}}
+			Origin: Origin{Type: m.Kind, Trust: trustOf(m.Default), Location: safeURL(m.Location), Basis: "marketplace registry " + m.Evidence}}
 		if m.Kind == "github" || m.Kind == "git" {
-			c.Origin.GitRemote = m.Location
+			c.Origin.GitRemote = safeURL(m.Location)
 		}
 		if t, ok := parseTS(m.Updated); ok {
 			c.LastSeen = &Stamp{Time: rfc(t), Source: TimeInstall, Detail: "marketplace lastUpdated", Ref: m.Evidence}
@@ -97,9 +97,9 @@ func (b *builder) extComponents(inv *extinv.Inventory) {
 			Basis: "plugin install registry"}
 		if m, ok := mkts[p.Host+"\x00"+p.Marketplace]; ok {
 			o.Trust = trustOf(m.Default)
-			o.Location = m.Location
+			o.Location = safeURL(m.Location)
 			if m.Kind == "github" || m.Kind == "git" {
-				o.GitRemote = m.Location
+				o.GitRemote = safeURL(m.Location)
 			}
 			if m.Kind == "directory" || m.Kind == "file" {
 				o.LocalPath = m.Location
@@ -255,7 +255,7 @@ func (b *builder) gitFor(p string) (remote, commit, gitDir string, ok bool) {
 			gitDir = dir + "/.git"
 			if data, err := b.readBlob(cfg); err == nil {
 				if m := remoteURLRe.FindSubmatch(data); m != nil {
-					remote = string(m[1])
+					remote = safeURL(string(m[1]))
 				}
 			}
 			commit = b.gitHead(gitDir)
@@ -319,8 +319,8 @@ func (b *builder) mcpComponent(s mcpaudit.Server) {
 	o := Origin{Type: "local", Trust: "local", Basis: "MCP configuration " + s.ConfigPath}
 	switch {
 	case strings.Contains(s.Package, "git+") || strings.HasPrefix(s.Package, "github:"):
-		o.Type, o.Trust, o.Package = "git", "third_party", s.Package
-		o.GitRemote = strings.TrimPrefix(s.Package, "git+")
+		o.Type, o.Trust, o.Package = "git", "third_party", safeURL(s.Package)
+		o.GitRemote = safeURL(strings.TrimPrefix(s.Package, "git+"))
 	case s.Package != "":
 		o.Type, o.Trust, o.Package = "npm", "registry", s.Package
 		switch s.PackageMgr {
@@ -329,7 +329,7 @@ func (b *builder) mcpComponent(s mcpaudit.Server) {
 		}
 		o.Package, o.Version = splitPkgVersion(s.Package)
 	case s.URL != "":
-		o.Type, o.Trust, o.URL = "url", "remote", s.URL
+		o.Type, o.Trust, o.URL = "url", "remote", safeURL(s.URL)
 	case s.Command != "":
 		o.LocalPath = s.Command
 	default:
