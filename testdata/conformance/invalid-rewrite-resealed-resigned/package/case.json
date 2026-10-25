@@ -1,35 +1,35 @@
 {
   "case_id": "BENCH-REFERENCE",
-  "created_utc": "2026-10-25T12:42:56Z",
+  "created_utc": "2026-10-25T12:45:20Z",
   "operator_os_user": "nobody",
   "host": "conformance-host",
   "os": "linux",
-  "local_time": "2026-10-25T12:42:56Z",
+  "local_time": "2026-10-25T12:45:20Z",
   "timezone": "UTC",
   "utc_offset_seconds": 0,
   "rounds": [
     {
       "round": 1,
-      "started_utc": "2026-10-25T12:42:56Z",
-      "completed_utc": "2026-10-25T12:42:56Z",
+      "started_utc": "2026-10-25T12:45:20Z",
+      "completed_utc": "2026-10-25T12:45:20Z",
       "collector_version": "3.2.0",
       "artifacts_ok": 2,
       "artifacts_carried_forward": 0,
       "artifacts_not_acquired": 0,
       "stored_bytes": 2083,
-      "signer": "e2a88a2bf80b4efc88fa7ad6a152b204491e866494961e03dbc320ed336ed14a"
+      "signer": "8891ae621cbaff3e2676f4f049d9d5ab9f11f64f11e56eb3dd019f1d32caf9cb"
     },
     {
       "round": 2,
-      "started_utc": "2026-10-25T12:42:56Z",
-      "completed_utc": "2026-10-25T12:42:56Z",
+      "started_utc": "2026-10-25T12:45:20Z",
+      "completed_utc": "2026-10-25T12:45:20Z",
       "collector_version": "3.2.0",
       "artifacts_ok": 2,
       "artifacts_carried_forward": 0,
       "artifacts_not_acquired": 0,
       "stored_bytes": 522,
-      "prev_seal_sha256": "f5e8aa19e7795351a742ccbeb085fbc7a2328bfc77e7c45414dc5c72fbe45748",
-      "signer": "e2a88a2bf80b4efc88fa7ad6a152b204491e866494961e03dbc320ed336ed14a"
+      "prev_seal_sha256": "e636883a47b61160776509b34149a4c75dd1bf6aba45d269a9dc496c890baed8",
+      "signer": "8891ae621cbaff3e2676f4f049d9d5ab9f11f64f11e56eb3dd019f1d32caf9cb"
     }
   ]
 }

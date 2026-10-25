@@ -1,6 +1,6 @@
 {
   "verdict": "VERIFIED",
   "description": "two rounds, both signed (ed25519); a plain blob, a gzip blob, a chunked artifact; round 1's seal and signature archived in seals/",
-  "pubkey": "fa6e61ba9af4da83efb549a8c995c648eb571d9a8e08dd9099fc9ded38df74e7",
+  "pubkey": "11e22664b88178f8036ef386c4550c85afed04d2e7fa8bdaf6b2b701c9eb0900",
   "spec": "0.2"
 }

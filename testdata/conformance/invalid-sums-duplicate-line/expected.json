@@ -1,0 +1,6 @@
+{
+  "verdict": "FAILED",
+  "description": "list one file twice in SHA256SUMS",
+  "mutation": "sums-duplicate-line",
+  "spec": "0.2"
+}

@@ -1,6 +1,6 @@
 # The `.adfir` Evidence Package Specification
 
-Version: `0.2` · Status: draft · License: MIT
+Version: `0.2` · Document revision: 0.2.1 · Status: draft · License: MIT
 
 An `.adfir` package is an **open, self-describing, independently parseable**
 container for AI-agent forensic evidence. Any tool can read it without
@@ -39,6 +39,15 @@ case.adfir/
 `chain-of-custody.jsonl`, every file in `seals/`, and every file in
 `raw/`. Regenerating the overlay never changes the seal.
 
+`SHA256SUMS` is UTF-8 text, one line per covered file, each line
+terminated by LF: the lowercase hex SHA-256 of the file's bytes, two
+spaces, and the file's path relative to the package root with `/` as the
+separator (the format `sha256sum -c` reads). AgentDFIR sorts the whole
+lines by byte value (so by hash); a verifier MUST NOT depend on the
+order, and a path listed twice is malformed. A path is never absolute and never contains a `..` or `.`
+component; a verifier MUST treat such a line as a problem and MUST NOT
+read the file it names.
+
 The overlay is derived and rebuildable, but it is reused across rounds, so
 it is not trusted blindly: `state.json` records the sha256 of every cached
 segment and of `events.jsonl`, and the code fingerprint and evidence digest
@@ -74,13 +83,16 @@ A record describes its storage separately from its identity:
 | Field | Meaning |
 |---|---|
 | `artifact_id` | SHA-256 of the plaintext — the content address |
+| `status` | `OK` when the content was acquired; anything else (`NOT_PRESENT`, `ACCESS_DENIED`, `ERROR`, `SKIPPED_*`, …) records an attempt with no stored content |
 | `size` | plaintext length in bytes |
 | `codec` | `none` (absent = `none`) or `gzip` |
 | `stored_sha256` | SHA-256 of the bytes on disk |
 | `stored_size` | length of the bytes on disk |
 | `chunks[]` | present when the artifact is stored in parts (see below) |
 
-A blob is stored at `raw/<sha256>` when `codec` is `none`, and at
+Only records with `status` `OK` and a non-empty `artifact_id` have
+stored content; the integrity checks below apply to those. A blob is
+stored at `raw/<sha256>` when `codec` is `none`, and at
 `raw/<sha256>.gz` when it is `gzip`. The suffix is part of the file name
 so an analyst can identify and decompress one blob with `gunzip` alone.
 A reader MUST NOT infer content from a blob's name: `SHA256SUMS` covers
@@ -198,22 +210,67 @@ that has not been added to.
 
 `collection.jsonl` and `chain-of-custody.jsonl` are JSONL where each line
 is a JSON object with a `prev` field equal to the SHA-256 (hex) of the
-previous line's exact bytes. The first record's `prev` is 64 zeros. Any
-edit, deletion, insertion or reorder breaks the chain from that point on.
-Each record also carries a monotonic `seq` and a UTC `ts_utc`.
+previous line's exact bytes, excluding the terminating LF. The first
+record's `prev` is 64 zeros. Any edit, deletion, insertion or reorder
+breaks the chain from that point on. Each record also carries `seq`,
+equal to its zero-based position in the file (0, 1, 2, …), and a UTC
+`ts_utc`. Every line is a record: a blank line is a break.
+
+The chains alone do not detect a record appended at the end with a
+correct `prev` and `seq`, or the last records being removed; the file's
+line in `SHA256SUMS` does.
 
 ## Integrity verification
 
 `agentdfir verify` (or any third-party implementation) MUST:
 
-1. recompute SHA-256 for every path listed in `SHA256SUMS` and compare;
-2. flag any `raw/` file not covered by `SHA256SUMS` (planted evidence);
+1. recompute SHA-256 for every path listed in `SHA256SUMS` and compare,
+   and confirm `case.json`, both chains and one manifest form are listed;
+2. flag any file in the sealed zone that `SHA256SUMS` does not cover
+   (planted evidence): any file in `raw/` or `seals/`, and a
+   `manifest.json` or `manifest.jsonl` that is present but not listed.
+   The second manifest form matters because readers prefer
+   `manifest.jsonl`: one planted next to a sealed `manifest.json` would
+   otherwise replace the manifest every consumer reads;
 3. confirm each manifest artifact's **plaintext** hashes to its
    `artifact_id` — decoding its codec, and concatenating its chunks in
    order when it has them;
 4. walk both hash chains and report the first break;
 5. if `SEAL.sig` is present, verify the ed25519 signature over the SHA-256
-   of `SHA256SUMS`.
+   of `SHA256SUMS` (the signed message is the 32-byte digest itself, not
+   its hex form). If `SEAL.sig` is absent, that is a problem when the
+   verifier was given a key to require, or when the last entry in
+   `case.json`'s `rounds` records a `signer`: deleting the signature
+   must not turn a signed package into an "unsigned" one. If `case.json`
+   cannot be read, whether a signature was expected cannot be decided,
+   and that is a problem too.
+
+`SEAL.sig` is UTF-8 text of `key: value` lines:
+
+```
+algorithm: ed25519
+sha256sums_digest: <hex SHA-256 of SHA256SUMS>
+signature: <hex, 64 bytes>
+public_key: <hex, 32 bytes>
+```
+
+The signature proves who sealed the package only as far as the public
+key is trusted. Without a pinned key (`agentdfir verify --pubkey`) a
+valid signature by a different key is not a problem: re-signing is
+legitimate (`agentdfir sign`), and someone who controls the package can
+rewrite it, re-seal it, edit the `signer` recorded in `case.json` and
+re-sign it with their own key. The signer-downgrade check in step 5 also
+relies on `case.json`, which is itself in the sealed zone. Detecting a
+full rewrite needs a key or a seal digest kept outside the package (see
+Round integrity).
+
+A verifier MAY also check the round history: for each round in
+`case.json` with a `prev_seal_sha256`, `seals/SHA256SUMS.<round-1>`
+hashes to it; every `raw/` entry that archived seal lists is still listed
+with the same hash (blobs are never rewritten); and
+`seals/SEAL.sig.<n>`, when present, verifies over `seals/SHA256SUMS.<n>`
+(a mismatch is a problem when round `n` recorded a `signer`, and only a
+note otherwise).
 
 Step 3 is what compression and chunking must never be allowed to weaken:
 `stored_sha256` proves the bytes on disk are the ones that were sealed, and
@@ -253,3 +310,22 @@ project/repository names.
 `CONTRADICTED > CORROBORATED > PARTIALLY_CORROBORATED > OBSERVED >
 REPORTED > REQUESTED > UNKNOWN`. Model narrative alone is never higher
 than `REPORTED`.
+
+## Conformance
+
+`testdata/conformance/` holds one valid package and one invalid package
+per tamper case, each with an `expected.json` giving the verdict
+(`VERIFIED` or `FAILED`) and, where the case needs it, the public key to
+pin. A conforming verifier reaches the expected verdict on every one.
+`tools/adfir-verify/adfir_verify.py` is an independent verifier written
+from this document with the Python 3 standard library only (including a
+pure-Python ed25519 verifier); `agentdfir verify` and it are both tested
+against the fixtures and against packages written by released versions.
+
+## Specification changelog
+
+| Revision | Date | Changes |
+|---|---|---|
+| 0.2.1 | 2026-10-25 | Clarifications, no format change: the `SHA256SUMS` line format and path rules; `status` and which records have stored content; chain `prev` excludes the LF, `seq` is the zero-based position, blank lines are breaks; verification step 2 covers `seals/` and an unlisted second manifest form, not only `raw/`; the signed message is the 32-byte digest; the `SEAL.sig` file format; a missing `SEAL.sig` is a problem when a key is pinned or the last round recorded a signer (and when `case.json` is unreadable); what a signature does and does not prove without a pinned key; optional round-history checks; conformance fixtures. Verifiers written to 0.2 that only checked `raw/` for unlisted files missed planted manifests and seals. |
+| 0.2 | 2026-09-19 | Append-only `manifest.jsonl`, storage codecs (`gzip`), chunked artifacts, rounds, archived seals and signatures, round integrity, transactional rounds. |
+| 0.1 | 2026-09-01 | Content-addressed `raw/`, `manifest.json`, two hash chains, `SHA256SUMS`, optional `SEAL.sig`. |

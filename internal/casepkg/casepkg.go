@@ -1318,6 +1318,9 @@ func verify(dir string, full bool) (*VerifyResult, error) {
 			res.Problems = append(res.Problems, "SHA256SUMS: malformed line: "+line)
 			continue
 		}
+		if _, dup := listed[parts[1]]; dup {
+			res.Problems = append(res.Problems, "SHA256SUMS: listed twice: "+parts[1])
+		}
 		listed[parts[1]] = parts[0]
 	}
 	haveManifest := false

@@ -301,6 +301,11 @@ func Mutations() []Mutation {
 				return append(b, []byte(strings.Repeat("0", 64)+"  ../outside\n")...), nil
 			})
 		}},
+		{ID: "sums-duplicate-line", What: "list one file twice in SHA256SUMS", Apply: func(p string, _ *Reference) error {
+			return rewrite(filepath.Join(p, "SHA256SUMS"), func(b []byte) ([]byte, error) {
+				return append(b, []byte(lines(b)[0]+"\n")...), nil
+			})
+		}},
 		{ID: "case-edit", What: "change the operator in case.json", Apply: func(p string, _ *Reference) error {
 			return rewrite(filepath.Join(p, "case.json"), func(b []byte) ([]byte, error) {
 				return bytes.Replace(b, []byte(`"benchmark"`), []byte(`"nobody"`), 1), nil

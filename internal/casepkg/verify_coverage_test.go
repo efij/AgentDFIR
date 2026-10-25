@@ -72,6 +72,29 @@ func TestVerifyRejectsPathsOutsideThePackage(t *testing.T) {
 	}
 }
 
+// TestVerifyRejectsDuplicateSeal: a path listed twice is a malformed seal;
+// which of the two hashes a reader honours is undefined.
+func TestVerifyRejectsDuplicateSeal(t *testing.T) {
+	pkg := buildPackage(t, map[string]string{"a.jsonl": `{"x":1}`})
+	sums := filepath.Join(pkg, sumsFile)
+	data, err := os.ReadFile(sums)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = os.Chmod(sums, 0o600)
+	first := strings.SplitN(string(data), "\n", 2)[0]
+	if err := os.WriteFile(sums, append(data, []byte(first+"\n")...), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	res, err := Verify(pkg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasProblem(res.Problems, "listed twice") {
+		t.Fatalf("duplicate line not reported: %v", res.Problems)
+	}
+}
+
 func hasProblem(problems []string, frag string) bool {
 	for _, p := range problems {
 		if strings.Contains(p, frag) {
