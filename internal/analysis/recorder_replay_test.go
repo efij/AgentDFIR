@@ -158,7 +158,7 @@ func TestCaseCheckRejectsForgedOrMismatchedPrune(t *testing.T) {
 		t.Fatal(err)
 	}
 	jn.Baseline(gone)
-	jn.Prune(gone, int64(len(line)), "00", "retention: forged") // not a capture
+	jn.Prune(gone, int64(len(line)), "00", 0, "", "retention: forged") // not a capture
 	_ = os.Remove(gone)
 
 	c := recorder.NewCapture(state, "auditd", ".log", jn, nil)
@@ -185,11 +185,40 @@ func TestCaseCheckRejectsForgedOrMismatchedPrune(t *testing.T) {
 	}
 }
 
-func journaled(t *testing.T, state string) map[string]time.Time {
+func journaled(t *testing.T, state string) map[string]journal.JournaledFile {
 	t.Helper()
 	m, err := journal.JournaledPaths(filepath.Join(state, "journal.jsonl"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	return m
+}
+
+// A prune that failed does not account for a capture that is gone.
+func TestCaseCheckPruneFailedIsStillADeletion(t *testing.T) {
+	root := t.TempDir()
+	_ = os.MkdirAll(filepath.Join(root, ".claude", "projects", "p"), 0o755)
+	_ = os.WriteFile(filepath.Join(root, ".claude", "projects", "p", "s1.jsonl"),
+		[]byte(`{"type":"user","uuid":"u1","sessionId":"s1","timestamp":"2026-08-30T10:00:00Z","message":{"role":"user","content":"hi"}}`+"\n"), 0o644)
+	state := filepath.Join(root, ".agentdfir", "monitor")
+	jn, err := journal.Open(filepath.Join(state, "journal.jsonl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := recorder.NewCapture(state, "auditd", ".log", jn, nil)
+	_, _ = c.Write([]byte("type=SYSCALL msg=audit(1788084005.300:1): pid=1 exe=\"/bin/sh\"\n"))
+	_ = c.Close()
+	jn.Prune(c.Path(), 1, "00", 0, "", "retention: test")
+	jn.PruneFailed(c.Path(), "permission denied")
+	_ = jn.Close()
+	_ = os.Remove(c.Path())
+	var got []string
+	for _, f := range collectRoot(t, root).Findings {
+		if f.RuleID == "TRANSCRIPT_DELETED" {
+			got = append(got, f.Severity+" "+f.Title)
+		}
+	}
+	if len(got) != 1 || got[0] != "HIGH Recorded Capture Deleted Without a Prune Record" {
+		t.Fatalf("findings: %v", got)
+	}
 }

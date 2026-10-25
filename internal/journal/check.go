@@ -38,6 +38,8 @@ type rec struct {
 	// prune records (monitor --retain)
 	Reason        string `json:"reason"`
 	JournaledSize *int64 `json:"journaled_size"`
+	PrunePrefixSz *int64 `json:"prune_prefix_size"`
+	PrunePrefix   string `json:"prune_prefix_sha256"`
 }
 
 // maxJournal bounds the journal read at analysis.
@@ -170,7 +172,7 @@ func checkPath(p string, rs []rec, bySource map[string]casepkg.ArtifactRecord, s
 		if last.Kind == "prune" {
 			return out // already reported above
 		}
-		if (last.Kind == "deleted" || last.Kind == "append" || last.Kind == "baseline") && isRecorderCapture(p) {
+		if (last.Kind == "deleted" || last.Kind == "append" || last.Kind == "baseline" || last.Kind == "prune_failed") && isRecorderCapture(p) {
 			out = append(out, schema.Finding{RuleID: "TRANSCRIPT_DELETED", Severity: "HIGH", Title: "Recorded Capture Deleted Without a Prune Record",
 				Description:  fmt.Sprintf("%s is a black-box recorder capture the monitor journaled, and it is not among the collected files. Retention journals every file it prunes; this one has no prune record, so something else removed it (or it was not collected).", p),
 				EvidenceRefs: []string{jref}, Related: []string{"path: " + p}, Status: schema.StateObserved, Endpoint: schema.StateUnknown, MitreATTACK: "T1070.004"})
@@ -254,7 +256,15 @@ func pruneMismatch(rs []rec) string {
 	if prune == nil {
 		return ""
 	}
-	if prune.JournaledSize != nil && (*prune.JournaledSize != journaled || prune.Prefix != prefix) {
+	return pruneVerdict(journaled, prefix, prune)
+}
+
+// pruneVerdict checks a prune record against the journal's last range for
+// the file (journaled bytes, running prefix hash). It returns "" only when
+// the deleted file's journaled bytes are shown to be what was journaled;
+// a prune that cannot be checked is reported, never accepted quietly.
+func pruneVerdict(journaled int64, prefix string, prune *rec) string {
+	if prune.JournaledSize != nil && (*prune.JournaledSize != journaled || (prune.Prefix != "" && prune.Prefix != prefix)) {
 		return fmt.Sprintf("its prune record claims %d journaled bytes with a different running hash than the journal's last range (%d bytes)", *prune.JournaledSize, journaled)
 	}
 	switch {
@@ -262,10 +272,27 @@ func pruneMismatch(rs []rec) string {
 		return ""
 	case prune.Size < journaled:
 		return fmt.Sprintf("it had %d bytes at deletion while %d had been journaled", prune.Size, journaled)
-	case prune.Size == journaled && prune.SHA256 != prefix:
-		return "its SHA-256 at deletion differs from the journaled content"
+	case prune.PrunePrefix != "" && prune.PrunePrefixSz != nil && *prune.PrunePrefixSz == journaled:
+		if prune.PrunePrefix != prefix {
+			return fmt.Sprintf("the SHA-256 of its first %d bytes at deletion differs from the journaled content", journaled)
+		}
+		return ""
+	case prune.Size == journaled:
+		if prune.SHA256 != prefix {
+			return "its SHA-256 at deletion differs from the journaled content"
+		}
+		return ""
+	case prune.PrunePrefix != "":
+		return fmt.Sprintf("its prune record hashes the first %d bytes, but %d were journaled: the journaled range cannot be checked", derefOr(prune.PrunePrefixSz), journaled)
 	}
-	return ""
+	return fmt.Sprintf("it had %d bytes at deletion, %d journaled, and its prune record has no hash of the journaled range: the deleted bytes cannot be checked", prune.Size, journaled)
+}
+
+func derefOr(p *int64) int64 {
+	if p == nil {
+		return 0
+	}
+	return *p
 }
 
 func truncated(p, aref, jref string, have, want int64, at string) schema.Finding {

@@ -137,7 +137,7 @@ func makeCaptures(t *testing.T, dir string, jn Journal, n int) []string {
 }
 
 // known is the retention scope from the journal in dir.
-func known(t *testing.T, dir string) map[string]time.Time {
+func known(t *testing.T, dir string) map[string]journal.JournaledFile {
 	t.Helper()
 	m, err := journal.JournaledPaths(filepath.Join(dir, "journal.jsonl"))
 	if err != nil {
@@ -237,7 +237,7 @@ func TestPruneOfEditedCaptureIsFlagged(t *testing.T) {
 func TestRetentionWithoutJournalDeletesNothing(t *testing.T) {
 	dir := t.TempDir()
 	ps := makeCaptures(t, dir, nil, 2)
-	pruned, problems := Retention{MaxAge: time.Hour}.Prune(dir, map[string]time.Time{ps[0]: {}, ps[1]: {}}, nil, nil, time.Now())
+	pruned, problems := Retention{MaxAge: time.Hour}.Prune(dir, map[string]journal.JournaledFile{ps[0]: {}, ps[1]: {}}, nil, nil, time.Now())
 	if len(pruned) != 0 || len(problems) == 0 {
 		t.Fatalf("pruned without a journal: %v %v", pruned, problems)
 	}

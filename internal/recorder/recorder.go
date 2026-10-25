@@ -39,8 +39,9 @@ import (
 // Journal is what the recorder needs from internal/journal.
 type Journal interface {
 	Grow(path string, from, to int64)
-	Prune(path string, size int64, sha256hex, reason string)
+	Prune(path string, size int64, sha256hex string, prefixSize int64, prefixSHA, reason string)
 	PruneFailed(path, reason string)
+	JournaledSize(path string) (int64, bool)
 }
 
 // StatusFile is the status file name in the state directory.
@@ -202,7 +203,7 @@ type Recorder struct {
 	mcp       *MCPConfigWatcher
 	captures  []*Capture
 	retState  *RetentionState
-	known     map[string]time.Time // captures the journal recorded (retention scope)
+	known     map[string]journal.JournaledFile // captures the journal recorded (retention scope)
 	started   time.Time
 	lastSave  time.Time
 	lastPrune time.Time
@@ -423,11 +424,11 @@ func (r *Recorder) Prune() []Pruned {
 // knownCaptures is the retention scope: captures the journal file
 // recorded (read once), plus the files this recorder's captures created
 // (journaled by the flush that precedes every prune).
-func (r *Recorder) knownCaptures() map[string]time.Time {
+func (r *Recorder) knownCaptures() map[string]journal.JournaledFile {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.known == nil {
-		r.known = map[string]time.Time{}
+		r.known = map[string]journal.JournaledFile{}
 		if r.JournalLog != "" {
 			if m, err := journal.JournaledPaths(r.JournalLog); err == nil {
 				for p, t := range m {
@@ -442,12 +443,12 @@ func (r *Recorder) knownCaptures() map[string]time.Time {
 		c.mu.Lock()
 		for _, p := range c.paths {
 			if _, ok := r.known[p]; !ok && r.Journal != nil {
-				r.known[p] = time.Time{} // age from the name stamp
+				r.known[p] = journal.JournaledFile{} // age from the name stamp; size from the live journal
 			}
 		}
 		c.mu.Unlock()
 	}
-	out := make(map[string]time.Time, len(r.known))
+	out := make(map[string]journal.JournaledFile, len(r.known))
 	for p, t := range r.known {
 		out[p] = t
 	}

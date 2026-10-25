@@ -1,13 +1,18 @@
 package recorder
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/efij/AgentDFIR/v4/internal/journal"
 )
 
 // Retention bounds what the recorder keeps on disk. Only capture files are
@@ -127,14 +132,15 @@ func CaptureStamp(base string) (time.Time, bool) {
 // whose mtime is earlier than both is reported as backdated. Files in
 // active (still being written) are never touched. Each deletion is hashed
 // and journaled first; without a journal nothing is deleted.
-func (r Retention) Prune(dir string, known map[string]time.Time, active map[string]bool, jn Journal, now time.Time) ([]Pruned, []string) {
+func (r Retention) Prune(dir string, known map[string]journal.JournaledFile, active map[string]bool, jn Journal, now time.Time) ([]Pruned, []string) {
 	if jn == nil {
 		return nil, []string{"retention needs the journal; nothing pruned"}
 	}
 	type cand struct {
-		path    string
-		size    int64
-		created time.Time
+		path      string
+		size      int64
+		created   time.Time
+		journaled int64
 	}
 	var all []cand
 	var total int64
@@ -144,7 +150,8 @@ func (r Retention) Prune(dir string, known map[string]time.Time, active map[stri
 		if err != nil {
 			continue
 		}
-		first, ok := known[p]
+		jf, ok := known[p]
+		first := jf.First
 		if !ok {
 			problems = append(problems, filepath.Base(p)+": capture-named file the journal never recorded; not counted or pruned")
 			continue
@@ -160,7 +167,11 @@ func (r Retention) Prune(dir string, known map[string]time.Time, active map[stri
 		if fi.ModTime().Before(created.Add(-mtimeSlack)) {
 			problems = append(problems, fmt.Sprintf("%s: mtime %s is earlier than its creation %s (backdated)", filepath.Base(p), fi.ModTime().UTC().Format(time.RFC3339), created.UTC().Format(time.RFC3339)))
 		}
-		all = append(all, cand{p, fi.Size(), created})
+		jsz := jf.Size
+		if n, ok := jn.JournaledSize(p); ok {
+			jsz = n // journaled in this session: the live journal knows best
+		}
+		all = append(all, cand{p, fi.Size(), created, jsz})
 		total += fi.Size()
 	}
 	sort.SliceStable(all, func(i, j int) bool {
@@ -183,12 +194,12 @@ func (r Retention) Prune(dir string, known map[string]time.Time, active map[stri
 		default:
 			continue
 		}
-		sha, note := hashFile(c.path, 0)
-		if note != "" {
-			problems = append(problems, note)
+		sha, prefixSHA, err := hashWithPrefix(c.path, c.journaled)
+		if err != nil {
+			problems = append(problems, "cannot hash "+c.path+": "+err.Error()+"; not pruned")
 			continue
 		}
-		jn.Prune(c.path, c.size, sha, reason)
+		jn.Prune(c.path, c.size, sha, c.journaled, prefixSHA, reason)
 		if err := os.Remove(c.path); err != nil {
 			jn.PruneFailed(c.path, err.Error())
 			problems = append(problems, "prune "+c.path+": "+err.Error())
@@ -198,4 +209,30 @@ func (r Retention) Prune(dir string, known map[string]time.Time, active map[stri
 		out = append(out, Pruned{Path: c.path, Size: c.size, SHA256: sha, Reason: reason})
 	}
 	return out, problems
+}
+
+// hashWithPrefix hashes a whole file and, in the same pass, its first
+// prefix bytes ("" when prefix is 0 or the file is shorter).
+func hashWithPrefix(p string, prefix int64) (string, string, error) {
+	f, err := os.Open(p)
+	if err != nil {
+		return "", "", err
+	}
+	defer f.Close()
+	whole := sha256.New()
+	pre := sha256.New()
+	var preSum string
+	if prefix > 0 {
+		n, err := io.Copy(io.MultiWriter(whole, pre), io.LimitReader(f, prefix))
+		if err != nil {
+			return "", "", err
+		}
+		if n == prefix {
+			preSum = hex.EncodeToString(pre.Sum(nil))
+		}
+	}
+	if _, err := io.Copy(whole, f); err != nil {
+		return "", "", err
+	}
+	return hex.EncodeToString(whole.Sum(nil)), preSum, nil
 }

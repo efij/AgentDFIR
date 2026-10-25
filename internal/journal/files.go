@@ -140,22 +140,14 @@ func verifyOne(p, local string, rs []fileRec) FileCheck {
 		}
 		fc.State = FilePruned
 		fc.Detail = fmt.Sprintf("pruned at %s (%s), %d bytes", prune.At, prune.Reason, prune.Size)
-		// The prune hash closes the loop when the whole file was journaled.
-		if prune.Prefix != "" && prune.JournaledSize != nil {
-			lastPrefix, journaled = prune.Prefix, *prune.JournaledSize
-		}
-		switch {
-		case lastPrefix == "" || journaled == 0:
-		case prune.Size < journaled:
+		if why := pruneVerdict(journaled, lastPrefix, &prune.rec); why != "" {
 			fc.State, fc.Problem = FilePruneMismatch, true
-			fc.Detail = fmt.Sprintf("pruned at %s with %d bytes, but %d bytes had been journaled: it was cut before deletion", prune.At, prune.Size, journaled)
-		case prune.Size == journaled && prune.SHA256 != lastPrefix:
-			fc.State, fc.Problem = FilePruneMismatch, true
-			fc.Detail = fmt.Sprintf("pruned at %s, but its SHA-256 then differs from the journaled content: it was edited before deletion", prune.At)
-		case prune.Size == journaled:
+			fc.Detail = fmt.Sprintf("pruned at %s, but %s", prune.At, why)
+		} else if journaled > 0 && lastPrefix != "" {
 			fc.Detail += "; content at deletion matches the journal"
-		default:
-			fc.Detail += fmt.Sprintf("; %d bytes past the last journaled range were never journaled", prune.Size-journaled)
+			if prune.Size > journaled {
+				fc.Detail += fmt.Sprintf(" (%d bytes past the last journaled range were never journaled)", prune.Size-journaled)
+			}
 		}
 		return fc
 	}
@@ -200,28 +192,45 @@ func verifyOne(p, local string, rs []fileRec) FileCheck {
 	return fc
 }
 
+// JournaledFile is what the journal holds for one path.
+type JournaledFile struct {
+	First time.Time // first baseline/append record
+	Size  int64     // end of the last journaled range
+}
+
 // JournaledPaths returns every path the journal recorded content for
-// (baseline or append) with the time of its first such record. Retention
-// uses it to touch only files this monitor journaled.
-func JournaledPaths(journalPath string) (map[string]time.Time, error) {
+// (baseline or append): when it was first journaled and how many bytes
+// were journaled. Retention uses it to touch only files this monitor
+// journaled, and to hash the journaled range of what it deletes.
+func JournaledPaths(journalPath string) (map[string]JournaledFile, error) {
 	f, err := os.Open(journalPath)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
-	out := map[string]time.Time{}
+	out := map[string]JournaledFile{}
 	sc := bufio.NewScanner(io.LimitReader(f, maxJournal))
 	sc.Buffer(make([]byte, 0, 64<<10), 16<<20)
 	for sc.Scan() {
 		var r rec
-		if json.Unmarshal(sc.Bytes(), &r) != nil || r.Path == "" || (r.Kind != "append" && r.Kind != "baseline") {
+		if json.Unmarshal(sc.Bytes(), &r) != nil || r.Path == "" {
 			continue
 		}
-		if _, ok := out[r.Path]; ok {
+		jf, seen := out[r.Path]
+		switch r.Kind {
+		case "baseline":
+			jf.Size = r.Size
+		case "append":
+			jf.Size = r.Offset + r.Len
+		case "replaced", "truncate":
+			jf.Size = 0
+		default:
 			continue
 		}
-		t, _ := time.Parse(time.RFC3339Nano, r.At)
-		out[r.Path] = t
+		if !seen {
+			jf.First, _ = time.Parse(time.RFC3339Nano, r.At)
+		}
+		out[r.Path] = jf
 	}
 	return out, sc.Err()
 }

@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/efij/AgentDFIR/v4/internal/journal"
 )
 
 // A symlink planted in the state dir must never be written through.
@@ -91,5 +93,60 @@ func TestRetentionIgnoresForgeableInputs(t *testing.T) {
 	joined := strings.Join(problems, "\n")
 	if !strings.Contains(joined, "backdated") || !strings.Contains(joined, "never recorded") {
 		t.Fatalf("problems: %v", problems)
+	}
+}
+
+// Journaled bytes altered before pruning are caught even when more bytes
+// were appended after the last flush (prune size > journaled size).
+func TestPruneCatchesAlteredJournaledRangeWithUnjournaledTail(t *testing.T) {
+	dir := t.TempDir()
+	jn, jp := openJournal(t, dir)
+	c := NewCapture(dir, "auditd", ".log", jn, nil)
+	created := time.Now().Add(-10 * 24 * time.Hour)
+	c.SetClock(func() time.Time { return created })
+	_, _ = c.Write([]byte(auditLines(1, 1)))
+	_ = c.Close() // journaled
+	b, _ := os.ReadFile(c.Path())
+	b[12] ^= 1
+	b = append(b, []byte(auditLines(2, 1))...) // never journaled
+	_ = os.WriteFile(c.Path(), b, 0o600)
+	pruned, _ := Retention{MaxAge: 24 * time.Hour}.Prune(dir, known(t, dir), nil, jn, time.Now())
+	_ = jn.Close()
+	if len(pruned) != 1 {
+		t.Fatalf("pruned %v", pruned)
+	}
+	rep, _ := journal.VerifyFiles(jp, resolveIn(dir))
+	if rep.Problems != 1 || rep.Files[0].State != journal.FilePruneMismatch {
+		t.Fatalf("altered journaled range passed: %+v", rep.Files)
+	}
+	data, _ := os.ReadFile(jp)
+	if !strings.Contains(string(data), `"prune_prefix_sha256"`) {
+		t.Fatal("prune record lacks the journaled-range hash")
+	}
+}
+
+// The same with the prune done by a later monitor run, which only knows
+// the journaled size from the journal file.
+func TestPrunePrefixFromEarlierSession(t *testing.T) {
+	dir := t.TempDir()
+	jn, jp := openJournal(t, dir)
+	c := NewCapture(dir, "auditd", ".log", jn, nil)
+	created := time.Now().Add(-10 * 24 * time.Hour)
+	c.SetClock(func() time.Time { return created })
+	_, _ = c.Write([]byte(auditLines(1, 1)))
+	_ = c.Close()
+	_ = jn.Close()
+	f, _ := os.OpenFile(c.Path(), os.O_APPEND|os.O_WRONLY, 0)
+	f.WriteString(auditLines(2, 1)) // unjournaled tail, journaled bytes intact
+	f.Close()
+	jn2, _ := openJournal(t, dir)
+	pruned, _ := Retention{MaxAge: 24 * time.Hour}.Prune(dir, known(t, dir), nil, jn2, time.Now())
+	_ = jn2.Close()
+	if len(pruned) != 1 {
+		t.Fatalf("pruned %v", pruned)
+	}
+	rep, _ := journal.VerifyFiles(jp, resolveIn(dir))
+	if rep.Problems != 0 || rep.Pruned != 1 || !strings.Contains(rep.Files[0].Detail, "never journaled") {
+		t.Fatalf("intact journaled range with a tail: %+v", rep.Files)
 	}
 }
