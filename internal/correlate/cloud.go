@@ -85,6 +85,7 @@ func cloudPass(events []schema.Event, records []endpoint.Record, res *EndpointRe
 			res.CloudRefused++
 		}
 		ev.Summary = appendNote(ev.Summary, note)
+		addMatch(res, "cloud", ev, r, bestScore, cloudWindow, nil)
 		res.CloudCorroborated++
 	}
 	return burstFindings(records, matchedBy, res)
