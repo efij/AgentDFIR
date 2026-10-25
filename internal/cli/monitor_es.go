@@ -11,6 +11,7 @@ import (
 
 	"github.com/efij/AgentDFIR/v4/internal/endpoint"
 	"github.com/efij/AgentDFIR/v4/internal/journal"
+	"github.com/efij/AgentDFIR/v4/internal/recorder"
 	"github.com/efij/AgentDFIR/v4/internal/sanitize"
 )
 
@@ -20,6 +21,10 @@ type esHandle struct {
 	mu   sync.Mutex
 	stop func()
 	done chan struct{}
+	// rec, when set (monitor --record), owns the capture: it reports the
+	// eslogger source in status.json, keeps the open file out of
+	// retention and flushes it with the other captures.
+	rec *recorder.Recorder
 }
 
 func (h *esHandle) set(f func(), done chan struct{}) {
@@ -53,52 +58,49 @@ var esPrintKinds = map[string]bool{"process": true, endpoint.KindPersistence: tr
 
 // startES launches eslogger when the host allows it. The raw stream goes
 // to ~/.agentdfir/monitor/eslogger-<UTC>.jsonl (importable later with
-// --endpoint); with a journal, every flushed range of that file is
-// journaled like a transcript append. When eslogger cannot run, the
-// reason is printed and the monitor continues without it.
+// --endpoint; rolled over by size/age); with a journal, every flushed
+// range of that file is journaled like a transcript append. When eslogger
+// cannot run, the reason is printed and the monitor continues without it.
 func startES(l *endpoint.ESLauncher, events string, quiet bool, jn *journal.Journal, home string, h *esHandle) {
 	if events != "" {
 		l.Events = strings.Split(events, ",")
+	}
+	var src *recorder.Source
+	if h.rec != nil {
+		src = h.rec.AddSource("eslogger", "eslogger", "/usr/bin/eslogger")
+		src.SetSeq(recorder.SeqESGlobal)
+		src.SetFormat(string(endpoint.FormatESLogger))
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	evs, err := l.Check(ctx)
 	if err != nil {
 		cancel()
+		if src != nil {
+			src.Problem("not started: " + err.Error())
+		}
 		fmt.Fprintf(os.Stderr, "monitor --es: not started: %v; continuing without Endpoint Security\n", err)
 		return
 	}
-	dir := filepath.Join(home, ".agentdfir", "monitor")
+	dir := recorder.Dir(home)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		cancel()
 		fmt.Fprintln(os.Stderr, "monitor --es: not started:", err)
 		return
 	}
-	capPath := filepath.Join(dir, "eslogger-"+time.Now().UTC().Format("20060102T150405Z")+".jsonl")
-	f, err := os.OpenFile(capPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
-	if err != nil {
-		cancel()
-		fmt.Fprintln(os.Stderr, "monitor --es: not started:", err)
-		return
-	}
-	fmt.Printf("monitor --es: eslogger %s → %s\n", strings.Join(evs, " "), capPath)
-	var mu sync.Mutex
-	var written, journaled int64
-	flush := func() {
-		mu.Lock()
-		from, to := journaled, written
-		journaled = written
-		mu.Unlock()
-		if jn != nil && to > from {
-			jn.Grow(capPath, from, to)
+	var capw *recorder.Capture
+	if h.rec != nil {
+		capw = h.rec.NewCapture(src, ".jsonl")
+	} else {
+		var j recorder.Journal
+		if jn != nil {
+			j = jn
 		}
+		capw = recorder.NewCapture(dir, "eslogger", ".jsonl", j, nil)
 	}
-	raw := writerFunc(func(p []byte) (int, error) {
-		n, err := f.Write(p)
-		mu.Lock()
-		written += int64(n)
-		mu.Unlock()
-		return n, err
-	})
+	if src != nil {
+		src.SetState("running")
+	}
+	fmt.Printf("monitor --es: eslogger %s → %s\n", strings.Join(evs, " "), filepath.Join(dir, "eslogger-<UTC>.jsonl"))
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
@@ -109,13 +111,13 @@ func startES(l *endpoint.ESLauncher, events string, quiet bool, jn *journal.Jour
 			for {
 				select {
 				case <-tick.C:
-					flush()
+					capw.Flush()
 				case <-finished:
 					return
 				}
 			}
 		}()
-		res, err := l.Run(ctx, evs, raw, func(r endpoint.Record) {
+		res, err := l.Run(ctx, evs, capw, func(r endpoint.Record) {
 			if quiet || !esPrintKinds[r.Kind] {
 				return
 			}
@@ -123,14 +125,22 @@ func startES(l *endpoint.ESLauncher, events string, quiet bool, jn *journal.Jour
 			fmt.Printf("es %s %-11s %s %s\n", r.Time.Format("15:04:05"), r.Kind, sanitize.Terminal(baseNameOf(r.Exe)), sanitize.Terminal(trimTo(what, 160)))
 		})
 		close(finished)
-		flush()
-		_ = f.Close()
+		_ = capw.Close()
+		if src != nil {
+			src.SetState("stopped")
+		}
 		if err != nil {
+			if src != nil {
+				src.Problem("eslogger: " + err.Error())
+			}
 			fmt.Fprintln(os.Stderr, "monitor --es:", err)
 		}
 		if res != nil {
-			fmt.Printf("monitor --es: %d record(s) captured to %s\n", len(res.Records), capPath)
+			fmt.Printf("monitor --es: %d record(s) captured to %s\n", len(res.Records), strings.Join(capw.Paths(), ", "))
 			for _, n := range res.Notices {
+				if src != nil {
+					src.Note(n)
+				}
 				fmt.Println("  " + sanitize.Terminal(n))
 			}
 		}
