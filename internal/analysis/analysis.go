@@ -576,6 +576,12 @@ func Run(pkg string, o Options) (*Result, error) {
 	groups := verify.GroupBy(findings)
 	res.Groups = len(groups)
 	_ = overlay.WriteJSON(filepath.Join(detDir, "groups.json"), groups)
+	// What the evidence does not show (normalized/coverage.json) and who
+	// did what through whom (normalized/lineage.json). Read-only over the
+	// finished results, and it cannot fail the analysis.
+	if notes := investigationOverlay(pkg, allEvents(), findings, res.Correlation); len(notes) > 0 {
+		res.StageNotes = append(res.StageNotes, notes...)
+	}
 	_ = overlay.WriteJSON(filepath.Join(detDir, "analysis.json"), map[string]any{
 		"analyzed_utc": time.Now().UTC().Format(time.RFC3339), "events": res.Events, "renormalized": res.Renormalized,
 		"artifacts_parsed": res.Reparsed, "artifacts_reused": res.Reused,

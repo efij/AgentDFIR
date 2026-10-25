@@ -28,6 +28,7 @@ import (
 	"github.com/efij/AgentDFIR/v3/internal/accounts"
 	"github.com/efij/AgentDFIR/v3/internal/chain"
 	"github.com/efij/AgentDFIR/v3/internal/correlate"
+	"github.com/efij/AgentDFIR/v3/internal/detect"
 	"github.com/efij/AgentDFIR/v3/internal/endpoint"
 	"github.com/efij/AgentDFIR/v3/internal/netdest"
 	"github.com/efij/AgentDFIR/v3/internal/notes"
@@ -494,14 +495,17 @@ func (g *builder) toolCall(e schema.Event, ms []correlate.Match) {
 	put("tool_call_id", e.ToolCallID)
 	put("timestamp", e.Timestamp)
 	put("session_id", e.SessionID)
-	put("command", trim(e.Command, 200))
+	// Commands can carry the credential they leaked; the graph names the
+	// key by type and fingerprint instead.
+	cmd := detect.MaskSecrets(e.Command)
+	put("command", trim(cmd, 200))
 	put("file", e.File)
 	put("action", e.Action)
 	put("witness_note", e.WitnessNote)
 	label := e.Tool
 	switch {
-	case e.Command != "":
-		label += ": " + trim(e.Command, 60)
+	case cmd != "":
+		label += ": " + trim(cmd, 60)
 	case e.File != "":
 		label += ": " + trim(e.File, 60)
 	}
@@ -610,14 +614,14 @@ func (g *builder) processNode(r endpoint.Record) string {
 		attrs["exe"] = r.Exe
 	}
 	if r.Cmdline != "" {
-		attrs["cmdline"] = r.Cmdline
+		attrs["cmdline"] = detect.MaskSecrets(r.Cmdline)
 	}
 	if r.User != "" {
 		attrs["user"] = r.User
 	}
 	label := baseName(r.Exe)
 	if label == "" {
-		label = trim(r.Cmdline, 40)
+		label = trim(detect.MaskSecrets(r.Cmdline), 40)
 	}
 	if r.PID != 0 {
 		label += fmt.Sprintf(" (pid %d)", r.PID)

@@ -66,3 +66,19 @@ func TestSecretFingerprintsHostileInput(t *testing.T) {
 		_ = SecretFingerprints(in)
 	}
 }
+
+func TestMaskSecrets(t *testing.T) {
+	in := "curl -H 'Authorization: token " + fpGitHub + "' --aws " + fpAWS + " " + fpAnth
+	out := MaskSecrets(in)
+	for _, v := range []string{fpGitHub, fpAWS, fpAnth, fpAnth[7:]} {
+		if strings.Contains(out, v) {
+			t.Errorf("value survived masking: %s", out)
+		}
+	}
+	if !strings.Contains(out, "ghp_…[GITHUB_TOKEN sha256:") || !strings.Contains(out, "AKIA…[AWS_ACCESS_KEY sha256:") {
+		t.Errorf("masked form: %s", out)
+	}
+	if got := MaskSecrets("ls -la"); got != "ls -la" {
+		t.Errorf("clean text changed: %q", got)
+	}
+}

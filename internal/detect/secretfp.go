@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"sort"
+	"strings"
 )
 
 // SecretFingerprint identifies one credential without carrying it: the
@@ -97,4 +98,25 @@ func pemBody(after []byte) []byte {
 		return nil
 	}
 	return out
+}
+
+// MaskSecrets replaces every credential-format value in s with its type's
+// fixed literal and its fingerprint, so text derived from evidence (a
+// lineage label, an exported graph) can name which key a command carried
+// without carrying the key. Placeholder-looking values are masked too:
+// masking costs nothing, and a missed real key costs a great deal.
+func MaskSecrets(s string) string {
+	for _, p := range secretPatterns {
+		if !strings.Contains(s, p.lit) {
+			continue
+		}
+		s = p.re.ReplaceAllStringFunc(s, func(m string) string {
+			if strings.HasPrefix(m, "-----BEGIN") {
+				return m // the header alone carries no key material
+			}
+			sum := sha256.Sum256([]byte(m))
+			return p.lit + "…[" + p.name + " sha256:" + hex.EncodeToString(sum[:8]) + "]"
+		})
+	}
+	return s
 }

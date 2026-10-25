@@ -24,22 +24,30 @@ func WriteText(w io.Writer, g *Graph) {
 		scope = "session " + sanitize.Terminal(g.Scope.SessionID)
 	}
 	fmt.Fprintf(w, "Lineage for case %s (%s): %d node(s), %d edge(s)\n", sanitize.Terminal(g.CaseID), scope, len(g.Nodes), len(g.Edges))
-	from := ""
+	// Edges grouped under their source, sources in node order (humans and
+	// agents first), so the text reads from who asked to what happened.
+	bySrc := map[string][]Edge{}
 	for _, e := range g.Edges {
-		if e.From != from {
-			from = e.From
-			fmt.Fprintf(w, "\n%s\n", label[e.From])
+		bySrc[e.From] = append(bySrc[e.From], e)
+	}
+	for _, n := range g.Nodes {
+		edges := bySrc[n.ID]
+		if len(edges) == 0 {
+			continue
 		}
-		conf := ""
-		if e.Confidence != "" {
-			conf = ", confidence " + e.Confidence
-		}
-		fmt.Fprintf(w, "  --%s--> %s\n      %s · %s%s\n", e.Relation, label[e.To], schema.Label(e.State), sanitize.Terminal(e.Basis), conf)
-		if e.Note != "" {
-			fmt.Fprintf(w, "      %s\n", sanitize.Terminal(e.Note))
-		}
-		for _, r := range e.Refs {
-			fmt.Fprintf(w, "      Evidence: %s\n", sanitize.Terminal(r.String()))
+		fmt.Fprintf(w, "\n%s\n", label[n.ID])
+		for _, e := range edges {
+			conf := ""
+			if e.Confidence != "" {
+				conf = ", confidence " + e.Confidence
+			}
+			fmt.Fprintf(w, "  --%s--> %s\n      %s · %s%s\n", e.Relation, label[e.To], schema.Label(e.State), sanitize.Terminal(e.Basis), conf)
+			if e.Note != "" {
+				fmt.Fprintf(w, "      %s\n", sanitize.Terminal(e.Note))
+			}
+			for _, r := range e.Refs {
+				fmt.Fprintf(w, "      Evidence: %s\n", sanitize.Terminal(r.String()))
+			}
 		}
 	}
 	for _, n := range g.Notes {
