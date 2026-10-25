@@ -288,6 +288,9 @@ func runRobustness(r *Report, o Options, work string, prov *provenanceChecker) e
 			}
 		}
 		res.Problems = contractViolations(a.events, len(telemetry) > 0)
+		if a.result != nil {
+			res.Problems = append(res.Problems, coverageViolations(a.events, a.result.Correlation)...)
+		}
 		if rc.check != nil {
 			res.Problems = append(res.Problems, rc.check(a.events)...)
 		}

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/efij/AgentDFIR/v4/internal/correlate"
 	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
@@ -166,5 +167,20 @@ func TestEmbeddedBaselineParses(t *testing.T) {
 	data, _ := os.ReadFile("testdata/perf-baseline.json")
 	if !bytes.Contains(data, []byte(`"sessions"`)) {
 		t.Fatal("baseline file unreadable")
+	}
+}
+
+func TestCoverageViolations(t *testing.T) {
+	ev := []schema.Event{{EventID: "x", Corroboration: schema.StateContradicted, Summary: "no matching process in endpoint telemetry within ±3s"}}
+	c := &correlate.EndpointResult{Decisions: []correlate.CoverageDecision{{EventID: "x", Needs: "process", Coverage: correlate.CoverPartial}}}
+	if v := coverageViolations(ev, c); len(v) != 1 {
+		t.Fatalf("partial coverage disproof not flagged: %v", v)
+	}
+	c.Decisions[0].Coverage = correlate.CoverHealthy
+	if v := coverageViolations(ev, c); len(v) != 0 {
+		t.Fatalf("healthy coverage flagged: %v", v)
+	}
+	if v := coverageViolations(ev, nil); len(v) != 1 {
+		t.Fatalf("no decision not flagged: %v", v)
 	}
 }
