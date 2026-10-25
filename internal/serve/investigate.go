@@ -49,8 +49,13 @@ type sessionCard struct {
 	ChainTitles []string       `json:"chain_titles"`
 	Tags        []string       `json:"tags"`
 	FirstPrompt string         `json:"first_prompt"`
-	Account     string         `json:"account,omitempty"` // profile key; /api/accounts has the label
-	Risk        int            `json:"risk"`
+	// Label is the session's name as the evidence records it when that is
+	// more than its id: an export's conversation title, a browser history
+	// group. Agent transcripts have none and are named by their first
+	// prompt.
+	Label   string `json:"label,omitempty"`
+	Account string `json:"account,omitempty"` // profile key; /api/accounts has the label
+	Risk    int    `json:"risk"`
 	// CaseLevel marks the one card that holds findings no session claims
 	// (package-level rules: configs, MCP inventories, instruction files).
 	// Without it the Findings tab showed CRITICALs the Sessions tab never
@@ -198,6 +203,7 @@ func (s *Server) apiSessions(w http.ResponseWriter, r *http.Request) {
 			c.Host, c.User = ev.Host, ev.User
 		}
 		c.Account = s.acctOf[first[id]]
+		c.Label = s.sessionLabel(id)
 		c.Files = len(files[id])
 		c.Dests = topKeys(dests[id], 5)
 		c.MCPServers = topKeys(mcps[id], 6)
