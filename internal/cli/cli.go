@@ -45,6 +45,7 @@ COLLECT — where the evidence is
   agentdfir collect --import <kape-or-velociraptor-tree>                        every user, every agent, one package
   agentdfir collect --docker <container|export.tar>                            a container (read-only export)
   agentdfir collect --archive <zip|tar|tgz>                                    CI artifact, support bundle, vendor export
+  agentdfir collect --image <E01|raw|.001|vhd|vhdx|vmdk>                        forensic disk image, read-only (NTFS; docs/disk-images.md)
   agentdfir verify <pkg>                                                       prove the package was not modified
   agentdfir compact <pkg>                                                      delete the regenerable analysis overlay (analyze rebuilds it)
   agentdfir store status | store gc                                            shared evidence store: what it holds, reclaim what no case uses
@@ -264,6 +265,8 @@ func cmdCollect(args []string) int {
 	importTree := fs.String("import", "", "KAPE/Velociraptor/CyLR/image tree: collect every product for every user profile found")
 	dockerRef := fs.String("docker", "", "container id/name (docker export, read-only) or a saved export .tar")
 	archive := fs.String("archive", "", "zip / tar / tar.gz: GitHub Actions artifact, support bundle, vendor data export")
+	image := fs.String("image", "", "forensic disk image (raw/dd, split .001/.aa, E01, VHD, VHDX, VMDK): read-only, agent evidence only")
+	skipImageVerify := fs.Bool("skip-image-verify", false, "with --image: do not re-read an E01 to check its stored MD5/SHA-1")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -276,6 +279,8 @@ func cmdCollect(args []string) int {
 		return collectDocker(*dockerRef, base)
 	case *archive != "":
 		return collectArchive(*archive, base)
+	case *image != "":
+		return collectImage(*image, base, !*skipImageVerify)
 	}
 
 	productID := *product
