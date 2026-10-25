@@ -94,6 +94,7 @@ type pdfDoc struct {
 	cur      *bytes.Buffer
 	y        float64
 	replaced int
+	now      time.Time // generation time printed on the cover and in /Info
 }
 
 func (d *pdfDoc) newPage() {
@@ -270,7 +271,7 @@ func (d *pdfDoc) render(title string) []byte {
 		"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>",
 		"<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>",
 		fmt.Sprintf("<< /Title (%s) /Producer (AgentDFIR %s) /Creator (AgentDFIR) /CreationDate (D:%sZ) >>",
-			d.encode(title), version.Version, time.Now().UTC().Format("20060102150405")),
+			d.encode(title), version.Version, d.now.Format("20060102150405")),
 	)
 	for i, pg := range d.pages {
 		footer := fmt.Sprintf("BT /F1 7.5 Tf %.2f %.2f Td (%s) Tj ET\n", pdfMargin, pdfMargin-18,
@@ -307,7 +308,7 @@ func WritePDF(c *Case, custody []CustodyRecord, signature string, path string, o
 	if opts.MaxArtifactRows <= 0 {
 		opts.MaxArtifactRows = 300
 	}
-	d := &pdfDoc{}
+	d := &pdfDoc{now: c.generated()}
 	d.newPage()
 	caseID := ""
 	if c.Manifest != nil {
@@ -316,7 +317,7 @@ func WritePDF(c *Case, custody []CustodyRecord, signature string, path string, o
 	title := "AgentDFIR Report — " + caseID
 
 	d.h1("AgentDFIR Report")
-	d.text("F1", pdfBodySize, 0, "Case "+caseID+"  ·  generated "+time.Now().UTC().Format(time.RFC3339)+"  ·  agentdfir "+version.Version)
+	d.text("F1", pdfBodySize, 0, "Case "+caseID+"  ·  generated "+d.now.Format(time.RFC3339)+"  ·  agentdfir "+version.Version)
 	d.text("F1", 8.5, 0, "Findings state what the evidence shows. Evidence strength: ASKED / CLAIMED / RECORDED / PARTLY CONFIRMED / CONFIRMED / DISPROVED / UNKNOWN. Model text is never treated as proof of execution.")
 
 	// --- Case summary

@@ -92,6 +92,10 @@ ACCOUNTABILITY — who asked, who allowed, what happened (not legal advice)
   agentdfir export custody [<pkg>] --out <dir|zip> [--certify --name … --title … --org …]
   agentdfir selfcheck --offline           prove on this machine: nothing sent, executed, or written outside the case
 
+EDISCOVERY — derivative productions for legal review (structural RSMF validation; no admissibility claim)
+  agentdfir report <pkg> --format rsmf [--session id] [--redact secrets,emails,paths,ips]   RSMF 2.0 per session
+  agentdfir export <pkg> --production [--out dir] [--examiner n] [--redact …] [--produced-at t]   production set + manifest
+
 BEFORE AN INCIDENT
   agentdfir monitor --detect --alert <url|file>      live sensor: findings pushed as they happen
   agentdfir monitor --journal [--journal-anchor f]   hash-chain every transcript append; later edits become provable
