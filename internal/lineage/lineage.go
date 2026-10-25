@@ -38,6 +38,12 @@ import (
 // Schema identifies the document this package writes.
 const Schema = "agentdfir.lineage/1"
 
+// SpecRevision is the .adfir specification revision whose action-graph
+// rules the graph follows (docs/adfir-spec.md, docs/schema/action-graph.schema.json):
+// every edge's limitations are stated, so a CORROBORATED edge that cites
+// no telemetry record of its own says why.
+const SpecRevision = "0.2.2"
+
 // Node kinds.
 const (
 	KindHuman    = "human"
@@ -92,6 +98,7 @@ type Options struct {
 // Graph is normalized/lineage.json and the lineage command's JSON.
 type Graph struct {
 	Schema    string   `json:"schema"`
+	Spec      string   `json:"adfir_spec,omitempty"`
 	CaseID    string   `json:"case_id"`
 	Scope     Scope    `json:"scope"`
 	Nodes     []Node   `json:"nodes"`
@@ -142,6 +149,10 @@ type Edge struct {
 	Confidence string `json:"confidence,omitempty"` // correlated edges only, as correlate.MatchBasis defines it
 	Note       string `json:"note,omitempty"`
 	Refs       []Ref  `json:"source_refs"`
+	// Limitations say what the edge does not show, in words: set by
+	// limitations() from the edge's own basis, state and references, never
+	// guessed.
+	Limitations []string `json:"limitations,omitempty"`
 }
 
 // Ref locates the evidence for a node or edge: a sealed artifact line, or
@@ -171,7 +182,7 @@ func Build(in Input, o Options) (*Graph, error) {
 		o.MaxEdges = 50000
 	}
 	g := &builder{in: in, o: o, nodes: map[string]*Node{}, edges: map[string]*Edge{},
-		graph: &Graph{Schema: Schema, CaseID: in.CaseID, Limits: Limits{o.MaxNodes, o.MaxEdges}, Notes: []string{}}}
+		graph: &Graph{Schema: Schema, Spec: SpecRevision, CaseID: in.CaseID, Limits: Limits{o.MaxNodes, o.MaxEdges}, Notes: []string{}}}
 	g.graph.Scope.SessionID = o.SessionID
 	g.graph.Scope.Finding = o.Finding
 	if err := g.scope(); err != nil {
@@ -707,6 +718,7 @@ func (g *builder) finish() {
 	})
 	edges := make([]Edge, 0, len(g.edges))
 	for _, e := range g.edges {
+		e.Limitations = limitations(*e)
 		edges = append(edges, *e)
 	}
 	sort.Slice(edges, func(i, j int) bool {
@@ -725,6 +737,51 @@ func (g *builder) finish() {
 			g.o.MaxNodes, g.o.MaxEdges, g.graph.Omitted.Nodes, g.graph.Omitted.Edges))
 	}
 	sort.Strings(g.graph.Notes)
+}
+
+// limitations states, conservatively, what an edge does not show. It
+// reads only the edge itself: its relation, basis, state, confidence and
+// references.
+func limitations(e Edge) []string {
+	var out []string
+	telemetry := false
+	for _, r := range e.Refs {
+		telemetry = telemetry || r.External != ""
+	}
+	switch e.Relation {
+	case "named_destination":
+		out = append(out, "the recorded command names this destination; it does not show that a connection was made")
+	case "named_file":
+		out = append(out, "the recorded tool input names this file; it does not show the file was opened or changed")
+	case "looked_up":
+		out = append(out, "a name lookup shows intent to connect, not a connection")
+	}
+	if e.Basis == BasisSpawnRecord {
+		out = append(out, "the tool call that started this agent is not in the evidence")
+	}
+	if e.Confidence != "" {
+		out = append(out, "paired by a correlation (time window and matching fields), not by an identifier both records carry; its basis and score are in basis")
+	}
+	switch e.State {
+	case schema.StateCorroborated:
+		if !telemetry {
+			out = append(out, "evidence_state is the corroboration of the recorded step this edge belongs to; the edge's own references cite the agent's record, not the witness that corroborated the step")
+		}
+	case schema.StatePartial:
+		if !telemetry {
+			out = append(out, "evidence_state is the partial corroboration of the recorded step; the edge's own references cite the agent's record only")
+		}
+	case schema.StateReported, schema.StateRequested:
+		out = append(out, "from the agent's own narrative or request only; not proof the step ran")
+	case schema.StateContradicted:
+		out = append(out, "an independent witness contradicts the recorded step")
+	case "", schema.StateUnknown:
+		out = append(out, "no evidence state was established for the recorded step")
+	}
+	if len(e.Refs) >= maxRefs {
+		out = append(out, fmt.Sprintf("source references are capped at %d; more records may support this edge", maxRefs))
+	}
+	return out
 }
 
 // cut keeps what leads to the finding's nodes (ancestors) and what they

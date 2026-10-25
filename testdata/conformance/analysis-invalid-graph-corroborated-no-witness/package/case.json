@@ -1,0 +1,22 @@
+{
+  "case_id": "CONFORMANCE-ANALYSIS",
+  "created_utc": "2026-10-25T21:40:11Z",
+  "operator_os_user": "benchmark",
+  "host": "Efi-Jeremiah-IL.local",
+  "os": "darwin",
+  "local_time": "2026-10-25T23:40:11+02:00",
+  "timezone": "IST",
+  "utc_offset_seconds": 7200,
+  "rounds": [
+    {
+      "round": 1,
+      "started_utc": "2026-10-25T21:40:11Z",
+      "completed_utc": "2026-10-25T21:40:11Z",
+      "collector_version": "4.0.0",
+      "artifacts_ok": 1,
+      "artifacts_carried_forward": 0,
+      "artifacts_not_acquired": 0,
+      "stored_bytes": 1579
+    }
+  ]
+}

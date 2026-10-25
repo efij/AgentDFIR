@@ -1,0 +1,7 @@
+{
+  "verdict": "FAILED",
+  "description": "a STIX note whose id is not note--\u003cuuid\u003e",
+  "mutation": "stix-bad-id",
+  "spec": "0.2.2",
+  "kind": "analysis"
+}

@@ -1,0 +1,6 @@
+{
+  "verdict": "VERIFIED",
+  "description": "the same, with the action graph as a pre-0.2.2 binary wrote it (no adfir_spec, no limitations): still valid",
+  "spec": "0.2.2",
+  "kind": "analysis"
+}

@@ -1,0 +1,7 @@
+{
+  "verdict": "FAILED",
+  "description": "point an edge at a node the graph does not hold",
+  "mutation": "graph-dangling-edge",
+  "spec": "0.2.2",
+  "kind": "analysis"
+}

@@ -1,0 +1,7 @@
+{
+  "verdict": "FAILED",
+  "description": "remove findings.json, so the fingerprint cannot be checked",
+  "mutation": "manifest-findings-missing",
+  "spec": "0.2.2",
+  "kind": "analysis"
+}

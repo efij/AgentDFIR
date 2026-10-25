@@ -16,37 +16,10 @@ import (
 
 // --- STIX 2.1 ---
 
-// WriteSTIX writes findings as a STIX 2.1 bundle (indicator +
-// observed-data objects). Deterministic IDs are derived from content so
-// re-exports are stable.
+// WriteSTIX writes findings as a STIX 2.1 bundle; see WriteSTIXBundle,
+// which also takes the observables and the case time.
 func WriteSTIX(findings []schema.Finding, caseID, path string) error {
-	objects := []map[string]any{}
-	now := time.Now().UTC().Format(time.RFC3339)
-	for _, f := range findings {
-		id := "indicator--" + deterministicUUID("indicator", caseID, f.RuleID, f.AgentID, f.SessionID)
-		obj := map[string]any{
-			"type":            "indicator",
-			"spec_version":    "2.1",
-			"id":              id,
-			"created":         now,
-			"modified":        now,
-			"name":            f.Title,
-			"description":     f.Description,
-			"indicator_types": []string{"anomalous-activity"},
-			"confidence":      confidence(f.Status),
-			"labels":          []string{f.RuleID, "severity:" + f.Severity},
-		}
-		if refs := mitreRefs(f); len(refs) > 0 {
-			obj["external_references"] = refs
-		}
-		objects = append(objects, obj)
-	}
-	bundle := map[string]any{
-		"type":    "bundle",
-		"id":      "bundle--" + deterministicUUID("bundle", caseID),
-		"objects": objects,
-	}
-	return writeJSON(path, bundle)
+	return WriteSTIXBundle(STIXInput{Findings: findings, CaseID: caseID}, path)
 }
 
 func mitreRefs(f schema.Finding) []map[string]string {

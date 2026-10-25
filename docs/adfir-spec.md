@@ -1,6 +1,6 @@
 # The `.adfir` Evidence Package Specification
 
-Version: `0.2` · Document revision: 0.2.1 · Status: draft · License: MIT
+Version: `0.2` · Document revision: 0.2.2 · Status: draft · License: MIT
 
 An `.adfir` package is an **open, self-describing, independently parseable**
 container for AI-agent forensic evidence. Any tool can read it without
@@ -27,9 +27,10 @@ case.adfir/
 ├── normalized/             # overlay: events / entities / relationships (JSONL)
 │   ├── events.jsonl        #   uncompressed: index/ addresses it by byte offset
 │   ├── events/<parser>/    #   per-artifact segments (.jsonl.gz), the parse cache
+│   ├── lineage.json        #   the action graph (0.2.2 rules below)
 │   ├── state.json          #   which artifact each segment holds, at what offset, with what hash
 │   └── state.mac           #   HMAC of state.json under the machine's cache key, when it has one
-├── detections/             # overlay: findings.json
+├── detections/             # overlay: findings.json, analysis-manifest.json (0.2.2)
 ├── index/                  # overlay: events.idx, the explorer's offset index
 ├── reports/                # overlay: HTML/JSON/CSV/STIX/OTel
 └── redaction-manifest.json # present only in derived support packages
@@ -302,6 +303,154 @@ project/repository names.
 
 - Event: [`schema/event.schema.json`](schema/event.schema.json)
 - Finding: [`schema/finding.schema.json`](schema/finding.schema.json)
+- Analysis manifest (0.2.2): [`schema/analysis-manifest.schema.json`](schema/analysis-manifest.schema.json)
+- Action graph (0.2.2): [`schema/action-graph.schema.json`](schema/action-graph.schema.json)
+
+## Analysis files (0.2.2, optional)
+
+Three overlay files let a third party check what an analysis concluded,
+and reproduce it, without trusting the tool's interface. All are
+optional: a package without them is exactly as valid as before, and a
+verifier MUST NOT require them. They are derived data outside the seal,
+so they prove nothing about the evidence; a verifier that finds them
+SHOULD check them and report their problems separately from integrity.
+Readers MUST accept either stored form (`<name>` or `<name>.gz`) and
+MUST ignore properties they do not know.
+
+### Reproducible analysis manifest
+
+`detections/analysis-manifest.json` (schema:
+[`schema/analysis-manifest.schema.json`](schema/analysis-manifest.schema.json),
+`"schema": "agentdfir.analysis-manifest/1"`) records what produced
+`detections/findings.json`:
+
+- `tool`: name, version, Go version, OS/arch, and `analysis_fingerprint`,
+  the hash of the code that turns evidence into findings (parsers,
+  built-in rules, embedded packs);
+- `rule_set`: the built-in rules' fingerprint, whether the embedded packs
+  ran, every loaded pack with its SHA-256, and the SHA-256 of every file
+  in an analyst-supplied rules directory;
+- `input`: `seal_sha256` (the SHA-256 of `SHA256SUMS`, which commits to
+  the whole sealed zone), the manifest file's SHA-256 and the inputs
+  digest;
+- `options`: every option that changes findings, naming each input file
+  (endpoint logs, IOC feeds, shell history, gateway log and map) by path,
+  size and SHA-256. Honeytokens are recorded by **count only**: any
+  digest of planted secrets stored in the package would let its holder
+  confirm guessed tokens. `reused_correlation` and `overlay_reused` say
+  when the analysis carried forward results of an earlier run (event
+  states, endpoint-correlation findings) that a run from the sealed zone
+  cannot reproduce;
+- `analyzed_utc` (not part of any fingerprint) and `findings` (count,
+  file, algorithm, fields);
+- `findings_fingerprint`.
+
+**Findings fingerprint** (`adfir-findings-sha256/1`). For each finding in
+`detections/findings.json` (a JSON array; `null` is empty), build an
+entry: the netstrings (`<decimal byte length>:<bytes>,`) of the UTF-8
+values of `rule_id`, `severity`, `status`, `endpoint_corroboration`,
+`session_id`, `agent_id` (absent = empty string), then the netstring of
+the decimal count of `evidence_refs`, then the netstring of each
+reference, the references sorted by byte value. Sort the entries by byte
+value, keeping duplicates. The fingerprint is `sha256:` followed by the
+lowercase hex SHA-256 of the concatenated netstrings of the sorted
+entries. Titles, descriptions, timestamps and order are deliberately
+excluded: the fingerprint covers what a finding asserts about the
+evidence, not how it is worded or when the analysis ran.
+
+A verifier recomputes the fingerprint from `findings.json` and compares
+it, and the finding count, with the manifest; a mismatch means one of
+the two was changed after the analysis and is a problem. A `seal_sha256`
+that differs from the package's current `SHA256SUMS` means a later round
+was added after the analysis; that is a note (re-analyze), not a
+problem.
+
+**Reproduction.** `agentdfir verify --reproduce <pkg> [--manifest f]`
+copies the sealed zone (and `normalized/retired.json`, an input to the
+scan set) to a scratch directory, re-runs the analysis with the recorded
+options and input files (refusing when one is missing or its SHA-256
+changed, and requiring `--honeytokens` again when honeytokens were used,
+since only their count was recorded), and compares fingerprints. On a
+mismatch it lists what differed and whether that can change findings
+(tool code, packs, rules files, evidence, options, carried-forward
+results) or should not (version string, Go toolchain, platform), and the
+findings only one side has. A mismatch with nothing finding-relevant
+different is a determinism defect.
+
+### Action graph
+
+`normalized/lineage.json` (schema:
+[`schema/action-graph.schema.json`](schema/action-graph.schema.json)) is
+who did what through whom: nodes (`human`, `agent`, `subagent`,
+`tool_call`, `process`, `file`, `network`, `cloud_resource`,
+`mcp_server`; `tool`, `resource` and `outcome` are reserved) and edges
+with `basis`, `evidence_state`, `source_refs` and, from 0.2.2,
+`limitations`. Kinds and relations are open sets; consumers MUST accept
+unknown values. A verifier MUST check that:
+
+1. node ids are unique and every edge's `from` and `to` is a node in the
+   graph;
+2. every edge cites at least one source reference, and each reference
+   names an `artifact_id`, an `event_id` or a `telemetry_ref`;
+3. an edge with `confidence` (a correlation) cites both an agent record
+   and the `telemetry_ref` it was paired with;
+4. in a graph that declares `"adfir_spec": "0.2.2"` or later, an edge
+   whose `evidence_state` is `CORROBORATED` cites a `telemetry_ref` or
+   carries a non-empty `limitations` saying why not. An edge's
+   `evidence_state` is the state of the recorded step it derives from; an
+   `invoked` edge of a corroborated tool call cites the transcript and
+   says so in `limitations`. Graphs from earlier versions do not declare
+   `adfir_spec` and are checked against rules 1–3 only.
+
+`limitations` are written conservatively from the edge itself: a named
+destination is not a connection, a lookup is not a connection, a
+correlation is not a shared identifier, narrative is not execution, and
+so on.
+
+### STIX 2.1 export
+
+`report --format stix` writes `reports/findings.stix.json`, a
+self-contained STIX 2.1 bundle: one `identity` (AgentDFIR, id
+`identity--` + uuid5(N, `identity|agentdfir`)), one `report` for the case
+referencing every other object, one `note` per finding (abstract = title;
+content = description, rule, severity, both evidence states, evidence
+references; `external_references` to `mitre-attack` / `mitre-atlas`
+technique ids), and, only for known-incident indicators the evidence
+actually holds (hunt hits, not mentions or low-confidence context): an
+`indicator` with a STIX pattern, the observable (`domain-name`,
+`ipv4-addr`, `ipv6-addr`, or `file` by SHA-256), an `observed-data` when
+the evidence dates the sighting, and a `relationship` (`based-on` the
+observed-data, or `related-to` the observable). Indicator kinds with no
+STIX observable stay in the notes; a URL indicator is a prefix without a
+scheme, so it gets a `LIKE` pattern and no `url` object.
+
+Ids are UUIDv5: AgentDFIR's objects in namespace
+N = `6a44158c-b5d0-56ae-8976-a8dc20c62f96` (= uuid5(NAMESPACE_URL,
+`https://efij.github.io/AgentDFIR/stix`)) over
+`<type>|<case id>|<identity>`; observables in the STIX 2.1 SCO namespace
+`00abedb4-aa42-466c-9c01-fed23315a9b7` over their ID-contributing
+properties (RFC 8785 JSON). `created`, `modified`, `published` and
+`valid_from` are the case's creation time (observation times come from
+the evidence), so a re-export is byte-identical. A verifier checks the properties STIX
+2.1 requires for each object type present, id form and uniqueness,
+`spec_version` 2.1, timestamp form and order, `number_observed` range,
+and that every `*_ref`/`*_refs` resolves inside the bundle. A bundle
+without the identity above predates 0.2.2 and is not checked by default.
+
+### Production sets
+
+`export --production` writes a production set beside the package whose
+`production-manifest.json` lists every produced file with its SHA-256
+and size. From 0.2.2 the manifest is signed:
+`production-manifest.json.sig` is the detached signature format of
+`agentdfir sign --file` (`algorithm: ed25519`, `file_sha256`,
+`signature`, `public_key`), an ed25519 signature over the 32-byte
+SHA-256 of the manifest. A verifier (`agentdfir verify <production-dir>`
+or `adfir_verify.py`) checks every listed file, that nothing unlisted is
+present, and the signature (pinned with `--pubkey`). A missing signature
+is a problem only when a key is pinned; productions written before 0.2.2
+are unsigned. `production-manifest.csv` is a convenience copy and is not
+covered.
 
 ## Corroboration states
 
@@ -316,7 +465,14 @@ than `REPORTED`.
 `testdata/conformance/` holds one valid package and one invalid package
 per tamper case, each with an `expected.json` giving the verdict
 (`VERIFIED` or `FAILED`) and, where the case needs it, the public key to
-pin. A conforming verifier reaches the expected verdict on every one.
+pin. The `analysis-*` fixtures (`"kind": "analysis"`, spec 0.2.2) cover
+the analysis files: valid ones (including a pre-0.2.2 graph) and one per
+inconsistency (edited or dropped findings, an edited fingerprint, missing
+findings, a malformed manifest, a dangling edge, an edge with no source,
+a CORROBORATED edge with no witness, a correlated edge without its
+telemetry record, a STIX indicator with no pattern, a dangling STIX
+reference, a malformed STIX id); their sealed zones verify. A conforming
+verifier reaches the expected verdict on every one.
 `tools/adfir-verify/adfir_verify.py` is an independent verifier written
 from this document with the Python 3 standard library only (including a
 pure-Python ed25519 verifier); `agentdfir verify` and it are both tested
@@ -326,6 +482,7 @@ against the fixtures and against packages written by released versions.
 
 | Revision | Date | Changes |
 |---|---|---|
+| 0.2.2 | 2026-10-25 | Optional analysis files, no change to the sealed zone (0.2 and 0.2.1 packages verify unchanged): the reproducible analysis manifest and the `adfir-findings-sha256/1` findings fingerprint, with `verify --reproduce`; honeytokens recorded by count only; the action graph schema, its verifier rules and edge `limitations` (`adfir_spec` marks graphs that follow rule 4); the STIX 2.1 export profile with UUIDv5 ids; signed production manifests. JSON Schemas for the manifest and the graph; conformance fixtures for all three. |
 | 0.2.1 | 2026-10-25 | Clarifications, no format change: the `SHA256SUMS` line format and path rules; `status` and which records have stored content; chain `prev` excludes the LF, `seq` is the zero-based position, blank lines are breaks; verification step 2 covers `seals/` and an unlisted second manifest form, not only `raw/`; the signed message is the 32-byte digest; the `SEAL.sig` file format; a missing `SEAL.sig` is a problem when a key is pinned or the last round recorded a signer (and when `case.json` is unreadable); what a signature does and does not prove without a pinned key; optional round-history checks; conformance fixtures. Verifiers written to 0.2 that only checked `raw/` for unlisted files missed planted manifests and seals. |
 | 0.2 | 2026-09-19 | Append-only `manifest.jsonl`, storage codecs (`gzip`), chunked artifacts, rounds, archived seals and signatures, round integrity, transactional rounds. |
 | 0.1 | 2026-09-01 | Content-addressed `raw/`, `manifest.json`, two hash chains, `SHA256SUMS`, optional `SEAL.sig`. |

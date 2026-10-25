@@ -34,6 +34,7 @@ import (
 	"github.com/efij/AgentDFIR/v4/internal/normalize"
 	"github.com/efij/AgentDFIR/v4/internal/overlay"
 	"github.com/efij/AgentDFIR/v4/internal/provenance"
+	"github.com/efij/AgentDFIR/v4/internal/repro"
 	"github.com/efij/AgentDFIR/v4/internal/rulepack"
 	"github.com/efij/AgentDFIR/v4/internal/sanitize"
 	"github.com/efij/AgentDFIR/v4/internal/schema"
@@ -419,6 +420,7 @@ func Run(pkg string, o Options) (*Result, error) {
 	// Earlier second-witness results stay part of the case as long as the
 	// overlay they were computed on is still in use; a re-parse invalidates them.
 	corrPath := filepath.Join(detDir, "corroboration.json")
+	reusedCorr := -1 // findings carried forward with earlier correlation results; -1 = none reused
 	if len(o.EndpointLogs) == 0 {
 		if res.Renormalized {
 			_ = overlay.Remove(corrPath)
@@ -430,6 +432,7 @@ func Run(pkg string, o Options) (*Result, error) {
 			if json.Unmarshal(data, &prev) == nil {
 				res.Correlation = prev.Summary
 				findings = append(findings, prev.Findings...)
+				reusedCorr = len(prev.Findings)
 				o.logf("Endpoint correlation: reusing earlier results (%d finding(s))", len(prev.Findings))
 			}
 		}
@@ -649,6 +652,11 @@ func Run(pkg string, o Options) (*Result, error) {
 		"overlay_build": normalize.Status(pkg).BuildID, "inputs_digest": inputsDigest,
 		"options_digest": o.optionsDigest(),
 	})
+	// How to reproduce these findings and check them without trusting this
+	// binary: detections/analysis-manifest.json (see package repro).
+	if err := repro.Write(pkg, BuildManifest(pkg, o, packSrcs, findings, inputsDigest, reusedCorr, !res.Renormalized, time.Now())); err != nil {
+		res.StageNotes = append(res.StageNotes, "analysis manifest not written: "+err.Error())
+	}
 	// The explorer's offset index over the finished overlay, built here so
 	// opening a case is instant instead of re-parsing hundreds of MB of
 	// JSON. It is derived data: it sits in <pkg>/index/, outside the sealed
