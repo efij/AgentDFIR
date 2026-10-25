@@ -88,6 +88,8 @@ func surfaceText(s string) string {
 		return "a transcript"
 	case "mcp_inventory":
 		return "a configured MCP server"
+	case "extension_inventory":
+		return "an installed editor extension"
 	case "lockfile":
 		return "a lockfile (installed dependency)"
 	case "filesystem":

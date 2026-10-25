@@ -1,0 +1,8 @@
+{
+  "helpers": {
+    "source": {
+      "source": "git",
+      "url": "https://git.example.invalid/helpers.git"
+    }
+  }
+}

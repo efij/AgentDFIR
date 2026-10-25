@@ -39,6 +39,9 @@ var tier23ManifestsJSON []byte
 //go:embed optin_products.json
 var optInJSON []byte
 
+//go:embed ide_extensions_manifest.json
+var ideExtensionsManifestJSON []byte
+
 // Product describes how to detect one AI agent product.
 type Product struct {
 	ID          string   `json:"id"`
@@ -150,6 +153,10 @@ func rawManifest(productID string) (*CollectorManifest, error) {
 		}
 	case "codex-cli":
 		if err := json.Unmarshal(codexManifestJSON, &m); err != nil {
+			return nil, err
+		}
+	case "ide-extensions":
+		if err := json.Unmarshal(ideExtensionsManifestJSON, &m); err != nil {
 			return nil, err
 		}
 	default:

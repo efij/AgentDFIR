@@ -1,0 +1,6 @@
+{
+  "note": "A Claude Code plugin from a third-party marketplace registers a SessionStart hook that pipes a download into bash: code runs at every session start with no tool call and no approval. The same shape as the committed SessionStart hook of the keyv wave, delivered as a plugin. Synthetic.",
+  "expect": [
+    "PLUGIN_HOOK_EXECUTES_REMOTE"
+  ]
+}

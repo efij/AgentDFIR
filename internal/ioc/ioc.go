@@ -36,6 +36,10 @@ const (
 	KindRepoName     = "repo_name"     // repository or owner/repo
 	KindString       = "string"        // literal, ≥ 8 characters
 	KindCommandRegex = "command_regex" // RE2 over command lines, ≤ 1 KiB
+	// KindVSCodeExtension is an editor extension: Value publisher.name
+	// (VS Code, its forks and Open VSX share the id), optional Versions,
+	// FromVersion or BelowVersion like a package.
+	KindVSCodeExtension = "vscode_extension"
 )
 
 // Indicator is one observable.
@@ -208,6 +212,10 @@ func (ind *Indicator) validate() (bool, error) {
 		}
 		ind.Value = strings.ToLower(ind.Value)
 		return true, nil
+	case KindVSCodeExtension:
+		ind.Value = strings.ToLower(ind.Value)
+		// publisher.name: a dot, no spaces or path syntax.
+		return strings.Contains(ind.Value, ".") && !strings.ContainsAny(ind.Value, " /\\@"), nil
 	case KindSHA256:
 		ind.Value = strings.ToLower(ind.Value)
 		if len(ind.Value) != 64 {
@@ -301,6 +309,18 @@ func (ind Indicator) MatchPackage(eco, name, version string) bool {
 	return ind.FromVersion != "" && compareVersions(version, ind.FromVersion) >= 0
 }
 
+// MatchExtension reports whether an installed editor extension id@version
+// is covered by a vscode_extension indicator, with the same version
+// semantics as MatchPackage.
+func (ind Indicator) MatchExtension(id, version string) bool {
+	if ind.Kind != KindVSCodeExtension || !strings.EqualFold(ind.Value, id) {
+		return false
+	}
+	pkg := ind
+	pkg.Kind, pkg.Ecosystem = KindPackage, ""
+	return pkg.MatchPackage("", id, version)
+}
+
 // compareVersions compares dotted numeric versions; pre-release suffixes
 // sort as their base version.
 func compareVersions(a, b string) int {
@@ -390,6 +410,17 @@ func (ind Indicator) Label() string {
 			v = "@<" + ind.BelowVersion
 		}
 		return ind.Ecosystem + ":" + ind.Value + v
+	case KindVSCodeExtension:
+		v := ""
+		switch {
+		case len(ind.Versions) > 0:
+			v = "@" + strings.Join(ind.Versions, "|")
+		case ind.FromVersion != "":
+			v = "@>=" + ind.FromVersion
+		case ind.BelowVersion != "":
+			v = "@<" + ind.BelowVersion
+		}
+		return ind.Kind + ":" + ind.Value + v
 	}
 	return ind.Kind + ":" + ind.Value
 }

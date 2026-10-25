@@ -1,0 +1,1 @@
+{"name": "i18n-pack", "publisher": "example-pub", "version": "3.1.0", "main": "./dist/extension.js", "activationEvents": ["onCommand:i18n.open"]}

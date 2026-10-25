@@ -1,0 +1,525 @@
+{
+  "product": "ide-extensions",
+  "entries": [
+    {
+      "id": "ide.vscode.registry",
+      "paths": [
+        "${PROFILE_ROOT}/.vscode/extensions/extensions.json",
+        "${PROFILE_ROOT}/.vscode/extensions/.obsolete"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    },
+    {
+      "id": "ide.vscode.manifests",
+      "paths": [
+        "${PROFILE_ROOT}/.vscode/extensions/*/package.json"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    },
+    {
+      "id": "ide.vscode.entry",
+      "paths": [
+        "${PROFILE_ROOT}/.vscode/extensions/*/extension.js",
+        "${PROFILE_ROOT}/.vscode/extensions/*/main.js",
+        "${PROFILE_ROOT}/.vscode/extensions/*/index.js",
+        "${PROFILE_ROOT}/.vscode/extensions/*/out/extension.js",
+        "${PROFILE_ROOT}/.vscode/extensions/*/out/main.js",
+        "${PROFILE_ROOT}/.vscode/extensions/*/out/index.js",
+        "${PROFILE_ROOT}/.vscode/extensions/*/out/src/extension.js",
+        "${PROFILE_ROOT}/.vscode/extensions/*/dist/extension.js",
+        "${PROFILE_ROOT}/.vscode/extensions/*/dist/main.js",
+        "${PROFILE_ROOT}/.vscode/extensions/*/dist/index.js",
+        "${PROFILE_ROOT}/.vscode/extensions/*/dist/node/extension.js",
+        "${PROFILE_ROOT}/.vscode/extensions/*/dist/web/extension.js",
+        "${PROFILE_ROOT}/.vscode/extensions/*/lib/extension.js",
+        "${PROFILE_ROOT}/.vscode/extensions/*/build/extension.js",
+        "${PROFILE_ROOT}/.vscode/extensions/*/extension.cjs",
+        "${PROFILE_ROOT}/.vscode/extensions/*/dist/extension.cjs"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    },
+    {
+      "id": "ide.vscode_insiders.registry",
+      "paths": [
+        "${PROFILE_ROOT}/.vscode-insiders/extensions/extensions.json",
+        "${PROFILE_ROOT}/.vscode-insiders/extensions/.obsolete"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    },
+    {
+      "id": "ide.vscode_insiders.manifests",
+      "paths": [
+        "${PROFILE_ROOT}/.vscode-insiders/extensions/*/package.json"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    },
+    {
+      "id": "ide.vscode_insiders.entry",
+      "paths": [
+        "${PROFILE_ROOT}/.vscode-insiders/extensions/*/extension.js",
+        "${PROFILE_ROOT}/.vscode-insiders/extensions/*/main.js",
+        "${PROFILE_ROOT}/.vscode-insiders/extensions/*/index.js",
+        "${PROFILE_ROOT}/.vscode-insiders/extensions/*/out/extension.js",
+        "${PROFILE_ROOT}/.vscode-insiders/extensions/*/out/main.js",
+        "${PROFILE_ROOT}/.vscode-insiders/extensions/*/out/index.js",
+        "${PROFILE_ROOT}/.vscode-insiders/extensions/*/out/src/extension.js",
+        "${PROFILE_ROOT}/.vscode-insiders/extensions/*/dist/extension.js",
+        "${PROFILE_ROOT}/.vscode-insiders/extensions/*/dist/main.js",
+        "${PROFILE_ROOT}/.vscode-insiders/extensions/*/dist/index.js",
+        "${PROFILE_ROOT}/.vscode-insiders/extensions/*/dist/node/extension.js",
+        "${PROFILE_ROOT}/.vscode-insiders/extensions/*/dist/web/extension.js",
+        "${PROFILE_ROOT}/.vscode-insiders/extensions/*/lib/extension.js",
+        "${PROFILE_ROOT}/.vscode-insiders/extensions/*/build/extension.js",
+        "${PROFILE_ROOT}/.vscode-insiders/extensions/*/extension.cjs",
+        "${PROFILE_ROOT}/.vscode-insiders/extensions/*/dist/extension.cjs"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    },
+    {
+      "id": "ide.vscode_server.registry",
+      "paths": [
+        "${PROFILE_ROOT}/.vscode-server/extensions/extensions.json",
+        "${PROFILE_ROOT}/.vscode-server/extensions/.obsolete"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    },
+    {
+      "id": "ide.vscode_server.manifests",
+      "paths": [
+        "${PROFILE_ROOT}/.vscode-server/extensions/*/package.json"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    },
+    {
+      "id": "ide.vscode_server.entry",
+      "paths": [
+        "${PROFILE_ROOT}/.vscode-server/extensions/*/extension.js",
+        "${PROFILE_ROOT}/.vscode-server/extensions/*/main.js",
+        "${PROFILE_ROOT}/.vscode-server/extensions/*/index.js",
+        "${PROFILE_ROOT}/.vscode-server/extensions/*/out/extension.js",
+        "${PROFILE_ROOT}/.vscode-server/extensions/*/out/main.js",
+        "${PROFILE_ROOT}/.vscode-server/extensions/*/out/index.js",
+        "${PROFILE_ROOT}/.vscode-server/extensions/*/out/src/extension.js",
+        "${PROFILE_ROOT}/.vscode-server/extensions/*/dist/extension.js",
+        "${PROFILE_ROOT}/.vscode-server/extensions/*/dist/main.js",
+        "${PROFILE_ROOT}/.vscode-server/extensions/*/dist/index.js",
+        "${PROFILE_ROOT}/.vscode-server/extensions/*/dist/node/extension.js",
+        "${PROFILE_ROOT}/.vscode-server/extensions/*/dist/web/extension.js",
+        "${PROFILE_ROOT}/.vscode-server/extensions/*/lib/extension.js",
+        "${PROFILE_ROOT}/.vscode-server/extensions/*/build/extension.js",
+        "${PROFILE_ROOT}/.vscode-server/extensions/*/extension.cjs",
+        "${PROFILE_ROOT}/.vscode-server/extensions/*/dist/extension.cjs"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    },
+    {
+      "id": "ide.vscode_server_insiders.registry",
+      "paths": [
+        "${PROFILE_ROOT}/.vscode-server-insiders/extensions/extensions.json",
+        "${PROFILE_ROOT}/.vscode-server-insiders/extensions/.obsolete"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    },
+    {
+      "id": "ide.vscode_server_insiders.manifests",
+      "paths": [
+        "${PROFILE_ROOT}/.vscode-server-insiders/extensions/*/package.json"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    },
+    {
+      "id": "ide.vscode_server_insiders.entry",
+      "paths": [
+        "${PROFILE_ROOT}/.vscode-server-insiders/extensions/*/extension.js",
+        "${PROFILE_ROOT}/.vscode-server-insiders/extensions/*/main.js",
+        "${PROFILE_ROOT}/.vscode-server-insiders/extensions/*/index.js",
+        "${PROFILE_ROOT}/.vscode-server-insiders/extensions/*/out/extension.js",
+        "${PROFILE_ROOT}/.vscode-server-insiders/extensions/*/out/main.js",
+        "${PROFILE_ROOT}/.vscode-server-insiders/extensions/*/out/index.js",
+        "${PROFILE_ROOT}/.vscode-server-insiders/extensions/*/out/src/extension.js",
+        "${PROFILE_ROOT}/.vscode-server-insiders/extensions/*/dist/extension.js",
+        "${PROFILE_ROOT}/.vscode-server-insiders/extensions/*/dist/main.js",
+        "${PROFILE_ROOT}/.vscode-server-insiders/extensions/*/dist/index.js",
+        "${PROFILE_ROOT}/.vscode-server-insiders/extensions/*/dist/node/extension.js",
+        "${PROFILE_ROOT}/.vscode-server-insiders/extensions/*/dist/web/extension.js",
+        "${PROFILE_ROOT}/.vscode-server-insiders/extensions/*/lib/extension.js",
+        "${PROFILE_ROOT}/.vscode-server-insiders/extensions/*/build/extension.js",
+        "${PROFILE_ROOT}/.vscode-server-insiders/extensions/*/extension.cjs",
+        "${PROFILE_ROOT}/.vscode-server-insiders/extensions/*/dist/extension.cjs"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    },
+    {
+      "id": "ide.vscode_oss.registry",
+      "paths": [
+        "${PROFILE_ROOT}/.vscode-oss/extensions/extensions.json",
+        "${PROFILE_ROOT}/.vscode-oss/extensions/.obsolete"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    },
+    {
+      "id": "ide.vscode_oss.manifests",
+      "paths": [
+        "${PROFILE_ROOT}/.vscode-oss/extensions/*/package.json"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    },
+    {
+      "id": "ide.vscode_oss.entry",
+      "paths": [
+        "${PROFILE_ROOT}/.vscode-oss/extensions/*/extension.js",
+        "${PROFILE_ROOT}/.vscode-oss/extensions/*/main.js",
+        "${PROFILE_ROOT}/.vscode-oss/extensions/*/index.js",
+        "${PROFILE_ROOT}/.vscode-oss/extensions/*/out/extension.js",
+        "${PROFILE_ROOT}/.vscode-oss/extensions/*/out/main.js",
+        "${PROFILE_ROOT}/.vscode-oss/extensions/*/out/index.js",
+        "${PROFILE_ROOT}/.vscode-oss/extensions/*/out/src/extension.js",
+        "${PROFILE_ROOT}/.vscode-oss/extensions/*/dist/extension.js",
+        "${PROFILE_ROOT}/.vscode-oss/extensions/*/dist/main.js",
+        "${PROFILE_ROOT}/.vscode-oss/extensions/*/dist/index.js",
+        "${PROFILE_ROOT}/.vscode-oss/extensions/*/dist/node/extension.js",
+        "${PROFILE_ROOT}/.vscode-oss/extensions/*/dist/web/extension.js",
+        "${PROFILE_ROOT}/.vscode-oss/extensions/*/lib/extension.js",
+        "${PROFILE_ROOT}/.vscode-oss/extensions/*/build/extension.js",
+        "${PROFILE_ROOT}/.vscode-oss/extensions/*/extension.cjs",
+        "${PROFILE_ROOT}/.vscode-oss/extensions/*/dist/extension.cjs"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    },
+    {
+      "id": "ide.vscodium_server.registry",
+      "paths": [
+        "${PROFILE_ROOT}/.vscodium-server/extensions/extensions.json",
+        "${PROFILE_ROOT}/.vscodium-server/extensions/.obsolete"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    },
+    {
+      "id": "ide.vscodium_server.manifests",
+      "paths": [
+        "${PROFILE_ROOT}/.vscodium-server/extensions/*/package.json"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    },
+    {
+      "id": "ide.vscodium_server.entry",
+      "paths": [
+        "${PROFILE_ROOT}/.vscodium-server/extensions/*/extension.js",
+        "${PROFILE_ROOT}/.vscodium-server/extensions/*/main.js",
+        "${PROFILE_ROOT}/.vscodium-server/extensions/*/index.js",
+        "${PROFILE_ROOT}/.vscodium-server/extensions/*/out/extension.js",
+        "${PROFILE_ROOT}/.vscodium-server/extensions/*/out/main.js",
+        "${PROFILE_ROOT}/.vscodium-server/extensions/*/out/index.js",
+        "${PROFILE_ROOT}/.vscodium-server/extensions/*/out/src/extension.js",
+        "${PROFILE_ROOT}/.vscodium-server/extensions/*/dist/extension.js",
+        "${PROFILE_ROOT}/.vscodium-server/extensions/*/dist/main.js",
+        "${PROFILE_ROOT}/.vscodium-server/extensions/*/dist/index.js",
+        "${PROFILE_ROOT}/.vscodium-server/extensions/*/dist/node/extension.js",
+        "${PROFILE_ROOT}/.vscodium-server/extensions/*/dist/web/extension.js",
+        "${PROFILE_ROOT}/.vscodium-server/extensions/*/lib/extension.js",
+        "${PROFILE_ROOT}/.vscodium-server/extensions/*/build/extension.js",
+        "${PROFILE_ROOT}/.vscodium-server/extensions/*/extension.cjs",
+        "${PROFILE_ROOT}/.vscodium-server/extensions/*/dist/extension.cjs"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    },
+    {
+      "id": "ide.cursor.registry",
+      "paths": [
+        "${PROFILE_ROOT}/.cursor/extensions/extensions.json",
+        "${PROFILE_ROOT}/.cursor/extensions/.obsolete"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    },
+    {
+      "id": "ide.cursor.manifests",
+      "paths": [
+        "${PROFILE_ROOT}/.cursor/extensions/*/package.json"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    },
+    {
+      "id": "ide.cursor.entry",
+      "paths": [
+        "${PROFILE_ROOT}/.cursor/extensions/*/extension.js",
+        "${PROFILE_ROOT}/.cursor/extensions/*/main.js",
+        "${PROFILE_ROOT}/.cursor/extensions/*/index.js",
+        "${PROFILE_ROOT}/.cursor/extensions/*/out/extension.js",
+        "${PROFILE_ROOT}/.cursor/extensions/*/out/main.js",
+        "${PROFILE_ROOT}/.cursor/extensions/*/out/index.js",
+        "${PROFILE_ROOT}/.cursor/extensions/*/out/src/extension.js",
+        "${PROFILE_ROOT}/.cursor/extensions/*/dist/extension.js",
+        "${PROFILE_ROOT}/.cursor/extensions/*/dist/main.js",
+        "${PROFILE_ROOT}/.cursor/extensions/*/dist/index.js",
+        "${PROFILE_ROOT}/.cursor/extensions/*/dist/node/extension.js",
+        "${PROFILE_ROOT}/.cursor/extensions/*/dist/web/extension.js",
+        "${PROFILE_ROOT}/.cursor/extensions/*/lib/extension.js",
+        "${PROFILE_ROOT}/.cursor/extensions/*/build/extension.js",
+        "${PROFILE_ROOT}/.cursor/extensions/*/extension.cjs",
+        "${PROFILE_ROOT}/.cursor/extensions/*/dist/extension.cjs"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    },
+    {
+      "id": "ide.cursor_server.registry",
+      "paths": [
+        "${PROFILE_ROOT}/.cursor-server/extensions/extensions.json",
+        "${PROFILE_ROOT}/.cursor-server/extensions/.obsolete"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    },
+    {
+      "id": "ide.cursor_server.manifests",
+      "paths": [
+        "${PROFILE_ROOT}/.cursor-server/extensions/*/package.json"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    },
+    {
+      "id": "ide.cursor_server.entry",
+      "paths": [
+        "${PROFILE_ROOT}/.cursor-server/extensions/*/extension.js",
+        "${PROFILE_ROOT}/.cursor-server/extensions/*/main.js",
+        "${PROFILE_ROOT}/.cursor-server/extensions/*/index.js",
+        "${PROFILE_ROOT}/.cursor-server/extensions/*/out/extension.js",
+        "${PROFILE_ROOT}/.cursor-server/extensions/*/out/main.js",
+        "${PROFILE_ROOT}/.cursor-server/extensions/*/out/index.js",
+        "${PROFILE_ROOT}/.cursor-server/extensions/*/out/src/extension.js",
+        "${PROFILE_ROOT}/.cursor-server/extensions/*/dist/extension.js",
+        "${PROFILE_ROOT}/.cursor-server/extensions/*/dist/main.js",
+        "${PROFILE_ROOT}/.cursor-server/extensions/*/dist/index.js",
+        "${PROFILE_ROOT}/.cursor-server/extensions/*/dist/node/extension.js",
+        "${PROFILE_ROOT}/.cursor-server/extensions/*/dist/web/extension.js",
+        "${PROFILE_ROOT}/.cursor-server/extensions/*/lib/extension.js",
+        "${PROFILE_ROOT}/.cursor-server/extensions/*/build/extension.js",
+        "${PROFILE_ROOT}/.cursor-server/extensions/*/extension.cjs",
+        "${PROFILE_ROOT}/.cursor-server/extensions/*/dist/extension.cjs"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    },
+    {
+      "id": "ide.windsurf.registry",
+      "paths": [
+        "${PROFILE_ROOT}/.windsurf/extensions/extensions.json",
+        "${PROFILE_ROOT}/.windsurf/extensions/.obsolete"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    },
+    {
+      "id": "ide.windsurf.manifests",
+      "paths": [
+        "${PROFILE_ROOT}/.windsurf/extensions/*/package.json"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    },
+    {
+      "id": "ide.windsurf.entry",
+      "paths": [
+        "${PROFILE_ROOT}/.windsurf/extensions/*/extension.js",
+        "${PROFILE_ROOT}/.windsurf/extensions/*/main.js",
+        "${PROFILE_ROOT}/.windsurf/extensions/*/index.js",
+        "${PROFILE_ROOT}/.windsurf/extensions/*/out/extension.js",
+        "${PROFILE_ROOT}/.windsurf/extensions/*/out/main.js",
+        "${PROFILE_ROOT}/.windsurf/extensions/*/out/index.js",
+        "${PROFILE_ROOT}/.windsurf/extensions/*/out/src/extension.js",
+        "${PROFILE_ROOT}/.windsurf/extensions/*/dist/extension.js",
+        "${PROFILE_ROOT}/.windsurf/extensions/*/dist/main.js",
+        "${PROFILE_ROOT}/.windsurf/extensions/*/dist/index.js",
+        "${PROFILE_ROOT}/.windsurf/extensions/*/dist/node/extension.js",
+        "${PROFILE_ROOT}/.windsurf/extensions/*/dist/web/extension.js",
+        "${PROFILE_ROOT}/.windsurf/extensions/*/lib/extension.js",
+        "${PROFILE_ROOT}/.windsurf/extensions/*/build/extension.js",
+        "${PROFILE_ROOT}/.windsurf/extensions/*/extension.cjs",
+        "${PROFILE_ROOT}/.windsurf/extensions/*/dist/extension.cjs"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    },
+    {
+      "id": "ide.windsurf_server.registry",
+      "paths": [
+        "${PROFILE_ROOT}/.windsurf-server/extensions/extensions.json",
+        "${PROFILE_ROOT}/.windsurf-server/extensions/.obsolete"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    },
+    {
+      "id": "ide.windsurf_server.manifests",
+      "paths": [
+        "${PROFILE_ROOT}/.windsurf-server/extensions/*/package.json"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    },
+    {
+      "id": "ide.windsurf_server.entry",
+      "paths": [
+        "${PROFILE_ROOT}/.windsurf-server/extensions/*/extension.js",
+        "${PROFILE_ROOT}/.windsurf-server/extensions/*/main.js",
+        "${PROFILE_ROOT}/.windsurf-server/extensions/*/index.js",
+        "${PROFILE_ROOT}/.windsurf-server/extensions/*/out/extension.js",
+        "${PROFILE_ROOT}/.windsurf-server/extensions/*/out/main.js",
+        "${PROFILE_ROOT}/.windsurf-server/extensions/*/out/index.js",
+        "${PROFILE_ROOT}/.windsurf-server/extensions/*/out/src/extension.js",
+        "${PROFILE_ROOT}/.windsurf-server/extensions/*/dist/extension.js",
+        "${PROFILE_ROOT}/.windsurf-server/extensions/*/dist/main.js",
+        "${PROFILE_ROOT}/.windsurf-server/extensions/*/dist/index.js",
+        "${PROFILE_ROOT}/.windsurf-server/extensions/*/dist/node/extension.js",
+        "${PROFILE_ROOT}/.windsurf-server/extensions/*/dist/web/extension.js",
+        "${PROFILE_ROOT}/.windsurf-server/extensions/*/lib/extension.js",
+        "${PROFILE_ROOT}/.windsurf-server/extensions/*/build/extension.js",
+        "${PROFILE_ROOT}/.windsurf-server/extensions/*/extension.cjs",
+        "${PROFILE_ROOT}/.windsurf-server/extensions/*/dist/extension.cjs"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    },
+    {
+      "id": "ide.kiro.registry",
+      "paths": [
+        "${PROFILE_ROOT}/.kiro/extensions/extensions.json",
+        "${PROFILE_ROOT}/.kiro/extensions/.obsolete"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    },
+    {
+      "id": "ide.kiro.manifests",
+      "paths": [
+        "${PROFILE_ROOT}/.kiro/extensions/*/package.json"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    },
+    {
+      "id": "ide.kiro.entry",
+      "paths": [
+        "${PROFILE_ROOT}/.kiro/extensions/*/extension.js",
+        "${PROFILE_ROOT}/.kiro/extensions/*/main.js",
+        "${PROFILE_ROOT}/.kiro/extensions/*/index.js",
+        "${PROFILE_ROOT}/.kiro/extensions/*/out/extension.js",
+        "${PROFILE_ROOT}/.kiro/extensions/*/out/main.js",
+        "${PROFILE_ROOT}/.kiro/extensions/*/out/index.js",
+        "${PROFILE_ROOT}/.kiro/extensions/*/out/src/extension.js",
+        "${PROFILE_ROOT}/.kiro/extensions/*/dist/extension.js",
+        "${PROFILE_ROOT}/.kiro/extensions/*/dist/main.js",
+        "${PROFILE_ROOT}/.kiro/extensions/*/dist/index.js",
+        "${PROFILE_ROOT}/.kiro/extensions/*/dist/node/extension.js",
+        "${PROFILE_ROOT}/.kiro/extensions/*/dist/web/extension.js",
+        "${PROFILE_ROOT}/.kiro/extensions/*/lib/extension.js",
+        "${PROFILE_ROOT}/.kiro/extensions/*/build/extension.js",
+        "${PROFILE_ROOT}/.kiro/extensions/*/extension.cjs",
+        "${PROFILE_ROOT}/.kiro/extensions/*/dist/extension.cjs"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    },
+    {
+      "id": "ide.trae.registry",
+      "paths": [
+        "${PROFILE_ROOT}/.trae/extensions/extensions.json",
+        "${PROFILE_ROOT}/.trae/extensions/.obsolete"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    },
+    {
+      "id": "ide.trae.manifests",
+      "paths": [
+        "${PROFILE_ROOT}/.trae/extensions/*/package.json"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    },
+    {
+      "id": "ide.trae.entry",
+      "paths": [
+        "${PROFILE_ROOT}/.trae/extensions/*/extension.js",
+        "${PROFILE_ROOT}/.trae/extensions/*/main.js",
+        "${PROFILE_ROOT}/.trae/extensions/*/index.js",
+        "${PROFILE_ROOT}/.trae/extensions/*/out/extension.js",
+        "${PROFILE_ROOT}/.trae/extensions/*/out/main.js",
+        "${PROFILE_ROOT}/.trae/extensions/*/out/index.js",
+        "${PROFILE_ROOT}/.trae/extensions/*/out/src/extension.js",
+        "${PROFILE_ROOT}/.trae/extensions/*/dist/extension.js",
+        "${PROFILE_ROOT}/.trae/extensions/*/dist/main.js",
+        "${PROFILE_ROOT}/.trae/extensions/*/dist/index.js",
+        "${PROFILE_ROOT}/.trae/extensions/*/dist/node/extension.js",
+        "${PROFILE_ROOT}/.trae/extensions/*/dist/web/extension.js",
+        "${PROFILE_ROOT}/.trae/extensions/*/lib/extension.js",
+        "${PROFILE_ROOT}/.trae/extensions/*/build/extension.js",
+        "${PROFILE_ROOT}/.trae/extensions/*/extension.cjs",
+        "${PROFILE_ROOT}/.trae/extensions/*/dist/extension.cjs"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    },
+    {
+      "id": "ide.positron.registry",
+      "paths": [
+        "${PROFILE_ROOT}/.positron/extensions/extensions.json",
+        "${PROFILE_ROOT}/.positron/extensions/.obsolete"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    },
+    {
+      "id": "ide.positron.manifests",
+      "paths": [
+        "${PROFILE_ROOT}/.positron/extensions/*/package.json"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    },
+    {
+      "id": "ide.positron.entry",
+      "paths": [
+        "${PROFILE_ROOT}/.positron/extensions/*/extension.js",
+        "${PROFILE_ROOT}/.positron/extensions/*/main.js",
+        "${PROFILE_ROOT}/.positron/extensions/*/index.js",
+        "${PROFILE_ROOT}/.positron/extensions/*/out/extension.js",
+        "${PROFILE_ROOT}/.positron/extensions/*/out/main.js",
+        "${PROFILE_ROOT}/.positron/extensions/*/out/index.js",
+        "${PROFILE_ROOT}/.positron/extensions/*/out/src/extension.js",
+        "${PROFILE_ROOT}/.positron/extensions/*/dist/extension.js",
+        "${PROFILE_ROOT}/.positron/extensions/*/dist/main.js",
+        "${PROFILE_ROOT}/.positron/extensions/*/dist/index.js",
+        "${PROFILE_ROOT}/.positron/extensions/*/dist/node/extension.js",
+        "${PROFILE_ROOT}/.positron/extensions/*/dist/web/extension.js",
+        "${PROFILE_ROOT}/.positron/extensions/*/lib/extension.js",
+        "${PROFILE_ROOT}/.positron/extensions/*/build/extension.js",
+        "${PROFILE_ROOT}/.positron/extensions/*/extension.cjs",
+        "${PROFILE_ROOT}/.positron/extensions/*/dist/extension.cjs"
+      ],
+      "category": "product_state",
+      "sensitivity": "low"
+    }
+  ]
+}

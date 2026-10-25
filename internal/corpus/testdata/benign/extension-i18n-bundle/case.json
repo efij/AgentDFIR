@@ -1,0 +1,4 @@
+{
+  "note": "A localized editor extension: CJK and Arabic UI strings, an isolated right-to-left mark, emoji with presentation selectors, icon-font glyphs in strings and a globalThis shim through new Function. Lots of non-ASCII, none of it a run of invisible characters and none of it a loader.",
+  "allow": {}
+}

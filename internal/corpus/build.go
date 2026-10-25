@@ -57,6 +57,17 @@ func collectProducts(b *casepkg.Builder, c Case) error {
 			return err
 		}
 	}
+	// IDE extensions, for the cases that carry an editor profile.
+	for _, pid := range c.ProductIDs() {
+		if pid == "ide-extensions" {
+			return nil
+		}
+	}
+	if ext, err := products.ManifestAllPlatforms("ide-extensions"); err == nil && ext != nil {
+		if _, err := collector.Run(b, ext, collector.Options{ProfileRoot: c.Dir, SystemRoot: c.Dir, Product: "ide-extensions"}); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
