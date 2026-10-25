@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -284,4 +285,20 @@ func cmdVerifyProduction(dir, pubkey string) int {
 		fmt.Printf("  - %s\n", sanitize.Terminal(p))
 	}
 	return 1
+}
+
+// parseInterleaved parses flags that may come before, between or after
+// positional arguments, and returns the positionals in order.
+func parseInterleaved(fs *flag.FlagSet, args []string) ([]string, error) {
+	var pos []string
+	for {
+		if err := fs.Parse(args); err != nil {
+			return nil, err
+		}
+		if fs.NArg() == 0 {
+			return pos, nil
+		}
+		pos = append(pos, fs.Arg(0))
+		args = fs.Args()[1:]
+	}
 }

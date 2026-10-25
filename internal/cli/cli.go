@@ -512,15 +512,12 @@ func cmdVerify(args []string) int {
 	manifest := fs.String("manifest", "", "with --reproduce: the analysis manifest to reproduce (default <pkg>/detections/analysis-manifest.json)")
 	honey := fs.String("honeytokens", "", "with --reproduce: the honeytoken file the analysis used")
 	asJSON := fs.Bool("json", false, "with --reproduce: print the comparison as JSON")
-	pos, rest := splitPositional(args)
-	if err := fs.Parse(rest); err != nil || (pos == "" && fs.NArg() != 1) || (pos != "" && fs.NArg() != 0) {
+	positional, err := parseInterleaved(fs, args)
+	if err != nil || len(positional) != 1 {
 		fmt.Fprintln(os.Stderr, "usage: agentdfir verify <package-dir|production-dir> [--pubkey <hex>]\n       agentdfir verify --reproduce <package-dir> [--manifest file] [--honeytokens file] [--json]")
 		return 2
 	}
-	pkgArg := pos
-	if pkgArg == "" {
-		pkgArg = fs.Arg(0)
-	}
+	pkgArg := positional[0]
 	if *reproduce {
 		return cmdVerifyReproduce(pkgArg, *manifest, *honey, *asJSON)
 	}
