@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
+	"github.com/efij/AgentDFIR/v4/internal/export"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -49,6 +50,7 @@ COLLECT — where the evidence is
   agentdfir collect --image <E01|raw|.001|vhd|vhdx|vmdk>                        forensic disk image, read-only (NTFS, ext2/3/4, FAT, exFAT; docs/disk-images.md)
       --include-browser   any mode above, and "run": also take browser history (opt-in; only AI-service visits are parsed)
   agentdfir verify <pkg>                                                       prove the package was not modified
+  agentdfir verify --reproduce <pkg> [--manifest f]                            re-run the recorded analysis, compare findings fingerprints
   agentdfir compact <pkg>                                                      delete the regenerable analysis overlay (analyze rebuilds it)
   agentdfir store status | store gc                                            shared evidence store: what it holds, reclaim what no case uses
 
@@ -506,11 +508,25 @@ func cmdCollect(args []string) int {
 func cmdVerify(args []string) int {
 	fs := flag.NewFlagSet("verify", flag.ContinueOnError)
 	pubkey := fs.String("pubkey", "", "expected signer public key (hex) to pin")
-	if err := fs.Parse(args); err != nil || fs.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: agentdfir verify <package-dir> [--pubkey <hex>]")
+	reproduce := fs.Bool("reproduce", false, "re-run the recorded analysis from the sealed evidence and compare findings fingerprints")
+	manifest := fs.String("manifest", "", "with --reproduce: the analysis manifest to reproduce (default <pkg>/detections/analysis-manifest.json)")
+	honey := fs.String("honeytokens", "", "with --reproduce: the honeytoken file the analysis used")
+	asJSON := fs.Bool("json", false, "with --reproduce: print the comparison as JSON")
+	pos, rest := splitPositional(args)
+	if err := fs.Parse(rest); err != nil || (pos == "" && fs.NArg() != 1) || (pos != "" && fs.NArg() != 0) {
+		fmt.Fprintln(os.Stderr, "usage: agentdfir verify <package-dir|production-dir> [--pubkey <hex>]\n       agentdfir verify --reproduce <package-dir> [--manifest file] [--honeytokens file] [--json]")
 		return 2
 	}
-	pkgArg := fs.Arg(0)
+	pkgArg := pos
+	if pkgArg == "" {
+		pkgArg = fs.Arg(0)
+	}
+	if *reproduce {
+		return cmdVerifyReproduce(pkgArg, *manifest, *honey, *asJSON)
+	}
+	if export.IsProduction(pkgArg) {
+		return cmdVerifyProduction(pkgArg, *pubkey)
+	}
 	chk, err := integrity.VerifyPackage(pkgArg, *pubkey)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
@@ -539,9 +555,14 @@ func cmdVerify(args []string) int {
 	default:
 		fmt.Printf("Signature:          INVALID — %s\n", sanitize.Terminal(sigRes.Reason))
 	}
-	if len(res.Problems) == 0 {
+	overlayProblems := printOverlayCheck(pkgArg)
+	if len(res.Problems) == 0 && overlayProblems == 0 {
 		fmt.Println("Result:             VERIFIED — no modifications detected")
 		return 0
+	}
+	if len(res.Problems) == 0 {
+		fmt.Println("Result:             FAILED — the sealed evidence verifies, but the analysis files are inconsistent (listed above)")
+		return 1
 	}
 	fmt.Printf("Result:             FAILED — %d problem(s):\n", len(res.Problems))
 	for _, p := range res.Problems {
