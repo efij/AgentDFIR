@@ -34,20 +34,23 @@ var fixRules = map[string]string{
 // noneRules describe the evidence, not the agent. No config removes an
 // orphan from a transcript that already exists.
 var noneRules = map[string]string{
-	"ORPHAN_AGENT":                  "Collect the parent session too (agentdfir run collects every agent on the machine); orphans are often a parent transcript that was never copied.",
-	"AGENT_IDENTITY_MISMATCH":       "Collect every agent profile on the machine so the identity can be matched.",
-	"UNEXPECTED_AGENT_RESUME":       "Review the session; resuming is normal, resuming someone else's is not.",
-	"TIMESTOMP_INDICATOR":           "Add endpoint logs (--endpoint) so file times have an independent witness.",
-	"MCP_GATEWAY_BACKEND_ERRORS":    "Check the MCP gateway's backend health; this is about the gateway, not the agent.",
-	"MCP_GATEWAY_CONTRADICTED_CALL": "Compare the gateway log with the transcript line; one of them is wrong.",
-	"MCP_GATEWAY_UNLOGGED_CALL":     "Route every MCP server through the gateway so no call goes unrecorded.",
-	"MCP_GATEWAY_DENIED_CALL":       "The gateway already blocked it. Review why the agent tried.",
-	"ENDPOINT_CONTRADICTED_COMMAND": "The OS did not see what the transcript claims. Treat the transcript line as unreliable.",
-	"UNLOGGED_AGENT_ACTIVITY":       "The OS saw activity the agent never logged. Review the process tree around that time.",
-	"UNLOGGED_AGENT_NETWORK":        "The OS saw a connection the agent never logged. Check the destination.",
-	"MCP_SERVER_REMOVED":            "Informational: a server was removed since the baseline.",
-	"AGENT_SPAWN_EXPLOSION":         "Tuning, not a fix: many helper agents is how some people work.",
-	"UNEXPECTED_TASK":               "Tuning, not a fix: nested helpers are normal for large tasks.",
+	"ORPHAN_AGENT":                       "Collect the parent session too (agentdfir run collects every agent on the machine); orphans are often a parent transcript that was never copied.",
+	"AGENT_IDENTITY_MISMATCH":            "Collect every agent profile on the machine so the identity can be matched.",
+	"UNEXPECTED_AGENT_RESUME":            "Review the session; resuming is normal, resuming someone else's is not.",
+	"TIMESTOMP_INDICATOR":                "Add endpoint logs (--endpoint) so file times have an independent witness.",
+	"MCP_GATEWAY_BACKEND_ERRORS":         "Check the MCP gateway's backend health; this is about the gateway, not the agent.",
+	"MCP_GATEWAY_CONTRADICTED_CALL":      "Compare the gateway log with the transcript line; one of them is wrong.",
+	"MCP_GATEWAY_UNLOGGED_CALL":          "Route every MCP server through the gateway so no call goes unrecorded.",
+	"MCP_GATEWAY_DENIED_CALL":            "The gateway already blocked it. Review why the agent tried.",
+	"ENDPOINT_CONTRADICTED_COMMAND":      "The OS did not see what the transcript claims. Treat the transcript line as unreliable.",
+	"UNLOGGED_AGENT_ACTIVITY":            "The OS saw activity the agent never logged. Review the process tree around that time.",
+	"UNLOGGED_AGENT_NETWORK":             "The OS saw a connection the agent never logged. Check the destination.",
+	"MACOS_LAUNCHD_PERSISTENCE_BY_AGENT": "Inspect the plist's Program/ProgramArguments, then launchctl bootout and remove it if nobody asked for it.",
+	"MACOS_TCC_MODIFIED_BY_AGENT":        "Review System Settings > Privacy & Security and revoke the grant (tccutil reset <service> <bundle-id>) if unexpected.",
+	"MACOS_KEYCHAIN_ACCESS_BY_AGENT":     "Rotate the credential that was read; it may have left the machine.",
+	"MCP_SERVER_REMOVED":                 "Informational: a server was removed since the baseline.",
+	"AGENT_SPAWN_EXPLOSION":              "Tuning, not a fix: many helper agents is how some people work.",
+	"UNEXPECTED_TASK":                    "Tuning, not a fix: nested helpers are normal for large tasks.",
 }
 
 // manualSteps are the human actions for past behaviour. Rules without an
