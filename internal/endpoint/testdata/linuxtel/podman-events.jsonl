@@ -1,0 +1,5 @@
+{"ID": "551e161c47d8ff0eb665438a7bcd5b4e0e6d1f1a2b3c4d5e6f708192a3b4c5d6", "Image": "docker.io/library/alpine:latest", "Name": "web", "Status": "start", "Time": "2026-10-25T10:04:01.123456789Z", "Type": "container", "Attributes": {"image": "docker.io/library/alpine:latest", "name": "web"}}
+{"ID": "551e161c47d8ff0eb665438a7bcd5b4e0e6d1f1a2b3c4d5e6f708192a3b4c5d6", "Image": "docker.io/library/alpine:latest", "Name": "web", "Status": "exec", "Time": "2026-10-25T10:04:02.123456789Z", "Type": "container"}
+{"ID": "551e161c47d8ff0eb665438a7bcd5b4e0e6d1f1a2b3c4d5e6f708192a3b4c5d6", "Image": "docker.io/library/alpine:latest", "Name": "web", "Status": "died", "ContainerExitCode": 1, "Time": "2026-10-25T10:04:03Z", "Type": "container"}
+{"ID": "ab12", "Name": "docker.io/library/alpine:latest", "Status": "pull", "Time": "2026-10-25T10:04:04Z", "Type": "image", "Image": "docker.io/library/alpine:latest"}
+not json

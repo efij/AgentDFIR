@@ -156,26 +156,30 @@ Oct 25 10:00:05 host CRON[2400]: pam_unix(cron:session): session closed for user
 not syslog at all
 `
 	res := load(t, "auth.log", log, FormatAuthLog)
-	if len(res.Records) != 6 || res.Skipped != 2 || len(res.Problems) != 1 {
+	// Each sudo line yields its process record plus a kind auth privilege-change record.
+	if len(res.Records) != 9 || res.Skipped != 2 || len(res.Problems) != 1 {
 		t.Fatalf("records=%d skipped=%d problems=%v %+v", len(res.Records), res.Skipped, res.Problems, res.Records)
 	}
 	s := res.Records[0]
 	if s.Kind != "process" || s.Cmdline != "/usr/bin/rm -rf /var/www/old" || s.Exe != "/usr/bin/rm" || s.User != "dev" || s.Source != "authlog" || !IsSighting(s) {
 		t.Fatalf("sudo: %+v", s)
 	}
-	if f := res.Records[1]; f.Failed != "command not allowed" || f.Cmdline != "/bin/sh" {
+	if a := res.Records[1]; a.Kind != "auth" || a.Operation != "sudo" || a.PrivFrom != "dev" || a.PrivTo != "root" {
+		t.Fatalf("sudo privilege change: %+v", a)
+	}
+	if f := res.Records[2]; f.Failed != "command not allowed" || f.Cmdline != "/bin/sh" {
 		t.Fatalf("refused sudo: %+v", f)
 	}
-	if a := res.Records[2]; a.Kind != "auth" || a.Operation != "ssh-accept publickey" || a.User != "deploy" || a.SourceIP != "10.0.0.5" {
+	if a := res.Records[4]; a.Kind != "auth" || a.Operation != "ssh-accept publickey" || a.User != "deploy" || a.SourceIP != "10.0.0.5" {
 		t.Fatalf("sshd: %+v", a)
 	}
-	if f := res.Records[3]; f.Operation != "ssh-fail password" || f.User != "admin" || f.Failed == "" {
+	if f := res.Records[5]; f.Operation != "ssh-fail password" || f.User != "admin" || f.Failed == "" {
 		t.Fatalf("sshd fail: %+v", f)
 	}
-	if su := res.Records[4]; su.Operation != "su" || su.Resource != "root" || su.User != "dev" {
+	if su := res.Records[6]; su.Operation != "su" || su.Resource != "root" || su.User != "dev" {
 		t.Fatalf("su: %+v", su)
 	}
-	if r := res.Records[5]; r.Cmdline != "/usr/bin/apt install -y jq" || r.PID != 2500 || r.Time.Nanosecond() == 0 {
+	if r := res.Records[7]; r.Cmdline != "/usr/bin/apt install -y jq" || r.PID != 2500 || r.Time.Nanosecond() == 0 {
 		t.Fatalf("iso sudo: %+v", r)
 	}
 
@@ -187,8 +191,9 @@ not syslog at all
 `
 	res = load(t, "journal.json", journal, FormatJournal)
 	// sudo entry → sudo COMMAND record + _CMDLINE record; second line is the
-	// same pid+cmdline (skipped); sshd byte-array MESSAGE → auth record.
-	if len(res.Records) != 3 || res.Skipped != 3 || len(res.Problems) != 2 {
+	// same pid+cmdline (skipped); sshd byte-array MESSAGE → auth record;
+	// the sudo line also yields its privilege-change auth record.
+	if len(res.Records) != 4 || res.Skipped != 3 || len(res.Problems) != 2 {
 		t.Fatalf("records=%d skipped=%d problems=%v %+v", len(res.Records), res.Skipped, res.Problems, res.Records)
 	}
 	var sawCmd, sawCmdline, sawSSH bool
@@ -200,6 +205,7 @@ not syslog at all
 			sawCmdline = true
 		case r.Kind == "auth" && r.User == "dev" && r.SourceIP == "10.0.0.5":
 			sawSSH = true
+		case r.Kind == "auth" && r.Operation == "sudo" && r.PrivTo == "root":
 		}
 		if r.Source != "journald" {
 			t.Errorf("source: %+v", r)

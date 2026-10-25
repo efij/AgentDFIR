@@ -1,0 +1,12 @@
+{"type": "attached_probes", "data": {"probes": 2}}
+{"type": "printf", "data": "{\"time\": \"2026-10-25T10:02:01Z\", \"pid\": 6100, \"ppid\": 6000, \"uid\": 1000, \"comm\": \"git\", \"args\": \"git push origin main\", \"cgroup\": \"0::/kubepods.slice/kubepods-burstable.slice/cri-containerd-551e161c47d8ff0eb665438a7bcd5b4e0e6d1f1a2b3c4d5e6f708192a3b4c5d6.scope\"}\n"}
+{"type": "printf", "data": "{\"time\": \"2026-10-25T10:02:02Z\", \"event\": \"connect\", \"pid\": 6101, \"comm\": \"ssh\", \"daddr\": \"198.51.100.20\", \"dport\": 22}\n"}
+{"type": "printf", "data": "{\"time\": 1792922523000000000, \"pid\": 6102, \"ppid\": 6000, \"comm\": \"ls\", \"args\": [\"ls\", \"-la\", \"/etc\"]}\n"}
+{"type": "printf", "data": "6103 6000 bash -c id\n"}
+{"type": "printf", "data": "{\"pid\": 6104, \"comm\": \"id\"}\n"}
+{"type": "printf", "data": "{\"time\": 12345678901, \"pid\": 6105, \"comm\": \"id\"}\n"}
+{"type": "map", "data": {"@execs": {"git": 3, "ls": 1}}}
+{"type": "hist", "data": {"@lat": [{"min": 0, "max": 1, "count": 2}]}}
+{"type": "lost_events", "data": {"events": 17}}
+{"type": "brand_new_type", "data": {}}
+{"type":"printf","data":

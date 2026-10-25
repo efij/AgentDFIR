@@ -28,6 +28,7 @@ type auditEvent struct {
 	cwd     string
 	paths   []map[string]string
 	saddr   string
+	contid  string // container id: CONTAINER_ID/CONTAINER_OP contid=, or a cgroup path in any field
 	line    int
 }
 
@@ -55,6 +56,9 @@ func loadAuditd(path string) (*LoadResult, error) {
 			order = append(order, key)
 		}
 		fields := parseKV(body)
+		if ev.contid == "" {
+			ev.contid = auditContainerID(typ, fields, body)
+		}
 		switch typ {
 		case "SYSCALL":
 			ev.syscall = fields
@@ -96,12 +100,12 @@ func loadAuditd(path string) (*LoadResult, error) {
 				argv = append(argv, decodeAuditArg(v))
 			}
 			res.Records = append(res.Records, Record{Time: ev.ts, Kind: "process", PID: pid, PPID: ppid, Exe: exe,
-				Cmdline: strings.Join(argv, " "), User: user, Source: "auditd", Ref: ref})
+				Cmdline: strings.Join(argv, " "), User: user, Cwd: ev.cwd, ContainerID: ev.contid, Source: "auditd", Ref: ref})
 		case ev.saddr != "":
 			ip, port := decodeSaddr(ev.saddr)
 			if ip != "" {
 				res.Records = append(res.Records, Record{Time: ev.ts, Kind: "network", PID: pid, PPID: ppid, Exe: exe,
-					Cmdline: unq(ev.syscall["comm"]), DestIP: ip, DestPort: port, User: user, Source: "auditd", Ref: ref})
+					Cmdline: unq(ev.syscall["comm"]), DestIP: ip, DestPort: port, User: user, ContainerID: ev.contid, Source: "auditd", Ref: ref})
 			}
 		case len(ev.paths) > 0:
 			for _, p := range ev.paths {
@@ -124,12 +128,37 @@ func loadAuditd(path string) (*LoadResult, error) {
 					name = strings.TrimSuffix(ev.cwd, "/") + "/" + name
 				}
 				res.Records = append(res.Records, Record{Time: ev.ts, Kind: "file", PID: pid, PPID: ppid, Exe: exe,
-					Cmdline: unq(ev.syscall["comm"]), FilePath: name, FileOp: op, User: user, Source: "auditd", Ref: ref})
+					Cmdline: unq(ev.syscall["comm"]), FilePath: name, FileOp: op, User: user, ContainerID: ev.contid, Source: "auditd", Ref: ref})
 			}
 		}
 	}
 	sort.SliceStable(res.Records, func(i, j int) bool { return res.Records[i].Time.Before(res.Records[j].Time) })
 	return res, nil
+}
+
+// auditContainerID reads a container id from an audit record: the contid
+// field of the audit container-id records (CONTAINER_ID, CONTAINER_OP;
+// kernels carrying that patch set), or a container cgroup path
+// (/proc/<pid>/cgroup style: docker-<id>.scope, /kubepods/…/<id>) in any
+// field of a kernel-written record. Records that carry user-controlled
+// strings (EXECVE argv, PATH and CWD names, PROCTITLE, USER_CMD) are not
+// scanned: a command that merely names a cgroup path is not inside it.
+// Stock kernels log neither, and then the record has no container.
+func auditContainerID(typ string, fields map[string]string, body string) string {
+	switch typ {
+	case "CONTAINER_ID", "CONTAINER_OP":
+		if c := unq(fields["contid"]); c != "" && c != "-1" && c != "18446744073709551615" {
+			return c
+		}
+	case "EXECVE", "PATH", "CWD", "PROCTITLE", "USER_CMD":
+		return ""
+	}
+	for _, hint := range []string{"docker", "kubepods", "crio", "libpod", "containerd"} {
+		if strings.Contains(body, hint) {
+			return ContainerIDFromCgroup(body)
+		}
+	}
+	return ""
 }
 
 // isWriteSyscall: open/openat with write flags (a1/a2 contain O_WRONLY|O_RDWR|O_CREAT|O_TRUNC).
