@@ -3,6 +3,7 @@ package ntfs
 import (
 	"fmt"
 	"io"
+	"math"
 	"sort"
 	"sync"
 )
@@ -65,6 +66,9 @@ func (v *volume) newStream(frags []attr) (*stream, error) {
 			return nil, fmt.Errorf("$DATA fragments leave a gap at VCN %d", next)
 		}
 		for _, r := range fr.runs {
+			if r.vcn+r.length > math.MaxInt64/v.clusterSize {
+				return nil, fmt.Errorf("run at VCN %d (+%d) overflows the byte range", r.vcn, r.length)
+			}
 			if r.lcn >= 0 && (r.lcn+r.length > v.clusters || r.lcn+r.length < r.lcn) {
 				return nil, fmt.Errorf("run at LCN %d (+%d) outside the volume", r.lcn, r.length)
 			}

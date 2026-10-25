@@ -243,12 +243,41 @@ func isVMDKDescriptorText(head []byte) bool {
 }
 
 // sameDirFile resolves an extent/segment name relative to the image's
-// directory and refuses anything that would leave it.
+// directory and refuses anything that would leave it, and anything that
+// is not a plain regular file there (symlinks included).
 func sameDirFile(dir, name string) (string, error) {
-	if name == "" || filepath.IsAbs(name) || strings.ContainsAny(name, "/\\") || name == "." || name == ".." {
+	if name == "" || filepath.IsAbs(name) || strings.ContainsAny(name, "/\\:\x00") || name == "." || name == ".." || !filepath.IsLocal(name) {
 		return "", unsupported("vmdk", "extent %q is outside the image directory; only extents next to the descriptor are read", name)
 	}
-	return filepath.Join(dir, name), nil
+	p := filepath.Join(dir, name)
+	if fi, err := os.Lstat(p); err == nil && !fi.Mode().IsRegular() {
+		return "", unsupported("vmdk", "extent %q is a symlink or not a regular file; not followed", name)
+	}
+	return p, nil
+}
+
+// openRegular opens a sibling file (segment, extent) that the image
+// itself names. It must be a regular file, not a symlink, and the opened
+// descriptor must be the same file the Lstat saw, so nothing can be
+// swapped in between the check and the open.
+func openRegular(p string) (*os.File, error) {
+	before, err := os.Lstat(p)
+	if err != nil {
+		return nil, err
+	}
+	if !before.Mode().IsRegular() {
+		return nil, corrupt("image", "%s is a symlink or not a regular file; not followed", filepath.Base(p))
+	}
+	f, err := os.Open(p)
+	if err != nil {
+		return nil, err
+	}
+	after, err := f.Stat()
+	if err != nil || !after.Mode().IsRegular() || !os.SameFile(before, after) {
+		f.Close()
+		return nil, corrupt("image", "%s changed between check and open; not read", filepath.Base(p))
+	}
+	return f, nil
 }
 
 // multiReader concatenates fixed-size parts into one io.ReaderAt.

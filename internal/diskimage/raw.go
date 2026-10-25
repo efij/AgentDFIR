@@ -28,7 +28,7 @@ func openRaw(path string) (*Image, error) {
 	im := &Image{Format: FormatSplitRaw, Segments: segs, Meta: map[string]string{"segments": strconv.Itoa(len(segs))}}
 	mr := &multiReader{}
 	for _, s := range segs {
-		f, err := os.Open(s)
+		f, err := openSegment(s, path)
 		if err != nil {
 			im.Close()
 			return nil, err
@@ -139,7 +139,19 @@ func isLower(s string) bool {
 	return s != ""
 }
 
+// fileExists reports whether a sibling name is present at all (any file
+// type). Opening goes through openRegular, which refuses symlinks and
+// non-regular files loudly instead of silently ending the series there.
 func fileExists(p string) bool {
-	fi, err := os.Stat(p)
-	return err == nil && fi.Mode().IsRegular()
+	_, err := os.Lstat(p)
+	return err == nil
+}
+
+// openSegment opens the path the operator gave as is, and every sibling
+// the image implies through openRegular.
+func openSegment(p, given string) (*os.File, error) {
+	if p == given {
+		return os.Open(p)
+	}
+	return openRegular(p)
 }

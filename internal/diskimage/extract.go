@@ -408,8 +408,14 @@ func ExtractFiles(fsys fs.FS, files []string, dest string, lim Limits) *ExtractR
 			res.Capped = true
 			res.Problems = append(res.Problems, fmt.Sprintf("stopped: total extraction limit %d bytes reached at %s", lim.MaxTotalBytes, p))
 		default:
-			ex.Staged = filepath.Join(dest, filepath.FromSlash(p))
-			n, sum, err := copyOut(fsys, p, ex.Staged, lim.MaxFileBytes)
+			staged, err := StagePath(dest, p)
+			if err != nil {
+				ex.Problem = err.Error()
+				res.Problems = append(res.Problems, err.Error())
+				break
+			}
+			ex.Staged = staged
+			n, sum, err := copyOut(fsys, p, dest, ex.Staged, lim.MaxFileBytes)
 			if err != nil {
 				ex.Problem = err.Error()
 				ex.Staged = ""
@@ -424,13 +430,105 @@ func ExtractFiles(fsys fs.FS, files []string, dest string, lim Limits) *ExtractR
 	return res
 }
 
-func copyOut(fsys fs.FS, src, dst string, limit int64) (int64, string, error) {
+// reservedDevice matches Windows device names, which address a device
+// instead of a file whatever the extension (CON, NUL.txt, COM1.log …).
+func reservedDevice(elem string) bool {
+	base := strings.ToUpper(strings.TrimRight(elem, " ."))
+	if i := strings.IndexByte(base, '.'); i >= 0 {
+		base = strings.TrimRight(base[:i], " ")
+	}
+	switch base {
+	case "CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$":
+		return true
+	}
+	if strings.HasPrefix(base, "COM") || strings.HasPrefix(base, "LPT") {
+		switch base[3:] {
+		case "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "¹", "²", "³":
+			return true
+		}
+	}
+	return false
+}
+
+// StagePath maps a filesystem path from an image onto dest. Names inside
+// an image are hostile and the readers are pluggable, so this check is
+// the authoritative one: every element must be a plain name on every
+// host OS, and the joined result must stay inside dest. Rejections carry
+// the original name escaped.
+func StagePath(dest, p string) (string, error) {
+	elems := strings.Split(p, "/")
+	for _, e := range elems {
+		bad := ""
+		switch {
+		case e == "" || e == "." || e == "..":
+			bad = "empty or relative element"
+		case strings.ContainsAny(e, "\\:"):
+			bad = "contains a path or stream separator"
+		case strings.TrimRight(e, " .") != e:
+			bad = "ends in a space or dot (Windows strips these)"
+		case reservedDevice(e):
+			bad = "Windows reserved device name"
+		default:
+			for _, r := range e {
+				if r < 0x20 || r == 0x7f {
+					bad = "contains a control character"
+					break
+				}
+			}
+		}
+		if bad != "" {
+			return "", fmt.Errorf("name %q refused (%s); not extracted", p, bad)
+		}
+	}
+	staged := filepath.Join(append([]string{dest}, elems...)...)
+	rel, err := filepath.Rel(dest, staged)
+	if err != nil || !filepath.IsLocal(rel) {
+		return "", fmt.Errorf("name %q resolves outside the staging directory; not extracted", p)
+	}
+	return staged, nil
+}
+
+// mkdirStaging creates dir under dest one element at a time, refusing to
+// pass through anything that is not a directory this process made
+// (a symlink planted in staging is never followed).
+func mkdirStaging(dest, dir string) error {
+	rel, err := filepath.Rel(dest, dir)
+	if err != nil || (rel != "." && !filepath.IsLocal(rel)) {
+		return fmt.Errorf("%q outside staging", dir)
+	}
+	// dest itself is the caller's own directory (it may sit under a
+	// system symlink such as macOS /var); only what is below it is checked.
+	if err := os.MkdirAll(dest, 0o700); err != nil {
+		return err
+	}
+	cur := dest
+	if rel == "." {
+		return nil
+	}
+	for _, e := range strings.Split(rel, string(filepath.Separator)) {
+		cur = filepath.Join(cur, e)
+		fi, err := os.Lstat(cur)
+		switch {
+		case errors.Is(err, fs.ErrNotExist):
+			if err := os.Mkdir(cur, 0o700); err != nil {
+				return err
+			}
+		case err != nil:
+			return err
+		case !fi.IsDir():
+			return fmt.Errorf("staging path %q is not a plain directory; not followed", cur)
+		}
+	}
+	return nil
+}
+
+func copyOut(fsys fs.FS, src, dest, dst string, limit int64) (int64, string, error) {
 	in, err := fsys.Open(src)
 	if err != nil {
 		return 0, "", err
 	}
 	defer in.Close()
-	if err := os.MkdirAll(filepath.Dir(dst), 0o700); err != nil {
+	if err := mkdirStaging(dest, filepath.Dir(dst)); err != nil {
 		return 0, "", err
 	}
 	out, err := os.OpenFile(dst, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)

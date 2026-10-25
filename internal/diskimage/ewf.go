@@ -76,7 +76,7 @@ func openEWF(path string) (*Image, error) {
 	var sectorCount uint64
 	var declaredChunks uint32
 	for i, s := range segs {
-		f, err := os.Open(s)
+		f, err := openSegment(s, path)
 		if err != nil {
 			return fail(err)
 		}
@@ -210,7 +210,7 @@ func (c *ewfSegCtx) walk() error {
 	off := int64(ewfHeaderSize)
 	seen := map[int64]bool{}
 	for n := 0; n < maxEWFSections; n++ {
-		if off+ewfDescriptorSize > c.size {
+		if off < 0 || off > c.size-ewfDescriptorSize {
 			return corrupt("ewf", "segment %d: section descriptor at %d past end of file (truncated)", c.seg+1, off)
 		}
 		if seen[off] {
@@ -229,7 +229,7 @@ func (c *ewfSegCtx) walk() error {
 		size := int64(binary.LittleEndian.Uint64(d[24:32]))
 		dataOff := off + ewfDescriptorSize
 		dataLen := size - ewfDescriptorSize
-		if size != 0 && (size < ewfDescriptorSize || off+size > c.size) && typ != "done" && typ != "next" {
+		if size != 0 && (size < ewfDescriptorSize || size > c.size-off) && typ != "done" && typ != "next" {
 			return corrupt("ewf", "segment %d: section %q size %d out of bounds", c.seg+1, typ, size)
 		}
 		switch typ {
@@ -350,7 +350,7 @@ func (c *ewfSegCtx) table(off, n, descOff int64) error {
 	if count == 0 {
 		return nil
 	}
-	if count*4 > n-24 || count > maxEWFChunks || int64(len(c.e.chunks))+count > maxEWFChunks {
+	if count > maxEWFChunks || count*4 > n-24 || off+24 > c.size || count > (c.size-(off+24))/4 || int64(len(c.e.chunks))+count > maxEWFChunks {
 		return corrupt("ewf", "segment %d: table lists %d entries, section holds %d bytes", c.seg+1, count, n-24)
 	}
 	if base < 0 || base > c.size {

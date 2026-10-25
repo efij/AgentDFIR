@@ -30,6 +30,8 @@ const (
 	maxVMDKDescriptor  = 1 << 20
 	maxVMDKExtents     = 1024
 	maxVMDKGrainBytes  = 16 << 20
+	maxVMDKGTEs        = 4096
+	vmdkGTCacheBytes   = 4 << 20 // grain-table cache budget per extent
 )
 
 type vmdkExtent struct {
@@ -149,7 +151,7 @@ func openVMDKDescriptor(path string) (*Image, error) {
 				im.Close()
 				return nil, err
 			}
-			ef, err := os.Open(p)
+			ef, err := openRegular(p)
 			if err != nil {
 				im.Close()
 				return nil, corrupt("vmdk", "extent %q: %v", e.file, err)
@@ -157,7 +159,7 @@ func openVMDKDescriptor(path string) (*Image, error) {
 			im.closers = append(im.closers, ef)
 			im.Segments = append(im.Segments, p)
 			fi, _ := ef.Stat()
-			if fi == nil || e.offset*512+size > fi.Size() {
+			if fi == nil || size > fi.Size() || e.offset > (fi.Size()-size)/512 {
 				im.Close()
 				return nil, corrupt("vmdk", "flat extent %q shorter than the %d sectors the descriptor declares", e.file, e.sectors)
 			}
@@ -168,7 +170,7 @@ func openVMDKDescriptor(path string) (*Image, error) {
 				im.Close()
 				return nil, err
 			}
-			ef, err := os.Open(p)
+			ef, err := openRegular(p)
 			if err != nil {
 				im.Close()
 				return nil, corrupt("vmdk", "extent %q: %v", e.file, err)
@@ -237,6 +239,7 @@ type sparseExtent struct {
 
 	mu      sync.Mutex
 	gtCache map[int64][]uint32
+	gtOrder []int64 // least recently loaded first
 	gIdx    int64
 	gData   []byte
 }
@@ -253,7 +256,7 @@ func newSparseExtent(f *os.File, fileSize int64) (*sparseExtent, *vmdkDescriptor
 		return nil, nil, unsupported("vmdk", "sparse extent version %d", v)
 	}
 	var desc *vmdkDescriptor
-	if dOff, dSize := int64(binary.LittleEndian.Uint64(h[28:36])), int64(binary.LittleEndian.Uint64(h[36:44])); dOff > 0 && dSize > 0 && dSize*512 <= maxVMDKDescriptor && (dOff+dSize)*512 <= fileSize {
+	if dOff, dSize := int64(binary.LittleEndian.Uint64(h[28:36])), int64(binary.LittleEndian.Uint64(h[36:44])); dOff > 0 && dSize > 0 && dSize*512 <= maxVMDKDescriptor && dOff <= fileSize/512-dSize {
 		b := make([]byte, dSize*512)
 		if _, err := f.ReadAt(b, dOff*512); err == nil {
 			if i := bytes.IndexByte(b, 0); i >= 0 {
@@ -285,15 +288,17 @@ func newSparseExtent(f *os.File, fileSize int64) (*sparseExtent, *vmdkDescriptor
 	if grainSectors < 1 || grainSectors*512 > maxVMDKGrainBytes || grainSectors&(grainSectors-1) != 0 {
 		return nil, nil, corrupt("vmdk", "implausible grain size %d sectors", grainSectors)
 	}
-	if gtes < 1 || gtes > 1<<16 {
-		return nil, nil, corrupt("vmdk", "implausible grain table size %d", gtes)
+	// The hosted sparse format fixes 512 entries per grain table; allow a
+	// little headroom for odd writers, never more than maxVMDKGTEs.
+	if gtes < 1 || gtes > maxVMDKGTEs {
+		return nil, nil, corrupt("vmdk", "implausible grain table size %d (expected 512)", gtes)
 	}
 	compressed := flags&vmdkFlagCompressed != 0
 	if compressed && compAlg != 1 {
 		return nil, nil, unsupported("vmdk", "grain compression algorithm %d", compAlg)
 	}
 	gdEntries := (capSectors + grainSectors*gtes - 1) / (grainSectors * gtes)
-	if gdOff <= 0 || (gdOff*512)+gdEntries*4 > fileSize {
+	if gdOff <= 0 || gdEntries*4 > fileSize || gdOff > (fileSize-gdEntries*4)/512 {
 		return nil, nil, corrupt("vmdk", "grain directory (%d entries at sector %d) out of bounds", gdEntries, gdOff)
 	}
 	raw := make([]byte, gdEntries*4)
@@ -376,10 +381,13 @@ func (s *sparseExtent) entry(g int64) (uint32, error) {
 		for i := range gt {
 			gt[i] = binary.LittleEndian.Uint32(raw[4*i:])
 		}
-		if len(s.gtCache) > 4096 {
-			clear(s.gtCache)
+		// Bounded by bytes, not entries: evict the oldest tables first.
+		for len(s.gtOrder) > 0 && int64(len(s.gtCache)+1)*s.gtes*4 > vmdkGTCacheBytes {
+			delete(s.gtCache, s.gtOrder[0])
+			s.gtOrder = s.gtOrder[1:]
 		}
 		s.gtCache[gdi] = gt
+		s.gtOrder = append(s.gtOrder, gdi)
 	}
 	return gt[g%s.gtes], nil
 }

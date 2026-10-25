@@ -457,13 +457,24 @@ func (f *Volume) findLoops() {
 	}
 }
 
+// validName refuses names that cannot be a single path element on every
+// host: separators of any OS, the NTFS stream separator, NUL and other
+// control characters. Rejected names are recorded as problems.
 func validName(s string) bool {
-	return s != "" && s != "." && s != ".." && !strings.ContainsAny(s, "/\x00")
+	if s == "" || s == "." || s == ".." || strings.ContainsAny(s, "/\\:") {
+		return false
+	}
+	for _, r := range s {
+		if r < 0x20 || r == 0x7f {
+			return false
+		}
+	}
+	return true
 }
 
 func safeName(s string) string {
 	return strings.Map(func(r rune) rune {
-		if r == '/' || r == 0 {
+		if r == '/' || r == '\\' || r == ':' || r < 0x20 || r == 0x7f {
 			return '_'
 		}
 		return r

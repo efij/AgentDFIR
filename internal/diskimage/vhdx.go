@@ -102,7 +102,7 @@ func openVHDX(f *os.File, fileSize int64, path string) (*Image, error) {
 			return fail(unsupported("vhdx", "unknown required region %s", guidString(e[:16])))
 		}
 	}
-	if batOff <= 0 || metaOff <= 0 || batOff+batLen > fileSize || metaOff+metaLen > fileSize || metaLen < 32 || metaLen > 64<<20 {
+	if batOff <= 0 || metaOff <= 0 || batOff > fileSize-batLen || metaOff > fileSize-metaLen || metaLen < 32 || metaLen > 64<<20 {
 		return fail(corrupt("vhdx", "BAT or metadata region out of bounds"))
 	}
 	meta := make([]byte, metaLen)
@@ -211,8 +211,12 @@ func (v *vhdxReader) ReadAt(p []byte, off int64) (int, error) {
 		case 0, 1, 2, 3: // not present, undefined, zero, unmapped
 			clear(p[:n])
 		case 6: // fully present
-			at := int64(e>>20)<<20 + in
-			if at+int64(n) > v.fileSize {
+			mb := int64(e >> 20)
+			if mb > v.fileSize>>20 {
+				return total, corrupt("vhdx", "payload block %d past end of file", blk)
+			}
+			at := mb<<20 + in
+			if at > v.fileSize-int64(n) {
 				return total, corrupt("vhdx", "payload block %d past end of file", blk)
 			}
 			if _, err := v.f.ReadAt(p[:n], at); err != nil {

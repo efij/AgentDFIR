@@ -60,7 +60,7 @@ func openVHD(f *os.File, fileSize int64, path string) (*Image, error) {
 		return nil, unsupported("vhd", "disk type %d", diskType)
 	}
 	dynOff := int64(binary.BigEndian.Uint64(footer[16:24]))
-	if dynOff <= 0 || dynOff+1024 > fileSize {
+	if dynOff <= 0 || dynOff > fileSize-1024 {
 		f.Close()
 		return nil, corrupt("vhd", "dynamic header offset %d out of bounds", dynOff)
 	}
@@ -85,7 +85,7 @@ func openVHD(f *os.File, fileSize int64, path string) (*Image, error) {
 		f.Close()
 		return nil, corrupt("vhd", "implausible block size %d", blockSize)
 	}
-	if entries > maxVHDBATEntries || batOff <= 0 || batOff+entries*4 > fileSize {
+	if entries > maxVHDBATEntries || batOff <= 0 || batOff > fileSize-entries*4 {
 		f.Close()
 		return nil, corrupt("vhd", "BAT (%d entries at %d) out of bounds", entries, batOff)
 	}
@@ -130,7 +130,7 @@ func (v *vhdDynamic) ReadAt(p []byte, off int64) (int, error) {
 			clear(p[:n])
 		} else {
 			at := int64(v.bat[blk])*512 + v.bitmap + in
-			if at+int64(n) > v.fileSize {
+			if at > v.fileSize-int64(n) {
 				return total, corrupt("vhd", "block %d data past end of file", blk)
 			}
 			if _, err := v.f.ReadAt(p[:n], at); err != nil {

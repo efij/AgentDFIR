@@ -243,7 +243,7 @@ type gptHdr struct {
 }
 
 func gptHeader(r io.ReaderAt, size, ss, lba int64) (*gptHdr, error) {
-	if lba <= 0 || (lba+1)*ss > size {
+	if lba <= 0 || lba > size/ss-1 {
 		return nil, fmt.Errorf("header LBA %d out of bounds", lba)
 	}
 	h := make([]byte, ss)
@@ -274,7 +274,7 @@ func gptHeader(r io.ReaderAt, size, ss, lba int64) (*gptHdr, error) {
 		return nil, fmt.Errorf("entry table %d × %d implausible", g.numEntries, esize)
 	}
 	tbl := int64(g.numEntries) * esize
-	if entLBA <= 0 || entLBA*ss+tbl > size {
+	if entLBA <= 0 || tbl > size || entLBA > (size-tbl)/ss {
 		return nil, fmt.Errorf("entry table out of bounds")
 	}
 	raw := make([]byte, tbl)
