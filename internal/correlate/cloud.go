@@ -344,9 +344,8 @@ func cloudScore(c cloudCall, r endpoint.Record) int {
 	if r.Resource == "" {
 		return 70
 	}
-	res := strings.ToLower(r.Resource)
 	for _, n := range c.names {
-		if n = strings.ToLower(strings.TrimSpace(n)); n != "" && strings.Contains(res, n) {
+		if resourceMatches(r.Resource, n) { // whole segments: "prod" never matches "nonprod-db"
 			return 95
 		}
 	}

@@ -45,6 +45,8 @@ type EndpointResult struct {
 	CloudRefused      int `json:"cloud_refused,omitempty"` // matched, and the cloud denied it
 	CloudBursts       int `json:"cloud_destructive_bursts,omitempty"`
 
+	CloudPartial int `json:"cloud_partial,omitempty"` // k8s/git/storage: operation matched, no resource to compare
+
 	// Partial-coverage witnesses: DNS, proxy, auth.log and journal records.
 	WitnessRecords      int `json:"witness_records,omitempty"`
 	WitnessCorroborated int `json:"witness_corroborated,omitempty"` // proxy host(+path), sudo/journal command line

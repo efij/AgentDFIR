@@ -126,7 +126,15 @@ Classic syslog timestamps have no year and no zone: the year comes from the file
 
 ## Kubernetes, Git hosting and object storage audit logs (cloud-like witnesses)
 
-These behave exactly like the cloud audit logs above: a command is **CORROBORATED** when the service recorded the same operation within ±2 minutes, on the same resource when the command names one; a refusal is noted; a miss changes nothing, nothing is ever contradicted, and the records give no host coverage. They are counted in the `Cloud audit correlation` line.
+These follow the cloud audit logs above, with one stricter rule: a command is **CORROBORATED** only when the service recorded the same operation on the resource the command names, within ±2 minutes. A command that names no resource (`kubectl apply -f manifest.yaml`, `git push origin main`, `aws s3 ls`), or a record that names none, matches by operation alone and gets **PARTLY CONFIRMED** (`cloud_partial` in `corroboration.json`). A refusal is noted; a miss changes nothing, nothing is ever contradicted, and the records give no host coverage. Full matches are counted in the `Cloud audit correlation` line.
+
+### Resource name matching (all cloud and cloud-like audit sources)
+
+A resource name from a command matches a record only on whole segments: the record's resource (or one of its space-separated ids) equals the name, or the name's `/`-separated segments appear as whole, consecutive segments of it (ARN `:` counts as a separator, an `s3://`/`gs://` scheme is ignored). `prod` matches `…/storageAccounts/prod` and `prod/db`, never `nonprod-db` or `acctprod`; names shorter than three characters match only the whole resource. This also applies to the CloudTrail / Azure Activity / GCP pass above, where earlier versions matched any substring. The documented cloud behaviour is otherwise unchanged: an `az`/`aws`/`gcloud` command that names no resource is still CORROBORATED by an operation match. For kubectl, `-n <namespace>` makes the compared name `<namespace>/<name>`.
+
+### Host extraction
+
+Hosts are taken from each URL with a URL parser, never with a pattern: in `curl https://trusted.com@evil.com/x` the host is `evil.com` (what curl contacts), and the userinfo part is never used. URLs that do not parse, or whose host is percent-encoded (clients disagree on decoding it), are dropped rather than guessed at. IPv6 literals (`http://[2001:db8::5]:8080/`) keep their address without brackets or port. A tool call's precomputed network destination is only used when it has no command line (MCP and fetch tools), since it comes from a simpler extractor.
 
 ### Kubernetes audit log — `--format k8s-audit`
 
