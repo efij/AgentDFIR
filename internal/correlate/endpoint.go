@@ -119,6 +119,7 @@ func Endpoint(events []schema.Event, records []endpoint.Record, opts EndpointOpt
 	findings = append(findings, windowsPass(events, host, ctx, opts, res)...)
 	findings = append(findings, cloudPass(events, cloud, res)...)
 	findings = append(findings, witnessCloudPass(events, witnessCloud, res)...)
+	findings = append(findings, linuxAgentRules(records, opts)...)
 	sightingPass(events, sightings, opts, res)
 	scriptPass(events, script, opts, res)
 	imagePass(events, image, opts, res)

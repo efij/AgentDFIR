@@ -22,6 +22,8 @@ import (
 //     paths differ → PARTIALLY_CORROBORATED
 //   - sudo COMMAND= lines and journal _CMDLINE entries: the same command
 //     within the match window → CORROBORATED
+//   - Falco and bpftrace process records, and docker exec events (the
+//     command run inside the container): the same, like a process record
 //   - DNS: a lookup of exactly the host the tool call contacted, within
 //     sightingWindow → PARTIALLY_CORROBORATED. A lookup shows intent to
 //     connect, not a connection, and it names a client IP, not a process.
@@ -86,10 +88,13 @@ func sightingPass(events []schema.Event, records []endpoint.Record, opts Endpoin
 			r := records[j]
 			near := absDur(r.Time.Sub(t)) <= opts.Window
 			switch r.Kind {
-			case "process":
-				if !near || used[j] {
+			case "process", "container":
+				if !near || used[j] || r.Cmdline == "" {
 					continue
 				}
+				// A container-runtime exec event names the command run
+				// inside the container; it is compared like a process.
+				r.Kind = "process"
 				s := score(ev, r)
 				if s < 100 && ev.Command != "" {
 					// sudo logs the command it was asked to run, not "sudo …";
@@ -176,7 +181,7 @@ func sightingBasis(dests []dest, r endpoint.Record, score int, partial bool, win
 	}
 	src := r.Source
 	switch r.Kind {
-	case "process":
+	case "process", "container":
 		b, conf := MatchBasis("process", score)
 		return src + " command line: " + b, conf, window
 	case "network":

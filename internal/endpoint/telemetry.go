@@ -36,7 +36,7 @@ const (
 	FormatGitAud  Format = "git-audit"      // GitHub audit log export (JSON/CSV), GitLab audit events JSON
 	FormatStorage Format = "storage-access" // S3 server access, GCS usage CSV, Azure Storage analytics
 
-	telemetryFormatList = "zeek|dns-log|squid|authlog|journald|k8s-audit|git-audit|storage-access|plaso"
+	telemetryFormatList = "zeek|dns-log|squid|authlog|journald|k8s-audit|git-audit|storage-access|plaso|" + linuxFormatList
 )
 
 // sightingSources are the adapters whose records corroborate but never
@@ -87,7 +87,7 @@ func loadTelemetry(path string, f Format) (*LoadResult, bool, error) {
 	case FormatPlaso:
 		res, err = loadPlaso(path)
 	default:
-		return nil, false, nil
+		return loadLinuxTelemetry(path, f)
 	}
 	return res, true, err
 }
@@ -105,6 +105,9 @@ func sniffTelemetry(head []byte) Format {
 		return FormatPlaso
 	}
 	has := func(k string) bool { return bytes.Contains(head, []byte(`"`+k+`"`)) }
+	if lf := sniffLinuxTelemetry(head); lf != "" {
+		return lf
+	}
 	if bytes.HasPrefix(head, []byte("{")) || (bytes.HasPrefix(head, []byte("[")) && !epochBrRe.Match(head)) {
 		switch {
 		case has("auditID") && has("verb") && (has("objectRef") || bytes.Contains(head, []byte("audit.k8s.io"))):

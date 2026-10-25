@@ -574,9 +574,10 @@ func (g *builder) correlated(e schema.Event, tid string, m correlate.Match) {
 		for _, rel := range m.Related {
 			g.related(pid, rel)
 		}
-	case "script", endpoint.KindProcessImage:
-		// A PowerShell script block, or a process creation known only by
-		// its image path: the process the call ran as, on a weaker basis.
+	case "script", endpoint.KindProcessImage, "container":
+		// A PowerShell script block, a process creation known only by its
+		// image path, or a container-runtime exec event: the process the
+		// call ran as, on a weaker basis.
 		pid := g.processNode(r)
 		if pid == "" {
 			return

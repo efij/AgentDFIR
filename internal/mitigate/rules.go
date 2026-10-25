@@ -92,6 +92,8 @@ var manualSteps = map[string][]string{
 	"CRON_PERSISTENCE":                  {"Remove any scheduled job you did not create (crontab -l, ~/Library/LaunchAgents)."},
 	"SERVICE_PERSISTENCE":               {"Remove any service or launch agent you did not create."},
 	"SHELL_RC_PERSISTENCE":              {"Remove lines in your shell startup files you did not write."},
+	"AGENT_NAMESPACE_ESCAPE":            {"Treat the node as compromised: the agent's container reached the host. Rotate node and cluster credentials and rebuild the node.", "Remove host mounts, the runtime socket, privileged mode and CAP_SYS_ADMIN from the agent's pod spec."},
+	"AGENT_BPF_LOAD":                    {"List loaded BPF programs (bpftool prog list) and remove any you did not load.", "Drop CAP_BPF / CAP_SYS_ADMIN from the agent's environment."},
 }
 
 // ModeOf classifies a rule.

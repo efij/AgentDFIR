@@ -26,7 +26,7 @@ import (
 // Record is one endpoint observation.
 type Record struct {
 	Time      time.Time `json:"time"`
-	Kind      string    `json:"kind"` // process | network | file | cloud | dns | auth | process-image | script | service | log-clear | process-exit | registry | scheduled-task | wmi (evtx)
+	Kind      string    `json:"kind"` // process | network | file | cloud | dns | auth | process-image | script | service | log-clear | process-exit | registry | scheduled-task | wmi (evtx) | syscall | container
 	PID       int       `json:"pid,omitempty"`
 	PPID      int       `json:"ppid,omitempty"`
 	Exe       string    `json:"exe,omitempty"`
@@ -53,8 +53,35 @@ type Record struct {
 	Details     string `json:"details,omitempty"`      // registry data, task action, WMI query or consumer text (bounded)
 	SubjectUser string `json:"subject_user,omitempty"` // account that acted (User is the target account)
 	LogonType   string `json:"logon_type,omitempty"`
-	Source      string `json:"source"` // adapter name
-	Ref         string `json:"ref"`    // file:line or event id
+	// Container and namespace attribution (Linux), when the source
+	// records it: Tetragon, Falco, container-runtime events, and auditd
+	// where the kernel emitted a container id or a cgroup path. Namespace
+	// values are the namespace inode numbers (/proc/<pid>/ns/* targets).
+	ContainerID    string `json:"container_id,omitempty"`
+	ContainerName  string `json:"container_name,omitempty"`
+	ContainerImage string `json:"container_image,omitempty"`
+	Pod            string `json:"pod,omitempty"`
+	K8sNamespace   string `json:"k8s_namespace,omitempty"`
+	PIDNS          uint64 `json:"pid_ns,omitempty"`
+	MntNS          uint64 `json:"mnt_ns,omitempty"`
+	NetNS          uint64 `json:"net_ns,omitempty"`
+	// Process identity that survives pid reuse (Tetragon exec_id /
+	// parent_exec_id), the working directory and effective capabilities.
+	ExecID       string `json:"exec_id,omitempty"`
+	ParentExecID string `json:"parent_exec_id,omitempty"`
+	Cwd          string `json:"cwd,omitempty"`
+	Caps         string `json:"caps,omitempty"` // space-separated CAP_* names
+	TTY          string `json:"tty,omitempty"`
+	// Privilege change (kind auth: sudo, su, pkexec, PAM): the identity
+	// before and after. User stays the acting user.
+	PrivFrom string `json:"priv_from,omitempty"`
+	PrivTo   string `json:"priv_to,omitempty"`
+	// Detection carries a third-party detector's verdict attached to the
+	// record (a Falco rule name and priority), labelled with its origin.
+	// It is context from another tool, never an AgentDFIR finding.
+	Detection string `json:"detection,omitempty"`
+	Source    string `json:"source"` // adapter name
+	Ref       string `json:"ref"`    // file:line or event id
 }
 
 // Format names an adapter.
