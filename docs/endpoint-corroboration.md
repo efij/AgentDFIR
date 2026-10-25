@@ -134,7 +134,7 @@ A resource name from a command matches a record only on whole segments: the reco
 
 ### Host extraction
 
-Hosts are taken from each URL with a URL parser, never with a pattern: in `curl https://trusted.com@evil.com/x` the host is `evil.com` (what curl contacts), and the userinfo part is never used. URLs that do not parse, or whose host is percent-encoded (clients disagree on decoding it), are dropped rather than guessed at. IPv6 literals (`http://[2001:db8::5]:8080/`) keep their address without brackets or port. A tool call's precomputed network destination is only used when it has no command line (MCP and fetch tools), since it comes from a simpler extractor.
+Hosts are taken from each URL with a URL parser, never with a pattern: in `curl https://trusted.com@evil.com/x` the host is `evil.com` (what curl contacts), and the userinfo part is never used. URLs that do not parse, or whose host is percent-encoded (clients disagree on decoding it), are dropped rather than guessed at. IPv6 literals (`http://[2001:db8::5]:8080/`) keep their address without brackets or port. The same parser fills every tool call's network destination at normalization (`netdest.Extract`), so the host network matching of auditd and Sysmon records is protected as well. For these witnesses a call with a command line is read from the command itself; the stored destination is used for calls without one (MCP and fetch tools).
 
 ### Kubernetes audit log — `--format k8s-audit`
 

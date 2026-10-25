@@ -179,10 +179,10 @@ func eventDests(ev *schema.Event) []dest {
 		}
 	}
 	if ev.Command != "" {
-		// Everything comes from the command itself. NetworkDest was derived
-		// from it by a regex extractor that stops at '@', so it is not
-		// trusted here; URLs are removed before the non-URL extractor
-		// (ssh/scp/nc targets, bare IPs) runs for the same reason.
+		// Everything comes from the command itself (NetworkDest holds only
+		// its first destination); URLs go through net/url, and they are
+		// removed before the non-URL extractor
+		// (ssh/scp/nc targets, bare IPs) runs.
 		urls(ev.Command)
 		for _, d := range netdest.Extract(cmdURLRe.ReplaceAllString(ev.Command, " ")) {
 			add(netdest.Host(d), "")
