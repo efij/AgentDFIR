@@ -45,6 +45,9 @@ const (
 	EventCustodyExported = "custody_exported"
 	EventAuthorized      = "acquisition_authorized"
 	EventVerified        = "verify_run"
+	// EventProductionGenerated records an eDiscovery production set made
+	// from the case (export --production).
+	EventProductionGenerated = "production_generated"
 )
 
 // Record is one activity line, decoded. Fields holds the event-specific
