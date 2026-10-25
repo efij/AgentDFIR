@@ -9,6 +9,7 @@ import (
 	"github.com/efij/AgentDFIR/v4/internal/diskimage/apfs"
 	"github.com/efij/AgentDFIR/v4/internal/diskimage/ext4"
 	"github.com/efij/AgentDFIR/v4/internal/diskimage/fat"
+	"github.com/efij/AgentDFIR/v4/internal/diskimage/hfsplus"
 	"github.com/efij/AgentDFIR/v4/internal/diskimage/ntfs"
 )
 
@@ -26,6 +27,7 @@ var filesystems = []Filesystem{
 	{"ext4", ext4.Probe, ext4.Open},
 	{"fat", fat.Probe, fat.Open},
 	{"apfs", apfs.Probe, apfs.Open},
+	{"hfsplus", hfsplus.Probe, hfsplus.Open},
 }
 
 // Register adds a reader at the end of the registry (for readers that

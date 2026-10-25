@@ -260,3 +260,29 @@ func FuzzParsePlist(f *testing.F) {
 	f.Add([]byte(`<plist><dict><key>band-size</key><integer>8</integer><key>a</key><array><data>AAAA</data><true/></array></dict></plist>`))
 	f.Fuzz(func(t *testing.T, b []byte) { parsePlist(b) })
 }
+
+func TestHFSDMG(t *testing.T) {
+	im, err := Open(fixture(t, t.TempDir(), "hfs-udzo.dmg"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer im.Close()
+	pt, err := Partitions(im, im.Size())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, v := range pt.Volumes {
+		if GPTTypeName(v.Type) != "Apple HFS+" {
+			continue
+		}
+		res := OpenFS(v.Section(im), v.Size)
+		if res.Type != "hfsplus" || res.FS == nil {
+			t.Fatalf("%+v", res)
+		}
+		if _, err := fs.Stat(res.FS, "Users/alice/.claude/settings.json"); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+	t.Fatalf("no HFS+ partition: %+v", pt)
+}
