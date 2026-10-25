@@ -24,6 +24,7 @@ Second witness: match the agent transcript against OS telemetry.
   sysmon-xml  wevtutil qe Microsoft-Windows-Sysmon/Operational /f:xml   (events 1, 3, 11, 23)
   evtx        raw .evtx files: Sysmon, Security 4688, PowerShell 4104, service installs, log clears
   jsonl/csv   Velociraptor, osquery, evtx_dump JSON, macOS eslogger — field names auto-mapped
+  eslogger    macOS Endpoint Security (eslogger --format json); unifiedlog  log show --style ndjson|json
   zeek, dns-log, squid    Zeek dns/http/ssl, BIND/dnsmasq/Pi-hole/Unbound/Windows DNS, Squid
   authlog, journald       /var/log/auth.log or /var/log/secure, journalctl -o json
   k8s-audit, git-audit, storage-access   Kubernetes audit, GitHub/GitLab audit export, S3/GCS/Azure Storage logs
