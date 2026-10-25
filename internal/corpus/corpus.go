@@ -40,8 +40,19 @@ type Case struct {
 	// Allow lists rule IDs a benign case may legitimately produce, with the
 	// reason. Anything else counts as a false positive.
 	Allow map[string]string `json:"allow,omitempty"`
+	// Products lists the product collectors the case is acquired with
+	// (product IDs, opt-in ones included). Empty means claude-code.
+	Products []string `json:"products,omitempty"`
 
 	Dir string `json:"-"`
+}
+
+// ProductIDs returns the products a case is collected with.
+func (c Case) ProductIDs() []string {
+	if len(c.Products) == 0 {
+		return []string{"claude-code"}
+	}
+	return c.Products
 }
 
 // Budget caps how many false positives a rule may produce across the whole

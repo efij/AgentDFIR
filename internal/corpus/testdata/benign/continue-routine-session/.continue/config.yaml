@@ -1,0 +1,7 @@
+name: Local
+version: 1.0.0
+schema: v1
+mcpServers:
+  - name: pinned
+    command: npx
+    args: ["-y", "@acme/pinned-mcp@1.2.3"]
