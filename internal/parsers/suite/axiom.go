@@ -37,8 +37,8 @@ const maxCaseDBTables = 512
 // axiomCols are the well-known AXIOM column names lifted into events.
 type axiomCols struct {
 	url, title, when, source, location, item, artifact, evidence int
-	body                                                       []int
-	whenName                                                   string
+	body                                                         []int
+	whenName                                                     string
 }
 
 func axiomColumns(h []string) axiomCols {

@@ -46,6 +46,7 @@ COLLECT — where the evidence is
   agentdfir collect --docker <container|export.tar>                            a container (read-only export)
   agentdfir collect --archive <zip|tar|tgz>                                    CI artifact, support bundle, vendor export
   agentdfir collect --ai-export <zip|dir>                                      ChatGPT / Claude.ai / DeepSeek / Gemini Takeout export, UFDR
+  agentdfir collect --suite-export <path>                                      UFDR, AXIOM CSV / Portable Case, Plaso timeline, Autopsy report (docs/forensic-suite-interop.md)
   agentdfir collect --image <E01|raw|.001|vhd|vhdx|vmdk>                        forensic disk image, read-only (NTFS, ext2/3/4, FAT, exFAT; docs/disk-images.md)
       --include-browser   any mode above, and "run": also take browser history (opt-in; only AI-service visits are parsed)
   agentdfir verify <pkg>                                                       prove the package was not modified
@@ -287,6 +288,7 @@ func cmdCollect(args []string) int {
 	dockerRef := fs.String("docker", "", "container id/name (docker export, read-only) or a saved export .tar")
 	archive := fs.String("archive", "", "zip / tar / tar.gz: GitHub Actions artifact, support bundle, vendor data export")
 	aiExport := fs.String("ai-export", "", "AI-service account export (ChatGPT, Claude.ai, DeepSeek, Gemini Takeout) or Cellebrite UFDR: zip/tar or unpacked directory")
+	suiteExport := fs.String("suite-export", "", "forensic-suite export: UFDR, AXIOM CSV export / Portable Case, Plaso psort timeline, Autopsy Files - Text report (file, zip/tar or directory)")
 	includeBrowser := fs.Bool("include-browser", false, "also collect browser history databases (opt-in: AI-service visits are parsed, the rest is sealed unread)")
 	image := fs.String("image", "", "forensic disk image (raw/dd, split .001/.aa, E01, VHD, VHDX, VMDK): read-only, agent evidence only")
 	skipImageVerify := fs.Bool("skip-image-verify", false, "with --image: do not re-read an E01 to check its stored MD5/SHA-1")
@@ -304,6 +306,8 @@ func cmdCollect(args []string) int {
 		return collectArchive(*archive, base)
 	case *aiExport != "":
 		return collectAIExport(*aiExport, base)
+	case *suiteExport != "":
+		return collectSuiteExport(*suiteExport, base)
 	case *image != "":
 		return collectImage(*image, base, !*skipImageVerify)
 	}

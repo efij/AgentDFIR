@@ -248,7 +248,7 @@ func (p *parser) record(ev schema.Event) {
 // unsupported records a structure this package does not read.
 func (p *parser) unsupported(why string) {
 	p.emit(schema.Event{EventType: schema.EventTraceGap, ActorType: schema.ActorSystem, Result: resultUnsup,
-		Summary: clip(fmt.Sprintf("UNSUPPORTED %s (%s): %s", p.art.LogicalPath, p.product, why), 900),
+		Summary:       clip(fmt.Sprintf("UNSUPPORTED %s (%s): %s", p.art.LogicalPath, p.product, why), 900),
 		Corroboration: schema.StateObserved, SourceLine: 1})
 }
 
