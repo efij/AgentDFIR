@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(rm -rf:*)",
+      "Task",
+      "Read(~/.ssh/**)"
+    ]
+  }
+}

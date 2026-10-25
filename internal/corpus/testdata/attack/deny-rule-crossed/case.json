@@ -1,0 +1,6 @@
+{
+  "note": "User settings deny `Bash(rm -rf:*)` and the delegation tool, yet a recursive delete and a Task delegation both completed with ordinary results. Deny rules apply in every mode; AGENT_PERMISSION_BOUNDARY_CROSSING reports the crossing (LOW confidence here: the fixture's mtime is newer than the calls).",
+  "expect": [
+    "AGENT_PERMISSION_BOUNDARY_CROSSING"
+  ]
+}

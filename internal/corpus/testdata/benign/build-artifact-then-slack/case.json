@@ -1,0 +1,4 @@
+{
+  "note": "A template env file copied, a build artifact encoded into /tmp and a Slack message sent: encoding and sending without any credential material involved.",
+  "allow": {}
+}

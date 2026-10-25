@@ -1,0 +1,4 @@
+{
+  "note": "Checking which GitHub and AWS identity is active, and setting a commit e-mail in a test repo, change nothing about who later commands run as.",
+  "allow": {}
+}

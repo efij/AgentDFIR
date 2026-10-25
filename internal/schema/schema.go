@@ -68,8 +68,12 @@ type Event struct {
 	// bytes) when Command was cut for display. Encoded payloads and the
 	// flags at the end of a long `claude -p "…"` live past the cut, so the
 	// decoder, IOC matching and the agent-CLI rules read FullCommand().
-	CommandFull    string `json:"command_full,omitempty"`
-	Cwd            string `json:"cwd,omitempty"` // working directory the tool ran in, when the transcript records it
+	CommandFull string `json:"command_full,omitempty"`
+	Cwd         string `json:"cwd,omitempty"` // working directory the tool ran in, when the transcript records it
+	// PermissionMode is the approval mode the client recorded on the
+	// transcript line (default, acceptEdits, plan, auto, bypassPermissions…).
+	// Empty when the line carries none.
+	PermissionMode string `json:"permission_mode,omitempty"`
 	File           string `json:"file,omitempty"`
 	NetworkDest    string `json:"network_destination,omitempty"`
 	Action         string `json:"action,omitempty"`

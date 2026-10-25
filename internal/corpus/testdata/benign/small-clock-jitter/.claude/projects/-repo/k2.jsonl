@@ -1,0 +1,4 @@
+{"type": "user", "uuid": "u1", "sessionId": "k2", "timestamp": "2026-09-12T10:00:20Z", "cwd": "/repo", "message": {"role": "user", "content": "list files"}}
+{"type": "assistant", "uuid": "a2", "sessionId": "k2", "timestamp": "2026-09-12T10:00:30Z", "cwd": "/repo", "parentUuid": "u1", "message": {"role": "assistant", "content": [{"type": "tool_use", "id": "t1", "name": "Bash", "input": {"command": "ls"}}]}}
+{"type": "user", "uuid": "u3", "sessionId": "k2", "timestamp": "2026-09-12T10:00:10Z", "cwd": "/repo", "parentUuid": "a2", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t1", "content": "a b"}]}}
+{"type": "assistant", "uuid": "a4", "sessionId": "k2", "timestamp": "2026-09-12T10:00:40Z", "cwd": "/repo", "parentUuid": "u3", "message": {"role": "assistant", "content": [{"type": "text", "text": "Two files."}]}}

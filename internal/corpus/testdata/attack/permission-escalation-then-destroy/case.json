@@ -1,0 +1,7 @@
+{
+  "note": "The session moved from default to bypassPermissions, the agent wrote `Bash(*)` into its own allow list, and a recursive delete followed. Each step is ordinary alone; together the widening is what let the delete run unasked.",
+  "expect": [
+    "AGENT_TOOL_PERMISSION_ESCALATION",
+    "CHAIN_PERMISSION_ESCALATION_TO_IMPACT"
+  ]
+}

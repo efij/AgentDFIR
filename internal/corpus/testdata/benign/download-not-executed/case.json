@@ -1,0 +1,4 @@
+{
+  "note": "A dataset downloaded and counted with wc, and a status probe to /dev/null. Nothing downloaded was run. (A download followed by an unrelated interpreter is CHAIN_DOWNLOAD_AND_EXECUTE's known false positive, covered by benign/download-then-unrelated-python.)",
+  "allow": {}
+}

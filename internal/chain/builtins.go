@@ -114,4 +114,41 @@ var Builtin = []Chain{
 		},
 		MitreATLAS: "AML.T0086", MitreATTACK: "T1048",
 	},
+	// v4 (docs/detection-v4.md): combinations no earlier chain covers.
+	{
+		ID: "CHAIN_CROSS_TOOL_EXFIL", Severity: "HIGH", Scope: "session", WindowMinutes: 60,
+		Title:       "Credential Material Collected, Then Sent Out Through an MCP Tool",
+		Description: "The agent collected credential material (a credential store, a private key, a staged or archived secret, a planted canary, or a secrets MCP tool) and then called an MCP tool that sends, posts or publishes. CHAIN_SECRET_TO_EXFIL watches shell uploads; this is the same story through a different tool, which a shell-only rule never sees. A possible exfiltration path: the MCP call's arguments are not in the transcript events, so what was sent is unconfirmed.",
+		Steps: []Step{
+			{Name: "credential material collected", FindingRules: []string{"SECRET_ACCESS", "AGENT_SENSITIVE_DATA_STAGING", "AGENT_CREDENTIAL_STORE_ACCESS", "SSH_PRIVATE_KEY_READ", "CREDENTIAL_DIR_ARCHIVE", "CLOUD_CREDENTIAL_EXPORT", "BROWSER_CREDENTIAL_ACCESS", "KUBE_SECRET_DUMP"},
+				Or: []Step{{EventTypes: []string{"tool_call"}, MCP: true, ToolRegex: `(secret|credential|password|passwd|vault|keychain|1password|bitwarden)`}}},
+			{Name: "MCP tool that sends data out", EventTypes: []string{"tool_call"}, MCP: true, ToolRegex: `(send|post|upload|publish|comment|message|e?mail|gist|webhook|share|tweet|paste|put_object|issue)`},
+		},
+		MitreATLAS: "AML.T0086", MitreATTACK: "T1567",
+		FalsePositive: "An agent asked to file an issue or post a message after rotating a key. Open the MCP call's raw transcript line to see what it carried.",
+	},
+	{
+		ID: "CHAIN_MCP_RESULT_TO_PRIVILEGED", Severity: "HIGH", Scope: "session", WindowMinutes: 60,
+		Title:       "Instructions in an MCP Tool Result, Then Credentials Touched or Data Sent",
+		Description: "An MCP tool returned instruction-override content, and the agent then read credential material, widened its own permissions or ran an upload-shaped command in the same session. CHAIN_MCP_RESULT_TO_DESTRUCTIVE covers the destructive follow-up; this covers the privileged ones. The order is recorded; that the result caused the action is possible, not proven.",
+		Steps: []Step{
+			{Name: "instructions in an MCP tool result", EventTypes: []string{"tool_result"}, FindingRules: []string{"MCP_TOOL_POISONING", "TOOL_POISONING_INDICATOR", "PROMPT_INJECTION_INDICATOR"}},
+			{Name: "privileged action", FindingRules: []string{"SENSITIVE_FILE_READ", "AGENT_CREDENTIAL_STORE_ACCESS", "SSH_PRIVATE_KEY_READ", "CLOUD_CREDENTIAL_EXPORT", "AGENT_SENSITIVE_DATA_STAGING", "AGENT_TOOL_PERMISSION_ESCALATION", "NESTED_AGENT_PERMISSION_BYPASS"},
+				Or: []Step{{EventTypes: []string{"tool_call"}, Upload: true}}},
+		},
+		MitreATLAS: "AML.T0099", MitreATTACK: "T1552",
+		FalsePositive: "A documentation tool that quotes injection examples, followed by unrelated credential work the person asked for. Read the tool result.",
+	},
+	{
+		ID: "CHAIN_PERMISSION_ESCALATION_TO_IMPACT", Severity: "HIGH", Scope: "session", WindowMinutes: 120,
+		Title:       "Permissions Widened, Then Something Destructive or an Upload Ran",
+		Description: "The session's permissions widened (bypass mode entered, the agent granted itself tools, a nested agent launched with checks off, or a denied tool ran) and a destructive command, a logging shutdown or an upload followed. The widening is what let the later action run without a person approving it.",
+		Steps: []Step{
+			{Name: "permissions widened", FindingRules: []string{"AGENT_TOOL_PERMISSION_ESCALATION", "NESTED_AGENT_PERMISSION_BYPASS", "AGENT_PERMISSION_BOUNDARY_CROSSING"}},
+			{Name: "destructive action, logging shutdown or upload", FindingRules: []string{"DESTRUCTIVE_COMMAND", "CLOUD_DATA_DESTRUCTION", "CLOUD_RESOURCE_DELETION", "CLOUD_RECOVERY_PROTECTION_REMOVED", "DISK_WIPE", "LOG_DELETION", "AGENT_AUDIT_COVERAGE_LOSS"},
+				Or: []Step{{EventTypes: []string{"tool_call"}, Upload: true}}},
+		},
+		MitreATLAS: "AML.T0081", MitreATTACK: "T1562.001",
+		FalsePositive: "A person running a cleanup in bypass mode on purpose. Ask who switched the mode and whether the follow-up was the task.",
+	},
 }

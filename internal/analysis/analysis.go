@@ -442,6 +442,9 @@ func Run(pkg string, o Options) (*Result, error) {
 	findings = append(findings, det...)
 	// Transcripts against the monitor journal, when one was collected.
 	if man, err := casepkg.ReadManifest(pkg); err == nil {
+		// Session-level agent-behaviour rules (refusals, permission
+		// boundaries, clocks, credential reuse) read the decoded events.
+		findings = append(findings, detect.RunAgentRules(allEvents(), pkg, man)...)
 		jf := journal.Check(man, casepkg.NewStore(pkg, man))
 		findings = append(findings, jf...)
 		if len(jf) > 0 {

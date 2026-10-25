@@ -1,0 +1,6 @@
+{
+  "note": "Settings deny `Bash(rm -rf:*)`; the delete was refused by the client and the agent only listed the directory. The boundary held, so nothing crossed it. DESTRUCTIVE_COMMAND is allowed: it reports the attempted command by design.",
+  "allow": {
+    "DESTRUCTIVE_COMMAND": "the refused attempt is still a destructive command line; the rule reports attempts by design"
+  }
+}

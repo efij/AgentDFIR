@@ -1,0 +1,6 @@
+{
+  "note": "A tool result recorded twenty minutes before the call it answers, and a record dated months after the file was collected: times a running client cannot write. AGENT_SESSION_CLOCK_ANOMALY covers what SESSION_TAMPERING and TIMESTOMP_INDICATOR do not.",
+  "expect": [
+    "AGENT_SESSION_CLOCK_ANOMALY"
+  ]
+}

@@ -145,6 +145,7 @@ type contentItem struct {
 	ToolUseID string          `json:"tool_use_id"`
 	Content   json.RawMessage `json:"content"` // tool_result payload
 	AgentID   string          `json:"agentId"` // present on some Task results
+	IsError   bool            `json:"is_error"`
 }
 
 // IDFormat renders an event id from its sequence number. The incremental
@@ -426,7 +427,7 @@ func (p *parser) handleLine(tl transcriptLine, art casepkg.ArtifactRecord, off i
 	base := schema.Event{
 		Timestamp: tl.Timestamp, TimestampSrc: "transcript", Cwd: tl.CWD,
 		SessionID: tl.SessionID, AgentID: agentID,
-		ProductVersion: tl.Version,
+		ProductVersion: tl.Version, PermissionMode: trim(tl.PermissionMode, 40),
 	}
 
 	var msg messageBody
@@ -446,6 +447,11 @@ func (p *parser) handleLine(tl transcriptLine, art casepkg.ArtifactRecord, off i
 				ev.ToolCallID = it.ToolUseID
 				ev.Corroboration = schema.StateObserved
 				ev.Summary = trim(flatText(it.Content), 200)
+				if it.IsError {
+					// The client marked the result as failed or refused.
+					// Rules that ask "did the action complete" read this.
+					ev.Result = "error"
+				}
 				p.emit(ev, art, off, line)
 				emittedToolResult = true
 				// The child id of an Agent/Task launch arrives on the RESULT
