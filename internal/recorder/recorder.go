@@ -33,6 +33,7 @@ import (
 	"time"
 
 	"github.com/efij/AgentDFIR/v4/internal/endpoint"
+	"github.com/efij/AgentDFIR/v4/internal/journal"
 )
 
 // Journal is what the recorder needs from internal/journal.
@@ -201,6 +202,7 @@ type Recorder struct {
 	mcp       *MCPConfigWatcher
 	captures  []*Capture
 	retState  *RetentionState
+	known     map[string]time.Time // captures the journal recorded (retention scope)
 	started   time.Time
 	lastSave  time.Time
 	lastPrune time.Time
@@ -393,7 +395,8 @@ func (r *Recorder) Prune() []Pruned {
 	r.mu.Unlock()
 	r.flush() // journal everything up to now before deleting anything
 	now := r.now()
-	pruned, problems := ret.Prune(r.Dir, active, r.Journal, now)
+	known := r.knownCaptures()
+	pruned, problems := ret.Prune(r.Dir, known, active, r.Journal, now)
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.lastPrune = now
@@ -415,6 +418,40 @@ func (r *Recorder) Prune() []Pruned {
 		}
 	}
 	return pruned
+}
+
+// knownCaptures is the retention scope: captures the journal file
+// recorded (read once), plus the files this recorder's captures created
+// (journaled by the flush that precedes every prune).
+func (r *Recorder) knownCaptures() map[string]time.Time {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.known == nil {
+		r.known = map[string]time.Time{}
+		if r.JournalLog != "" {
+			if m, err := journal.JournaledPaths(r.JournalLog); err == nil {
+				for p, t := range m {
+					if filepath.Dir(p) == r.Dir {
+						r.known[p] = t
+					}
+				}
+			}
+		}
+	}
+	for _, c := range r.captures {
+		c.mu.Lock()
+		for _, p := range c.paths {
+			if _, ok := r.known[p]; !ok && r.Journal != nil {
+				r.known[p] = time.Time{} // age from the name stamp
+			}
+		}
+		c.mu.Unlock()
+	}
+	out := make(map[string]time.Time, len(r.known))
+	for p, t := range r.known {
+		out[p] = t
+	}
+	return out
 }
 
 // Status assembles the current status.

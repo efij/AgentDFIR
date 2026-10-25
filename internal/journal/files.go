@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"sort"
+	"time"
 )
 
 // File states reported by VerifyFiles.
@@ -197,4 +198,30 @@ func verifyOne(p, local string, rs []fileRec) FileCheck {
 		fc.Detail = fmt.Sprintf("%d range(s), %d bytes verified", len(ranges), journaled)
 	}
 	return fc
+}
+
+// JournaledPaths returns every path the journal recorded content for
+// (baseline or append) with the time of its first such record. Retention
+// uses it to touch only files this monitor journaled.
+func JournaledPaths(journalPath string) (map[string]time.Time, error) {
+	f, err := os.Open(journalPath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	out := map[string]time.Time{}
+	sc := bufio.NewScanner(io.LimitReader(f, maxJournal))
+	sc.Buffer(make([]byte, 0, 64<<10), 16<<20)
+	for sc.Scan() {
+		var r rec
+		if json.Unmarshal(sc.Bytes(), &r) != nil || r.Path == "" || (r.Kind != "append" && r.Kind != "baseline") {
+			continue
+		}
+		if _, ok := out[r.Path]; ok {
+			continue
+		}
+		t, _ := time.Parse(time.RFC3339Nano, r.At)
+		out[r.Path] = t
+	}
+	return out, sc.Err()
 }

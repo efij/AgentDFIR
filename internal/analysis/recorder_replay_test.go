@@ -73,15 +73,17 @@ func TestCaseCheckSeparatesPruningFromDeletion(t *testing.T) {
 		t.Fatal(err)
 	}
 	var paths []string
-	for _, src := range []string{"auditd", "tail-falco", "tail-tetragon"} {
+	old := time.Now().Add(-30 * 24 * time.Hour)
+	for i, src := range []string{"auditd", "tail-falco", "tail-tetragon"} {
 		c := recorder.NewCapture(state, src, ".log", jn, nil)
+		if i == 0 {
+			c.SetClock(func() time.Time { return old }) // created 30 days ago
+		}
 		_, _ = c.Write([]byte("type=SYSCALL msg=audit(1788084005.300:1): pid=1 exe=\"/bin/sh\"\n"))
 		_ = c.Close()
 		paths = append(paths, c.Path())
 	}
-	old := time.Now().Add(-30 * 24 * time.Hour)
-	_ = os.Chtimes(paths[0], old, old)
-	if pruned, _ := (recorder.Retention{MaxAge: 7 * 24 * time.Hour}).Prune(state, nil, jn, time.Now()); len(pruned) != 1 {
+	if pruned, _ := (recorder.Retention{MaxAge: 7 * 24 * time.Hour}).Prune(state, journaled(t, state), nil, jn, time.Now()); len(pruned) != 1 {
 		t.Fatalf("pruned %v", pruned)
 	}
 	_ = jn.Close()
@@ -160,14 +162,14 @@ func TestCaseCheckRejectsForgedOrMismatchedPrune(t *testing.T) {
 	_ = os.Remove(gone)
 
 	c := recorder.NewCapture(state, "auditd", ".log", jn, nil)
+	created := time.Now().Add(-30 * 24 * time.Hour)
+	c.SetClock(func() time.Time { return created })
 	_, _ = c.Write([]byte("type=SYSCALL msg=audit(1788084005.300:1): pid=1 exe=\"/bin/sh\"\n"))
 	_ = c.Close()
 	data, _ := os.ReadFile(c.Path())
 	data[20] ^= 1 // edited, same size
 	_ = os.WriteFile(c.Path(), data, 0o600)
-	old := time.Now().Add(-30 * 24 * time.Hour)
-	_ = os.Chtimes(c.Path(), old, old)
-	if p, _ := (recorder.Retention{MaxAge: 24 * time.Hour}).Prune(state, nil, jn, time.Now()); len(p) != 1 {
+	if p, _ := (recorder.Retention{MaxAge: 24 * time.Hour}).Prune(state, journaled(t, state), nil, jn, time.Now()); len(p) != 1 {
 		t.Fatalf("pruned %v", p)
 	}
 	_ = jn.Close()
@@ -181,4 +183,13 @@ func TestCaseCheckRejectsForgedOrMismatchedPrune(t *testing.T) {
 	if titles["Prune Record for a File the Recorder Does Not Own"] != "HIGH" || titles["Pruned Capture Does Not Match What Was Journaled"] != "HIGH" {
 		t.Fatalf("findings: %v", titles)
 	}
+}
+
+func journaled(t *testing.T, state string) map[string]time.Time {
+	t.Helper()
+	m, err := journal.JournaledPaths(filepath.Join(state, "journal.jsonl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return m
 }

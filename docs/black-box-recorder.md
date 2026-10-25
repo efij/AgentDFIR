@@ -110,7 +110,10 @@ finding.
 1 GB = 2^30 bytes; ages take s, m, h, d, w). Once a minute the recorder:
 
 1. journals every capture range written so far;
-2. picks capture files older than the age bound, then, oldest first, as
+2. considers only capture files the journal recorded (a capture-named file
+   it never recorded is reported, not counted or deleted); picks those whose
+   creation stamp (file name, or first journal record if earlier; never the
+   mtime) is older than the age bound, then, oldest first, as
    many more as it takes to bring the total under the size bound — never a
    file still being written, never `journal.jsonl` or `status.json`;
 3. for each, hashes the whole file and appends a `prune` record (path,

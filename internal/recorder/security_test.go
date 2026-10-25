@@ -4,7 +4,9 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
+	"time"
 )
 
 // A symlink planted in the state dir must never be written through.
@@ -60,5 +62,34 @@ func TestCheckDirAsRoot(t *testing.T) {
 	}
 	if err := CheckDir(filepath.Join(t.TempDir(), "absent")); err != nil {
 		t.Fatalf("absent dir: %v", err)
+	}
+}
+
+// Retention ignores mtime and look-alike files: a backdated mtime neither
+// ages a capture out nor goes unreported, and a planted capture-named file
+// the journal never recorded is not counted toward the size bound or
+// deleted.
+func TestRetentionIgnoresForgeableInputs(t *testing.T) {
+	dir := t.TempDir()
+	jn, _ := openJournal(t, dir)
+	c := NewCapture(dir, "auditd", ".log", jn, nil)
+	_, _ = c.Write([]byte(auditLines(1, 1)))
+	_ = c.Close()
+	fresh := c.Path()
+	old := time.Now().Add(-90 * 24 * time.Hour)
+	_ = os.Chtimes(fresh, old, old) // backdated
+	planted := filepath.Join(dir, "auditd-20200101T000000Z.log")
+	_ = os.WriteFile(planted, make([]byte, 1<<20), 0o600)
+	pruned, problems := Retention{MaxAge: 7 * 24 * time.Hour, MaxBytes: 1 << 19}.Prune(dir, known(t, dir), nil, jn, time.Now())
+	_ = jn.Close()
+	if len(pruned) != 0 {
+		t.Fatalf("pruned on forgeable input: %v", pruned)
+	}
+	if _, err := os.Stat(planted); err != nil {
+		t.Fatal("planted look-alike deleted")
+	}
+	joined := strings.Join(problems, "\n")
+	if !strings.Contains(joined, "backdated") || !strings.Contains(joined, "never recorded") {
+		t.Fatalf("problems: %v", problems)
 	}
 }

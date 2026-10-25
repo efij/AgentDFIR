@@ -46,6 +46,9 @@ func NewCapture(dir, source, ext string, jn Journal, src *Source) *Capture {
 		RollBytes: DefaultRollBytes, RollAge: DefaultRollAge, now: time.Now}
 }
 
+// SetClock replaces the clock (file name stamps, roll-over age).
+func (c *Capture) SetClock(now func() time.Time) { c.mu.Lock(); c.now = now; c.mu.Unlock() }
+
 // SetExt changes the extension used for the next file opened.
 func (c *Capture) SetExt(ext string) { c.mu.Lock(); c.ext = ext; c.mu.Unlock() }
 

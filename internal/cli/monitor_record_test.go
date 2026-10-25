@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/efij/AgentDFIR/v4/internal/journal"
 	"github.com/efij/AgentDFIR/v4/internal/recorder"
 )
 
@@ -94,13 +95,23 @@ func TestMonitorRecordStatusVerifyReplay(t *testing.T) {
 	}
 	_ = os.WriteFile(caps[0], data, 0o600)
 
-	// Retention deletes it (journaled): verify passes again.
-	old := time.Now().Add(-30 * 24 * time.Hour)
-	_ = os.Chtimes(caps[0], old, old)
+	// Retention deletes a capture created 30 days ago (journaled): verify
+	// passes again. Age comes from the creation stamp, not the mtime.
+	jn, err := journal.Open(jp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	created := time.Now().Add(-30 * 24 * time.Hour)
+	oc := recorder.NewCapture(dir, "tail-old", ".jsonl", jn, nil)
+	oc.SetClock(func() time.Time { return created })
+	_, _ = oc.Write([]byte("{\"x\":1}\n"))
+	_ = oc.Close()
+	_ = jn.Close()
+	oldCap := oc.Path()
 	if code, out = capture(t, "monitor", sessions, "--record", "--retain", "7d", "--quiet", "--cycles", "1", "--interval", "10ms"); code != 0 {
 		t.Fatalf("monitor (prune) exit %d:\n%s", code, out)
 	}
-	if _, err := os.Stat(caps[0]); err == nil {
+	if _, err := os.Stat(oldCap); err == nil {
 		t.Fatal("retention did not prune the 30-day-old capture")
 	}
 	code, out = capture(t, "journal", "verify", jp)

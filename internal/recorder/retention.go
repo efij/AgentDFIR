@@ -3,6 +3,7 @@ package recorder
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -104,50 +105,83 @@ type Pruned struct {
 	Reason string
 }
 
-// Prune applies the policy to the capture files in dir. Files in active
-// (still being written) are never touched. Each deletion is hashed and
-// journaled first; without a journal nothing is deleted.
-func (r Retention) Prune(dir string, active map[string]bool, jn Journal, now time.Time) ([]Pruned, []string) {
-	files := CaptureFiles(dir)
+// mtimeSlack is how far a capture's mtime may precede its creation stamp
+// before it is reported as backdated (clock granularity, not tampering).
+const mtimeSlack = 5 * time.Second
+
+// CaptureStamp returns the creation time encoded in a capture file name.
+func CaptureStamp(base string) (time.Time, bool) {
+	m := captureRe.FindStringSubmatch(base)
+	if m == nil {
+		return time.Time{}, false
+	}
+	t, err := time.Parse("20060102T150405Z", m[2])
+	return t, err == nil
+}
+
+// Prune applies the policy to the capture files in dir that the journal
+// recorded (known: path → first journal record). Look-alike files the
+// journal never recorded are neither counted nor deleted, only reported.
+// Age is taken from the creation stamp in the file name (or the first
+// journal record, if earlier), never from the forgeable mtime; a capture
+// whose mtime is earlier than both is reported as backdated. Files in
+// active (still being written) are never touched. Each deletion is hashed
+// and journaled first; without a journal nothing is deleted.
+func (r Retention) Prune(dir string, known map[string]time.Time, active map[string]bool, jn Journal, now time.Time) ([]Pruned, []string) {
+	if jn == nil {
+		return nil, []string{"retention needs the journal; nothing pruned"}
+	}
 	type cand struct {
-		path  string
-		size  int64
-		mtime time.Time
+		path    string
+		size    int64
+		created time.Time
 	}
 	var all []cand
 	var total int64
-	for _, p := range files {
+	var problems []string
+	for _, p := range CaptureFiles(dir) {
 		fi, err := os.Stat(p)
 		if err != nil {
 			continue
 		}
-		all = append(all, cand{p, fi.Size(), fi.ModTime()})
+		first, ok := known[p]
+		if !ok {
+			problems = append(problems, filepath.Base(p)+": capture-named file the journal never recorded; not counted or pruned")
+			continue
+		}
+		created, _ := CaptureStamp(filepath.Base(p))
+		if !first.IsZero() && (created.IsZero() || first.Before(created)) {
+			created = first
+		}
+		if created.IsZero() {
+			problems = append(problems, filepath.Base(p)+": no creation time; not pruned")
+			continue
+		}
+		if fi.ModTime().Before(created.Add(-mtimeSlack)) {
+			problems = append(problems, fmt.Sprintf("%s: mtime %s is earlier than its creation %s (backdated)", filepath.Base(p), fi.ModTime().UTC().Format(time.RFC3339), created.UTC().Format(time.RFC3339)))
+		}
+		all = append(all, cand{p, fi.Size(), created})
 		total += fi.Size()
 	}
 	sort.SliceStable(all, func(i, j int) bool {
-		if !all[i].mtime.Equal(all[j].mtime) {
-			return all[i].mtime.Before(all[j].mtime)
+		if !all[i].created.Equal(all[j].created) {
+			return all[i].created.Before(all[j].created)
 		}
 		return all[i].path < all[j].path
 	})
 	var out []Pruned
-	var problems []string
 	for _, c := range all {
 		if active[c.path] {
 			continue
 		}
 		reason := ""
 		switch {
-		case r.MaxAge > 0 && now.Sub(c.mtime) > r.MaxAge:
-			reason = fmt.Sprintf("retention: last written %s ago, older than %s", now.Sub(c.mtime).Round(time.Second), r.MaxAge)
+		case r.MaxAge > 0 && now.Sub(c.created) > r.MaxAge:
+			reason = fmt.Sprintf("retention: created %s ago, older than %s", now.Sub(c.created).Round(time.Second), r.MaxAge)
 		case r.MaxBytes > 0 && total > r.MaxBytes:
 			reason = fmt.Sprintf("retention: captures total %d bytes, over the %d-byte bound", total, r.MaxBytes)
 		default:
 			continue
-		}
-		if jn == nil {
-			problems = append(problems, "retention needs the journal; nothing pruned")
-			break
 		}
 		sha, note := hashFile(c.path, 0)
 		if note != "" {

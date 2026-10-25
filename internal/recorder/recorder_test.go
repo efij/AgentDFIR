@@ -110,13 +110,18 @@ func TestCaptureChunksAreJournaled(t *testing.T) {
 	}
 }
 
+// makeCaptures writes n one-line captures created 29.5, 28.5, ... days
+// ago (the creation stamp is in the name), each last written a minute
+// after it was created.
 func makeCaptures(t *testing.T, dir string, jn Journal, n int) []string {
 	t.Helper()
 	c := NewCapture(dir, "auditd", ".log", jn, nil)
 	c.RollBytes = 1
-	clock := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
-	c.now = func() time.Time { clock = clock.Add(time.Second); return clock }
+	var cur time.Time
+	c.SetClock(func() time.Time { return cur })
+	base := time.Now().UTC().Add(-30*24*time.Hour + 12*time.Hour).Truncate(time.Second)
 	for i := 0; i < n; i++ {
+		cur = base.Add(time.Duration(i) * 24 * time.Hour)
 		_, _ = c.Write([]byte(auditLines(100+i, 1)))
 	}
 	_ = c.Close()
@@ -124,12 +129,21 @@ func makeCaptures(t *testing.T, dir string, jn Journal, n int) []string {
 	if len(ps) != n {
 		t.Fatalf("captures: %v", ps)
 	}
-	// Oldest first by mtime.
 	for i, p := range ps {
-		mt := time.Now().Add(-time.Duration(30-i)*24*time.Hour + 12*time.Hour)
+		mt := base.Add(time.Duration(i)*24*time.Hour + time.Minute)
 		_ = os.Chtimes(p, mt, mt)
 	}
 	return ps
+}
+
+// known is the retention scope from the journal in dir.
+func known(t *testing.T, dir string) map[string]time.Time {
+	t.Helper()
+	m, err := journal.JournaledPaths(filepath.Join(dir, "journal.jsonl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return m
 }
 
 func TestRetentionPruneIsJournaledAndVerifies(t *testing.T) {
@@ -140,7 +154,7 @@ func TestRetentionPruneIsJournaledAndVerifies(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pruned, problems := ret.Prune(dir, map[string]bool{}, jn, time.Now())
+	pruned, problems := ret.Prune(dir, known(t, dir), map[string]bool{}, jn, time.Now())
 	if len(problems) != 0 || len(pruned) != 2 {
 		t.Fatalf("pruned %v problems %v", pruned, problems)
 	}
@@ -152,7 +166,7 @@ func TestRetentionPruneIsJournaledAndVerifies(t *testing.T) {
 	// Size bound: two files fit; the active one is never touched.
 	fi, _ := os.Stat(ps[4])
 	bySize := Retention{MaxBytes: 2*fi.Size() + 1}
-	pruned, _ = bySize.Prune(dir, map[string]bool{ps[3]: true}, jn, time.Now())
+	pruned, _ = bySize.Prune(dir, known(t, dir), map[string]bool{ps[3]: true}, jn, time.Now())
 	if len(pruned) != 1 || pruned[0].Path != ps[2] {
 		t.Fatalf("size prune must take the oldest inactive file: %v", pruned)
 	}
@@ -173,7 +187,7 @@ func TestRetentionPruneIsJournaledAndVerifies(t *testing.T) {
 		}
 	}
 	b, _ := os.ReadFile(jp)
-	if strings.Count(string(b), `"kind":"prune"`) != 3 || !strings.Contains(string(b), `"reason":"retention: last written`) {
+	if strings.Count(string(b), `"kind":"prune"`) != 3 || !strings.Contains(string(b), `"reason":"retention: created`) {
 		t.Fatalf("prune records: %s", b)
 	}
 }
@@ -209,9 +223,7 @@ func TestPruneOfEditedCaptureIsFlagged(t *testing.T) {
 	b, _ := os.ReadFile(ps[0])
 	b[10] ^= 1
 	_ = os.WriteFile(ps[0], b, 0o600)
-	old := time.Now().Add(-40 * 24 * time.Hour)
-	_ = os.Chtimes(ps[0], old, old)
-	pruned, _ := Retention{MaxAge: 35 * 24 * time.Hour}.Prune(dir, nil, jn, time.Now())
+	pruned, _ := Retention{MaxAge: 29 * 24 * time.Hour}.Prune(dir, known(t, dir), nil, jn, time.Now())
 	_ = jn.Close()
 	if len(pruned) != 1 {
 		t.Fatalf("pruned %v", pruned)
@@ -225,7 +237,7 @@ func TestPruneOfEditedCaptureIsFlagged(t *testing.T) {
 func TestRetentionWithoutJournalDeletesNothing(t *testing.T) {
 	dir := t.TempDir()
 	ps := makeCaptures(t, dir, nil, 2)
-	pruned, problems := Retention{MaxAge: time.Hour}.Prune(dir, nil, nil, time.Now())
+	pruned, problems := Retention{MaxAge: time.Hour}.Prune(dir, map[string]time.Time{ps[0]: {}, ps[1]: {}}, nil, nil, time.Now())
 	if len(pruned) != 0 || len(problems) == 0 {
 		t.Fatalf("pruned without a journal: %v %v", pruned, problems)
 	}
