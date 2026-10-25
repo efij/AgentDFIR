@@ -69,8 +69,9 @@ func cmdRun(args []string) int {
 	port := fs.Int("port", 0, "TCP port on 127.0.0.1 (default: ephemeral)")
 	noOpen := fs.Bool("no-open", false, "print the URL but do not open the browser")
 	noServe := fs.Bool("no-serve", false, "stop after analysis and print the findings (scripts, CI)")
+	includeBrowser := fs.Bool("include-browser", false, "also collect browser history databases (opt-in: AI-service visits are parsed, the rest is sealed unread)")
 	if err := fs.Parse(args); err != nil || fs.NArg() != 0 {
-		fmt.Fprintln(os.Stderr, "usage: agentdfir run [--product <p>] [--out <dir>] [--endpoint <os-log>]... [--new] [--priority gentle|background|normal] [--no-open] [--no-serve]")
+		fmt.Fprintln(os.Stderr, "usage: agentdfir run [--product <p>] [--out <dir>] [--endpoint <os-log>]... [--include-browser] [--new] [--priority gentle|background|normal] [--no-open] [--no-serve]")
 		return 2
 	}
 	mode, err := gentle.ParseMode(*priority)
@@ -195,6 +196,11 @@ func cmdRun(args []string) int {
 			targets = append(targets, d.Product.ID)
 		}
 	}
+	if *includeBrowser && !containsString(targets, browserProductID) {
+		// Opt-in only: history is never part of a default run.
+		targets = append(targets, browserProductID)
+		fmt.Fprintf(w, "  %-16s requested (--include-browser): only AI-service visits are parsed\n", "Browser history")
+	}
 	tr.End()
 	if len(targets) == 0 {
 		return fail(1, "no AI agents found for this user. Evidence somewhere else? agentdfir collect --path <copied home> | --import <tree> | --docker <container> | --archive <zip>")
@@ -205,6 +211,9 @@ func cmdRun(args []string) int {
 		OperatorOSUser: osUser, OperatorAsserted: *operator, Authorization: *authz,
 		CollectionArgs: append([]string{"run"}, args...),
 		Notes:          map[string]string{"mode": "current-user", "run": "detect+collect+analyze"},
+	}
+	if containsString(targets, browserProductID) {
+		info.Notes["browser_history"] = browserNote
 	}
 	var prior integrity.Prior
 	b, reopened, err := openPackage(dest, id, info, !*noShare, func() {

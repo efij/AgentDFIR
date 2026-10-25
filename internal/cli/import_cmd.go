@@ -21,6 +21,7 @@ type importOpts struct {
 	args                                        []string
 	notes                                       map[string]string // extra case notes (docker/archive provenance)
 	fallback                                    bool              // archive mode: ingest loose session files when no profile is found
+	includeBrowser                              bool              // --include-browser: also collect browser history (opt-in)
 }
 
 // collectImport acquires from a KAPE / Velociraptor / CyLR / image tree:
@@ -42,6 +43,13 @@ func collectImport(o importOpts) int {
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
+	}
+	if o.includeBrowser {
+		// Opt-in products join discovery only when asked for, so a profile
+		// holding nothing but a browser is found too.
+		if extra, err := products.OptIn(); err == nil {
+			prods = append(prods, extra...)
+		}
 	}
 	profiles := collector.DiscoverProfiles(root, prods, 12)
 	if len(profiles) == 0 && !o.fallback {
@@ -72,6 +80,9 @@ func collectImport(o importOpts) int {
 	}
 	for k, v := range o.notes {
 		info.Notes[k] = v
+	}
+	if o.includeBrowser {
+		info.Notes["browser_history"] = browserNote
 	}
 	b, err := casepkg.New(dest, id, info)
 	if err != nil {
