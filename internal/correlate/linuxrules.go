@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -37,6 +38,10 @@ import (
 var (
 	systemdUnitRe = regexp.MustCompile(`(?:^|/)(?:etc/systemd/(?:system|user)|(?:usr/)?lib/systemd/(?:system|user)|run/systemd/(?:system|user)|\.config/systemd/user|\.local/share/systemd/user)(?:/[^/]+\.wants)?/[^/]+\.(service|timer|socket|path)$`)
 	systemdRunRe  = regexp.MustCompile(`(?:^|[\s/])systemd-run\s.*--on-(?:calendar|active|boot|startup|unit-active|unit-inactive)\b`)
+	// The original patterns stay as a fallback: the argv parsers can only
+	// add detections.
+	systemctlRe   = regexp.MustCompile(`(?:^|[\s/])systemctl\s+(?:--\S+\s+)*(?:enable|link|preset|reenable)\b`)
+	nsenterRe     = regexp.MustCompile(`(?:^|[\s/])nsenter\s(?:.*\s)?(?:-t\s*1|--target[=\s]1)(?:\s|$)`)
 	cronPathRe    = regexp.MustCompile(`^(?:/etc/crontab|/etc/anacrontab|/etc/cron\.(?:d|hourly|daily|weekly|monthly)/[^/]+|/var/spool/cron/(?:crontabs/)?[^/]+)$`)
 	bpftoolRe     = regexp.MustCompile(`(?:^|[\s/])bpftool\s+(?:-\S+\s+)*(?:prog\s+(?:load|loadall|attach)|net\s+attach|cgroup\s+attach)\b`)
 	runtimeSockRe = regexp.MustCompile(`/(?:docker|containerd|crio|podman)\.sock\b`)
@@ -137,53 +142,125 @@ var linuxRules = []linuxRule{
 
 func isWriteOp(op string) bool { return op == "create" || op == "modify" }
 
-// invocations splits a command line into argv lists, one per command:
-// whitespace separates arguments; ;, |, &, newlines and the operators made
-// of them (&&, ||) end a command even when written without spaces.
-func invocations(cmd string) [][]string {
-	var out [][]string
+// Command lines in endpoint records are exec argv joined with spaces
+// (auditd, Tetragon, Falco proc.cmdline, sudo COMMAND=, docker exec). They
+// are not shell text: an argv element may legitimately contain ';' or '|'.
+// So the line is tokenized on whitespace only (quotes and backslash
+// escapes are removed from each token), and only the script handed to a
+// shell with -c is parsed as shell text, where ; | & ( ) ` and newlines
+// end a command. The whole line is then read a second time as shell text:
+// each reading can only add invocations, so neither can hide one. Nothing is capped: invocations are produced lazily until
+// a rule decides.
+
+// lex tokenizes text shlex-style. In shell mode unquoted separators end
+// the current command. yield returns true to stop.
+func lex(text string, shell bool, yield func(argv []string) bool) bool {
 	var cur []string
 	var tok strings.Builder
+	inTok := false
 	flushTok := func() {
-		if tok.Len() > 0 {
+		if inTok {
 			cur = append(cur, tok.String())
 			tok.Reset()
+			inTok = false
 		}
 	}
-	flushCmd := func() {
+	flushCmd := func() bool {
 		flushTok()
-		if len(cur) > 0 {
-			out = append(out, cur)
-			cur = nil
+		if len(cur) == 0 {
+			return false
 		}
+		argv := cur
+		cur = nil
+		return yield(argv)
 	}
-	for i := 0; i < len(cmd) && len(out) < 256; i++ {
-		switch c := cmd[i]; c {
-		case ' ', '\t':
+	for i := 0; i < len(text); i++ {
+		c := text[i]
+		switch {
+		case c == '\\' && i+1 < len(text):
+			i++
+			tok.WriteByte(text[i])
+			inTok = true
+		case c == '\'':
+			j := strings.IndexByte(text[i+1:], '\'')
+			if j < 0 {
+				j = len(text) - i - 1
+			}
+			tok.WriteString(text[i+1 : i+1+j])
+			i += j + 1
+			inTok = true
+		case c == '"':
+			i++
+			for ; i < len(text) && text[i] != '"'; i++ {
+				if text[i] == '\\' && i+1 < len(text) && strings.IndexByte("\"\\$`\n", text[i+1]) >= 0 {
+					i++
+				}
+				tok.WriteByte(text[i])
+			}
+			inTok = true
+		case c == ' ' || c == '\t' || (!shell && (c == '\n' || c == '\r')):
 			flushTok()
-		case ';', '|', '&', '\n', '\r', '(', ')', '`':
-			flushCmd()
+		case shell && strings.IndexByte(";|&()`\n\r", c) >= 0:
+			if flushCmd() {
+				return true
+			}
 		default:
 			tok.WriteByte(c)
+			inTok = true
 		}
 	}
-	flushCmd()
-	return out
+	return flushCmd()
 }
 
-// commandsNamed returns the arguments of every invocation of prog,
-// skipping sudo/env/exec style prefixes.
-func commandsNamed(cmd, prog string) [][]string {
-	var out [][]string
-	for _, argv := range invocations(cmd) {
+var shellNames = map[string]bool{"sh": true, "bash": true, "dash": true, "zsh": true, "ksh": true, "ash": true, "busybox": true}
+
+// forEachInvocation yields the record's argv, then every command of each
+// script passed to a shell with -c (recursively, bounded by depth).
+func forEachInvocation(cmd string, fn func(argv []string) bool) bool {
+	var visit func(text string, shell bool, depth int) bool
+	visit = func(text string, shell bool, depth int) bool {
+		return lex(text, shell, func(argv []string) bool {
+			if fn(argv) {
+				return true
+			}
+			if depth >= 4 {
+				return false
+			}
+			for i := 0; i+1 < len(argv); i++ {
+				if !shellNames[exeName(argv[i])] {
+					continue
+				}
+				for j := i + 1; j < len(argv); j++ {
+					a := argv[j]
+					if !strings.HasPrefix(a, "-") || strings.HasPrefix(a, "--") {
+						break
+					}
+					if strings.ContainsRune(a[1:], 'c') && j+1 < len(argv) {
+						// Joined exec argv: the script and $0 args run together;
+						// parsing all of it as shell text only adds commands.
+						return visit(strings.Join(argv[j+1:], " "), true, depth+1)
+					}
+				}
+			}
+			return false
+		})
+	}
+	// Exec argv first; the whole line as shell text second, because some
+	// sources log a shell line and a second reading can only add commands.
+	return visit(cmd, false, 0) || visit(cmd, true, 0)
+}
+
+// anyCommandNamed reports whether test accepts the arguments of some
+// invocation of prog.
+func anyCommandNamed(cmd, prog string, test func(args []string) bool) bool {
+	return forEachInvocation(cmd, func(argv []string) bool {
 		for i, a := range argv {
-			if exeName(strings.Trim(a, `"'`)) == prog {
-				out = append(out, argv[i+1:])
-				break
+			if exeName(a) == prog {
+				return test(argv[i+1:])
 			}
 		}
-	}
-	return out
+		return false
+	})
 }
 
 // crontabWrites: a `crontab` invocation installing, editing or removing a
@@ -191,24 +268,18 @@ func commandsNamed(cmd, prog string) [][]string {
 // reading stdin). Listing (-l) or testing (-T) ends only that invocation;
 // a later one on the same command line is still judged.
 func crontabWrites(cmd string) bool {
-	for _, args := range commandsNamed(cmd, "crontab") {
-		write := true
+	return anyCommandNamed(cmd, "crontab", func(args []string) bool {
 		for j := 0; j < len(args); j++ {
 			if args[j] == "-u" {
 				j++
 				continue
 			}
-			if strings.HasPrefix(args[j], "-") && !strings.HasPrefix(args[j], "--") && len(args[j]) > 1 &&
-				(strings.ContainsAny(args[j][1:], "lT")) {
-				write = false
-				break
+			if strings.HasPrefix(args[j], "-") && !strings.HasPrefix(args[j], "--") && strings.ContainsAny(args[j][1:], "lT") {
+				return false
 			}
 		}
-		if write {
-			return true
-		}
-	}
-	return false
+		return true
+	})
 }
 
 // systemctlValued are systemctl options that take a separate value.
@@ -219,7 +290,10 @@ var systemctlValued = map[string]bool{"-H": true, "-M": true, "-t": true, "-p": 
 // systemctlEnables: `systemctl [options] enable|link|preset|reenable …`,
 // with any option tokens (short, long, clustered) before the verb.
 func systemctlEnables(cmd string) bool {
-	for _, args := range commandsNamed(cmd, "systemctl") {
+	if systemctlRe.MatchString(cmd) {
+		return true
+	}
+	return anyCommandNamed(cmd, "systemctl", func(args []string) bool {
 		for j := 0; j < len(args); j++ {
 			a := args[j]
 			if strings.HasPrefix(a, "-") {
@@ -232,10 +306,10 @@ func systemctlEnables(cmd string) bool {
 			case "enable", "link", "preset", "reenable", "preset-all", "add-wants", "add-requires":
 				return true
 			}
-			break
+			return false
 		}
-	}
-	return false
+		return false
+	})
 }
 
 // nsenterTargetsInit: an nsenter invocation whose target pid is 1, parsed
@@ -244,7 +318,10 @@ func systemctlEnables(cmd string) bool {
 // argument (-m[file] and the other namespace flags, -r, -w) consume the
 // rest of their cluster.
 func nsenterTargetsInit(cmd string) bool {
-	for _, args := range commandsNamed(cmd, "nsenter") {
+	if nsenterRe.MatchString(cmd) {
+		return true
+	}
+	return anyCommandNamed(cmd, "nsenter", func(args []string) bool {
 		target := ""
 	scan:
 		for j := 0; j < len(args); j++ {
@@ -252,13 +329,15 @@ func nsenterTargetsInit(cmd string) bool {
 			switch {
 			case a == "--":
 				break scan
-			case a == "--target" && j+1 < len(args):
-				target = args[j+1]
-				j++
-			case strings.HasPrefix(a, "--target="):
-				target = strings.TrimPrefix(a, "--target=")
 			case strings.HasPrefix(a, "--"):
-				if a == "--setuid" || a == "--setgid" {
+				name, val, hasVal := strings.Cut(a, "=")
+				if len(name) >= 4 && strings.HasPrefix("--target", name) {
+					if !hasVal && j+1 < len(args) {
+						j++
+						val = args[j]
+					}
+					target = val
+				} else if !hasVal && (strings.HasPrefix("--setuid", name) || strings.HasPrefix("--setgid", name)) && len(name) >= 6 {
 					j++
 				}
 			case strings.HasPrefix(a, "-") && len(a) > 1:
@@ -285,11 +364,9 @@ func nsenterTargetsInit(cmd string) bool {
 				break scan // the program to run
 			}
 		}
-		if target == "1" {
-			return true
-		}
-	}
-	return false
+		n, err := strconv.ParseUint(strings.TrimPrefix(strings.TrimSpace(target), "+"), 10, 64)
+		return err == nil && n == 1
+	})
 }
 
 // linuxAgentRules evaluates the rules over every record that carries

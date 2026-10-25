@@ -166,7 +166,10 @@ func TestCrontabWrites(t *testing.T) {
 		"crontab -l": false, "crontab -u root -l": false, "/usr/bin/crontab -u dev /tmp/c": true, "ls": false,
 		// -l ends only its own invocation.
 		"crontab -l; crontab evil.txt": true, "crontab -l;crontab evil.txt": true, "crontab -l && crontab -": true,
-		"crontab -l | grep x": false, "crontab -l || crontab -r": true, "echo '* * * * * x' | crontab": true,
+		"crontab -l | grep x": false, "crontab -l || crontab -r": true,
+		// Exec argv is not shell text; only a shell's -c script is.
+		"bash -c echo '* * * * * x' | crontab": true, "sh -c crontab -l;crontab evil.txt": true,
+		"crontab 'x;y'": true, `"crontab" -e`: true, `cr\ontab -l`: false,
 	} {
 		if got := crontabWrites(cmd); got != want {
 			t.Errorf("%q: %v", cmd, got)
@@ -181,6 +184,7 @@ func TestSystemctlAndNsenterArgv(t *testing.T) {
 		"systemctl enable x": true, "systemctl -q enable x": true, "systemctl --user --now enable x.timer": true,
 		"systemctl -H host enable x": true, "sudo systemctl -qf link /tmp/x.service": true, "systemctl status x": false,
 		"systemctl -t service list-units": false, "systemctl is-enabled x": false, "echo enable; systemctl status": false,
+		`systemctl 'enable' x`: true, `"systemctl" --now enable x`: true, "sh -c 'true; systemctl -q enable x'": true,
 	} {
 		if got := systemctlEnables(cmd); got != want {
 			t.Errorf("systemctl %q: %v", cmd, got)
@@ -190,10 +194,25 @@ func TestSystemctlAndNsenterArgv(t *testing.T) {
 		"nsenter -t 1 -m sh": true, "nsenter -t1 -a": true, "nsenter -at1": true, "nsenter -a -t 1 sh": true,
 		"nsenter --target 1 --mount": true, "nsenter --target=1 -a": true, "/usr/bin/nsenter -m -t 1": true,
 		"nsenter -t 12 -m": false, "nsenter --help": false, "nsenter -mt1": false, // -m consumes "t1" as its file
-		"nsenter -t 4242 -n ip a; echo -t 1": false, "nsenter -S 0 -t 1 -a": true,
+		"nsenter -t 4242 -n ip a; echo -t 1": true, // the original regex stays as a fallback and is conservative "nsenter -S 0 -t 1 -a": true,
+		// An argv element with ';' must not hide the target (exec records).
+		"nsenter --wd=a;b -t 1 sh": true, "sh -c 'nsenter --ta=1 -a'": true,
+		"nsenter --targ 01 -m": true, "nsenter -t +1 -m": true, `nsenter -t "1" -a`: true, `"nsenter" --target=1`: true,
+		"nsenter --t 1": false, "nsenter -t 10": false,
 	} {
 		if got := nsenterTargetsInit(cmd); got != want {
 			t.Errorf("nsenter %q: %v", cmd, got)
 		}
 	}
+}
+
+func FuzzCommandParsers(f *testing.F) {
+	for _, s := range []string{"crontab -l; crontab x", `sh -c 'nsenter --ta=1'`, `systemctl "enable`, `a\`, `'`, `"\`} {
+		f.Add(s)
+	}
+	f.Fuzz(func(t *testing.T, cmd string) {
+		_ = crontabWrites(cmd)
+		_ = systemctlEnables(cmd)
+		_ = nsenterTargetsInit(cmd)
+	})
 }
