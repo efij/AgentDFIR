@@ -42,6 +42,7 @@ func cloudPass(events []schema.Event, records []endpoint.Record, res *EndpointRe
 	}
 	sort.SliceStable(records, func(i, j int) bool { return records[i].Time.Before(records[j].Time) })
 	start, end := records[0].Time, records[len(records)-1].Time
+	res.CloudCoverageStart, res.CloudCoverageEnd = start.UTC().Format(time.RFC3339), end.UTC().Format(time.RFC3339)
 	matched := make([]bool, len(records))
 	matchedBy := map[int]*schema.Event{}
 

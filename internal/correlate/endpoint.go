@@ -44,6 +44,9 @@ type EndpointResult struct {
 	CloudCorroborated int `json:"cloud_corroborated,omitempty"`
 	CloudRefused      int `json:"cloud_refused,omitempty"` // matched, and the cloud denied it
 	CloudBursts       int `json:"cloud_destructive_bursts,omitempty"`
+	// The time range the imported cloud audit records span (RFC 3339).
+	CloudCoverageStart string `json:"cloud_coverage_start,omitempty"`
+	CloudCoverageEnd   string `json:"cloud_coverage_end,omitempty"`
 
 	// Matches are the pairings behind the corroborated counts (see Match),
 	// at most MaxMatches; MatchesOmitted counts the ones past the bound.
