@@ -1,0 +1,4 @@
+Name	File Extension	File Type	Is Deleted	Last Accessed	File Created	Last Modified	Size	Address	Hash Value	Known Status	Permissions	Full Path
+settings.json	json	File	false	2025-02-28 09:00:00 UTC	2025-01-01 08:00:00 UTC	2025-02-28 09:01:00 UTC	312	1234	d41d8cd98f00b204e9800998ecf8427e	unknown	r/rrw-r--r--	/img_syn.E01/vol_vol2/Users/syn/.claude/settings.json
+photo.jpg	jpg	File	false	2025-02-28 09:00:00 UTC	2025-01-01 08:00:00 UTC	2025-02-28 09:01:00 UTC	9999	1235		unknown	r/rrw-r--r--	/img_syn.E01/vol_vol2/Users/syn/Pictures/photo.jpg
+History		File	false	0000-00-00 00:00:00	0000-00-00 00:00:00	2025-02-28 09:01:00 PST	9999	1236		unknown	r/rrw-r--r--	/img_syn.E01/vol_vol2/Users/syn/AppData/Roaming/Claude/History

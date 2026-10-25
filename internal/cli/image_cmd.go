@@ -16,6 +16,7 @@ import (
 	"github.com/efij/AgentDFIR/v4/internal/casepkg"
 	"github.com/efij/AgentDFIR/v4/internal/diskimage"
 	"github.com/efij/AgentDFIR/v4/internal/diskimage/ntfs"
+	"github.com/efij/AgentDFIR/v4/internal/parsers/suite"
 	"github.com/efij/AgentDFIR/v4/internal/sanitize"
 )
 
@@ -329,6 +330,14 @@ func collectImage(path string, o importOpts, verifyStored bool, extras imageExtr
 		fmt.Printf("NOT READ: %s — listed in the case notes; see docs/disk-images.md for the mount-and---import route.\n", sanitize.Terminal(strings.Join(unread, "; ")))
 	}
 
+	// Cellebrite .ufd/.ufdx descriptors next to the image that name it are
+	// recorded in the case notes and sealed beside the image provenance.
+	ufdLinks := suite.DescriptorsFor(abs)
+	for i, l := range ufdLinks {
+		notes[fmt.Sprintf("image_ufd_descriptor_%d", i)] = filepath.Base(l.Path) + ": " + l.Summary
+		fmt.Printf("UFD descriptor %s names this image\n", sanitize.Terminal(filepath.Base(l.Path)))
+	}
+
 	provFile, err := writeProvenance(prov)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error: provenance:", err)
@@ -355,6 +364,14 @@ func collectImage(path string, o importOpts, verifyStored bool, extras imageExtr
 		}
 		for _, x := range extraFiles {
 			if err := x.ingest(b); err != nil {
+				return err
+			}
+		}
+		for _, l := range ufdLinks {
+			if err := b.IngestFile(l.Path, casepkg.ArtifactRecord{
+				SourcePath: l.Path, LogicalPath: "image-descriptor/" + filepath.Base(l.Path), Product: suite.ProductUFDR,
+				ArtifactType: suite.TypeExport, Sensitivity: "high", CollectorRule: suite.RuleUFD,
+			}); err != nil {
 				return err
 			}
 		}

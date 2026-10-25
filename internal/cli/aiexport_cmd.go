@@ -9,6 +9,7 @@ import (
 	"github.com/efij/AgentDFIR/v4/internal/casepkg"
 	"github.com/efij/AgentDFIR/v4/internal/collector"
 	"github.com/efij/AgentDFIR/v4/internal/parsers/aiexport"
+	"github.com/efij/AgentDFIR/v4/internal/parsers/suite"
 	"github.com/efij/AgentDFIR/v4/internal/products"
 	"github.com/efij/AgentDFIR/v4/internal/sanitize"
 	"github.com/efij/AgentDFIR/v4/internal/unpack"
@@ -69,7 +70,7 @@ func collectAIExport(src string, o importOpts) int {
 		return 1
 	}
 	if !pl.Found() {
-		fmt.Fprintln(os.Stderr, "no ChatGPT, Claude.ai, DeepSeek or Gemini (Takeout) export file and no UFDR report.xml found in", sanitize.Terminal(src))
+		fmt.Fprintln(os.Stderr, "no ChatGPT, Claude.ai, DeepSeek or Gemini (Takeout) export file, no UFDR report.xml and no forensic-suite export (AXIOM CSV/Case.mfdb, Plaso timeline, Autopsy Files - Text, UFD descriptor) found in", sanitize.Terminal(src))
 		return 1
 	}
 	o.tree, o.notes, o.aiPlan, o.aiOnly = root, notes, pl, true
@@ -131,8 +132,19 @@ func aiExportNotes(pl *aiexport.Plan, notes map[string]string) {
 	notes["ai_export_detected"] = strings.Join(det, "; ")
 	notes["ai_export_evidence_class"] = "provider-side records (cloud), not endpoint execution"
 	if pl.UFDR {
-		notes["ufdr"] = "UFDR layout import — report.xml semantics not parsed"
 		notes["ufdr_report"] = pl.UFDRReport
+	}
+	if pl.Suite > 0 {
+		sd := pl.SuiteDetections()
+		if len(sd) > maxNoted {
+			sd = append(sd[:maxNoted], fmt.Sprintf("… %d more (see manifest)", len(sd)-maxNoted))
+		}
+		notes["forensic_suite_files"] = fmt.Sprint(pl.Suite)
+		notes["forensic_suite_detected"] = strings.Join(sd, "; ")
+		notes["forensic_suite_evidence_class"] = "another tool's decoding of the evidence; originals sealed (docs/forensic-suite-interop.md)"
+	}
+	if pl.UFDR {
+		notes["ufdr"] = "UFDR layout import — report.xml read generically (metadata, AI-app and AI-URL models); other models counted and preserved"
 	}
 	if pl.Truncated {
 		notes["ai_export_truncated"] = "tree holds more files than the planner inspects; the rest were not sealed"
@@ -153,6 +165,7 @@ func ingestAIExport(b *casepkg.Builder, pl *aiexport.Plan, host string, maxFileM
 	_ = b.Log("ai_export_detected", map[string]any{
 		"root": pl.Root, "services": pl.Services(), "recognized": pl.Recognized,
 		"files": len(pl.Files), "ufdr": pl.UFDR, "detected": pl.Detections(),
+		"forensic_suite": pl.SuiteDetections(),
 	})
 	fmt.Printf("  AI-service export: %d export file(s) recognized (%s), %d file(s) sealed\n",
 		pl.Recognized, strings.Join(pl.Services(), ", "), len(pl.Files))
@@ -164,7 +177,48 @@ func ingestAIExport(b *casepkg.Builder, pl *aiexport.Plan, host string, maxFileM
 		fmt.Printf("    %s\n", sanitize.Terminal(d))
 	}
 	if pl.UFDR {
-		fmt.Printf("  UFDR layout import — %s sealed, report.xml semantics not parsed\n", sanitize.Terminal(pl.UFDRReport))
+		fmt.Printf("  UFDR layout import — %s sealed; read generically at analysis (metadata, AI-app and AI-URL models)\n", sanitize.Terminal(pl.UFDRReport))
+	}
+	for i, d := range pl.SuiteDetections() {
+		if i == 20 {
+			fmt.Printf("    … %d more forensic-suite file(s)\n", pl.Suite-20)
+			break
+		}
+		fmt.Printf("    suite: %s\n", sanitize.Terminal(d))
 	}
 	return collector.IngestFiles(b, specs, opts)
+}
+
+// collectSuiteExport seals a forensic-suite export: a UFDR, an AXIOM CSV
+// export or Portable Case tree, a Plaso psort timeline, an Autopsy
+// "Files - Text" report or a UFD descriptor. Archives and directories go
+// through the same planner as --ai-export; a single export file is sealed
+// on its own when its content is recognized.
+func collectSuiteExport(src string, o importOpts) int {
+	fi, err := os.Stat(src)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		return 2
+	}
+	if fi.Mode().IsRegular() {
+		if _, err := unpack.Kind(src); err != nil {
+			abs, err := filepath.Abs(src)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, "error:", err)
+				return 1
+			}
+			det, ok := suite.ClassifyFile(abs, filepath.Base(abs))
+			if !ok {
+				fmt.Fprintln(os.Stderr, "--suite-export: not a recognized forensic-suite export file (AXIOM CSV, Case.mfdb, Plaso json_line/l2tcsv, Autopsy Files - Text, .ufd/.ufdx):", sanitize.Terminal(src))
+				return 1
+			}
+			pl := &aiexport.Plan{Root: filepath.Dir(abs), Suite: 1, Files: []aiexport.PlannedFile{{
+				Path: abs, Rel: filepath.Base(abs), Rule: det.Rule, Type: det.Type, Product: det.Product, Suite: &det}}}
+			fmt.Printf("Forensic-suite export file: %s (%s)\n", sanitize.Terminal(filepath.Base(abs)), det.String())
+			o.tree, o.aiPlan, o.aiOnly = pl.Root, pl, true
+			o.notes = map[string]string{"mode": "suite-export", "suite_export_source": src}
+			return collectImport(o)
+		}
+	}
+	return collectAIExport(src, o)
 }

@@ -133,7 +133,7 @@ func TestCollectArchiveRecognizesExportAndUFDR(t *testing.T) {
 		t.Fatalf("ufdr: %+v", r)
 	}
 	info, _ = casepkg.ReadCaseInfo(out2)
-	if !strings.Contains(info.Notes["ufdr"], "report.xml semantics not parsed") {
+	if !strings.Contains(info.Notes["ufdr"], "report.xml read generically") {
 		t.Fatalf("ufdr notes: %+v", info.Notes)
 	}
 }

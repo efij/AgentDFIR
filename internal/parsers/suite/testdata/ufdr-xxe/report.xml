@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SYNTHETIC hostile fixture: external entity (XXE) attempt. -->
+<!DOCTYPE project [ <!ENTITY xxe SYSTEM "file:///etc/passwd"> ]>
+<project id="x" name="cellebrite-xxe" xmlns="http://pa.cellebrite.com/report/2.0">
+  <caseInformation><field name="Case number"><value type="String">&xxe;</value></field></caseInformation>
+</project>

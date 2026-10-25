@@ -1,0 +1,6 @@
+﻿URL,Title,Visit Date/Time - UTC (yyyy-mm-dd),Visit Count,Source,Recovery method,Location,Evidence number,Deleted source,Item ID
+https://chatgpt.com/c/6650aaaa-bbbb-cccc-dddd-eeeeffff0000,Key rotation help,2025-02-28 09:14:00,3,History,Parsing,Table: urls(id: 12),SYN-EVIDENCE-1,,1001
+https://example.com/news,News,2025-02-28 09:20:00,1,History,Parsing,Table: urls(id: 13),SYN-EVIDENCE-1,,1002
+https://www.perplexity.ai/search/how-to-rotate-keys-abc123,"Perplexity, rotate keys",2025-02-28 09:30:00,1,History,Parsing,Table: urls(id: 14),SYN-EVIDENCE-1,,1003
+https://example.org/multi,"A title with
+a newline",2025-02-28 09:40:00,1,History,Parsing,Table: urls(id: 15),SYN-EVIDENCE-1,,1004
