@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -176,7 +177,7 @@ func TestFindAndExtract(t *testing.T) {
 	if want := time.Date(2026, 8, 30, 10, 5, 0, 0, time.UTC); !fi.ModTime().Equal(want) {
 		t.Fatalf("staged mtime %v, want %v", fi.ModTime(), want)
 	}
-	if fi.Mode().Perm() != 0o600 {
+	if runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 { // Windows has no Unix permission bits
 		t.Fatalf("staged mode %v", fi.Mode())
 	}
 	// Byte cap: stops with a recorded problem.

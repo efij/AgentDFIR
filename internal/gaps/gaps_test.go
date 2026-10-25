@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -187,9 +188,11 @@ func TestClockConsistency(t *testing.T) {
 	in.Events = append(in.Events,
 		ev("e8", schema.EventToolResult, 9*time.Hour),
 		ev("e9", schema.EventToolResult, time.Hour))
-	in.Witness = &witness.Record{GatheredUTC: at(5 * time.Hour), Files: []witness.File{{Path: "/w/out.txt", Exists: true, SHA256: "x", ModTimeUTC: at(-time.Hour)}}}
+	// An absolute path on this OS (a drive-less /w/out.txt is relative on Windows).
+	out := filepath.Join(t.TempDir(), "out.txt")
+	in.Witness = &witness.Record{GatheredUTC: at(5 * time.Hour), Files: []witness.File{{Path: out, Exists: true, SHA256: "x", ModTimeUTC: at(-time.Hour)}}}
 	in.Events = append(in.Events, ev("e10", schema.EventToolCall, 30*time.Second, state(schema.StateCorroborated), func(e *schema.Event) {
-		e.Action, e.File, e.WitnessNote = "write_file", "/w/out.txt", "host witness: out.txt exists"
+		e.Action, e.File, e.WitnessNote = "write_file", out, "host witness: out.txt exists"
 	}))
 	r := Build(in, Options{})
 	if r.Clock.FutureEvents != 1 {

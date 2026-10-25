@@ -100,6 +100,9 @@ func TestOfflineFailsWhenSubjectDialsOut(t *testing.T) {
 	}
 	dir := t.TempDir()
 	bin := filepath.Join(dir, "agentdfir-dialout")
+	if runtime.GOOS == "windows" {
+		bin += ".exe"
+	}
 	build := exec.Command("go", "build", "-tags", "selfcheck_dialout", "-o", bin, "github.com/efij/AgentDFIR/v4/cmd/agentdfir")
 	build.Env = os.Environ()
 	if out, err := build.CombinedOutput(); err != nil {

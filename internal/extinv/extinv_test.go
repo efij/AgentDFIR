@@ -169,7 +169,7 @@ func TestInventoryLive(t *testing.T) {
 		t.Fatalf("declarative extension counts as scanned: %+v", th)
 	}
 	// Malformed registry and manifest: recorded, never silent.
-	joined := strings.Join(inv.Problems, "\n")
+	joined := filepath.ToSlash(strings.Join(inv.Problems, "\n"))
 	if !strings.Contains(joined, ".vscode/extensions/extensions.json: invalid JSON") || !strings.Contains(joined, "broken.ext-1.0.0/package.json: invalid JSON") {
 		t.Fatalf("problems: %v", inv.Problems)
 	}
@@ -256,7 +256,7 @@ func TestRulesLive(t *testing.T) {
 	}
 	for _, f := range hooks {
 		// The finding cites the file that declares the hook, not the plugin directory.
-		if len(f.EvidenceRefs) != 1 || !strings.HasSuffix(f.EvidenceRefs[0], "evil-hooks/1.0.0/hooks/hooks.json") {
+		if len(f.EvidenceRefs) != 1 || !strings.HasSuffix(filepath.ToSlash(f.EvidenceRefs[0]), "evil-hooks/1.0.0/hooks/hooks.json") {
 			t.Fatalf("PLUGIN_HOOK_EXECUTES_REMOTE refs: %v", f.EvidenceRefs)
 		}
 	}
@@ -393,7 +393,7 @@ func TestHostileInputs(t *testing.T) {
 	_ = os.Symlink(filepath.Join(root, ".windsurf"), filepath.Join(root, ".windsurf/extensions/loop-1"))
 	inv := ScanHome(root)
 	_ = Evaluate(inv)
-	joined := strings.Join(inv.Problems, "\n") + strings.Join(inv.Unsupported, "\n")
+	joined := filepath.ToSlash(strings.Join(inv.Problems, "\n")) + strings.Join(inv.Unsupported, "\n")
 	for _, want := range []string{"extensions.json: exceeds size bound", "registry version 7", "plugin a@b: unrecognized install record", "known_marketplaces.json: invalid JSON", "loop-1: symbolic link, not followed"} {
 		if !strings.Contains(joined, want) {
 			t.Errorf("missing problem %q in:\n%s", want, joined)

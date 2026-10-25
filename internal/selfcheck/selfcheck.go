@@ -172,11 +172,12 @@ func Run(self string, opts Options) (*Report, error) {
 	}
 	if rep.Subject.ExitCode != 0 && rep.Subject.ExitCode != 3 {
 		rep.Notes = append(rep.Notes, fmt.Sprintf("the subject exited %d; under kernel containment this can mean a blocked operation stopped it — read the stderr excerpt.", rep.Subject.ExitCode))
-		if rep.Level == LevelKernel && len(rep.Violations) == 0 {
-			// A denied op that the kernel turned into an error, with no
-			// trace to name it, is not a clean pass.
+		if len(rep.Violations) == 0 {
+			// A subject that did not complete proves nothing about what a
+			// complete run does: a denied op the kernel turned into an
+			// error, or containment that never started. Not a pass.
 			rep.Pass = false
-			rep.Violations = append(rep.Violations, "the subject failed under containment and the cause was not captured; treat as not proven")
+			rep.Violations = append(rep.Violations, "the subject did not complete and the cause was not captured; treat as not proven")
 		}
 	}
 	return rep, nil
@@ -199,26 +200,36 @@ func (s sandboxExec) wrap(self string, args []string) (string, []string) {
 
 type traced struct {
 	tracePath string
-	netns     bool
+	nsArgs    []string // unshare flags that were probed to work; nil: no network namespace
 }
 
 func (t traced) wrap(self string, args []string) (string, []string) {
-	var pre []string
-	bin := self
-	if t.netns {
-		bin = "unshare"
-		pre = append(pre, "--net", "--")
+	// [unshare <ns> --] self args
+	inner := append([]string{self}, args...)
+	if t.nsArgs != nil {
+		inner = append(append(append([]string{"unshare"}, t.nsArgs...), "--"), inner...)
 	}
 	if t.tracePath != "" {
-		// strace -f -e trace=process,network -o <file> [unshare --net --] self args
-		full := append([]string{"-f", "-e", "trace=process,network", "-o", t.tracePath, bin}, pre...)
-		full = append(full, args...)
-		return "strace", full
+		// strace -f -e trace=process,network -o <file> <inner>
+		return "strace", append([]string{"-f", "-e", "trace=process,network", "-o", t.tracePath}, inner...)
 	}
-	if t.netns {
-		return "unshare", append([]string{"--net", "--", self}, args...)
+	return inner[0], inner[1:]
+}
+
+// netnsArgs finds unshare flags that can actually create a network
+// namespace here. Unprivileged users need a user namespace too
+// (--user --map-root-user); some hosts (CI runners, hardened kernels)
+// refuse both, and then there is no namespace to promise.
+func netnsArgs() []string {
+	if _, err := exec.LookPath("unshare"); err != nil {
+		return nil
 	}
-	return self, args
+	for _, a := range [][]string{{"--user", "--map-root-user", "--net"}, {"--net"}} {
+		if exec.Command("unshare", append(append([]string{}, a...), "--", "true")...).Run() == nil {
+			return a
+		}
+	}
+	return nil
 }
 
 // containmentFor chooses the strongest available containment.
@@ -236,15 +247,20 @@ func containmentFor(self, work, outCase, home, tmp string) (containment, string,
 			notes = append(notes, "sandbox-exec is not present; falling back to the in-process guard")
 		}
 	case "linux":
-		_, netErr := exec.LookPath("unshare")
+		ns := netnsArgs()
 		_, straceErr := exec.LookPath("strace")
+		if ns == nil {
+			notes = append(notes, "a network namespace could not be created here (unshare missing or refused for this user)")
+		}
 		switch {
+		case straceErr == nil && ns != nil:
+			return traced{tracePath: filepath.Join(work, "trace.out"), nsArgs: ns}, "network-namespace+strace", LevelTraced, notes
 		case straceErr == nil:
-			return traced{tracePath: filepath.Join(work, "trace.out"), netns: netErr == nil}, "network-namespace+strace", LevelTraced, notes
-		case netErr == nil:
-			return traced{netns: true}, "network-namespace", LevelKernel, append(notes, "strace is not present: the network namespace blocks egress, but individual syscalls were not traced; install strace for a per-call trace.")
+			return traced{tracePath: filepath.Join(work, "trace.out")}, "strace", LevelTraced, notes
+		case ns != nil:
+			return traced{nsArgs: ns}, "network-namespace", LevelKernel, append(notes, "strace is not present: the network namespace blocks egress, but individual syscalls were not traced; install strace for a per-call trace.")
 		default:
-			notes = append(notes, "neither unshare nor strace is present; falling back to the in-process guard")
+			notes = append(notes, "strace is not present either; falling back to the in-process guard")
 		}
 	default:
 		notes = append(notes, runtime.GOOS+" has no kernel containment here; the in-process guard is the proof.")
