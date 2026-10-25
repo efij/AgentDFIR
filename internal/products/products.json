@@ -14,6 +14,8 @@
     {"id": "warp", "name": "Warp AI", "config_dirs": ["Library/Application Support/dev.warp.Warp-Stable", ".local/state/warp-terminal", "AppData/Local/warp/Warp/data"], "config_files": [], "binaries": ["warp-terminal"]},
     {"id": "kiro", "name": "Kiro", "config_dirs": [".kiro"], "config_files": [], "binaries": ["kiro"]},
     {"id": "claude-cowork", "name": "Claude Cowork", "config_dirs": ["Library/Application Support/Claude/local-agent-mode-sessions", ".config/Claude/local-agent-mode-sessions", "AppData/Roaming/Claude/local-agent-mode-sessions", "Library/Application Support/Claude/claude-code-sessions", ".config/Claude/claude-code-sessions", "AppData/Roaming/Claude/claude-code-sessions"], "config_files": [], "binaries": []},
+    {"id": "continue", "name": "Continue", "config_dirs": [".continue"], "config_files": [], "binaries": []},
+    {"id": "windsurf", "name": "Windsurf", "config_dirs": [".codeium/windsurf", ".windsurf", "Library/Application Support/Windsurf", ".config/Windsurf", "AppData/Roaming/Windsurf"], "config_files": [], "binaries": ["windsurf"]},
     {"id": "ci-archive", "name": "CI / archive agent logs", "config_dirs": [], "config_files": [], "binaries": []}
   ]
 }

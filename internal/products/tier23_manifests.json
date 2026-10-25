@@ -1296,6 +1296,244 @@
           "sensitivity": "medium"
         }
       ]
+    },
+    {
+      "product": "continue",
+      "entries": [
+        {
+          "id": "continue.config",
+          "paths": [
+            "${CONFIG_ROOT}/config.json",
+            "${CONFIG_ROOT}/config.yaml",
+            "${CONFIG_ROOT}/config.ts",
+            "${CONFIG_ROOT}/.continuerc.json"
+          ],
+          "category": "product_config",
+          "sensitivity": "high"
+        },
+        {
+          "id": "continue.sessions",
+          "paths": [
+            "${CONFIG_ROOT}/sessions/**"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        },
+        {
+          "id": "continue.rules",
+          "paths": [
+            "${CONFIG_ROOT}/rules/**"
+          ],
+          "category": "agent_instructions",
+          "sensitivity": "medium"
+        },
+        {
+          "id": "continue.prompts",
+          "paths": [
+            "${CONFIG_ROOT}/prompts/**"
+          ],
+          "category": "agent_instructions",
+          "sensitivity": "medium"
+        },
+        {
+          "id": "continue.mcp",
+          "paths": [
+            "${CONFIG_ROOT}/mcpServers/**"
+          ],
+          "category": "product_config",
+          "sensitivity": "high"
+        },
+        {
+          "id": "continue.assistants",
+          "paths": [
+            "${CONFIG_ROOT}/assistants/**"
+          ],
+          "category": "product_config",
+          "sensitivity": "medium"
+        },
+        {
+          "id": "continue.env",
+          "paths": [
+            "${CONFIG_ROOT}/.env"
+          ],
+          "category": "credentials",
+          "sensitivity": "critical"
+        },
+        {
+          "id": "continue.dev_data",
+          "paths": [
+            "${CONFIG_ROOT}/dev_data/**"
+          ],
+          "category": "debug_logs",
+          "sensitivity": "medium"
+        },
+        {
+          "id": "continue.logs",
+          "paths": [
+            "${CONFIG_ROOT}/logs/**"
+          ],
+          "category": "debug_logs",
+          "sensitivity": "medium"
+        }
+      ]
+    },
+    {
+      "product": "windsurf",
+      "entries": [
+        {
+          "id": "windsurf.mcp",
+          "paths": [
+            "${CONFIG_ROOT}/mcp_config.json"
+          ],
+          "category": "product_config",
+          "sensitivity": "high"
+        },
+        {
+          "id": "windsurf.rules",
+          "paths": [
+            "${CONFIG_ROOT}/memories/*.md"
+          ],
+          "category": "agent_instructions",
+          "sensitivity": "medium"
+        },
+        {
+          "id": "windsurf.memories",
+          "paths": [
+            "${CONFIG_ROOT}/memories/*.pb"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        },
+        {
+          "id": "windsurf.cascade",
+          "paths": [
+            "${CONFIG_ROOT}/cascade/**"
+          ],
+          "category": "agent_session",
+          "sensitivity": "high"
+        },
+        {
+          "id": "windsurf.workflows",
+          "paths": [
+            "${CONFIG_ROOT}/global_workflows/**"
+          ],
+          "category": "agent_instructions",
+          "sensitivity": "medium"
+        },
+        {
+          "id": "windsurf.implicit",
+          "paths": [
+            "${CONFIG_ROOT}/implicit/**"
+          ],
+          "category": "product_state",
+          "sensitivity": "medium"
+        },
+        {
+          "id": "windsurf.settings_macos",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/Windsurf/User/settings.json"
+          ],
+          "category": "product_config",
+          "sensitivity": "medium"
+        },
+        {
+          "id": "windsurf.state_macos",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/Windsurf/User/globalStorage/state.vscdb",
+            "${PROFILE_ROOT}/Library/Application Support/Windsurf/User/globalStorage/state.vscdb-*",
+            "${PROFILE_ROOT}/Library/Application Support/Windsurf/User/workspaceStorage/*/state.vscdb"
+          ],
+          "category": "product_state",
+          "sensitivity": "high"
+        },
+        {
+          "id": "windsurf.logs_macos",
+          "platforms": [
+            "darwin"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/Library/Application Support/Windsurf/logs/**"
+          ],
+          "category": "debug_logs",
+          "sensitivity": "medium"
+        },
+        {
+          "id": "windsurf.settings_linux",
+          "platforms": [
+            "linux"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/.config/Windsurf/User/settings.json"
+          ],
+          "category": "product_config",
+          "sensitivity": "medium"
+        },
+        {
+          "id": "windsurf.state_linux",
+          "platforms": [
+            "linux"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/.config/Windsurf/User/globalStorage/state.vscdb",
+            "${PROFILE_ROOT}/.config/Windsurf/User/globalStorage/state.vscdb-*",
+            "${PROFILE_ROOT}/.config/Windsurf/User/workspaceStorage/*/state.vscdb"
+          ],
+          "category": "product_state",
+          "sensitivity": "high"
+        },
+        {
+          "id": "windsurf.logs_linux",
+          "platforms": [
+            "linux"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/.config/Windsurf/logs/**"
+          ],
+          "category": "debug_logs",
+          "sensitivity": "medium"
+        },
+        {
+          "id": "windsurf.settings_windows",
+          "platforms": [
+            "windows"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/AppData/Roaming/Windsurf/User/settings.json"
+          ],
+          "category": "product_config",
+          "sensitivity": "medium"
+        },
+        {
+          "id": "windsurf.state_windows",
+          "platforms": [
+            "windows"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/AppData/Roaming/Windsurf/User/globalStorage/state.vscdb",
+            "${PROFILE_ROOT}/AppData/Roaming/Windsurf/User/globalStorage/state.vscdb-*",
+            "${PROFILE_ROOT}/AppData/Roaming/Windsurf/User/workspaceStorage/*/state.vscdb"
+          ],
+          "category": "product_state",
+          "sensitivity": "high"
+        },
+        {
+          "id": "windsurf.logs_windows",
+          "platforms": [
+            "windows"
+          ],
+          "paths": [
+            "${PROFILE_ROOT}/AppData/Roaming/Windsurf/logs/**"
+          ],
+          "category": "debug_logs",
+          "sensitivity": "medium"
+        }
+      ]
     }
   ]
 }
