@@ -53,7 +53,20 @@ type Case struct {
 	// repository is refused by push protection.
 	Collect string `json:"collect,omitempty"`
 
+	// Endpoint lists OS telemetry files (relative to the case directory)
+	// passed to analysis as --endpoint logs: the second witness.
+	Endpoint []string `json:"endpoint,omitempty"`
+
 	Dir string `json:"-"`
+}
+
+// EndpointPaths returns the case's endpoint logs as paths.
+func (c Case) EndpointPaths() []string {
+	var out []string
+	for _, e := range c.Endpoint {
+		out = append(out, filepath.Join(c.Dir, filepath.FromSlash(e)))
+	}
+	return out
 }
 
 // CollectAIExport is the Case.Collect value for AI-service export cases.

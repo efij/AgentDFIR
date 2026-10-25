@@ -1,0 +1,2 @@
+{"type": "user", "uuid": "u1", "sessionId": "lx1", "timestamp": "2026-10-20T09:00:00Z", "cwd": "/repo", "message": {"role": "user", "content": "tidy up the box"}}
+{"type": "assistant", "uuid": "a0", "parentUuid": "u1", "sessionId": "lx1", "timestamp": "2026-10-20T09:00:02Z", "message": {"role": "assistant", "content": [{"type": "tool_use", "id": "t0", "name": "Bash", "input": {"command": "make test"}}]}}
