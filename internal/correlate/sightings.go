@@ -2,6 +2,7 @@ package correlate
 
 import (
 	"fmt"
+	"net/url"
 	"regexp"
 	"sort"
 	"strings"
@@ -35,7 +36,25 @@ import (
 
 const sightingWindow = 2 * time.Minute
 
-var cmdURLRe = regexp.MustCompile(`(?i)\bhttps?://([A-Za-z0-9._\[\]:-]+)([^\s"'?#]*)`)
+// cmdURLRe finds URL candidates; the host is taken from net/url, never
+// from the regex, so userinfo (https://trusted.com@evil.com/) cannot pose
+// as the host.
+var cmdURLRe = regexp.MustCompile(`(?i)\bhttps?://[^\s"'<>|;&()` + "`" + `]+`)
+
+// urlDest parses one URL candidate into the host a client would contact
+// and its path. Candidates that do not parse, have no host, or carry a
+// percent-encoded host (clients disagree on decoding it) are dropped.
+func urlDest(raw string) (dest, bool) {
+	u, err := url.Parse(strings.TrimRight(raw, ".,"))
+	if err != nil || u.Host == "" || strings.Contains(u.Host, "%") {
+		return dest{}, false
+	}
+	h := strings.TrimSuffix(strings.ToLower(u.Hostname()), ".")
+	if h == "" {
+		return dest{}, false
+	}
+	return dest{h, strings.TrimSuffix(u.EscapedPath(), "/")}, true
+}
 
 type dest struct{ host, path string }
 
@@ -152,16 +171,29 @@ func eventDests(ev *schema.Event) []dest {
 			out = append(out, d)
 		}
 	}
-	for _, s := range []string{ev.NetworkDest, ev.Command} {
-		for _, m := range cmdURLRe.FindAllStringSubmatch(s, -1) {
-			add(netdest.Host(m[1]), m[2])
+	urls := func(s string) {
+		for _, m := range cmdURLRe.FindAllString(s, -1) {
+			if d, ok := urlDest(m); ok {
+				add(d.host, d.path)
+			}
 		}
 	}
-	if ev.NetworkDest != "" && !strings.Contains(ev.NetworkDest, "://") {
-		add(netdest.Host(ev.NetworkDest), "")
-	}
-	for _, d := range netdest.Extract(ev.Command) {
-		add(netdest.Host(d), "")
+	if ev.Command != "" {
+		// Everything comes from the command itself. NetworkDest was derived
+		// from it by a regex extractor that stops at '@', so it is not
+		// trusted here; URLs are removed before the non-URL extractor
+		// (ssh/scp/nc targets, bare IPs) runs for the same reason.
+		urls(ev.Command)
+		for _, d := range netdest.Extract(cmdURLRe.ReplaceAllString(ev.Command, " ")) {
+			add(netdest.Host(d), "")
+		}
+	} else if ev.NetworkDest != "" {
+		// MCP and fetch tools: the destination is the tool's own URL or domain.
+		if strings.Contains(ev.NetworkDest, "://") {
+			urls(ev.NetworkDest)
+		} else if d, ok := urlDest("https://" + ev.NetworkDest); ok {
+			add(d.host, "")
+		}
 	}
 	// A host seen with a path is not also matched without one, or the
 	// path check would never bite.
