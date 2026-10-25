@@ -52,6 +52,7 @@ type imageProvenance struct {
 	ADS             []string      `json:"alternate_data_streams,omitempty"`
 	E01Verification string        `json:"e01_stored_hash_verification"`
 	Problem         string        `json:"problem,omitempty"`
+	Snapshot        string        `json:"vss_snapshot,omitempty"` // set for files read from a Volume Shadow Copy
 }
 
 // volumeReport is what happened to one volume, for notes and the summary.
@@ -70,7 +71,7 @@ type volumeReport struct {
 // pipeline over that staging tree. The image is hashed before and after;
 // both results, the E01 stored-hash check and every volume's outcome
 // (including ones that could not be read) are sealed in the case.
-func collectImage(path string, o importOpts, verifyStored bool) int {
+func collectImage(path string, o importOpts, verifyStored bool, extras imageExtras) int {
 	abs, err := filepath.Abs(path)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
@@ -149,6 +150,8 @@ func collectImage(path string, o importOpts, verifyStored bool) int {
 
 	var reports []*volumeReport
 	var prov []imageProvenance
+	var extraFiles []sealedExtra
+	artDir := filepath.Join(staging, "ntfs-artifacts") // sealed directly, never imported as a tree
 	for _, v := range pt.Volumes {
 		rep := &volumeReport{vol: v}
 		reports = append(reports, rep)
@@ -162,11 +165,40 @@ func collectImage(path string, o importOpts, verifyStored bool) int {
 		if nv, ok := res.FS.(*ntfs.Volume); ok {
 			st := nv.Stats()
 			rep.notes = append(rep.notes, fmt.Sprintf("%d deleted MFT records skipped, %d orphans, %d corrupt records, %d parent loops, %d self-parent", st.Deleted, st.Orphans, st.Corrupt, st.ParentLoops, st.SelfParent))
-			if st.ShadowStore > 0 {
-				rep.notes = append(rep.notes, fmt.Sprintf("volume shadow copy store present (%d file(s) in System Volume Information); shadow copies are NOT parsed", st.ShadowStore))
+			if st.ShadowStore > 0 && !extras.includeVSS {
+				rep.notes = append(rep.notes, fmt.Sprintf("volume shadow copy store present (%d file(s) in System Volume Information); shadow copies are NOT parsed (opt in with --include-vss)", st.ShadowStore))
 			}
 			for _, p := range st.Problems {
 				rep.notes = append(rep.notes, "ntfs: "+p)
+			}
+			arts, notes := ntfsVolumeArtifacts(nv, v.Index, artDir, extras, lim.MaxFileBytes)
+			extraFiles = append(extraFiles, arts...)
+			rep.notes = append(rep.notes, notes...)
+		}
+		volStaging := filepath.Join(staging, fmt.Sprintf("vol%d", v.Index))
+		if _, ok := res.FS.(*ntfs.Volume); ok && extras.includeVSS {
+			base := imageProvenance{
+				ImagePath: abs, ImageSegments: before, ContainerType: im.Format,
+				PartitionScheme: v.Scheme, PartitionIndex: v.Index, PartitionOffset: v.Offset, PartitionType: v.Type,
+				E01Verification: e01,
+			}
+			cf := func(sv *ntfs.Volume) []string {
+				c := diskimage.FindCandidates(sv, prods, lim)
+				rep.notes = append(rep.notes, c.Problems...)
+				return c.Files
+			}
+			vp, notes, n := vssSnapshotFiles(v, v.Section(im), volStaging, cf, lim, base)
+			rep.notes = append(rep.notes, notes...)
+			for i := range vp {
+				if vp[i].StagedPath != "" {
+					rel, _ := filepath.Rel(staging, vp[i].StagedPath)
+					vp[i].StagedPath = filepath.ToSlash(rel)
+				}
+			}
+			prov = append(prov, vp...)
+			if n > 0 {
+				rep.files += n
+				rep.staging = volStaging
 			}
 		}
 		cands := diskimage.FindCandidates(res.FS, prods, lim)
@@ -174,7 +206,7 @@ func collectImage(path string, o importOpts, verifyStored bool) int {
 		if len(cands.Files) == 0 {
 			continue
 		}
-		rep.staging = filepath.Join(staging, fmt.Sprintf("vol%d", v.Index))
+		rep.staging = volStaging
 		ex := diskimage.ExtractFiles(res.FS, cands.Files, rep.staging, lim)
 		rep.notes = append(rep.notes, ex.Problems...)
 		for _, f := range ex.Files {
@@ -250,6 +282,12 @@ func collectImage(path string, o importOpts, verifyStored bool) int {
 		"image_files_extracted":    fmt.Sprint(staged),
 		"image_provenance_sidecar": imageProvenanceName,
 	}
+	if extras.recoverDeleted {
+		notes["image_recover_deleted"] = "on: recoverable deleted NTFS content sealed as " + ntfs.RecoveredUnverified
+	}
+	if extras.includeVSS {
+		notes["image_include_vss"] = "on: agent evidence extracted from each readable Volume Shadow Copy (vss/<n>-<created>/)"
+	}
 	if len(pt.Problems) > 0 {
 		notes["image_partition_problems"] = strings.Join(pt.Problems, "; ")
 	}
@@ -303,6 +341,11 @@ func collectImage(path string, o importOpts, verifyStored bool) int {
 			ArtifactType: "image_provenance", Sensitivity: "medium", CollectorRule: "diskimage.provenance",
 		}); err != nil {
 			return err
+		}
+		for _, x := range extraFiles {
+			if err := x.ingest(b); err != nil {
+				return err
+			}
 		}
 		_ = b.Log("image_acquired", map[string]any{
 			"image_path": abs, "container": im.Format, "segments": before, "e01_stored_hashes": e01,
