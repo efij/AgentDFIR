@@ -503,8 +503,12 @@ func identityMismatch(res *schema.Normalized) []schema.Finding {
 // alone fired AGENT_IDENTITY_MISMATCH (30 sessions) and SESSION_TAMPERING
 // on every machine that had used the desktop app. Per-artifact integrity
 // rules only make sense for single-session, append-only files.
+//
+// Browser history databases (one session per AI conversation, visits in
+// row order) and session indexes such as Continue's sessions.json are
+// multi-session stores of the same kind.
 func multiSessionStore(ev schema.Event) bool {
-	return ev.TimestampSrc == "database"
+	return ev.TimestampSrc == "database" || ev.Product == browserProduct || ev.Result == "session_index"
 }
 
 // SESSION_TAMPERING — chain breaks + backward timestamps per artifact.

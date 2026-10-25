@@ -97,6 +97,8 @@ var Builtin = []Rule{
 	{ID: "AI_CLI_HEADLESS_BYPASS", Package: "detect", Surface: "transcript", MaxSeverity: "MEDIUM",
 		Title: "AI Agent CLI Run Headless With Approvals Disabled", Summary: "Shell history launches claude/codex/gemini/q/cursor-agent/copilot non-interactively with permission checks off (the s1ngularity shape).",
 		MitreATTACK: "T1059", MitreATLAS: "AML.T0103"},
+	{ID: "AI_WEB_SHARE_LINK_VISITED", Package: "detect", Surface: "browser", MaxSeverity: "LOW",
+		Title: "AI Conversation Share Link in Browser History", Summary: "Opt-in browser history recorded a visit to a public share link of an AI conversation (visit only, no content)."},
 	{ID: "CROSS_SESSION_MESSAGE", Package: "detect", Surface: "transcript", MaxSeverity: "HIGH",
 		Title: "Cross-Agent Communication", Summary: "Message or resume interaction between agents/sessions."},
 	{ID: "DESTRUCTIVE_COMMAND", Package: "detect", Surface: "command", MaxSeverity: "MEDIUM",
