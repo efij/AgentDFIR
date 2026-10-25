@@ -1,0 +1,5 @@
+1272a49868c41260330ce643f91dffd1114abc24bf149dfb4ebfb8833bbe5670  docs/A very long file name that exceeds eight dot three.txt
+c962fa1be311981f0f965857e89b000707f9cea07a069d073461308f3019200f  docs/SHORT.TXT
+f8680e23605b7a5dcfdbf103920503b20e9d207cf8cf3213654c77ef41fe3491  home/alice/.claude/projects/p/session.jsonl
+1efcce1428b0dc62b965ee96ab5bb7ae5e4d4dd342393ef3d8b666fd9470af6b  known.bin
+9bb9d52aae794ba26d1253ec46ae0046dcddfc60fa3e0f8a30adb1481a2367d1  fragmented.bin
