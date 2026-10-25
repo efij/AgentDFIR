@@ -97,5 +97,6 @@ func collectArchive(path string, o importOpts) int {
 	o.tree = tmp
 	o.notes = map[string]string{"mode": "archive", "archive_file": path, "archive_sha256": st.SHA256, "archive_kind": kind}
 	o.fallback = true
+	o.aiPlan = detectArchiveExport(tmp)
 	return collectImport(o)
 }
