@@ -46,8 +46,8 @@ COLLECT — where the evidence is
   agentdfir collect --docker <container|export.tar>                            a container (read-only export)
   agentdfir collect --archive <zip|tar|tgz>                                    CI artifact, support bundle, vendor export
   agentdfir collect --ai-export <zip|dir>                                      ChatGPT / Claude.ai / DeepSeek / Gemini Takeout export, UFDR
+  agentdfir collect --image <E01|raw|.001|vhd|vhdx|vmdk>                        forensic disk image, read-only (NTFS, ext2/3/4, FAT, exFAT; docs/disk-images.md)
       --include-browser   any mode above, and "run": also take browser history (opt-in; only AI-service visits are parsed)
-  agentdfir collect --image <E01|raw|.001|vhd|vhdx|vmdk>                        forensic disk image, read-only (NTFS; docs/disk-images.md)
   agentdfir verify <pkg>                                                       prove the package was not modified
   agentdfir compact <pkg>                                                      delete the regenerable analysis overlay (analyze rebuilds it)
   agentdfir store status | store gc                                            shared evidence store: what it holds, reclaim what no case uses
