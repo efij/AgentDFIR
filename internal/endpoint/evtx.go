@@ -105,22 +105,17 @@ func (res *LoadResult) addEVTX(ev *evtx.Event) bool {
 	switch prov := strings.ToLower(s.Provider); {
 	case prov == "microsoft-windows-sysmon":
 		switch s.EventID {
-		case "1", "2", "3", "11", "23", "26":
+		case "1", "2", "3", "11", "22", "23", "26":
+			// 22 (DNS query) included: the XML export and .evtx map it alike.
 			n := len(res.Records)
 			res.addSysmon(s.EventID, recID, s.TimeCreated, d)
 			if ev.Unverified && len(res.Records) > n {
-				res.Records[n].Ref = ref("sysmon")
+				extra := ""
+				if s.EventID == "22" {
+					extra = "dns"
+				}
+				res.Records[n].Ref = ref("sysmon", extra)
 			}
-			return true
-		case "22": // DNS query: the name a process resolved
-			t, ok := parseTime(firstOf(d["UtcTime"], s.TimeCreated))
-			if !ok || d["QueryName"] == "" {
-				res.problem(ref("sysmon") + ": DNS query without time or name")
-				return true
-			}
-			pid, _ := strconv.Atoi(d["ProcessId"])
-			res.Records = append(res.Records, Record{Time: t, Kind: "network", PID: pid, Exe: d["Image"], User: d["User"],
-				DestHost: d["QueryName"], Source: "sysmon", Ref: ref("sysmon", "dns")})
 			return true
 		}
 	case prov == "microsoft-windows-security-auditing" && s.EventID == "4688":

@@ -94,6 +94,20 @@ func (res *LoadResult) addSysmon(eventID, recordID, systemTime string, d map[str
 		base.DestPort, _ = strconv.Atoi(d["DestinationPort"])
 		base.DestHost = d["DestinationHostname"]
 		res.Records = append(res.Records, base)
+	case "22":
+		// DNS query. It stays kind "network", not the resolver-log kind
+		// "dns": Sysmon names the process that resolved the name, so the
+		// record carries process identity, can raise UNLOGGED_AGENT_NETWORK
+		// for a lookup made by the agent, and corroborates like event 3
+		// (see docs/endpoint-corroboration.md).
+		if d["QueryName"] == "" {
+			res.problem(ref + ": DNS query without a name")
+			return
+		}
+		base.Kind = "network"
+		base.DestHost = d["QueryName"]
+		base.Ref = fmt.Sprintf("sysmon:%s (record %s, dns)", eventID, recordID)
+		res.Records = append(res.Records, base)
 	case "11", "2", "23", "26":
 		base.Kind = "file"
 		base.FilePath = d["TargetFilename"]
