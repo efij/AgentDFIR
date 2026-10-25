@@ -91,6 +91,7 @@ ACCOUNTABILITY — who asked, who allowed, what happened (not legal advice)
   agentdfir case log [<pkg>]              the sealed custody log + the post-seal activity log
   agentdfir export custody [<pkg>] --out <dir|zip> [--certify --name … --title … --org …]
   agentdfir selfcheck --offline           prove on this machine: nothing sent, executed, or written outside the case
+  agentdfir benchmark [--json] [--out f]  SYNTHETIC accuracy benchmark: detection, evidence states, provenance, tamper detection
 
 BEFORE AN INCIDENT
   agentdfir monitor --detect --alert <url|file>      live sensor: findings pushed as they happen
@@ -195,6 +196,8 @@ func Main(args []string) int {
 		return cmdDecode(args[1:])
 	case "selfcheck":
 		return cmdSelfcheck(args[1:])
+	case "benchmark":
+		return cmdBenchmark(args[1:])
 	case "journal":
 		return cmdJournal(args[1:])
 	case "version", "--version", "-v":
