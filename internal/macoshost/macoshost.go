@@ -466,4 +466,3 @@ func (st *State) Summary() string {
 	return fmt.Sprintf("%d artifact(s): %d launchd plist(s) (%d parsed), %d TCC access row(s), %d keychain file(s) listed (metadata only), %d unsupported, %d not readable",
 		st.Artifacts, len(st.Launchd), parsed, len(st.TCCRows), len(st.Keychains), len(st.Unsupported), len(st.Skipped))
 }
-
