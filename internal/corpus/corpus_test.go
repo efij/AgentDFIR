@@ -23,7 +23,7 @@ func analyseCase(t *testing.T, c Case) []schema.Finding {
 	if err := BuildPackage(c, pkg, "CORPUS-"+c.Name, "corpus"); err != nil {
 		t.Fatal(err)
 	}
-	res, err := analysis.Run(pkg, analysis.Options{})
+	res, err := analysis.Run(pkg, analysis.Options{EndpointLogs: c.EndpointLogs()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,6 +122,11 @@ func TestEveryCaseExplainsItself(t *testing.T) {
 		}
 		if c.Kind == "attack" && len(c.Expect) == 0 {
 			t.Errorf("attack/%s: expects no rules, so it asserts nothing", c.Name)
+		}
+		for _, p := range c.EndpointLogs() {
+			if _, err := os.Stat(p); err != nil {
+				t.Errorf("%s/%s: endpoint log %v", c.Kind, c.Name, err)
+			}
 		}
 		if c.Collect == CollectAIExport {
 			if _, err := os.Stat(filepath.Join(c.Dir, "export")); err != nil {

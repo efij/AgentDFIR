@@ -1,0 +1,2 @@
+{"type": "user", "uuid": "u1", "sessionId": "w1", "timestamp": "2026-09-20T10:00:00Z", "cwd": "C:\\repo", "message": {"role": "user", "content": "what changed?"}}
+{"type": "assistant", "uuid": "a1", "parentUuid": "u1", "sessionId": "w1", "timestamp": "2026-09-20T10:00:04Z", "message": {"role": "assistant", "content": [{"type": "tool_use", "id": "t1", "name": "Bash", "input": {"command": "git status"}}]}}

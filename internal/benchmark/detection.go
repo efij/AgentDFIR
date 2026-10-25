@@ -170,7 +170,7 @@ func runDetection(r *Report, o Options, work string, prov *provenanceChecker) er
 		var a *analyzed
 		var err error
 		if f.case_ != nil {
-			a, err = buildAndAnalyze(work, fmt.Sprintf("fx-%d", i), *f.case_, analysis.Options{})
+			a, err = buildAndAnalyze(work, fmt.Sprintf("fx-%d", i), *f.case_, analysis.Options{EndpointLogs: f.case_.EndpointLogs()})
 		} else {
 			a, err = collectAndAnalyze(work, fmt.Sprintf("fx-%d", i), profile, f.prods, analysis.Options{})
 		}

@@ -55,6 +55,13 @@ type EndpointResult struct {
 	WitnessCorroborated int `json:"witness_corroborated,omitempty"` // proxy host(+path), sudo/journal command line
 	WitnessPartial      int `json:"witness_partial,omitempty"`      // DNS lookup or ssh login only
 
+	// Windows event log context records (registry, scheduled-task, wmi,
+	// process-exit, Security-log auth): present and counted per kind, read
+	// by the Windows persistence and credential rules, never correlated.
+	ContextRecords int            `json:"context_records,omitempty"`
+	ContextKinds   map[string]int `json:"context_kinds,omitempty"`
+	ContextOmitted int            `json:"context_findings_omitted,omitempty"` // Windows rule findings past the per-rule bound
+
 	// The time range the imported cloud audit records span (RFC 3339).
 	CloudCoverageStart string `json:"cloud_coverage_start,omitempty"`
 	CloudCoverageEnd   string `json:"cloud_coverage_end,omitempty"`
@@ -85,7 +92,10 @@ func Endpoint(events []schema.Event, records []endpoint.Record, opts EndpointOpt
 	// ("process-image") are weaker still: they name only the program, so
 	// they can at most partly corroborate. Service-install and log-cleared
 	// records are notices for the operator, not correlation input.
-	var host, cloud, witnessCloud, sightings, script, image []endpoint.Record
+	// Windows context records (registry, scheduled tasks, WMI, process
+	// exits, Security-log logons) are not execution evidence either: they
+	// feed only the Windows persistence and credential rules.
+	var host, cloud, witnessCloud, sightings, script, image, ctx []endpoint.Record
 	for _, r := range records {
 		switch {
 		case endpoint.IsWitnessCloud(r):
@@ -99,11 +109,14 @@ func Endpoint(events []schema.Event, records []endpoint.Record, opts EndpointOpt
 		case r.Kind == endpoint.KindProcessImage:
 			image = append(image, r)
 		case r.Kind == "service", r.Kind == "log-clear":
+		case endpoint.IsContext(r):
+			ctx = append(ctx, r)
 		default:
 			host = append(host, r)
 		}
 	}
 	findings := endpointHost(events, host, opts, res)
+	findings = append(findings, windowsPass(events, host, ctx, opts, res)...)
 	findings = append(findings, cloudPass(events, cloud, res)...)
 	findings = append(findings, witnessCloudPass(events, witnessCloud, res)...)
 	sightingPass(events, sightings, opts, res)
@@ -362,22 +375,7 @@ func buildLineage(records []endpoint.Record, agentNames map[string]bool) []bool 
 			byPID[r.PID] = i
 		}
 	}
-	isAgentExe := func(exe, cmd string) bool {
-		if agentNames[exeName(exe)] {
-			return true
-		}
-		if ft := firstToken(cmd); ft != "" && agentNames[exeName(ft)] {
-			return true
-		}
-		// node/python running an agent CLI: `node …/claude/cli.js`
-		low := strings.ToLower(cmd)
-		for name := range agentNames {
-			if strings.Contains(low, "/"+name+"/") || strings.Contains(low, "\\"+name+"\\") || strings.Contains(low, "/"+name+".js") || strings.Contains(low, "@anthropic-ai/claude-code") || strings.Contains(low, "@openai/codex") {
-				return true
-			}
-		}
-		return false
-	}
+	isAgentExe := func(exe, cmd string) bool { return agentProcess(agentNames, exe, cmd) }
 	out := make([]bool, len(records))
 	for i, r := range records {
 		if isAgentExe(r.ParentExe, "") {
@@ -404,6 +402,25 @@ func buildLineage(records []endpoint.Record, agentNames map[string]bool) []bool 
 		}
 	}
 	return out
+}
+
+// agentProcess reports whether a process image or command line is an
+// agent binary (or a runtime running an agent CLI).
+func agentProcess(agentNames map[string]bool, exe, cmd string) bool {
+	if agentNames[exeName(exe)] {
+		return true
+	}
+	if ft := firstToken(cmd); ft != "" && agentNames[exeName(ft)] {
+		return true
+	}
+	// node/python running an agent CLI: `node …/claude/cli.js`
+	low := strings.ToLower(cmd)
+	for name := range agentNames {
+		if strings.Contains(low, "/"+name+"/") || strings.Contains(low, "\\"+name+"\\") || strings.Contains(low, "/"+name+".js") || strings.Contains(low, "@anthropic-ai/claude-code") || strings.Contains(low, "@openai/codex") {
+			return true
+		}
+	}
+	return false
 }
 
 func agentBinaryNames(extra []string) map[string]bool {

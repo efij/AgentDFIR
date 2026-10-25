@@ -1,0 +1,6 @@
+{
+  "note": "An updater registers its own scheduled task with schtasks while the agent runs git status. The task registration and the schtasks process are real, but the process descends from the updater, not the agent, so WIN_AGENT_SCHEDULED_TASK must stay quiet.",
+  "endpoint": [
+    "endpoint/windows-events.xml"
+  ]
+}

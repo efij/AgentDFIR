@@ -1,0 +1,9 @@
+{
+  "note": "A script the agent ran bound a permanent WMI CommandLineEventConsumer to a timer filter: fileless persistence. WMI-Activity 5861 names no process, so WIN_AGENT_WMI_PERSISTENCE ties it to the agent session by time and says so.",
+  "endpoint": [
+    "endpoint/windows-events.xml"
+  ],
+  "expect": [
+    "WIN_AGENT_WMI_PERSISTENCE"
+  ]
+}
