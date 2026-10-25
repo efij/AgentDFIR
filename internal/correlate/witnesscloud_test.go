@@ -29,7 +29,7 @@ func TestK8sAuditCorroboratesKubectl(t *testing.T) {
 		k("2026-10-25T10:00:41Z", "delete pods", "default/web-2", ""),
 	}
 	res, findings := Endpoint(events, recs, EndpointOptions{})
-	want := map[string]string{"del": schema.StateCorroborated, "exec": schema.StateCorroborated, "apply": schema.StateCorroborated,
+	want := map[string]string{"del": schema.StateCorroborated, "exec": schema.StateCorroborated, "apply": schema.StatePartial, // -f manifest: no resource to compare
 		"slash": schema.StateCorroborated, "other": schema.StateObserved, "get": schema.StateObserved}
 	for _, e := range events {
 		if e.Corroboration != want[e.EventID] {
@@ -39,7 +39,7 @@ func TestK8sAuditCorroboratesKubectl(t *testing.T) {
 	if !strings.Contains(events[1].Summary, "the service refused it: HTTP 403 Forbidden") {
 		t.Errorf("refusal not noted: %q", events[1].Summary)
 	}
-	if res.CloudCorroborated != 4 || res.CloudRefused != 1 || res.CloudRecords != 5 || res.Contradicted != 0 || len(findings) != 0 {
+	if res.CloudCorroborated != 3 || res.CloudPartial != 1 || res.CloudRefused != 1 || res.CloudRecords != 5 || res.Contradicted != 0 || len(findings) != 0 {
 		t.Errorf("result %+v findings %v", res, findings)
 	}
 }
@@ -63,13 +63,13 @@ func TestGitAuditCorroboratesGhAndPush(t *testing.T) {
 		g("2026-10-25T10:00:41Z", "gitlab", "project_destroyed", "acme/old"),
 	}
 	res, _ := Endpoint(events, recs, EndpointOptions{})
-	want := map[string]string{"create": schema.StateCorroborated, "push": schema.StateCorroborated, "api": schema.StateCorroborated, "read": schema.StateObserved, "gl": schema.StateCorroborated}
+	want := map[string]string{"create": schema.StateCorroborated, "push": schema.StatePartial /* a remote name, not a repository */, "api": schema.StateCorroborated, "read": schema.StateObserved, "gl": schema.StateCorroborated}
 	for _, e := range events {
 		if e.Corroboration != want[e.EventID] {
 			t.Errorf("%s: %s, want %s (%s)", e.EventID, e.Corroboration, want[e.EventID], e.Summary)
 		}
 	}
-	if res.CloudCorroborated != 4 {
+	if res.CloudCorroborated != 3 || res.CloudPartial != 1 {
 		t.Errorf("result %+v", res)
 	}
 	// `git commit -m push` is not a push.

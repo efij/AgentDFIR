@@ -73,20 +73,33 @@ func witnessCloudPass(events []schema.Event, records []endpoint.Record, res *End
 		matched[best] = true
 		matchedBy[best] = ev
 		r := records[best]
-		switch ev.Corroboration {
-		case schema.StateObserved, schema.StateReported, schema.StateUnknown, schema.StatePartial:
-			ev.Corroboration = schema.StateCorroborated
+		// Only an operation on the named resource corroborates. When the
+		// command names no resource (or the record names none) the match
+		// is by operation alone: PARTLY CONFIRMED.
+		verb := "corroborated"
+		if bestScore >= 95 {
+			switch ev.Corroboration {
+			case schema.StateObserved, schema.StateReported, schema.StateUnknown, schema.StatePartial:
+				ev.Corroboration = schema.StateCorroborated
+			}
+			res.CloudCorroborated++
+		} else {
+			verb = "partly corroborated (operation only, no resource to compare)"
+			switch ev.Corroboration {
+			case schema.StateObserved, schema.StateReported, schema.StateUnknown:
+				ev.Corroboration = schema.StatePartial
+			}
+			res.CloudPartial++
 		}
-		note := fmt.Sprintf("corroborated by %s: %s by %s (%s)", r.Source, r.Operation, orUnknown(r.User), r.Ref)
+		note := fmt.Sprintf("%s by %s: %s by %s (%s)", verb, r.Source, r.Operation, orUnknown(r.User), r.Ref)
 		if r.Resource != "" {
-			note = fmt.Sprintf("corroborated by %s: %s on %s by %s (%s)", r.Source, r.Operation, trim(r.Resource, 80), orUnknown(r.User), r.Ref)
+			note = fmt.Sprintf("%s by %s: %s on %s by %s (%s)", verb, r.Source, r.Operation, trim(r.Resource, 80), orUnknown(r.User), r.Ref)
 		}
 		if r.Failed != "" {
 			note += "; the service refused it: " + r.Failed
 			res.CloudRefused++
 		}
 		ev.Summary = appendNote(ev.Summary, note)
-		res.CloudCorroborated++
 	}
 	// Bursts over the Git hosting records only, indexed as burstFindings expects.
 	var git []endpoint.Record
@@ -120,13 +133,59 @@ func witnessScore(c witnessCall, r endpoint.Record) int {
 	if r.Resource == "" {
 		return 70
 	}
-	res := strings.ToLower(r.Resource)
 	for _, n := range c.names {
-		if n = strings.ToLower(strings.Trim(strings.TrimSpace(n), "/")); n != "" && strings.Contains(res, n) {
+		if resourceMatches(r.Resource, n) {
 			return 95
 		}
 	}
 	return 0
+}
+
+// minNameLen: shorter names only match a resource exactly, never as a
+// segment of a longer path.
+const minNameLen = 3
+
+// resourceMatches reports whether a name from a command line identifies
+// the record's resource: the whole resource (one of its space-separated
+// ids) equals the name, or the name's '/'-separated segments appear as
+// whole, consecutive segments of it ("prod" matches ".../prod/..." and
+// "prod/db", never "nonprod-db"). ARN colons count as separators; a
+// URL scheme on the name (s3://, gs://) is ignored.
+func resourceMatches(resource, name string) bool {
+	name = strings.ToLower(strings.TrimSpace(name))
+	if i := strings.Index(name, "://"); i >= 0 {
+		name = name[i+3:]
+	}
+	name = strings.Trim(name, "/")
+	if name == "" {
+		return false
+	}
+	split := func(s string) []string {
+		return strings.FieldsFunc(s, func(r rune) bool { return r == '/' || r == ':' })
+	}
+	want := split(name)
+	for _, id := range strings.Fields(strings.ToLower(resource)) {
+		if strings.Trim(id, "/") == name {
+			return true
+		}
+		if len(name) < minNameLen || len(want) == 0 {
+			continue
+		}
+		segs := split(id)
+		for i := 0; i+len(want) <= len(segs); i++ {
+			ok := true
+			for k := range want {
+				if segs[i+k] != want[k] {
+					ok = false
+					break
+				}
+			}
+			if ok {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // parseWitnessCalls finds kubectl, gh, glab, git push, aws s3, gsutil,
@@ -309,6 +368,11 @@ func parseKubectl(t []string) []witnessCall {
 		return base == resource
 	}}
 	if name != "" {
+		// The audit resource is namespace/name: with -n the full path is
+		// compared, so even a short object name matches on segments.
+		if ns := firstNonBlank(flags["-n"], flags["--namespace"]); ns != "" && !strings.Contains(name, "/") {
+			name = ns + "/" + name
+		}
 		c.names = []string{name}
 	}
 	return []witnessCall{c}

@@ -135,6 +135,9 @@ func runEndpointCorrelation(pkg string, logs []string, f endpoint.Format, opts c
 		fmt.Printf("Cloud audit correlation: %d cloud record(s), %d cloud command(s) checked — %d CORROBORATED (%d refused by the cloud); %d destructive burst(s).\n",
 			res.CloudRecords, res.CloudCommands, res.CloudCorroborated, res.CloudRefused, res.CloudBursts)
 	}
+	if res.CloudPartial > 0 {
+		fmt.Printf("Kubernetes/Git/storage audit: %d command(s) PARTLY CONFIRMED by operation only (the command names no resource to compare).\n", res.CloudPartial)
+	}
 	if res.WitnessRecords > 0 {
 		fmt.Printf("DNS/proxy/auth-log correlation: %d record(s) — %d tool call(s) CORROBORATED, %d PARTLY CONFIRMED; these logs never contradict.\n",
 			res.WitnessRecords, res.WitnessCorroborated, res.WitnessPartial)
