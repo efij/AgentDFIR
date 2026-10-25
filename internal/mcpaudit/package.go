@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v3/internal/casepkg"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/casepkg"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
 // ScanPackage audits the MCP configuration captured in a sealed package:
@@ -68,6 +69,12 @@ func classify(logical string) (host, scope string, f format, ok bool) {
 	for _, loc := range locations {
 		for _, rel := range loc.rel {
 			r := strings.TrimPrefix(rel, "/")
+			if strings.ContainsAny(r, "*?[") {
+				if globSuffix(p, r) {
+					return loc.host, loc.scope, loc.format, true
+				}
+				continue
+			}
 			if strings.HasSuffix(p, "/"+r) || p == r || strings.HasSuffix(p, r) && strings.HasPrefix(r, ".") {
 				return loc.host, loc.scope, loc.format, true
 			}
@@ -136,4 +143,16 @@ func extractTools(data []byte) []Tool {
 	}
 	walk(doc, 0)
 	return out
+}
+
+// globSuffix reports whether the trailing path segments of p match the
+// glob pattern r segment for segment (".continue/mcpServers/*.yaml"
+// matches "home/u/.continue/mcpServers/sqlite.yaml").
+func globSuffix(p, r string) bool {
+	ps, rs := strings.Split(p, "/"), strings.Split(r, "/")
+	if len(ps) < len(rs) {
+		return false
+	}
+	ok, err := path.Match(r, strings.Join(ps[len(ps)-len(rs):], "/"))
+	return err == nil && ok
 }

@@ -1,0 +1,15 @@
+{
+  "sessions": 400,
+  "tool_calls": 24000,
+  "events": 48800,
+  "input_bytes": 16693400,
+  "collect_ms": 266,
+  "analyze_ms": 3574,
+  "peak_heap_mb": 152.3,
+  "alloc_mb": 3207.5,
+  "go": "go1.27.1",
+  "platform": "darwin/arm64",
+  "cpus": 11,
+  "recorded_utc": "2026-10-25T12:34:34Z",
+  "agentdfir_version": "3.2.0"
+}

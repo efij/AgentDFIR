@@ -5,13 +5,15 @@
 package normalize
 
 import (
-	"github.com/efij/AgentDFIR/v3/internal/netdest"
-	"github.com/efij/AgentDFIR/v3/internal/parsers/claudejsonl"
-	"github.com/efij/AgentDFIR/v3/internal/parsers/codexdb"
-	"github.com/efij/AgentDFIR/v3/internal/parsers/codexjsonl"
-	"github.com/efij/AgentDFIR/v3/internal/parsers/genericchat"
-	"github.com/efij/AgentDFIR/v3/internal/parsers/segment"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/netdest"
+	"github.com/efij/AgentDFIR/v4/internal/parsers/aiexport"
+	"github.com/efij/AgentDFIR/v4/internal/parsers/browser"
+	"github.com/efij/AgentDFIR/v4/internal/parsers/claudejsonl"
+	"github.com/efij/AgentDFIR/v4/internal/parsers/codexdb"
+	"github.com/efij/AgentDFIR/v4/internal/parsers/codexjsonl"
+	"github.com/efij/AgentDFIR/v4/internal/parsers/genericchat"
+	"github.com/efij/AgentDFIR/v4/internal/parsers/segment"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
 // registry lists all product parsers (accumulating). Order is deterministic.
@@ -20,6 +22,8 @@ var registry = []func(pkgDir string) (*schema.Normalized, error){
 	codexjsonl.ParsePackage,
 	codexdb.ParsePackage,
 	genericchat.ParsePackage,
+	aiexport.ParsePackage,
+	browser.ParsePackage,
 }
 
 // parserEntry is one sink-aware parser plus what the incremental overlay
@@ -39,6 +43,8 @@ var parsers = []parserEntry{
 	{"codex-cli", codexjsonl.IDFormat, codexjsonl.StreamPackageCached},
 	{"codex-db", codexdb.IDFormat, codexdb.StreamPackageCached},
 	{"generic", genericchat.IDFormat, genericchat.StreamPackageCached},
+	{"ai-export", aiexport.IDFormat, aiexport.StreamPackageCached},
+	{"browser", browser.IDFormat, browser.StreamPackageCached},
 }
 
 // StreamResult carries the bounded (non-event) part of normalization

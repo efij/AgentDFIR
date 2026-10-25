@@ -11,8 +11,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/efij/AgentDFIR/v3/internal/hashchain"
-	"github.com/efij/AgentDFIR/v3/internal/seal"
+	"github.com/efij/AgentDFIR/v4/internal/hashchain"
+	"github.com/efij/AgentDFIR/v4/internal/seal"
 )
 
 // The machine sealing key.
@@ -205,4 +205,61 @@ func LatestAnchor(caseID, pkgPath string) (*Anchor, error) {
 		}
 	}
 	return latest, sc.Err()
+}
+
+// PublicKeyPEM returns this machine's sealing public key as PEM bytes, or
+// nil when the machine has none. It reads only; it never creates a key.
+func PublicKeyPEM() []byte {
+	home := os.Getenv(EnvHome)
+	if home == "" {
+		b, err := defaultBase()
+		if err != nil {
+			return nil
+		}
+		home = b
+	}
+	data, err := os.ReadFile(filepath.Join(home, keysDir, sealPub))
+	if err != nil {
+		return nil
+	}
+	return data
+}
+
+// AnchorsForCase returns every anchor recorded for a case at a package
+// path, oldest first, and whether the anchor log's own chain is intact.
+// A case with no anchor log returns no anchors and intact=true.
+func AnchorsForCase(caseID, pkgPath string) (anchors []Anchor, intact bool, err error) {
+	home := os.Getenv(EnvHome)
+	if home == "" {
+		b, derr := defaultBase()
+		if derr != nil {
+			return nil, true, nil
+		}
+		home = b
+	}
+	path := filepath.Join(home, anchorFile)
+	f, oerr := os.Open(path)
+	if errors.Is(oerr, os.ErrNotExist) {
+		return nil, true, nil
+	}
+	if oerr != nil {
+		return nil, false, oerr
+	}
+	defer f.Close()
+	intact = true
+	if _, verr := hashchain.Verify(f); verr != nil {
+		intact = false
+	}
+	if _, serr := f.Seek(0, 0); serr != nil {
+		return nil, intact, serr
+	}
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 0, 64<<10), 1<<20)
+	for sc.Scan() {
+		var a Anchor
+		if json.Unmarshal(sc.Bytes(), &a) == nil && a.CaseID == caseID && a.Package == pkgPath {
+			anchors = append(anchors, a)
+		}
+	}
+	return anchors, intact, sc.Err()
 }

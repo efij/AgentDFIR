@@ -1,0 +1,6 @@
+{
+  "verdict": "FAILED",
+  "description": "rename an artifact's logical path in manifest.jsonl",
+  "mutation": "manifest-edit-path",
+  "spec": "0.2"
+}

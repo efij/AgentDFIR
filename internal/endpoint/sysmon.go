@@ -11,7 +11,8 @@ import (
 
 // Sysmon operational log exported as XML (wevtutil qe
 // Microsoft-Windows-Sysmon/Operational /f:xml, or Event Viewer "Save as
-// XML"). Raw .evtx is not parsed; export first. Events used:
+// XML"); raw .evtx files go through the native reader in evtx.go and
+// share the same mapping. Events used:
 //
 //	1  ProcessCreate   3  NetworkConnect   11 FileCreate   23 FileDelete   2 FileCreateTime
 type xmlEvent struct {
@@ -63,42 +64,63 @@ func loadSysmonXML(path string) (*LoadResult, error) {
 		for _, x := range ev.EventData.Data {
 			d[x.Name] = strings.TrimSpace(x.Value)
 		}
-		ts, ok := parseTime(firstOf(d["UtcTime"], ev.System.TimeCreated.SystemTime))
-		if !ok {
-			res.problem("event " + ev.System.EventRecordID + ": no timestamp")
-			continue
-		}
-		ref := fmt.Sprintf("sysmon:%s (record %s)", ev.System.EventID, ev.System.EventRecordID)
-		pid, _ := strconv.Atoi(d["ProcessId"])
-		base := Record{Time: ts, PID: pid, Exe: d["Image"], User: d["User"], Source: "sysmon", Ref: ref}
-		switch ev.System.EventID {
-		case "1":
-			base.Kind = "process"
-			base.Cmdline = d["CommandLine"]
-			base.PPID, _ = strconv.Atoi(d["ParentProcessId"])
-			base.ParentExe = d["ParentImage"]
-			res.Records = append(res.Records, base)
-		case "3":
-			base.Kind = "network"
-			base.DestIP = d["DestinationIp"]
-			base.DestPort, _ = strconv.Atoi(d["DestinationPort"])
-			base.DestHost = d["DestinationHostname"]
-			res.Records = append(res.Records, base)
-		case "11", "2", "23", "26":
-			base.Kind = "file"
-			base.FilePath = d["TargetFilename"]
-			switch ev.System.EventID {
-			case "11":
-				base.FileOp = "create"
-			case "23", "26":
-				base.FileOp = "delete"
-			default:
-				base.FileOp = "modify"
-			}
-			res.Records = append(res.Records, base)
-		}
+		res.addSysmon(ev.System.EventID, ev.System.EventRecordID, ev.System.TimeCreated.SystemTime, d)
 	}
 	return res, nil
+}
+
+// addSysmon maps one Sysmon event (EventData name → value) to a Record.
+// The XML export and native .evtx adapters share it so both inputs
+// corroborate and contradict identically.
+func (res *LoadResult) addSysmon(eventID, recordID, systemTime string, d map[string]string) {
+	ts, ok := parseTime(firstOf(d["UtcTime"], systemTime))
+	if !ok {
+		res.problem("event " + recordID + ": no timestamp")
+		return
+	}
+	ref := fmt.Sprintf("sysmon:%s (record %s)", eventID, recordID)
+	pid, _ := strconv.Atoi(d["ProcessId"])
+	base := Record{Time: ts, PID: pid, Exe: d["Image"], User: d["User"], Source: "sysmon", Ref: ref}
+	switch eventID {
+	case "1":
+		base.Kind = "process"
+		base.Cmdline = d["CommandLine"]
+		base.PPID, _ = strconv.Atoi(d["ParentProcessId"])
+		base.ParentExe = d["ParentImage"]
+		res.Records = append(res.Records, base)
+	case "3":
+		base.Kind = "network"
+		base.DestIP = d["DestinationIp"]
+		base.DestPort, _ = strconv.Atoi(d["DestinationPort"])
+		base.DestHost = d["DestinationHostname"]
+		res.Records = append(res.Records, base)
+	case "22":
+		// DNS query. It stays kind "network", not the resolver-log kind
+		// "dns": Sysmon names the process that resolved the name, so the
+		// record carries process identity, can raise UNLOGGED_AGENT_NETWORK
+		// for a lookup made by the agent, and corroborates like event 3
+		// (see docs/endpoint-corroboration.md).
+		if d["QueryName"] == "" {
+			res.problem(ref + ": DNS query without a name")
+			return
+		}
+		base.Kind = "network"
+		base.DestHost = d["QueryName"]
+		base.Ref = fmt.Sprintf("sysmon:%s (record %s, dns)", eventID, recordID)
+		res.Records = append(res.Records, base)
+	case "11", "2", "23", "26":
+		base.Kind = "file"
+		base.FilePath = d["TargetFilename"]
+		switch eventID {
+		case "11":
+			base.FileOp = "create"
+		case "23", "26":
+			base.FileOp = "delete"
+		default:
+			base.FileOp = "modify"
+		}
+		res.Records = append(res.Records, base)
+	}
 }
 
 // stripXMLDecl removes a leading <?xml …?> declaration so the wrapper

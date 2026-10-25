@@ -19,24 +19,26 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v3/internal/casepkg"
-	"github.com/efij/AgentDFIR/v3/internal/chain"
-	"github.com/efij/AgentDFIR/v3/internal/correlate"
-	"github.com/efij/AgentDFIR/v3/internal/detect"
-	"github.com/efij/AgentDFIR/v3/internal/endpoint"
-	"github.com/efij/AgentDFIR/v3/internal/fingerprint"
-	"github.com/efij/AgentDFIR/v3/internal/index"
-	"github.com/efij/AgentDFIR/v3/internal/ioc"
-	"github.com/efij/AgentDFIR/v3/internal/journal"
-	"github.com/efij/AgentDFIR/v3/internal/mcpaudit"
-	"github.com/efij/AgentDFIR/v3/internal/normalize"
-	"github.com/efij/AgentDFIR/v3/internal/overlay"
-	"github.com/efij/AgentDFIR/v3/internal/provenance"
-	"github.com/efij/AgentDFIR/v3/internal/rulepack"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
-	"github.com/efij/AgentDFIR/v3/internal/verify"
-	"github.com/efij/AgentDFIR/v3/internal/version"
-	"github.com/efij/AgentDFIR/v3/internal/witness"
+	"github.com/efij/AgentDFIR/v4/internal/casepkg"
+	"github.com/efij/AgentDFIR/v4/internal/chain"
+	"github.com/efij/AgentDFIR/v4/internal/correlate"
+	"github.com/efij/AgentDFIR/v4/internal/detect"
+	"github.com/efij/AgentDFIR/v4/internal/endpoint"
+	"github.com/efij/AgentDFIR/v4/internal/extinv"
+	"github.com/efij/AgentDFIR/v4/internal/fingerprint"
+	"github.com/efij/AgentDFIR/v4/internal/index"
+	"github.com/efij/AgentDFIR/v4/internal/ioc"
+	"github.com/efij/AgentDFIR/v4/internal/journal"
+	"github.com/efij/AgentDFIR/v4/internal/mcpaudit"
+	"github.com/efij/AgentDFIR/v4/internal/normalize"
+	"github.com/efij/AgentDFIR/v4/internal/overlay"
+	"github.com/efij/AgentDFIR/v4/internal/provenance"
+	"github.com/efij/AgentDFIR/v4/internal/rulepack"
+	"github.com/efij/AgentDFIR/v4/internal/sanitize"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/verify"
+	"github.com/efij/AgentDFIR/v4/internal/version"
+	"github.com/efij/AgentDFIR/v4/internal/witness"
 )
 
 // Options are the optional inputs an analyst may add.
@@ -377,6 +379,9 @@ func Run(pkg string, o Options) (*Result, error) {
 					return nil, fmt.Errorf("endpoint log %s: %w", p, err)
 				}
 				o.logf("Endpoint log %s: %s, %d records (%d skipped)", filepath.Base(p), lr.Format, len(lr.Records), lr.Skipped)
+				for _, n := range lr.Notices {
+					o.logf("  notice: %s", sanitize.Terminal(n))
+				}
 				records = append(records, lr.Records...)
 			}
 			cres, cf := correlate.Endpoint(events, records, correlate.EndpointOptions{Window: o.Window, KnownDests: o.KnownDests})
@@ -391,6 +396,13 @@ func Run(pkg string, o Options) (*Result, error) {
 			if cres.CloudRecords > 0 {
 				o.logf("Cloud audit correlation: %d cloud command(s) checked — %d CORROBORATED (%d refused by the cloud); %d destructive burst(s)",
 					cres.CloudCommands, cres.CloudCorroborated, cres.CloudRefused, cres.CloudBursts)
+			}
+			if cres.CloudPartial > 0 {
+				o.logf("Kubernetes/Git/storage audit: %d command(s) PARTLY CONFIRMED by operation only", cres.CloudPartial)
+			}
+			if cres.WitnessRecords > 0 {
+				o.logf("DNS/proxy/auth-log correlation: %d record(s) — %d CORROBORATED, %d PARTLY CONFIRMED",
+					cres.WitnessRecords, cres.WitnessCorroborated, cres.WitnessPartial)
 			}
 		}
 	}
@@ -431,6 +443,9 @@ func Run(pkg string, o Options) (*Result, error) {
 	findings = append(findings, det...)
 	// Transcripts against the monitor journal, when one was collected.
 	if man, err := casepkg.ReadManifest(pkg); err == nil {
+		// Session-level agent-behaviour rules (refusals, permission
+		// boundaries, clocks, credential reuse) read the decoded events.
+		findings = append(findings, detect.RunAgentRules(allEvents(), pkg, man)...)
 		jf := journal.Check(man, casepkg.NewStore(pkg, man))
 		findings = append(findings, jf...)
 		if len(jf) > 0 {
@@ -517,11 +532,33 @@ func Run(pkg string, o Options) (*Result, error) {
 	} else {
 		res.StageNotes = append(res.StageNotes, "mcp audit skipped: "+err.Error())
 	}
+	// IDE extensions, agent plugins and skills: inventory and heuristics.
+	// SKILL_HIDDEN_INSTRUCTIONS is left to the content scan here: in a case
+	// the same markdown is already judged by TOOL_POISONING_INDICATOR and
+	// INVISIBLE_UNICODE_INSTRUCTION, and one problem should be one finding.
+	ext, err := extinv.ScanPackage(pkg)
+	if err == nil {
+		var ef []schema.Finding
+		for _, f := range extinv.Evaluate(ext) {
+			if f.RuleID != "SKILL_HIDDEN_INSTRUCTIONS" {
+				ef = append(ef, f)
+			}
+		}
+		findings = append(findings, ef...)
+		_ = overlay.WriteJSON(filepath.Join(detDir, "extensions.json"), struct {
+			Inventory *extinv.Inventory `json:"inventory"`
+			Findings  []schema.Finding  `json:"findings"`
+		}{ext, ef})
+		o.logf("Extensions: %d IDE extension(s), %d plugin(s), %d skill file(s), %d finding(s)", len(ext.Extensions), len(ext.Plugins), len(ext.Skills), len(ef))
+	} else {
+		ext = nil
+		res.StageNotes = append(res.StageNotes, "extension inventory skipped: "+err.Error())
+	}
 	// Known-incident indicators (the embedded packs, plus --iocs feeds):
 	// commands, tool output, configs, shell history, MCP packages and file
 	// hashes. Raw transcript bytes and lockfiles on disk are `agentdfir
 	// hunt`'s job; this keeps analyze at one read per small artifact.
-	if hf, notes, err := HuntCase(pkg, inv, HuntOptions{IOCFiles: o.IOCFiles}); err == nil {
+	if hf, notes, err := HuntCase(pkg, inv, HuntOptions{IOCFiles: o.IOCFiles, Extensions: ext}); err == nil {
 		findings = append(findings, ioc.Findings(hf)...)
 		res.StageNotes = append(res.StageNotes, notes...)
 		_ = overlay.WriteJSON(filepath.Join(detDir, "hunt.json"), hf)
@@ -576,6 +613,12 @@ func Run(pkg string, o Options) (*Result, error) {
 	groups := verify.GroupBy(findings)
 	res.Groups = len(groups)
 	_ = overlay.WriteJSON(filepath.Join(detDir, "groups.json"), groups)
+	// What the evidence does not show (normalized/coverage.json) and who
+	// did what through whom (normalized/lineage.json). Read-only over the
+	// finished results, and it cannot fail the analysis.
+	if notes := investigationOverlay(pkg, allEvents(), findings, res.Correlation); len(notes) > 0 {
+		res.StageNotes = append(res.StageNotes, notes...)
+	}
 	_ = overlay.WriteJSON(filepath.Join(detDir, "analysis.json"), map[string]any{
 		"analyzed_utc": time.Now().UTC().Format(time.RFC3339), "events": res.Events, "renormalized": res.Renormalized,
 		"artifacts_parsed": res.Reparsed, "artifacts_reused": res.Reused,

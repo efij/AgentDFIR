@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
 // Run evaluates all rules and returns findings ordered by severity.
@@ -22,6 +22,7 @@ func Run(res *schema.Normalized) []schema.Finding {
 	findings = append(findings, destructiveCommands(res)...)
 	findings = append(findings, shellExecution(res)...)
 	findings = append(findings, traceGaps(res)...)
+	findings = append(findings, browserShareLinks(res)...)
 	return sortBySeverity(findings)
 }
 
@@ -201,7 +202,7 @@ func traceGaps(res *schema.Normalized) []schema.Finding {
 		if ev.EventType != schema.EventTraceGap {
 			continue
 		}
-		out = append(out, schema.Finding{
+		f := schema.Finding{
 			RuleID:       "TRACE_GAP",
 			Severity:     "MEDIUM",
 			Title:        "Transcript Integrity Gap",
@@ -210,7 +211,9 @@ func traceGaps(res *schema.Normalized) []schema.Finding {
 			EvidenceRefs: []string{evidenceRef(ev)},
 			Status:       schema.StateObserved,
 			Endpoint:     schema.StateUnknown,
-		})
+		}
+		unsupportedGap(&f, ev)
+		out = append(out, f)
 	}
 	return out
 }

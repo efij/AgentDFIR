@@ -1,14 +1,16 @@
 package cli
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
 	"os/exec"
 	"runtime"
 
-	"github.com/efij/AgentDFIR/v3/internal/sanitize"
-	"github.com/efij/AgentDFIR/v3/internal/serve"
+	"github.com/efij/AgentDFIR/v4/internal/crosscase"
+	"github.com/efij/AgentDFIR/v4/internal/sanitize"
+	"github.com/efij/AgentDFIR/v4/internal/serve"
 )
 
 // cmdServe hosts the local case explorer for one package.
@@ -21,9 +23,12 @@ func cmdServe(args []string) int {
 	// reads events by offset, so there is no in-memory set to bound and no
 	// cap that can hide the end of a case.
 	maxEvents := fs.Int("max-events", 0, "deprecated: no longer bounds anything; the whole case is indexed")
+	// A second case for the Compare view: verified and checked exactly as
+	// `agentdfir correlate-cases <pkg> <other>` does.
+	compare := fs.String("compare", "", "a second package to compare with this one (Compare view; verified like correlate-cases)")
 	pkg, rest := splitPositional(args)
 	if err := fs.Parse(rest); err != nil || (pkg == "" && fs.NArg() != 1) || (pkg != "" && fs.NArg() != 0) {
-		fmt.Fprintln(os.Stderr, "usage: agentdfir serve <package-dir> [--port N] [--open]")
+		fmt.Fprintln(os.Stderr, "usage: agentdfir serve <package-dir> [--port N] [--open] [--compare <other-package-dir>]")
 		return 2
 	}
 	if pkg == "" {
@@ -35,6 +40,20 @@ func cmdServe(args []string) int {
 		return 1
 	}
 	defer s.Close()
+	if *compare != "" {
+		fmt.Printf("Comparing with %s (full verification of both packages)…\n", sanitize.Terminal(*compare))
+		if err := s.SetCompare(*compare); err != nil {
+			fmt.Fprintln(os.Stderr, "Cannot compare these cases (the Compare view shows why):")
+			var re *crosscase.RefusedError
+			if errors.As(err, &re) {
+				for _, p := range re.Problems {
+					fmt.Fprintln(os.Stderr, "  - "+sanitize.Terminal(p))
+				}
+			} else {
+				fmt.Fprintln(os.Stderr, "  - "+sanitize.Terminal(err.Error()))
+			}
+		}
+	}
 	ln, url, err := s.Listen(*port)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)

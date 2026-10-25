@@ -7,9 +7,9 @@ import (
 	"sort"
 	"time"
 
-	"github.com/efij/AgentDFIR/v3/internal/casepkg"
-	"github.com/efij/AgentDFIR/v3/internal/overlay"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/casepkg"
+	"github.com/efij/AgentDFIR/v4/internal/overlay"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
 // RunStream evaluates the full deterministic rule set by streaming the
@@ -348,6 +348,10 @@ func (p *streamPass2) handle(ev schema.Event) {
 		}
 	case schema.EventTraceGap:
 		p.findings = append(p.findings, traceGapOne(ev))
+	case schema.EventSessionMeta:
+		if f, ok := browserShareOne(ev); ok {
+			p.findings = append(p.findings, f)
+		}
 	case schema.EventToolResult:
 		if server, ok := p.agg.mcpServers[ev.ToolCallID]; ok {
 			if f, hit := mcpPoisonOne(ev, server); hit {

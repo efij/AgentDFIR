@@ -13,10 +13,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v3/internal/casepkg"
-	"github.com/efij/AgentDFIR/v3/internal/netdest"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
-	"github.com/efij/AgentDFIR/v3/internal/shellshape"
+	"github.com/efij/AgentDFIR/v4/internal/casepkg"
+	"github.com/efij/AgentDFIR/v4/internal/netdest"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/shellshape"
 )
 
 // PkgRef is a package the case says is installed or configured.
@@ -27,6 +27,14 @@ type PkgRef struct {
 	Evidence  string // where the reference was found
 }
 
+// ExtRef is an editor extension the evidence says is installed.
+type ExtRef struct {
+	ID       string // publisher.name
+	Version  string // "" when unknown
+	Evidence string
+	Time     string // install time from the editor's registry, when recorded
+}
+
 // Inputs is what one hunt looks at. Every surface is optional; the verdict
 // names the surfaces that were actually searched.
 type Inputs struct {
@@ -34,6 +42,9 @@ type Inputs struct {
 	Manifest *casepkg.Manifest
 	Store    *casepkg.Store
 	Packages []PkgRef // MCP inventory
+	// Extensions are installed editor extensions, matched by
+	// vscode_extension indicators.
+	Extensions []ExtRef
 	// RawTranscripts also scans transcript bytes (tool outputs, text the
 	// parsers do not keep). One read per transcript; `hunt` sets it, the
 	// analyze stage does not.
@@ -220,6 +231,24 @@ func Hunt(incs []Incident, in Inputs) []Verdict {
 			for _, ind := range c.inc.Indicators {
 				if ind.MatchPackage(p.Ecosystem, p.Name, p.Version) {
 					c.add(ind, WhereObserved, "mcp_inventory", p.Evidence, "", "", schema.StateObserved)
+				}
+			}
+		}
+	}
+
+	// ---- editor extensions
+	if len(in.Extensions) > 0 {
+		surfaces = append(surfaces, "installed editor extensions")
+	}
+	for _, x := range in.Extensions {
+		for _, c := range cols {
+			for _, ind := range c.inc.Indicators {
+				if ind.MatchExtension(x.ID, x.Version) {
+					tsrc := ""
+					if x.Time != "" {
+						tsrc = "install_record"
+					}
+					c.add(ind, WhereObserved, "extension_inventory", x.Evidence, x.Time, tsrc, schema.StateObserved)
 				}
 			}
 		}

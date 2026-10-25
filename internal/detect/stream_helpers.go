@@ -2,11 +2,11 @@ package detect
 
 import (
 	"fmt"
-	"github.com/efij/AgentDFIR/v3/internal/shellshape"
+	"github.com/efij/AgentDFIR/v4/internal/shellshape"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v3/internal/netdest"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/netdest"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
 // oneToolCallRules evaluates the stateless-and-per-session tool-call rules
@@ -177,12 +177,26 @@ func destructiveOne(ev schema.Event) (schema.Finding, bool) {
 }
 
 func traceGapOne(ev schema.Event) schema.Finding {
-	return schema.Finding{
+	f := schema.Finding{
 		RuleID: "TRACE_GAP", Severity: "MEDIUM", Title: "Transcript Integrity Gap",
 		Description: "Malformed or truncated region in a session transcript. OBSERVED events from this artifact carry reduced confidence; consider SESSION_TAMPERING review.",
 		SessionID:   ev.SessionID, EvidenceRefs: []string{ref(ev)},
 		Status: schema.StateObserved, Endpoint: schema.StateUnknown,
 	}
+	unsupportedGap(&f, ev)
+	return f
+}
+
+// unsupportedGap words a trace gap whose cause is a known evidence file in
+// a schema the parser does not read (result "unsupported", raised by the
+// AI-service export parser): the file is not damaged, it is unread, and
+// the finding has to name it and what was missing.
+func unsupportedGap(f *schema.Finding, ev schema.Event) {
+	if ev.Result != "unsupported" {
+		return
+	}
+	f.Title = "Unsupported Evidence Format"
+	f.Description = ev.Summary + ". The file is sealed and preserved unparsed; nothing was inferred from it."
 }
 
 func crossMessageOne(ev schema.Event, agg *streamAgg) (schema.Finding, bool) {

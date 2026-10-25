@@ -1,0 +1,6 @@
+{
+  "verdict": "FAILED",
+  "description": "truncate a blob",
+  "mutation": "raw-truncate",
+  "spec": "0.2"
+}

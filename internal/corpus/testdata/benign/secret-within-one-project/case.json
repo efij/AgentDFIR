@@ -1,0 +1,6 @@
+{
+  "note": "One token used in two sessions of the same project (a continued conversation). That is not reuse across unrelated work. POTENTIAL_SECRET_EXPOSURE is allowed: the token is in the transcript either way.",
+  "allow": {
+    "POTENTIAL_SECRET_EXPOSURE": "the credential-shaped token is in both transcripts; that rule reports each one by design"
+  }
+}

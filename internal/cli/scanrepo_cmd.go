@@ -7,9 +7,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v3/internal/export"
-	"github.com/efij/AgentDFIR/v3/internal/reposcan"
-	"github.com/efij/AgentDFIR/v3/internal/sanitize"
+	"github.com/efij/AgentDFIR/v4/internal/export"
+	"github.com/efij/AgentDFIR/v4/internal/reposcan"
+	"github.com/efij/AgentDFIR/v4/internal/sanitize"
 )
 
 // cmdScanRepo checks a repository for the files that make an agent run

@@ -25,19 +25,20 @@ import (
 	"sync"
 	"time"
 
-	"github.com/efij/AgentDFIR/v3/internal/analysis"
-	"github.com/efij/AgentDFIR/v3/internal/casepkg"
-	"github.com/efij/AgentDFIR/v3/internal/chain"
-	"github.com/efij/AgentDFIR/v3/internal/index"
-	"github.com/efij/AgentDFIR/v3/internal/mitigate"
-	"github.com/efij/AgentDFIR/v3/internal/notes"
-	"github.com/efij/AgentDFIR/v3/internal/overlay"
-	"github.com/efij/AgentDFIR/v3/internal/report"
-	"github.com/efij/AgentDFIR/v3/internal/sanitize"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
-	"github.com/efij/AgentDFIR/v3/internal/seal"
-	"github.com/efij/AgentDFIR/v3/internal/verify"
-	"github.com/efij/AgentDFIR/v3/internal/version"
+	"github.com/efij/AgentDFIR/v4/internal/analysis"
+	"github.com/efij/AgentDFIR/v4/internal/casepkg"
+	"github.com/efij/AgentDFIR/v4/internal/chain"
+	"github.com/efij/AgentDFIR/v4/internal/index"
+	"github.com/efij/AgentDFIR/v4/internal/lineage"
+	"github.com/efij/AgentDFIR/v4/internal/mitigate"
+	"github.com/efij/AgentDFIR/v4/internal/notes"
+	"github.com/efij/AgentDFIR/v4/internal/overlay"
+	"github.com/efij/AgentDFIR/v4/internal/report"
+	"github.com/efij/AgentDFIR/v4/internal/sanitize"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/seal"
+	"github.com/efij/AgentDFIR/v4/internal/verify"
+	"github.com/efij/AgentDFIR/v4/internal/version"
 )
 
 //go:embed ui.html
@@ -88,6 +89,15 @@ type Server struct {
 	// page would undo the point of the index.
 	qmu   sync.Mutex
 	qhits map[string][]int
+
+	// The investigation layer: correlation pairings read once, scoped
+	// lineage graphs cached per scope, conversation facts computed once,
+	// and the second case of `serve --compare`.
+	corr   corrCache
+	lmu    sync.Mutex
+	lcache map[string]*lineage.Graph
+	conv   convCache
+	cmp    *compareState
 }
 
 // Load reads (normalizing if needed) everything the UI serves.
@@ -212,6 +222,13 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/accounts", s.apiAccounts)
 	mux.HandleFunc("/api/mitigations", s.apiMitigations)
 	mux.HandleFunc("/api/mitigations/", s.apiMitigate)
+	mux.HandleFunc("/api/coverage", s.apiCoverage)
+	mux.HandleFunc("/api/lineage", s.apiLineage)
+	mux.HandleFunc("/api/witness", s.apiWitness)
+	mux.HandleFunc("/api/conversations", s.apiConversations)
+	mux.HandleFunc("/api/conversation", s.apiConversation)
+	mux.HandleFunc("/api/extensions", s.apiExtensions)
+	mux.HandleFunc("/api/compare", s.apiCompare)
 	return guard(mux)
 }
 

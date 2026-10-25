@@ -1,0 +1,35 @@
+{
+  "case_id": "BENCH-REFERENCE",
+  "created_utc": "2026-10-25T12:45:20Z",
+  "operator_os_user": "nobody",
+  "host": "conformance-host",
+  "os": "linux",
+  "local_time": "2026-10-25T12:45:20Z",
+  "timezone": "UTC",
+  "utc_offset_seconds": 0,
+  "rounds": [
+    {
+      "round": 1,
+      "started_utc": "2026-10-25T12:45:20Z",
+      "completed_utc": "2026-10-25T12:45:20Z",
+      "collector_version": "3.2.0",
+      "artifacts_ok": 2,
+      "artifacts_carried_forward": 0,
+      "artifacts_not_acquired": 0,
+      "stored_bytes": 2083,
+      "signer": "11e22664b88178f8036ef386c4550c85afed04d2e7fa8bdaf6b2b701c9eb0900"
+    },
+    {
+      "round": 2,
+      "started_utc": "2026-10-25T12:45:20Z",
+      "completed_utc": "2026-10-25T12:45:20Z",
+      "collector_version": "3.2.0",
+      "artifacts_ok": 2,
+      "artifacts_carried_forward": 0,
+      "artifacts_not_acquired": 0,
+      "stored_bytes": 522,
+      "prev_seal_sha256": "e636883a47b61160776509b34149a4c75dd1bf6aba45d269a9dc496c890baed8",
+      "signer": "11e22664b88178f8036ef386c4550c85afed04d2e7fa8bdaf6b2b701c9eb0900"
+    }
+  ]
+}

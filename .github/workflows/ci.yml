@@ -29,6 +29,38 @@ jobs:
         run: go build -trimpath ./...
       - name: test
         run: go test -race ./...
+      # The synthetic benchmark's hard checks (detection, evidence states,
+      # provenance, tamper detection, compatibility, robustness). go test
+      # already ran the quick subset and, where python3 exists, the
+      # independent Python verifier against the conformance fixtures.
+      - name: benchmark (synthetic, no performance)
+        if: runner.os == 'Linux'
+        run: go run ./cmd/agentdfir benchmark --no-perf > /dev/null
+
+  # Proves AgentDFIR's offline claim end to end: a real collect + analyze run,
+  # as its own subject, under kernel containment, must open no socket, spawn no
+  # child process and write nothing outside the case. Linux uses a network
+  # namespace (and strace when present); macOS uses sandbox-exec. Part of the
+  # PLAN-delta §8.2 behaviour contract. A regression that reaches the network
+  # fails the PR here, not a user's air-gapped host.
+  selfcheck-offline:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+      - name: install strace (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y strace
+      - name: build
+        run: go build -trimpath -o agentdfir ./cmd/agentdfir
+      - name: selfcheck --offline
+        run: ./agentdfir selfcheck --offline --json
 
   # Builds the release asset layout and runs the documented install paths
   # against it, so a broken install.sh or a renamed asset fails the PR, not the
@@ -73,7 +105,7 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           New-Item -ItemType Directory dist | Out-Null
-          $ld = "-s -w -X github.com/efij/AgentDFIR/v3/internal/version.Version=v0.0.0-ci"
+          $ld = "-s -w -X github.com/efij/AgentDFIR/v4/internal/version.Version=v0.0.0-ci"
           foreach ($a in @('amd64', 'arm64')) {
             $env:GOOS = 'windows'; $env:GOARCH = $a; $env:CGO_ENABLED = '0'
             go build -trimpath -ldflags $ld -o "dist/agentdfir-v0.0.0-ci-windows-$a.exe" ./cmd/agentdfir

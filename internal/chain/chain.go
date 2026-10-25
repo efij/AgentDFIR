@@ -14,7 +14,7 @@ package chain
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/efij/AgentDFIR/v3/internal/netdest"
+	"github.com/efij/AgentDFIR/v4/internal/netdest"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -23,8 +23,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v3/internal/rulepack"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/rulepack"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
 // Step is one predicate in a chain. Every non-empty field must hold for an
@@ -35,8 +35,9 @@ type Step struct {
 	Name         string   `json:"name"`
 	EventTypes   []string `json:"event_types,omitempty"`
 	Tools        []string `json:"tools,omitempty"`
-	MCP          bool     `json:"mcp,omitempty"`     // MCP server must be set on the event
-	Network      bool     `json:"network,omitempty"` // network destination must be set on the event
+	ToolRegex    string   `json:"tool_regex,omitempty"` // over the tool name (e.g. mcp__server__send_message)
+	MCP          bool     `json:"mcp,omitempty"`        // MCP server must be set on the event
+	Network      bool     `json:"network,omitempty"`    // network destination must be set on the event
 	CommandRegex string   `json:"command_regex,omitempty"`
 	FileRegex    string   `json:"file_regex,omitempty"`
 	TextRegex    string   `json:"text_regex,omitempty"` // over command, file, summary, result, destination
@@ -45,7 +46,7 @@ type Step struct {
 	FindingRules []string `json:"finding_rules,omitempty"`
 	Or           []Step   `json:"or,omitempty"` // alternatives: the step also matches if any of these does
 
-	cmdRe, fileRe, textRe *regexp.Regexp
+	cmdRe, fileRe, textRe, toolRe *regexp.Regexp
 }
 
 // Chain is one toxic combination.
@@ -106,7 +107,10 @@ func (c *Chain) Validate() error {
 		if s.textRe, err = compile(s.TextRegex); err != nil {
 			return fmt.Errorf("chain %s step %s: text_regex: %w", c.ID, s.Name, err)
 		}
-		if len(s.EventTypes)+len(s.Tools)+len(s.FindingRules) == 0 && !s.MCP && !s.Network && !s.Outbound && !s.Upload && s.cmdRe == nil && s.fileRe == nil && s.textRe == nil {
+		if s.toolRe, err = compile(s.ToolRegex); err != nil {
+			return fmt.Errorf("chain %s step %s: tool_regex: %w", c.ID, s.Name, err)
+		}
+		if len(s.EventTypes)+len(s.Tools)+len(s.FindingRules) == 0 && !s.MCP && !s.Network && !s.Outbound && !s.Upload && s.cmdRe == nil && s.fileRe == nil && s.textRe == nil && s.toolRe == nil {
 			return fmt.Errorf("chain %s step %s: no predicate", c.ID, s.Name)
 		}
 		for j := range s.Or {
@@ -123,6 +127,9 @@ func (c *Chain) Validate() error {
 			}
 			if alt.textRe, err = compile(alt.TextRegex); err != nil {
 				return fmt.Errorf("chain %s step %s alternative %d: text_regex: %w", c.ID, s.Name, j+1, err)
+			}
+			if alt.toolRe, err = compile(alt.ToolRegex); err != nil {
+				return fmt.Errorf("chain %s step %s alternative %d: tool_regex: %w", c.ID, s.Name, j+1, err)
 			}
 		}
 	}
@@ -294,6 +301,9 @@ func stepMatchesOne(s *Step, e schema.Event, flagged map[string]map[string]bool)
 		return false
 	}
 	if s.MCP && e.MCPServer == "" {
+		return false
+	}
+	if s.toolRe != nil && !s.toolRe.MatchString(e.Tool) {
 		return false
 	}
 	if s.Network && e.NetworkDest == "" {

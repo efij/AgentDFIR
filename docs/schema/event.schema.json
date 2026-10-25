@@ -40,6 +40,7 @@
     "source_logical_path": {"type": "string"},
     "source_offset": {"type": "integer"},
     "source_line": {"type": "integer"},
+    "source_json_path": {"type": "string", "description": "RFC 6901 JSON Pointer to the source value inside a JSON document artifact (AI-service account exports). Optional."},
     "corroboration_state": {
       "enum": ["REQUESTED", "REPORTED", "OBSERVED", "PARTIALLY_CORROBORATED", "CORROBORATED", "CONTRADICTED", "UNKNOWN"],
       "description": "Evidence-vs-claims state. REPORTED = model narrative (not proof). OBSERVED = tool-call record present. CORROBORATED = independent endpoint evidence confirms."

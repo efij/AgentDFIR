@@ -1,0 +1,36 @@
+[
+  {
+    "title": "Pandas groupby",
+    "create_time": 1788170400.0,
+    "mapping": {
+      "r": {"id": "r", "message": null, "parent": null, "children": ["q"]},
+      "q": {"id": "q", "parent": "r", "children": ["a-old", "a-new"],
+        "message": {"id": "q", "author": {"role": "user"}, "create_time": 1788170401.0, "content": {"content_type": "text", "parts": ["How do I group a dataframe by two columns and sum a third?"]}, "recipient": "all", "metadata": {}}},
+      "a-old": {"id": "a-old", "parent": "q", "children": [],
+        "message": {"id": "a-old", "author": {"role": "assistant"}, "create_time": 1788170460.0, "content": {"content_type": "text", "parts": ["Use df.groupby(['a','b'])['c'].sum()."]}, "recipient": "all", "metadata": {"model_slug": "gpt-4o"}}},
+      "a-new": {"id": "a-new", "parent": "q", "children": ["code"],
+        "message": {"id": "a-new", "author": {"role": "assistant"}, "create_time": 1788170405.0, "content": {"content_type": "text", "parts": ["Let me run an example."]}, "recipient": "all", "metadata": {"model_slug": "gpt-4o"}}},
+      "code": {"id": "code", "parent": "a-new", "children": ["out"],
+        "message": {"id": "code", "author": {"role": "assistant"}, "create_time": 1788170406.0, "content": {"content_type": "code", "language": "python", "text": "import pandas as pd\ndf = pd.DataFrame({'a':[1,1],'b':[2,2],'c':[3,4]})\nprint(df.groupby(['a','b'])['c'].sum())"}, "recipient": "python", "metadata": {"model_slug": "gpt-4o"}}},
+      "out": {"id": "out", "parent": "code", "children": [],
+        "message": {"id": "out", "author": {"role": "tool", "name": "python"}, "create_time": 1788170407.0, "content": {"content_type": "execution_output", "text": "a  b\n1  2    7"}, "recipient": "all", "metadata": {}}}
+    },
+    "current_node": "out",
+    "conversation_id": "corpus-gpt-benign-1",
+    "id": "corpus-gpt-benign-1"
+  },
+  {
+    "title": "Trip ideas",
+    "create_time": 1788000000.0,
+    "mapping": {
+      "r": {"id": "r", "message": null, "parent": null, "children": ["q"]},
+      "q": {"id": "q", "parent": "r", "children": ["a"],
+        "message": {"id": "q", "author": {"role": "user"}, "create_time": 1788000001.0, "content": {"content_type": "text", "parts": ["Three day trip ideas near Porto?"]}, "recipient": "all", "metadata": {}}},
+      "a": {"id": "a", "parent": "q", "children": [],
+        "message": {"id": "a", "author": {"role": "assistant"}, "create_time": 1788000002.0, "content": {"content_type": "text", "parts": ["Douro valley, Braga, Aveiro."]}, "recipient": "all", "metadata": {"model_slug": "gpt-4o"}}}
+    },
+    "current_node": "a",
+    "conversation_id": "corpus-gpt-benign-2",
+    "id": "corpus-gpt-benign-2"
+  }
+]

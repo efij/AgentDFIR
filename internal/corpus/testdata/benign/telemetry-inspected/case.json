@@ -1,0 +1,4 @@
+{
+  "note": "Checking whether the EDR sensor and syslog run, and raising transcript retention to 60 days, reduce no coverage.",
+  "allow": {}
+}

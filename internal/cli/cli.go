@@ -11,14 +11,15 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/efij/AgentDFIR/v3/internal/casepkg"
-	"github.com/efij/AgentDFIR/v3/internal/collector"
-	"github.com/efij/AgentDFIR/v3/internal/integrity"
-	"github.com/efij/AgentDFIR/v3/internal/live"
-	"github.com/efij/AgentDFIR/v3/internal/products"
-	"github.com/efij/AgentDFIR/v3/internal/sanitize"
-	"github.com/efij/AgentDFIR/v3/internal/seal"
-	"github.com/efij/AgentDFIR/v3/internal/version"
+	"github.com/efij/AgentDFIR/v4/internal/casepkg"
+	"github.com/efij/AgentDFIR/v4/internal/collector"
+	"github.com/efij/AgentDFIR/v4/internal/integrity"
+	"github.com/efij/AgentDFIR/v4/internal/live"
+	"github.com/efij/AgentDFIR/v4/internal/products"
+	"github.com/efij/AgentDFIR/v4/internal/sanitize"
+	"github.com/efij/AgentDFIR/v4/internal/seal"
+	"github.com/efij/AgentDFIR/v4/internal/selfcheck"
+	"github.com/efij/AgentDFIR/v4/internal/version"
 )
 
 const usage = `agentdfir — open-source DFIR for AI agents. Evidence in, verdicts out. Nothing leaves your machine.
@@ -44,6 +45,9 @@ COLLECT — where the evidence is
   agentdfir collect --import <kape-or-velociraptor-tree>                        every user, every agent, one package
   agentdfir collect --docker <container|export.tar>                            a container (read-only export)
   agentdfir collect --archive <zip|tar|tgz>                                    CI artifact, support bundle, vendor export
+  agentdfir collect --ai-export <zip|dir>                                      ChatGPT / Claude.ai / DeepSeek / Gemini Takeout export, UFDR
+  agentdfir collect --image <E01|raw|.001|vhd|vhdx|vmdk>                        forensic disk image, read-only (NTFS, ext2/3/4, FAT, exFAT; docs/disk-images.md)
+      --include-browser   any mode above, and "run": also take browser history (opt-in; only AI-service visits are parsed)
   agentdfir verify <pkg>                                                       prove the package was not modified
   agentdfir compact <pkg>                                                      delete the regenerable analysis overlay (analyze rebuilds it)
   agentdfir store status | store gc                                            shared evidence store: what it holds, reclaim what no case uses
@@ -61,6 +65,9 @@ LOOK — same results, different views
   agentdfir investigate <pkg>             interactive terminal explorer
   agentdfir replay <pkg>                  step through one session
   agentdfir explain <pkg>                 plain-language case digest (no AI, nothing sent anywhere)
+  agentdfir gaps <pkg> [--json]           what the evidence does not show, and what to collect next
+  agentdfir lineage <pkg> [--finding id|--session id] [--format text|json|mermaid|dot]   human → agent → tool → process → destination
+  agentdfir correlate-cases <a> <b> [...] [--json]   what several cases share (destinations, IOCs, key fingerprints, accounts)
 
 MOVE A CASE — look at another computer's case here
   agentdfir export [<pkg>]                one file (<case>.adfir.tgz) + its SHA-256; default: this machine's case
@@ -84,11 +91,24 @@ EXPORT — hand results to other tools
   agentdfir rules list --packs rules      every detection with its MITRE ATT&CK / ATLAS mapping
   agentdfir rules export --sigma <dir>    detection rules as Sigma for your SIEM
 
+ACCOUNTABILITY — who asked, who allowed, what happened (not legal advice)
+  agentdfir report accountability [<pkg>] [--session id] [--finding rule] [--format md|json|html|all]
+  agentdfir case authorize [<pkg>] --by <name> --basis <text>   record who authorized the acquisition
+  agentdfir case log [<pkg>]              the sealed custody log + the post-seal activity log
+  agentdfir export custody [<pkg>] --out <dir|zip> [--certify --name … --title … --org …]
+  agentdfir selfcheck --offline           prove on this machine: nothing sent, executed, or written outside the case
+  agentdfir benchmark [--json] [--out f]  SYNTHETIC accuracy benchmark: detection, evidence states, provenance, tamper detection
+
+EDISCOVERY — derivative productions for legal review (structural RSMF validation; no admissibility claim)
+  agentdfir report <pkg> --format rsmf [--session id] [--redact secrets,emails,paths,ips]   RSMF 2.0 per session
+  agentdfir export <pkg> --production [--out dir] [--examiner n] [--redact …] [--produced-at t]   production set + manifest
+
 BEFORE AN INCIDENT
   agentdfir monitor --detect --alert <url|file>      live sensor: findings pushed as they happen
   agentdfir monitor --journal [--journal-anchor f]   hash-chain every transcript append; later edits become provable
   agentdfir journal verify [--anchor <head>]         check the journal and an off-host anchor
   agentdfir mcp audit                                MCP servers on this machine: unpinned, plaintext, poisoned
+  agentdfir extensions [--path <home>]               IDE extensions, agent plugins, skills: hidden loaders, remote hooks
   agentdfir baseline create|check · agentdfir diff <a> <b>     known-good configs and drift
   agentdfir simulate --scenario list                 synthetic incidents: keyv-hook, sandworm-mcp, s1ngularity, mcpoison-rugpull,
                                                      pocketos-wipe, swarm-antiforensics, toxic-chain, orphan-agent
@@ -108,14 +128,23 @@ func Main(args []string) int {
 		fmt.Fprint(os.Stderr, usage)
 		return 2
 	}
+	selfcheck.InstallIfRequested()
 	activatePacks()
 	switch args[0] {
 	case "packs":
 		return cmdPacks(args[1:])
 	case "mcp":
 		return cmdMCP(args[1:])
+	case "extensions":
+		return cmdExtensions(args[1:])
 	case "correlate":
 		return cmdCorrelate(args[1:])
+	case "correlate-cases":
+		return cmdCorrelateCases(args[1:])
+	case "gaps":
+		return cmdGaps(args[1:])
+	case "lineage":
+		return cmdLineage(args[1:])
 	case "provenance":
 		return cmdProvenance(args[1:])
 	case "serve":
@@ -142,6 +171,8 @@ func Main(args []string) int {
 		return cmdBaseline(args[1:])
 	case "report":
 		return cmdReport(args[1:])
+	case "case":
+		return cmdCase(args[1:])
 	case "export":
 		return cmdExport(args[1:])
 	case "keygen":
@@ -182,6 +213,10 @@ func Main(args []string) int {
 		return cmdScanRepo(args[1:])
 	case "decode":
 		return cmdDecode(args[1:])
+	case "selfcheck":
+		return cmdSelfcheck(args[1:])
+	case "benchmark":
+		return cmdBenchmark(args[1:])
 	case "journal":
 		return cmdJournal(args[1:])
 	case "version", "--version", "-v":
@@ -251,10 +286,14 @@ func cmdCollect(args []string) int {
 	importTree := fs.String("import", "", "KAPE/Velociraptor/CyLR/image tree: collect every product for every user profile found")
 	dockerRef := fs.String("docker", "", "container id/name (docker export, read-only) or a saved export .tar")
 	archive := fs.String("archive", "", "zip / tar / tar.gz: GitHub Actions artifact, support bundle, vendor data export")
+	aiExport := fs.String("ai-export", "", "AI-service account export (ChatGPT, Claude.ai, DeepSeek, Gemini Takeout) or Cellebrite UFDR: zip/tar or unpacked directory")
+	includeBrowser := fs.Bool("include-browser", false, "also collect browser history databases (opt-in: AI-service visits are parsed, the rest is sealed unread)")
+	image := fs.String("image", "", "forensic disk image (raw/dd, split .001/.aa, E01, VHD, VHDX, VMDK): read-only, agent evidence only")
+	skipImageVerify := fs.Bool("skip-image-verify", false, "with --image: do not re-read an E01 to check its stored MD5/SHA-1")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
-	base := importOpts{out: *out, caseID: *caseID, operator: *operator, authz: *authz, signKey: *signKey, noSign: *noSign, maxFileMB: *maxFileMB, args: args}
+	base := importOpts{out: *out, caseID: *caseID, operator: *operator, authz: *authz, signKey: *signKey, noSign: *noSign, maxFileMB: *maxFileMB, args: args, includeBrowser: *includeBrowser}
 	switch {
 	case *importTree != "":
 		base.tree = *importTree
@@ -263,6 +302,10 @@ func cmdCollect(args []string) int {
 		return collectDocker(*dockerRef, base)
 	case *archive != "":
 		return collectArchive(*archive, base)
+	case *aiExport != "":
+		return collectAIExport(*aiExport, base)
+	case *image != "":
+		return collectImage(*image, base, !*skipImageVerify)
 	}
 
 	productID := *product
@@ -352,6 +395,9 @@ func cmdCollect(args []string) int {
 	for k, v := range packNotes {
 		info.Notes[k] = v
 	}
+	if *includeBrowser || productID == browserProductID {
+		info.Notes["browser_history"] = browserNote
+	}
 	if *offlineRoot != "" {
 		info.Notes["mode"] = "offline-path"
 		info.Notes["offline_root"] = *offlineRoot
@@ -410,6 +456,12 @@ func cmdCollect(args []string) int {
 		"failed": st.Failed, "bytes": st.TotalBytes,
 		"duration_ms": time.Since(start).Milliseconds(),
 	})
+	if *includeBrowser && productID != browserProductID && runErr == nil {
+		// Opt-in second pass over the same profile: browser history only.
+		bst, bErr := collectBrowser(b, opts, false)
+		addStats(st, bst)
+		runErr = bErr
+	}
 	roundStats := b.Stats()
 	signing := prepareSigning(b, *signKey, *noSign)
 	if err := b.Seal(); err != nil {
@@ -459,11 +511,12 @@ func cmdVerify(args []string) int {
 		return 2
 	}
 	pkgArg := fs.Arg(0)
-	res, err := casepkg.Verify(pkgArg)
+	chk, err := integrity.VerifyPackage(pkgArg, *pubkey)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
 	}
+	res := chk.Package
 	fmt.Printf("Depth:              %s (every stored blob re-hashed)\n", res.Depth)
 	fmt.Printf("Rounds:             %d\n", res.Rounds)
 	fmt.Printf("Files checked:      %d\n", res.FilesChecked)
@@ -473,7 +526,9 @@ func cmdVerify(args []string) int {
 	}
 	fmt.Printf("Collection records: %d (hash chain)\n", res.CollectionRecs)
 	fmt.Printf("Custody records:    %d (hash chain)\n", res.CustodyRecs)
-	sigRes, sigErr := seal.Verify(pkgArg, *pubkey)
+	// VerifyPackage already counted a bad or an expected-but-missing
+	// signature among the problems.
+	sigRes, sigErr := chk.Signature, chk.SigErr
 	switch {
 	case sigErr != nil:
 		fmt.Printf("Signature:          error: %v\n", sigErr)
@@ -483,7 +538,6 @@ func cmdVerify(args []string) int {
 		fmt.Printf("Signature:          VALID (ed25519, key %.16s…)\n", sigRes.PublicKey)
 	default:
 		fmt.Printf("Signature:          INVALID — %s\n", sanitize.Terminal(sigRes.Reason))
-		res.Problems = append(res.Problems, "SEAL.sig: "+sigRes.Reason)
 	}
 	if len(res.Problems) == 0 {
 		fmt.Println("Result:             VERIFIED — no modifications detected")

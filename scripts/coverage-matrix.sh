@@ -91,6 +91,16 @@ jq -r '
   | .[]
   | "| \(.severity) | `\(.id)` | \(.surface) | \(if (.mitre_attack//"")=="" then "-" else .mitre_attack end) | \(if (.mitre_atlas//"")=="" then "-" else .mitre_atlas end) | \(.source) |"
 ' "$TMP"
+
+# The v4 dedupe verdicts are kept in docs/detection-v4.md (one source) and
+# copied here between its markers.
+V4="$HERE/docs/detection-v4.md"
+if [ -f "$V4" ]; then
+  echo
+  echo "## v4 proposals"
+  echo
+  sed -n '/<!-- v4-proposals:begin -->/,/<!-- v4-proposals:end -->/p' "$V4" | sed '1d;$d'
+fi
 } > "$OUT"
 
 echo "wrote $OUT ($TOTAL rules, $ATLAS_TECH ATLAS / $ATTACK_TECH ATT&CK techniques)"

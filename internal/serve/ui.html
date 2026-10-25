@@ -365,6 +365,55 @@ pre.raw{margin:0;padding:12px 14px;border-radius:var(--r-sm);background:var(--su
 .toast.on{display:block}
 .loading{padding:24px;color:var(--muted)}
 
+/* ---- coverage, lineage, second witness, conversations, compare */
+.kn{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:0 0 32px}
+.kn .col{border:1px solid var(--line);border-radius:var(--r-lg);background:var(--surface);padding:14px 16px;min-width:0}
+.kn .col h2{font-size:16px;margin:0 0 2px;display:flex;align-items:center;gap:8px}
+.kn .col.k h2{color:var(--ok)} .kn .col.u h2{color:var(--serious)} .kn .col.n h2{color:var(--accent)}
+.kn .col .sub{font-size:13px;color:var(--muted);margin:0 0 10px}
+.kn ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.kn li{font-size:14px;padding:8px 10px;border-radius:var(--r-sm);background:var(--surface-2);overflow-wrap:anywhere}
+.kn li .c{font-size:13px;color:var(--ink-2);margin-top:4px}
+.kn li .refs{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.strip{width:100%;display:block;margin-top:6px}
+.strip text{font:12px var(--sans);fill:var(--ink-2)}
+.strip .lane{fill:var(--surface-2)}
+.strip .full{fill:var(--ok)} .strip .partial{fill:var(--look)} .strip .none{fill:var(--act)} .strip .src{fill:var(--accent)}
+.strip .tick{stroke:var(--line-2);stroke-dasharray:3 3}
+.legend{display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--muted);margin-top:8px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-2px}
+.lin{overflow:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--surface-2);max-height:70vh}
+.lin svg{display:block}
+.lin text{font:12px var(--sans);fill:var(--ink)}
+.lin .colh{font-weight:700;fill:var(--muted);font-size:11px;letter-spacing:.04em}
+.lin .nd{cursor:pointer;outline:none}
+.lin .nd rect{fill:var(--surface);stroke:var(--line-2);stroke-width:1.5}
+.lin .nd .k{fill:var(--muted);font-size:11px}
+.lin .nd.human rect{stroke:var(--you)} .lin .nd.agent rect{stroke:var(--agent)} .lin .nd.subagent rect{stroke:var(--serious)} .lin .nd.tool_call rect{stroke:var(--tool)}
+.lin .nd.flag rect{stroke:var(--act);stroke-width:2.5;fill:var(--act-bg)}
+.lin .nd:hover rect,.lin .nd:focus-visible rect{stroke:var(--accent);stroke-width:3}
+.lin path.e{fill:none;stroke-width:2;stroke:var(--line-2)}
+.lin path.e.ok{stroke:var(--ok)} .lin path.e.look{stroke:var(--look)} .lin path.e.act{stroke:var(--act)} .lin path.e.claim{stroke:var(--muted);stroke-dasharray:5 4}
+.lin path.hitp{fill:none;stroke:transparent;stroke-width:12;cursor:pointer;outline:none}
+.lin path.hitp:hover,.lin path.hitp:focus-visible{stroke:color-mix(in srgb,var(--accent) 25%,transparent)}
+.lin .el{font-size:10.5px;fill:var(--ink-2);paint-order:stroke;stroke:var(--surface-2);stroke-width:3px}
+.wit{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px}
+.wit>div{border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;background:var(--surface);min-width:0}
+.wit h4{margin:0 0 8px;font-size:13px;color:var(--muted)}
+.wit .facts2{grid-template-columns:78px 1fr;font-size:13px;gap:4px 10px}
+.witb{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0;font-size:13.5px;color:var(--ink-2)}
+.cv{display:grid;grid-template-columns:340px 1fr;gap:16px;align-items:start}
+.cv .list{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--surface);overflow:auto;max-height:76vh}
+.cv .sess .m{margin-top:2px}
+.badge{display:inline-flex;align-items:center;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:650;white-space:nowrap}
+.badge.exp{background:var(--agent-bg);color:var(--agent)} .badge.web{background:var(--look-bg);color:var(--look)} .badge.br{background:var(--serious-bg);color:var(--serious)}
+.msg{display:grid;grid-template-columns:110px 1fr auto;gap:12px;padding:10px 14px;border-bottom:1px solid var(--line);align-items:start}
+.msg:last-child{border-bottom:0}
+.msg.alt{background:repeating-linear-gradient(135deg,transparent 0 10px,var(--surface-2) 10px 20px)}
+.msg .tx{white-space:pre-wrap;word-break:break-word;font-size:14px}
+@media (max-width:1100px){.kn{grid-template-columns:1fr}.cv{grid-template-columns:280px 1fr}}
+@media (max-width:760px){.cv{grid-template-columns:1fr}.cv .list{max-height:40vh}.wit{grid-template-columns:1fr}.msg{grid-template-columns:1fr auto}.msg>div:first-child{grid-column:1/-1}}
+
 @media (max-width:1100px){
   .tiers{grid-template-columns:repeat(2,1fr)} .explain{grid-template-columns:1fr} .how{grid-template-columns:1fr} .facts{grid-template-columns:1fr}
   .fx{grid-template-columns:320px 1fr} .ax{grid-template-columns:260px 1fr}
@@ -428,6 +477,7 @@ pre.raw{margin:0;padding:12px 14px;border-radius:var(--r-sm);background:var(--su
       <button role="tab" data-view="overview" aria-selected="true">Overview</button>
       <button role="tab" data-view="findings" aria-selected="false">Findings <span class="n" id="tabn" hidden></span></button>
       <button role="tab" data-view="activity" aria-selected="false">Activity</button>
+      <button role="tab" data-view="coverage" aria-selected="false">Coverage</button>
       <button role="tab" data-view="protect" aria-selected="false">Protect</button>
       <button role="tab" data-view="more" aria-selected="false">More</button>
     </nav>
@@ -448,6 +498,7 @@ pre.raw{margin:0;padding:12px 14px;border-radius:var(--r-sm);background:var(--su
             <label class="field"><svg class="i sm"><use href="#i-search"/></svg><span class="sr">Filter findings</span><input id="fq" type="search" placeholder="Filter by words, e.g. password"></label>
             <div id="facct"></div>
             <label class="chk"><input type="checkbox" id="hidedone"> Hide kinds I've finished reviewing</label>
+            <button class="btn sm ghost" id="savef" type="button" style="align-self:flex-start">Save this filter</button>
           </div>
           <div class="fx-groups" id="groups"></div>
         </div>
@@ -470,14 +521,20 @@ pre.raw{margin:0;padding:12px 14px;border-radius:var(--r-sm);background:var(--su
         </div>
       </div>
     </section>
+    <section class="view" id="v-coverage" role="tabpanel" aria-label="Coverage"><div class="scroll"><div class="ov" id="cv"><div class="loading">Reading what this case can show…</div></div></div></section>
     <section class="view" id="v-more" role="tabpanel" aria-label="More"><div class="scroll"><div class="mx">
       <div class="seg" id="moreseg" role="group" aria-label="More views">
         <button data-m="search" aria-pressed="true">Search everything</button>
+        <button data-m="conversations" aria-pressed="false">AI conversations</button>
         <button data-m="mcp" aria-pressed="false">Plugin (MCP) activity</button>
         <button data-m="plugins" aria-pressed="false">Plugins installed</button>
+        <button data-m="extensions" aria-pressed="false">Extensions &amp; agent plugins</button>
         <button data-m="memory" aria-pressed="false">Memory files</button>
         <button data-m="crosscheck" aria-pressed="false">Cross-check</button>
         <button data-m="map" aria-pressed="false">Agent map</button>
+        <button data-m="lineage" aria-pressed="false">Who did what</button>
+        <button data-m="bookmarks" aria-pressed="false">Bookmarks</button>
+        <button data-m="compare" aria-pressed="false">Compare cases</button>
         <button data-m="evidence" aria-pressed="false">About the evidence</button>
       </div>
       <div id="more"></div>
@@ -719,6 +776,20 @@ const P={
   CLIPBOARD_CAPTURE:['secrets','The agent read your clipboard',''],
   CLOUD_METADATA_ACCESS:['secrets','The agent asked the cloud server for its own credentials','The cloud “metadata” address hands out credentials for the machine it runs on.'],
   DATABASE_DUMP:['leak','A database was dumped',''],
+  // v4 agent-behaviour rules (docs/detection-v4.md)
+  AI_SESSION_IDENTITY_SWITCH:['config','The account behind this work changed','Either one conversation was recorded under two different AI logins, or the agent switched the cloud or GitHub account its commands run as. What happened after the switch belongs to the new account.','Did you (or your team) mean to use that other account here?','If not: check what was done under the new account, and sign that account out of this computer.'],
+  AGENT_CROSS_SESSION_SECRET_REUSE:['secrets','The same password or key showed up in unrelated work','One secret (matched by a fingerprint, never shown) appears in conversations about different projects, tools or logins. A key that travels between pieces of work may have reached places it was never meant for.','Is this one shared key that is supposed to be used in all of these places?','If not: replace the key today, then tell whoever owns it where it was seen.'],
+  AGENT_PERMISSION_BOUNDARY_CROSSING:['config','A tool ran even though a rule says it must not','Your agent settings contain a “deny” rule for this tool or command, yet the agent’s log shows it ran and finished normally. Deny rules are meant to hold in every mode.','Was that deny rule already in place when this ran?','If it was: treat it as a real problem. Ask whoever looks after your IT to check how the tool got past the rule, and what it did.'],
+  AGENT_SESSION_CLOCK_ANOMALY:['integrity','The times in the agent’s log cannot be right','The log contains times in the future, answers recorded before the question, or dates from before these tools existed. A running agent does not write times like that.','Was this log edited, restored, or copied from a computer with a wrong clock?','If nobody did that: the log may have been changed. Tell whoever looks after your IT, and keep the original file untouched.'],
+  AGENT_TOOL_PERMISSION_ESCALATION:['config','The agent got more freedom partway through','During this conversation the safety prompts were switched off, or the agent wrote new “allow” rules into its own settings so it no longer has to ask.','Did you switch this on, or ask the agent to give itself these permissions?','If not: remove the new allow rules or turn the mode back, and review what ran afterwards.'],
+  AGENT_UNEXPECTED_AUTONOMOUS_RETRY:['config','The agent tried again after being told no','A tool use was refused — by you, by a deny rule, or because nobody approved it — and the agent tried the same thing again before anyone gave it a new instruction.','Did you approve this second attempt anywhere?','If not: mark it as a real problem, check what the second attempt changed, and tighten the agent’s permissions.'],
+  AGENT_UNVERIFIED_SUCCESS_CLAIM:['other','The agent said it worked, but the log shows it failed','The action came back as an error or a refusal, and right after that the agent told you it had succeeded, without trying anything else.','Did you rely on the agent’s message that this was done?','Check the result yourself (the file, the deploy, the push) before relying on it, and redo the step if it did not happen.'],
+  AGENT_EXTERNAL_ARTIFACT_EXECUTION:['code','The agent downloaded a file, then later ran it','One command saved a file from the internet and a later command ran that same file. Nobody reviewed it in between.','Do you trust where this file came from?','If not: ask whoever looks after your IT to check what the file did and remove anything it installed.'],
+  AGENT_SENSITIVE_DATA_STAGING:['secrets','A key or password file was copied or encoded into a temporary folder','The agent copied or encoded a file holding credentials into a temporary location — the usual step before sending it somewhere.','Did the task need a copy of this credential file?','If not: delete the copy, replace the credential, and check whether anything was sent afterwards.'],
+  AGENT_AUDIT_COVERAGE_LOSS:['destroy','The agent switched off logging or monitoring','A command stopped a logging or security-monitoring service, turned off an event log, or set the agent’s own history to be deleted quickly.','Did you ask for logging or monitoring to be turned off?','If not: turn it back on now, and tell whoever looks after your IT so they can check what happened while it was off.'],
+  CHAIN_CROSS_TOOL_EXFIL:['leak','A secret was collected, then a plugin sent something out','The agent gathered credential material and then used a plugin (MCP) tool that sends, posts or publishes. Shell-only checks never see that second step.','Do you know what the plugin sent, and to whom?','Open the plugin call in the story to see what it carried; if it carried the secret, replace the secret now.'],
+  CHAIN_MCP_RESULT_TO_PRIVILEGED:['inject','A plugin’s answer was followed by a password read or an upload','A plugin (MCP) tool returned text that tells the agent what to do, and the agent then touched credentials, widened its permissions, or uploaded something.','Did the agent do that because you asked, or because the plugin told it to?','If the plugin told it to: stop using that plugin, replace any credential that was read, and send the note below to whoever looks after your IT.'],
+  CHAIN_PERMISSION_ESCALATION_TO_IMPACT:['destroy','Safety checks were loosened, then something risky ran','First the agent’s permissions were widened; afterwards something was deleted, logging was switched off, or data was uploaded — without anyone approving that step.','Was loosening the safety checks and the risky step both part of the task?','If not: restore what was removed, put the permissions back, and tell whoever looks after your IT.'],
 };
 function guessKind(id){ id=id||''; if(/SECRET|CRED|KEY|PASSWORD|TOKEN|SHADOW/.test(id)) return 'secrets'; if(/EXFIL|UPLOAD|DEST|PUSH|NETWORK/.test(id)) return 'leak'; if(/INJECT|INSTRUCTION|POISON|PROMPT|UNICODE/.test(id)) return 'inject'; if(/PERSIST|CRON|SERVICE|RUN_KEY|HOOK/.test(id)) return 'persist'; if(/DESTRUCT|DELET|WIPE|TAMPER|DISABLE/.test(id)) return 'destroy'; if(/EXEC|SHELL|DOWNLOAD/.test(id)) return 'code'; if(/MCP|CONFIG|PERMISSION/.test(id)) return 'config'; if(/AGENT|TASK|SPAWN/.test(id)) return 'agents'; return 'other'; }
 function plain(f){
@@ -737,7 +808,7 @@ const post=(kind,target,value,text)=>fetch('/api/notes',{method:'POST',credentia
 // plugin injects on the person's behalf is not a request and is skipped.
 const AUTO=/^(Base directory for this skill|<command-|<local-command|Caveat: |<system-reminder>|\[Request interrupted|This session is being continued|<environment_context>|<user_instructions>|\[MESSAGE FROM|# AGENTS\.md|<permissions instructions>|A session-scoped|Stop hook feedback|<task-notification>)/;
 const isAuto=t=>AUTO.test(String(t||'').trim());
-function sessTitle(s){ if(!s) return 'Unknown conversation'; if(s.case_level) return 'Settings and files (not tied to one conversation)'; const p=String(s.first_prompt||'').replace(/\s+/g,' ').trim(); if(p&&!isAuto(p)) return clip(p,90); return 'Conversation on '+day(s.first)+(s.product?' ('+s.product+')':''); }
+function sessTitle(s){ if(!s) return 'Unknown conversation'; if(s.case_level) return 'Settings and files (not tied to one conversation)'; const p=String(s.first_prompt||'').replace(/\s+/g,' ').trim(); if(s.label&&(AIP[s.product]||!p||isAuto(p))) return clip(s.label,90); if(p&&!isAuto(p)) return clip(p,90); return 'Conversation on '+day(s.first)+(s.product?' ('+s.product+')':''); }
 const sessName=id=>sessTitle(S.sessById[id]);
 
 // ---- load
@@ -915,7 +986,11 @@ function renderFinding(){
   w.append(S.todoP=h('p',{style:'margin:0 0 10px;max-width:72ch'},p.todo));
   const acc=S.accounts[f.account];
   const noteText=['AgentDFIR finding: '+p.title,'How bad: '+sevOf(f.severity).w+' — '+cf[0].toLowerCase(),'When: '+when(f.timestamp),f.session?'Conversation: “'+sessName(f.session)+'”':'',acc?'Account: '+acc.label:'','What happened: '+p.what,f.description?'Detector detail: '+mask(noCli(f.description)):'','Evidence: '+(f.evidence||[]).slice(0,3).join('; '),'Rule id: '+f.rule_id].filter(Boolean).join('\n');
-  w.append(h('button',{class:'btn sm',onclick:()=>copyText(noteText).then(()=>toast('Copied — paste it into an email or chat')).catch(()=>toast('Copy blocked — select the text in Technical details'))},'Copy a note for your IT contact'));
+  const bm=h('button',{class:'btn sm','aria-pressed':String(isBookmarked(f.key)),onclick:()=>toggleBookmark(f.key,()=>{ const on=isBookmarked(f.key); bm.setAttribute('aria-pressed',String(on)); bm.replaceChildren(icon('i-star','sm'),on?'Bookmarked — remove':'Bookmark'); })},icon('i-star','sm'),isBookmarked(f.key)?'Bookmarked — remove':'Bookmark');
+  w.append(h('div',{style:'display:flex;gap:8px;flex-wrap:wrap'},h('button',{class:'btn sm',onclick:()=>copyText(noteText).then(()=>toast('Copied — paste it into an email or chat')).catch(()=>toast('Copy blocked — select the text in Technical details'))},'Copy a note for your IT contact'),bm));
+  w.append(h('h2',{class:'sub'},'Who did what, through whom'));
+  w.append(h('p',{class:'muted',style:'margin:-4px 0 10px;font-size:13.5px'},'From the AI account that asked to what the flagged step reached. Every line is backed by a record; click a box or a line for where it comes from.'));
+  w.append(lineagePanel('/api/lineage?finding='+f.index,[f.event_id].concat((f.steps||[]).map(x=>x.event_id)).filter(Boolean).map(x=>'tool:'+x)));
   // decision
   w.append(h('h2',{class:'sub'},'Your decision'));
   const v=verdictOf(f.key); const dec=h('div',{class:'decide',role:'group','aria-label':'Your decision on this occurrence'});
@@ -1202,6 +1277,7 @@ function showProof(id,story){
     if(!e.command) add('Content',clip(e.summary,1200),e.event_type!=='human_prompt');
     add('Result',clip(e.result,600),true); add('Evidence status',stateWords(e.corroboration_state));
     box.append(h('h3',null,'What the log says'),dl);
+    if(e.witness_note||/CORROBORATED|CONTRADICTED/.test(e.corroboration_state||'')){ const wb=h('div'); box.append(wb); api('/api/witness?event='+encodeURIComponent(id)).then(d=>{ const wx=witnessBox(d); if(wx) wb.replaceChildren(h('h3',null,'Checked against an independent record'),wx); }).catch(()=>{}); }
     const rel=S.findings.filter(f=>f.event_id===id||(f.steps||[]).some(s=>s.event_id===id));
     if(rel.length){ box.append(h('h3',null,'Flagged by')); const L=h('div',{style:'display:flex;flex-direction:column;gap:6px'}); const seen={}; rel.forEach(f=>{ if(seen[f.rule_id]) return; seen[f.rule_id]=1; L.append(h('button',{class:'hit',onclick:()=>{closeDrawer(); openGroup(f.rule_id,f.index);}},h('div',{style:'display:flex;gap:8px;align-items:center'},sevChip(f.severity),h('b',null,plain(f).title)))); }); box.append(L); }
     const acts=h('div',{style:'display:flex;gap:8px;flex-wrap:wrap;margin-top:16px'});
@@ -1241,13 +1317,13 @@ function renderActHead(){
     const box=$('#axhead'); box.replaceChildren(); const s=S.sessById[S.act.session];
     box.append(h('h1',null,s?sessTitle(s):S.act.account?'Everything done under '+acctShort(S.act.account):'Everything the agents did'));
     if(s&&s.account) box.append(h('div',{class:'row'},h('span',{class:'muted',style:'font-size:13.5px'},'Account'),acctTag(s.account,true)));
-    if(s){ const r=h('div',{class:'row muted',style:'font-size:13.5px'}); r.append(day(s.first)+(s.duration_s?' · lasted '+dur(s.duration_s):'')+' · '+plural(s.prompts,'request')+' · '+plural(s.tool_calls,'agent action')+(s.agents>1?' · '+plural(s.agents,'agent'):'')+(s.product?' · '+s.product:'')); if(s.findings_total) r.append(h('button',{class:'btn sm ghost',onclick:()=>{S.act.flagged=true; S.act.type=''; S.act.offset=0; renderActHead(); loadEvents();}},'Show its '+plural(s.findings_total,'flagged step'))); box.append(r); }
+    if(s){ const r=h('div',{class:'row muted',style:'font-size:13.5px'}); r.append(day(s.first)+(s.duration_s?' · lasted '+dur(s.duration_s):'')+' · '+plural(s.prompts,'request')+' · '+plural(s.tool_calls,'agent action')+(s.agents>1?' · '+plural(s.agents,'agent'):'')+(s.product?' · '+s.product:'')); if(s.findings_total) r.append(h('button',{class:'btn sm ghost',onclick:()=>{S.act.flagged=true; S.act.type=''; S.act.offset=0; renderActHead(); loadEvents();}},'Show its '+plural(s.findings_total,'flagged step'))); r.append(h('button',{class:'btn sm ghost',onclick:()=>showSessionLineage(s.id)},'Who did what')); box.append(r); }
     else box.append(h('div',{class:'row muted',style:'font-size:13.5px'},plural(c.events,'recorded action')+' across '+plural(c.sessions,'conversation')+', oldest first. Pick a conversation on the left to follow just that one.'));
     const seg=h('div',{class:'seg',role:'group','aria-label':'Show'});
     SHOW.forEach(([k,l])=>{ const on=k==='flagged'?S.act.flagged:(!S.act.flagged&&S.act.type===k); seg.append(h('button',{'aria-pressed':String(on),onclick:()=>{ if(k==='flagged'){S.act.flagged=true; S.act.type='';} else {S.act.flagged=false; S.act.type=k;} S.act.offset=0; renderActHead(); loadEvents(); }},l)); });
     const q=h('label',{class:'field',style:'flex:1;min-width:200px'},icon('i-search','sm'),h('span',{class:'sr'},'Filter actions'),h('input',{type:'search',placeholder:'Find a command, file or address',value:S.act.q}));
     q.querySelector('input').addEventListener('input',debounce(ev=>{S.act.q=ev.target.value; S.act.offset=0; loadEvents();},250));
-    const row=h('div',{class:'row'},seg,q); if(S.acctList.length>1&&!s) row.append(acctSelect(S.act.account,k=>{S.act.account=k; S.act.offset=0; renderSessions(); renderActHead(); loadEvents();})); box.append(row);
+    const row=h('div',{class:'row'},seg,q,h('button',{class:'btn sm ghost',onclick:()=>saveFilter('activity')},'Save this view')); if(S.acctList.length>1&&!s) row.append(acctSelect(S.act.account,k=>{S.act.account=k; S.act.offset=0; renderSessions(); renderActHead(); loadEvents();})); box.append(row);
     const from=h('input',{type:'datetime-local',step:'60','aria-label':'From (UTC)',value:S.act.from?S.act.from.slice(0,16):''}), to=h('input',{type:'datetime-local',step:'60','aria-label':'To (UTC)',value:S.act.to?S.act.to.slice(0,16):''});
     const ch=()=>{S.act.from=from.value?from.value+':00Z':''; S.act.to=to.value?to.value+':59.999Z':''; S.act.offset=0; loadEvents();}; from.onchange=ch; to.onchange=ch;
     const det=h('details',{open:S.act.from||S.act.to?true:null},h('summary',null,'Pick a time range'),h('div',{class:'range'},'From',from,'to',to,'(UTC)',h('button',{class:'btn sm',onclick:()=>{S.act.from='';S.act.to=''; renderActHead(); loadEvents();}},'Clear')));
@@ -1294,6 +1370,11 @@ function renderMore(){
   if(['plugins','memory','crosscheck'].includes(moreTab)) return renderSupply(box,moreTab);
   if(moreTab==='map') return renderMap(box);
   if(moreTab==='evidence') return renderEvidence(box);
+  if(moreTab==='conversations') return renderConversations(box);
+  if(moreTab==='extensions') return renderExtensions(box);
+  if(moreTab==='bookmarks') return renderBookmarks(box);
+  if(moreTab==='compare') return renderCompare(box);
+  if(moreTab==='lineage'){ box.append(h('div',{class:'panel'},h('h2',null,'Who did what, through whom'),h('p',null,'The whole case: the AI account that asked, the agents and helper agents, the actions they took, the programs the computer ran for them, and the addresses, files and cloud resources those reached. Every line is backed by a record; click one for its source. Open a finding or a conversation for just its part.')),lineagePanel('/api/lineage')); return; }
 }
 function renderSearch(box,q0){
   const inp=h('input',{type:'search',placeholder:'A word, a file name, an address, a token prefix…','aria-label':'Search the whole case'});
@@ -1410,8 +1491,333 @@ function renderEvidence(box){
   });
 }
 
+// ================= INVESTIGATION (coverage, lineage, second witness, conversations, extensions, bookmarks, compare) =================
+// Every string below that came from the evidence reaches the page through
+// h() as a text node or through SVG textContent, never as markup. The
+// server has already sanitized it (terminal, bidi and invisible characters).
+const NS='http://www.w3.org/2000/svg';
+const sv=(tag,attrs)=>{ const e=document.createElementNS(NS,tag); if(attrs) for(const k in attrs){ if(attrs[k]!=null) e.setAttribute(k,attrs[k]); } return e; };
+const svText=(x,y,t,cls)=>{ const e=sv('text',{x,y,class:cls||null}); e.textContent=t; return e; };
+// An overlay file the case does not have: say so, and how to make it.
+function notInCase(box,title,d){ box.append(h('div',{class:'panel'},h('h2',null,title),h('p',null,d.reason||'Not available for this case.'),
+  d.regenerate?h('p',{class:'muted',style:'font-size:13.5px'},'Re-run the analysis to create it (the evidence is not changed):'):null,
+  d.regenerate?h('div',{class:'cmdbox'},h('code',null,d.regenerate),h('button',{class:'btn sm',onclick:()=>copyText(d.regenerate).then(()=>toast('Copied'))},'Copy')):null,
+  (d.howto||[]).length?h('div',null,[].concat(d.howto).map(c=>h('div',{class:'cmdbox',style:'margin:4px 0 8px'},h('code',null,c)))):null)); }
+const CONFW={HIGH:'Strong match',MEDIUM:'Good match',LOW:'Weak match'};
+// One evidence reference as a button: the event's proof when the reference
+// resolves to one, else the sealed line, else the reference as text.
+function refBtn(loc,label){
+  if(loc&&loc.event_id) return h('button',{class:'btn sm',onclick:()=>showProof(loc.event_id)},label||'Show proof');
+  if(loc&&loc.artifact) return h('button',{class:'btn sm',onclick:()=>rawDrawer({artifact:loc.artifact,offset:loc.offset||0,path:loc.path||loc.logical_path||'',line:loc.line||0})},label||'Show the line');
+  return null;
+}
+
+// ---- Coverage: what the case can and cannot show
+const ACTW={shell_command:'Commands',network:'Network connections',cloud_command:'Cloud commands',file_write:'File writes',file_read:'File reads',mcp_call:'Plugin calls',other:'Other actions'};
+const WHYW={no_telemetry_in_window:'no independent record covers that time',telemetry_present_no_match:'records exist for that time, none matches',no_timestamp:'the action has no time',nothing_a_witness_can_check:'nothing an independent record could check',host_witness_inconclusive:'the file check at collection could not confirm it'};
+const CATW={acquisition:'Collection',transcript:'The agent’s log',second_witness:'Independent records',clock:'Clocks',agent_chain:'Who started which agent'};
+function renderCoverage(){
+  const box=$('#cv'); box.replaceChildren(h('div',{class:'loading'},'Reading what this case can show…'));
+  Promise.all([api('/api/coverage'),api('/api/witness').catch(()=>({available:false}))]).then(([d,wl])=>{
+    box.replaceChildren();
+    if(!d.available){ box.append(h('h1',{class:'verdict-line'},'What this case can show')); notInCase(box,'No coverage report',d); return; }
+    const r=d.report||{}, sm=r.summary||{}, refs=d.refs||{}, sw=r.second_witness||{};
+    const tc=sm.tool_calls||0, ok=sm.tool_calls_verified||0;
+    box.append(h('h1',{class:'verdict-line'+(tc&&ok===tc?' ok':'')},tc?(ok?plural(ok,'action')+' of '+tc.toLocaleString()+' confirmed by an independent record':'No agent action is confirmed by an independent record'):'No agent actions to check'));
+    box.append(h('p',{class:'lede'},'Everything else in this case comes from the agents’ own logs. This page lists what the evidence establishes, what it cannot answer, and what to collect next to answer it. A gap means nothing was recorded — never that something was hidden.'));
+    // What we know / don't know / collect next
+    const items=r.items||[]; const col=(st,cls,title,sub)=>{ const L=items.filter(x=>x.status===st);
+      return h('div',{class:'col '+cls},h('h2',null,title,h('span',{class:'chip plain'},String(L.length))),h('p',{class:'sub'},sub),
+        L.length?h('ul',null,L.map(it=>h('li',null,h('div',null,h('span',{class:'tag',style:'margin-right:6px'},CATW[it.category]||it.category),it.text),
+          it.collect?h('div',{class:'c'},'Collect: '+it.collect):null,
+          (it.evidence_refs||[]).length?h('div',{class:'refs'},(it.evidence_refs||[]).slice(0,5).map((ref,i)=>refBtn(refs[ref],'Proof '+(i+1)))):null))):h('p',{class:'muted',style:'font-size:13.5px'},'Nothing here.')); };
+    box.append(h('div',{class:'kn'},col('known','k','What we know','Established by the evidence in the case.'),col('unknown','u','What we don’t know','Questions this case cannot answer.'),col('verify_next','n','What to collect next','What would answer them.')));
+    // Second-witness strip
+    box.append(h('div',{class:'sec-h'},h('h2',null,'Independent records against agent activity')));
+    box.append(h('div',{class:'panel'},h('p',null,'Each row is a source that can confirm what an agent did, drawn over the time it covers. The first row is when the agents were active, coloured by how much of it the computer’s own records cover.'),covStrip(sw),
+      h('div',{class:'legend'},h('span',null,h('i',{style:'background:var(--ok)'}),'Fully covered'),h('span',null,h('i',{style:'background:var(--look)'}),'Partly covered'),h('span',null,h('i',{style:'background:var(--act)'}),'Not covered'),h('span',null,h('i',{style:'background:var(--accent)'}),'Time a source covers'))));
+    const acts=sw.actions||[];
+    if(acts.length){ const t=h('table',{class:'t'},h('tr',null,['Kind of action','In the case','Confirmed','Disproved','Not checked','Why not checked'].map(c=>h('th',null,c))));
+      acts.forEach(a=>t.append(h('tr',null,h('td',null,ACTW[a.action]||a.action),h('td',null,String(a.total||0)),h('td',null,String(a.verified||0)),h('td',null,a.disproved?h('b',{style:'color:var(--act)'},String(a.disproved)):'0'),h('td',null,String(a.unverified||0)),
+        h('td',null,Object.entries(a.unverified_reasons||{}).map(([k,n])=>n+' — '+(WHYW[k]||k)).join('; ')||'—'))));
+      box.append(h('div',{class:'panel',style:'overflow:auto'},h('h2',null,'What kind of action was checked'),t)); }
+    if(wl&&wl.available&&(wl.items||[]).length){ const pn=h('div',{class:'panel'},h('h2',null,'Actions with a second witness'),h('p',null,'Open one to see the agent’s record next to the independent record that confirmed it.'+(wl.truncated?' The first '+wl.items.length+' of '+wl.total+' are listed.':'')));
+      wl.items.forEach(x=>pn.append(h('button',{class:'hit',onclick:()=>showWitness(x.id)},h('div',{class:'p'},when(x.ts)+' · '+(CONFW[x.confidence]||x.confidence||'')+' · '+x.basis),h('div',{class:'x'},clip(x.what||'',240)))));
+      box.append(pn); }
+    // Clock, chains, gaps, integrity
+    const ck=r.clock||{}, ch=r.agent_chains||{};
+    const ex=(title,list,fmt)=>{ list=list||[]; if(!list.length) return null; return h('div',{style:'margin-top:10px'},h('b',null,title),h('ul',{class:'steps-l'},list.slice(0,25).map(x=>h('li',null,fmt(x),' ',refBtn(refs[x.evidence_ref||x.example_ref])||'')))); };
+    const clockBits=[ck.events_after_collection?h('p',null,plural(ck.events_after_collection,'record')+' carry a time after their log was collected.'):null,
+      ex('Recorded later than collected',ck.events_after_collection_examples,x=>'recorded '+when(x.recorded)+', collected '+when(x.reference)),
+      ex('Times stepping backwards inside one log',ck.out_of_order,x=>x.logical_path+': '+plural(x.count,'time')+', up to '+dur(Math.round(x.max_step_back_seconds||0))),
+      ex('Log file older than its own last record',ck.transcript_mtime_before_last_record,x=>(x.basis||'')+' '+dur(Math.abs(Math.round(x.seconds||0)))),
+      ex('File on disk older than the write that made it',ck.witness_mtime_before_write,x=>(x.basis||'')+' '+dur(Math.abs(Math.round(x.seconds||0)))),
+      ck.endpoint_offset&&ck.endpoint_offset.pairs?h('p',null,'The computer’s records and the agents’ logs differ by '+(ck.endpoint_offset.median_ms/1000).toFixed(1)+' s on average over '+plural(ck.endpoint_offset.pairs,'matched pair')+'.'):null].filter(Boolean);
+    box.append(h('div',{class:'panel'},h('h2',null,'Clock problems'),clockBits.length?clockBits:h('p',{class:'muted'},'No clock problem found in the times the evidence carries.')));
+    const agentBits=[ex('Agents with no known parent',ch.orphan_agents,x=>'Agent '+clip(x.agent_id,40)),ex('Helper agents started but left no records',ch.spawned_agents_without_records,x=>'Agent '+clip(x.agent_id,40)),
+      ex('Start records citing an action not in the case',ch.spawns_citing_unknown_tool_call,x=>'Agent '+clip(x.agent_id,40)),ex('Parent agent missing from the evidence',ch.parent_agent_not_in_evidence,x=>'Agent '+clip(x.agent_id,40)+' names parent '+clip(x.parent_agent_id,40)),
+      ex('Tool answers without the call',ch.tool_results_without_call,x=>plural(x.count,'answer')+' in “'+sessName(x.session_id)+'”'),ex('Missing links between messages',ch.conversation_chain_breaks,x=>plural(x.count,'break')+' in “'+sessName(x.session_id)+'”')].filter(Boolean);
+    box.append(h('div',{class:'panel'},h('h2',null,'Missing parents and broken chains'),agentBits.length?agentBits:h('p',{class:'muted'},'Every agent’s parent and every tool answer’s call is in the evidence.')));
+    const gapsL=(r.sessions||[]).filter(s=>(s.time_gaps||[]).length);
+    box.append(h('div',{class:'panel'},h('h2',null,'Silences inside conversations'),gapsL.length?gapsL.map(s=>h('div',{style:'margin-top:8px'},h('b',null,'“'+sessName(s.session_id)+'”'),h('ul',{class:'steps-l'},s.time_gaps.map(g=>h('li',null,'Nothing recorded for '+dur(g.seconds)+', '+when(g.start)+' to '+when(g.end)+' ',refBtn(refs[g.last_record_before],'Last before')||'',' ',refBtn(refs[g.first_record_after],'First after')||''))))):h('p',{class:'muted'},'No long silence inside any conversation.'),
+      (r.transcript_integrity||[]).length?h('div',{style:'margin-top:12px'},h('b',null,'Log integrity'),h('ul',{class:'steps-l'},r.transcript_integrity.slice(0,40).map(x=>h('li',null,x.code+': '+clip(noCli(x.detail),200)+' ',refBtn(refs[x.evidence_ref])||'')))):null));
+    if((r.limits||[]).length||r.truncated) box.append(h('details',{class:'tech'},h('summary',null,'Limits of this report'),r.truncated?h('p',null,'Some lists were cut at their bounds.'):null,h('ul',{class:'steps-l'},(r.limits||[]).map(l=>h('li',null,l)))));
+  }).catch(err=>box.replaceChildren(h('div',{class:'empty'},h('b',null,'The coverage report could not be loaded'),err.message)));
+}
+function covStrip(sw){
+  const rows=[{label:'Agent activity',spans:(sw.activity||[]).map(a=>({s:a.start,e:a.end,cls:a.endpoint_coverage||'none',t:when(a.start)+' – '+when(a.end)+': '+plural(a.tool_calls||0,'action')+', coverage '+(a.endpoint_coverage||'none')+(a.verified_by?' ('+a.verified_by.join(', ')+')':'')}))}]
+    .concat((sw.sources||[]).slice(0,12).map(s=>({label:s.name,spans:[{s:s.start,e:s.end,cls:'src',t:s.name+': '+plural(s.records||0,'record')+', confirmed '+plural(s.tool_calls_verified||0,'action')+(s.note?' — '+s.note:'')}]})));
+  const ts=[]; rows.forEach(r=>r.spans.forEach(x=>{ const a=Date.parse(x.s), b=Date.parse(x.e); if(a) ts.push(a); if(b) ts.push(b); }));
+  if(!ts.length) return h('p',{class:'muted'},'No timed activity or source to draw.');
+  let t0=Math.min(...ts), t1=Math.max(...ts); if(t1-t0<60000){ t0-=30000; t1+=30000; } const pad=(t1-t0)*0.02; t0-=pad; t1+=pad;
+  const L=170, W=1000, RH=26, H=rows.length*RH+28; const X=t=>L+(t-t0)/(t1-t0)*(W-L-10);
+  const svg=sv('svg',{class:'strip',viewBox:'0 0 '+W+' '+H,role:'img','aria-label':'Time covered by each independent record, next to agent activity'});
+  rows.forEach((r,i)=>{ const y=i*RH+4; svg.append(svText(0,y+15,clip(r.label,26)),sv('rect',{class:'lane',x:L,y,width:W-L-10,height:RH-8,rx:4}));
+    r.spans.forEach(x=>{ const a=Date.parse(x.s)||Date.parse(x.e), b=Date.parse(x.e)||a; if(!a) return; const x1=X(a), w=Math.max(4,X(b)-x1); const rc=sv('rect',{class:x.cls,x:x1,y:y+2,width:w,height:RH-12,rx:3}); const tt=sv('title'); tt.textContent=x.t; rc.append(tt); svg.append(rc); }); });
+  const y=rows.length*RH+18; [t0+pad,(t0+t1)/2,t1-pad].forEach((t,i)=>{ svg.append(sv('line',{class:'tick',x1:X(t),x2:X(t),y1:4,y2:y-10}),svText(i===0?X(t):i===2?X(t)-170:X(t)-80,y,when(new Date(t).toISOString()))); });
+  return svg;
+}
+
+// ---- Lineage: who did what, through whom
+const LKIND={human:['Person (AI account)',0],agent:['AI agent',1],subagent:['Helper agent',2],tool_call:['Agent action',3],process:['Program the computer ran',4],mcp_server:['Plugin',5],network:['Outside address',5],file:['File',5],cloud_resource:['Cloud resource',5]};
+const LCOLS=['Person','AI agent','Helper agents','Agent actions','Programs the computer ran','Addresses, files, cloud'];
+const LREL={prompted:'asked',spawned:'started',invoked:'did',named_destination:'names address',wrote:'wrote',edited:'edited',read:'read',named_file:'names file',called:'called plugin',executed_as:'ran as',touched:'touched',connected_to:'connected to',acted_on:'acted on',child_process:'started program',looked_up:'looked up',ran_script:'ran script',logged_in:'logged in to'};
+const SSHORT={CORROBORATED:'confirmed',PARTIALLY_CORROBORATED:'partly confirmed',CONTRADICTED:'records disagree',REPORTED:'claimed only',REQUESTED:'asked for'};
+const ESTATE={CORROBORATED:'ok',PARTIALLY_CORROBORATED:'look',CONTRADICTED:'act',REPORTED:'claim',REQUESTED:'claim'};
+function lineagePanel(url,flagIds){
+  const holder=h('div',null,h('div',{class:'loading'},'Drawing who did what…'));
+  api(url).then(d=>{
+    if(!d.available){ holder.replaceChildren(); notInCase(holder,'No lineage graph',d); return; }
+    if(!d.graph){ holder.replaceChildren(h('p',{class:'muted'},d.reason||'Nothing to draw.')); return; }
+    holder.replaceChildren(drawLineage(d.graph,flagIds));
+  }).catch(err=>holder.replaceChildren(h('p',{class:'muted'},'Could not draw it: '+err.message)));
+  return holder;
+}
+function drawLineage(g,flagIds){
+  const out=h('div');
+  const nodes=g.nodes||[], edges=g.edges||[];
+  if(!nodes.length){ out.append(h('p',{class:'muted'},(g.notes||[]).length?'Nothing to draw: '+noCli(g.notes[0])+'.':'Nothing in the evidence links people, agents and actions here.')); return out; }
+  const MAXCOL=40, cols=[[],[],[],[],[],[]], pos={}; let hidden=0; const flag=new Set(flagIds||[]);
+  nodes.forEach(n=>{ const k=LKIND[n.kind]||['Other',5]; const c=cols[k[1]]; if(c.length>=MAXCOL){ hidden++; return; } c.push(n); });
+  const used=[0,1,2,3,4,5].filter(i=>cols[i].length);
+  const NW=200,NH=44,GX=72,GY=14,PX=12,PY=34; const rows=Math.max(...used.map(i=>cols[i].length));
+  const W=PX*2+used.length*NW+(used.length-1)*GX, H=PY+rows*(NH+GY)+8;
+  used.forEach((ci,x)=>{ const c=cols[ci], off=(rows-c.length)*(NH+GY)/2; c.forEach((n,y)=>{ pos[n.id]={x:PX+x*(NW+GX),y:PY+off+y*(NH+GY),n}; }); });
+  const svg=sv('svg',{width:W,height:H,viewBox:'0 0 '+W+' '+H,role:'img','aria-label':'Who did what: people, agents, actions, programs and what they reached, left to right'});
+  used.forEach((ci,x)=>svg.append(svText(PX+x*(NW+GX),18,LCOLS[ci].toUpperCase(),'colh')));
+  let drawn=0; const label=edges.length<=36;
+  edges.forEach(e=>{ const a=pos[e.from], b=pos[e.to]; if(!a||!b) return; drawn++;
+    const x1=a.x+NW, y1=a.y+NH/2, x2=b.x, y2=b.y+NH/2, mx=(x1+x2)/2; const back=x2<=x1;
+    const d=back?'M'+(a.x+NW/2)+' '+(a.y+NH)+' C '+(a.x+NW/2)+' '+(a.y+NH+30)+' '+(b.x+NW/2)+' '+(b.y+NH+30)+' '+(b.x+NW/2)+' '+(b.y+NH):'M'+x1+' '+y1+' C '+mx+' '+y1+' '+mx+' '+y2+' '+x2+' '+y2;
+    const words=(LREL[e.relation]||e.relation)+(e.confidence?' · '+(CONFW[e.confidence]||e.confidence):'');
+    const p=sv('path',{d,class:'e '+(ESTATE[e.evidence_state]||'rec')});
+    const hit=sv('path',{d,class:'hitp',tabindex:'0',role:'button','aria-label':'Link: '+words});
+    const tt=sv('title'); tt.textContent=words+' — '+e.basis+' ('+stateWords(e.evidence_state)+')'; hit.append(tt);
+    const open=()=>openLink(e,pos); hit.addEventListener('click',open); hit.addEventListener('keydown',ev=>{ if(ev.key==='Enter') open(); });
+    svg.append(p,hit);
+    if(label&&!back) svg.append(svText(mx-24,(y1+y2)/2-4,clip(LREL[e.relation]||e.relation,18),'el'));
+  });
+  Object.values(pos).forEach(({x,y,n})=>{ const g2=sv('g',{class:'nd '+n.kind+(flag.has(n.id)||(n.kind==='tool_call'&&flag.has(String(n.id).replace(/^tool:/,'')))?' flag':''),transform:'translate('+x+','+y+')',tabindex:'0',role:'button','aria-label':(LKIND[n.kind]||['Item'])[0]+': '+mask(n.label)});
+    g2.append(sv('rect',{width:NW,height:NH,rx:8}),svText(10,18,clip(n.label,27)),svText(10,35,(LKIND[n.kind]||[n.kind])[0]+(SSHORT[n.evidence_state]?' · '+SSHORT[n.evidence_state]:''),'k'));
+    const tt=sv('title'); tt.textContent=mask(n.label); g2.append(tt);
+    const open=()=>openNode(n); g2.addEventListener('click',open); g2.addEventListener('keydown',ev=>{ if(ev.key==='Enter') open(); });
+    svg.append(g2); });
+  const wrap=h('div',{class:'lin'}); wrap.append(svg); out.append(wrap);
+  out.append(h('div',{class:'legend'},h('span',null,h('i',{style:'background:var(--line-2)'}),'Written in the agent’s log'),h('span',null,h('i',{style:'background:var(--ok)'}),'Confirmed by the computer’s records'),h('span',null,h('i',{style:'background:var(--look)'}),'Partly confirmed'),h('span',null,h('i',{style:'background:var(--act)'}),'Records disagree'),h('span',null,h('i',{style:'background:none;border:2px dashed var(--muted)'}),'Claimed only'),h('span',null,'Click a box or a line for where it comes from.')));
+  const cut=hidden||drawn<edges.length||g.truncated;
+  if(cut) out.append(h('p',{class:'dest none',style:'margin:8px 0 0'},'Truncated: '+[g.truncated?'the graph was bounded ('+(g.omitted||{}).nodes+' boxes and '+(g.omitted||{}).edges+' links left out)':'',hidden?plural(hidden,'box','boxes')+' not drawn (at most '+MAXCOL+' per column)':''].filter(Boolean).join('; ')+'. Run agentdfir lineage for the full graph.'));
+  return out;
+}
+function refList(refs){
+  const L=h('div',{style:'display:flex;flex-direction:column;gap:6px'});
+  (refs||[]).forEach(r=>{ const b=refBtn(r,r.event_id?'Show proof':'Show the line'); L.append(h('div',{class:'hit',style:'display:flex;gap:10px;align-items:center;justify-content:space-between'},
+    h('span',{class:'p',style:'word-break:break-all'},r.telemetry_ref?'Imported log '+r.telemetry_ref+' (not part of the sealed evidence: open the file that was imported)':(r.logical_path||'sealed file')+(r.line?', line '+r.line:'')),b)); });
+  if(!(refs||[]).length) L.append(h('p',{class:'muted'},'No source line is recorded for this.'));
+  return L;
+}
+function openNode(n){
+  openDrawer((LKIND[n.kind]||[n.kind])[0]); const box=$('#dbody'); box.replaceChildren();
+  const dl=h('dl',{class:'facts2'}); const add=(k,v,mono)=>{ if(v==null||v==='') return; dl.append(h('dt',null,k),h('dd',{class:mono?'mono':null},String(v))); };
+  add('What',mask(n.label)); add('Evidence status',n.evidence_state?stateWords(n.evidence_state):''); Object.entries(n.attributes||{}).forEach(([k,v])=>add(k.replace(/_/g,' '),mask(v),true));
+  box.append(h('h3',null,'What the evidence says'),dl,h('h3',null,'Where this comes from'),refList(n.source_refs));
+}
+function openLink(e,pos){
+  openDrawer('Link'); const box=$('#dbody'); box.replaceChildren();
+  const nm=id=>pos[id]?mask(pos[id].n.label):id;
+  const dl=h('dl',{class:'facts2'}); const add=(k,v)=>{ if(v) dl.append(h('dt',null,k),h('dd',null,String(v))); };
+  add('From',nm(e.from)); add('To',nm(e.to)); add('Link',LREL[e.relation]||e.relation); add('Why they are linked',e.basis); add('Evidence status',stateWords(e.evidence_state)); add('Match strength',e.confidence?CONFW[e.confidence]||e.confidence:''); add('Note',e.note);
+  box.append(h('h3',null,'What links them'),dl,h('p',{class:'muted',style:'font-size:13px'},'Every link is backed by something the evidence records. Two things that only happened close together are never linked.'),h('h3',null,'Where this comes from'),refList(e.source_refs));
+}
+
+// ---- Second witness: the agent's record next to the independent one
+const WITW={process:'the computer’s process log',file:'the computer’s file log',network:'the computer’s network log',cloud:'the cloud audit log',dns:'the DNS log',auth:'the login log',script:'a PowerShell script-block record','process-image':'a process record (program name only)'};
+const hms=t=>{ const m=/T(\d\d:\d\d:\d\d(?:\.\d{1,3})?)/.exec(String(t||'')); return m?m[1]:String(t||''); };
+const witName=rec=>rec.kind==='network'&&rec.url?'the web proxy log':(WITW[rec.kind]||'an independent record');
+function witnessBox(d){
+  const wrap=h('div');
+  const a=d.agent||{}; const ms=d.matches||[];
+  if(!ms.length&&!d.witness_note) return null;
+  const kv=pairs=>{ const dl=h('dl',{class:'facts2'}); pairs.forEach(([k,v,m])=>{ if(v==null||v==='') return; dl.append(h('dt',null,k),h('dd',{class:m?'mono':null},String(v))); }); return dl; };
+  if(d.witness_note) wrap.append(h('p',{class:'spec',style:'margin:0 0 10px'},h('b',null,'Witness note: '),d.witness_note));
+  ms.forEach(m=>{ const r=m.record||{};
+    wrap.append(h('div',{class:'witb'},h('span',{class:'chip '+(m.confidence==='HIGH'?'ok':m.confidence==='MEDIUM'?'minor':'look')},CONFW[m.confidence]||m.confidence||'Match'),
+      h('span',null,'Why: '+m.basis+' · score '+m.score+' · '+(m.delta_ms?Math.abs(m.delta_ms/1000).toFixed(1)+' s '+(m.delta_ms>0?'after':'before')+' the log':'same second')+' (allowed ±'+(m.window_ms/1000)+' s)')));
+    wrap.append(h('div',{class:'wit'},
+      h('div',null,h('h4',null,'What the agent’s log says'),kv([['When',a.ts?day(a.ts)+', '+hms(a.ts)+' UTC':''],['Tool',a.tool],['Command',mask(a.command),1],['File',a.file,1],['Address',a.dest,1],['Status',stateWords(a.state)],['From',a.path?a.path+', line '+a.line:'',1]]),
+        a.id?h('button',{class:'btn sm',style:'margin-top:8px',onclick:()=>showProof(a.id)},'Show proof'):null),
+      h('div',null,h('h4',null,'What '+witName(r)+' recorded'),kv([['When',r.time?day(r.time)+', '+hms(r.time)+' UTC':''],['Program',r.exe,1],['Command',mask(r.cmdline),1],['Process',r.pid?'pid '+r.pid+(r.ppid?', parent '+r.ppid:''):''],['Parent',r.parent_exe,1],['User',r.user],['Address',[r.dest_host,r.dest_ip].filter(Boolean).join(' / ')+(r.dest_port?':'+r.dest_port:''),1],['URL',mask(r.url),1],['File',r.file_path?r.file_path+(r.file_op?' ('+r.file_op+')':''):'',1],['Answers',r.answers,1],['Operation',r.operation,1],['Resource',r.resource,1],['Cloud',r.provider],['From IP',r.source_ip],['Refused',r.failed],['Source',(r.source||'')+' '+(r.ref||''),1]]))));
+    if((m.related||[]).length) wrap.append(h('div',{style:'margin:8px 0 12px'},h('b',{style:'font-size:13.5px'},'What that process did next (same process id in the record)'),h('ul',{class:'steps-l'},m.related.map(x=>{ const q=x.record||{}; return h('li',null,(q.kind==='network'?'connected to '+[q.dest_host,q.dest_ip].filter(Boolean).join(' / ')+(q.dest_port?':'+q.dest_port:''):q.kind==='file'?(q.file_op||'touched')+' '+(q.file_path||''):q.kind==='process'?'started '+(q.cmdline||q.exe||''):q.kind)+' — '+x.basis+' ('+(q.ref||'')+')'); }))));
+  });
+  if(!ms.length&&d.note) wrap.append(h('p',{class:'muted'},d.note));
+  return wrap;
+}
+function showWitness(id){ openDrawer('Checked against an independent record'); const box=$('#dbody'); box.replaceChildren(h('div',{class:'loading'},'Loading…'));
+  api('/api/witness?event='+encodeURIComponent(id)).then(d=>{ box.replaceChildren(); const w=witnessBox(d); box.append(w||h('p',{class:'muted'},'No independent record was paired with this action.')); }).catch(err=>box.replaceChildren(h('div',{class:'empty'},'Not available: '+err.message))); }
+
+// ---- AI conversations: provider exports and browser history
+const AIP={chatgpt:'ChatGPT',['claude-ai']:'Claude.ai',deepseek:'DeepSeek',['gemini-apps']:'Gemini Apps',browser:'Browser history'};
+const convS={filter:'',sel:''};
+function convTitle(c){ if(c.label) return c.label; if(/-account$/.test(c.id)) return (AIP[c.product]||c.product)+' account record'; if(/^web:db:/.test(c.id)) return 'Browser history database ('+c.id.replace(/^web:db:/,'')+')'; return 'Conversation on '+day(c.first); }
+const classBadge=c=>c.class==='browser-history'?h('span',{class:'badge web',title:'A visit in the browser’s history: proves the page was opened, not what was said'},'Browser history — visits only, no content'):h('span',{class:'badge exp',title:'The provider’s own record of the conversation'},'Provider export');
+function renderConversations(box){
+  box.append(h('div',{class:'loading'},'Loading conversations…'));
+  api('/api/conversations').then(d=>{
+    box.replaceChildren();
+    box.append(h('div',{class:'panel'},h('h2',null,'AI conversations outside the agents'),h('p',null,'Chats read from a service’s account export, and AI pages read from browser history. They are different kinds of evidence: an export is the provider’s record of what was said; browser history only shows that a page was visited — never what was typed or answered.')));
+    if(!d.available){ notInCase(box,'No AI-service conversations in this case',d); return; }
+    const exp=d.items.filter(c=>c.class!=='browser-history').length, web=d.items.length-exp;
+    const seg=h('div',{class:'seg',role:'group','aria-label':'Which conversations',style:'margin-bottom:12px'});
+    [['','All',d.items.length],['export','Provider exports',exp],['web','Browser history',web]].forEach(([k,l,n])=>seg.append(h('button',{'aria-pressed':String(convS.filter===k),onclick:()=>{convS.filter=k; renderMore();}},l,h('span',{class:'c'},String(n)))));
+    box.append(seg);
+    const items=d.items.filter(c=>!convS.filter||(convS.filter==='web')===(c.class==='browser-history'));
+    const list=h('div',{class:'list',role:'list'}), detail=h('div');
+    const pick=items.find(c=>c.id===convS.sel)||items[0]; if(pick) convS.sel=pick.id;
+    items.forEach(c=>{ const svc=c.attributes.service_name||AIP[c.product]||c.product;
+      list.append(h('button',{class:'sess','aria-pressed':String(convS.sel===c.id),onclick:ev=>{convS.sel=c.id; $$('.cv .sess').forEach(b=>b.setAttribute('aria-pressed','false')); ev.currentTarget.setAttribute('aria-pressed','true'); openConversation(detail,c);}},
+        h('span',{class:'t'},mask(convTitle(c))),h('span',{class:'m'},classBadge(c)),h('span',{class:'m'},[svc,c.first?day(c.first):'undated',c.class==='browser-history'?plural(+(c.attributes.visit_rows||c.events),'visit'):plural(c.prompts,'message')+' from you'].join(' · ')),
+        c.branches?h('span',{class:'m'},h('span',{class:'badge br'},plural(c.branches,'message')+' on other branches')):null)); });
+    if(!items.length) list.append(h('div',{class:'empty'},'Nothing in this group.'));
+    box.append(h('div',{class:'cv'},list,detail));
+    if(pick) openConversation(detail,pick);
+  }).catch(err=>box.replaceChildren(h('div',{class:'empty'},'Could not load: '+err.message)));
+}
+function openConversation(box,c){
+  box.replaceChildren(h('div',{class:'loading'},'Loading…'));
+  api('/api/conversation?session='+encodeURIComponent(c.id)).then(d=>{
+    box.replaceChildren();
+    const web=c.class==='browser-history'; const at=c.attributes||{};
+    const head=h('div',{class:'panel'},h('h2',null,mask(convTitle(c))),h('div',{class:'row',style:'display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px'},classBadge(c),h('span',{class:'tag'},at.service_name||AIP[c.product]||c.product),at.model?h('span',{class:'tag'},at.model):null,at.browsers?h('span',{class:'tag'},at.browsers):null));
+    head.append(h('p',null,web?'The browser recorded '+plural(+(at.visit_rows||0),'visit')+(at.first_visit?' between '+when(at.first_visit)+' and '+when(at.last_visit):'')+'. Browser history holds no message text: what was typed and answered is not in this case. To read the conversation itself, collect the service’s account export.':
+      plural(c.prompts,'message')+' from the person, '+plural(c.responses,'answer')+(c.tool_calls?', '+plural(c.tool_calls,'tool use'):'')+(c.first?', '+day(c.first)+(c.last&&day(c.last)!==day(c.first)?' to '+day(c.last):''):'')+'. This is what the provider’s export recorded; nothing here ran on the examined computer.'));
+    if(c.branches) head.append(h('p',{class:'spec',style:'margin:0'},h('b',null,plural(c.branches,'message')+' sit on another branch. '),'The person regenerated an answer or edited a question, and moved on from this version. They are kept and marked below.'));
+    head.append(h('div',{style:'display:flex;gap:8px;flex-wrap:wrap'},h('button',{class:'btn sm ghost',onclick:()=>openSession(c.id)},'Open in Activity'),h('button',{class:'btn sm ghost',onclick:()=>showSessionLineage(c.id)},'Who did what')));
+    box.append(head);
+    const pn=h('div',{class:'panel',style:'padding:0;overflow:hidden'});
+    (d.messages||[]).forEach(m=>{ const who=m.type==='human_prompt'?'You':m.type==='model_response'?'The AI':m.type==='tool_call'?'AI tool use':m.type==='tool_result'?'Tool output':web?'Visit':'Record';
+      pn.append(h('div',{class:'msg'+(m.branch?' alt':'')},h('div',null,h('div',{class:'who2 '+(m.type==='human_prompt'?'you':m.type==='model_response'?'agent':'tool')},who),h('div',{class:'muted',style:'font-size:12px'},when(m.ts,false))),
+        h('div',null,m.branch?h('div',{style:'margin-bottom:4px'},h('span',{class:'badge br'},m.branch==='alternate'?'Other branch — regenerated or edited away':'Branch the export does not resolve')):null,(m.flags||[]).length?h('span',{class:'fl',style:'margin-right:6px'},icon('i-flag','sm'),'Flagged'):null,h('div',{class:'tx'},clip(m.text,1200))),
+        h('button',{class:'btn sm',onclick:()=>showProof(m.id)},'Proof'))); });
+    if(d.truncated) pn.append(h('p',{class:'muted',style:'padding:10px 14px'},'The first '+d.messages.length+' of '+d.total+' records are shown. Activity has them all.'));
+    box.append(pn);
+  }).catch(err=>box.replaceChildren(h('div',{class:'empty'},'Could not load: '+err.message)));
+}
+
+// ---- Extensions & plugins
+function renderExtensions(box){
+  box.append(h('div',{class:'loading'},'Loading…'));
+  api('/api/extensions').then(d=>{
+    box.replaceChildren();
+    if(!d.available){ notInCase(box,'No extension and plugin inventory',d); return; }
+    const inv=(d.data||{}).inventory||{}, fs=(d.data||{}).findings||[];
+    const ext=inv.extensions||[], pl=inv.plugins||[], mk=inv.marketplaces||[], sk=inv.skills||[];
+    box.append(h('div',{class:'panel'},h('h2',null,'Editor extensions, agent plugins and skills'),h('p',null,'Code that runs inside the editor or the agent with its access to files, terminals and tokens. '+plural(ext.length,'editor extension')+', '+plural(pl.length,'agent plugin')+', '+plural(sk.length,'skill file')+'. Nothing was run or installed to make this list.'),
+      fs.length?h('div',{style:'margin-top:8px'},fs.map(f=>h('div',{style:'display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-top:1px solid var(--line)'},sevChip(f.severity),h('div',null,h('b',null,plain({rule_id:f.rule_id,title:f.title,description:f.description}).title),h('div',{class:'muted',style:'font-size:13px'},clip(f.description,300)))))):h('p',{class:'muted'},'No finding on this code.')));
+    const tbl=(title,cols,rows,note)=>{ if(!rows.length) return; const t=h('table',{class:'t'},h('tr',null,cols.map(c=>h('th',null,c)))); rows.slice(0,500).forEach(r=>t.append(h('tr',null,r.map(v=>h('td',null,v==null?'':v))))); box.append(h('div',{class:'panel',style:'overflow:auto'},h('h2',null,title),note?h('p',null,note):null,t,rows.length>500?h('p',{class:'muted'},'First 500 of '+rows.length+' shown.'):null)); };
+    tbl('Editor extensions',['Editor','Extension','Version','Installed','From','Starts with the editor','Code checked'],ext.map(e=>[e.editor,h('span',null,h('b',null,e.display_name||e.name||e.id),h('div',{class:'muted mono',style:'font-size:12px'},e.id)),e.version,e.installed_at?day(e.installed_at):'—',(e.source||'not recorded')+(e.registered?'':' · not in the editor’s list')+(e.present===false?' · folder missing':''),e.startup_activation?h('b',{style:'color:var(--serious)'},'Yes'):'No',e.code_scanned?'Yes':'No']),'“From” is what the editor recorded (its marketplace or a VSIX file); it is not a signature check.');
+    tbl('Agent plugins',['Agent','Plugin','Marketplace','Version','Hooks','Plugins (MCP)','Installed'],pl.map(p=>[prettyHost(p.host),h('b',null,p.name),p.marketplace||'—',p.version||'—',(p.hooks||[]).length?(p.hooks||[]).map(x=>x.event).join(', '):'none',(p.mcp_servers||[]).join(', ')||'—',p.installed_at?day(p.installed_at):'—']));
+    tbl('Plugin marketplaces',['Agent','Name','Kind','Location','Built in'],mk.map(m=>[prettyHost(m.host),m.name,m.kind,h('span',{class:'mono'},m.location),m.default?'Yes':h('b',null,'No')]));
+    tbl('Skills and agent definitions',['Agent','Kind','Name','Plugin','File'],sk.map(s=>[prettyHost(s.host),s.kind,s.name,s.plugin||'—',h('span',{class:'mono',style:'font-size:12px'},s.path)]));
+    const pr=[].concat(inv.problems||[],inv.unsupported||[]); if(pr.length) box.append(h('details',{class:'tech'},h('summary',null,'Could not be read or analyzed ('+pr.length+')'),h('ul',{class:'steps-l'},pr.slice(0,200).map(x=>h('li',null,x)))));
+  }).catch(err=>box.replaceChildren(h('div',{class:'empty'},'Could not load: '+err.message)));
+}
+
+// ---- Bookmarks (in the case file) and saved filters (this browser only)
+const isBookmarked=key=>(S.notes.pins||[]).some(p=>p.target===key);
+function toggleBookmark(key,after){ const on=!isBookmarked(key); post('pin',key,on?'on':'off','').then(()=>{ toast(on?'Bookmarked — saved in the case file':'Bookmark removed'); if(after) after(); }).catch(e=>toast('Could not save: '+e.message)); }
+const savedFilters={ get(){ try{ const l=JSON.parse(localStorage.getItem('adfir-saved-filters')||'[]'); return Array.isArray(l)?l.filter(x=>x&&typeof x.name==='string'&&x.state):[]; }catch(e){ return []; } },
+  set(l){ try{ localStorage.setItem('adfir-saved-filters',JSON.stringify(l.slice(0,50))); return true; }catch(e){ return false; } } };
+function saveFilter(view){
+  const name=(prompt('Name this filter')||'').trim(); if(!name) return;
+  const state=view==='findings'?{tier:S.tier,q:$('#fq').value,acct:S.acct,hide:$('#hidedone').checked}:{account:S.act.account,session:S.act.session,type:S.act.type,flagged:S.act.flagged,q:S.act.q,from:S.act.from,to:S.act.to};
+  const l=savedFilters.get().filter(x=>x.name!==name); l.unshift({name:name.slice(0,80),view,state,ts:new Date().toISOString()});
+  toast(savedFilters.set(l)?'Filter saved in this browser':'This browser does not allow saving');
+}
+function applyFilter(f){ const s=f.state||{};
+  if(f.view==='findings'){ S.tier=['attention','look','background','all'].includes(s.tier)?s.tier:'attention'; S.acct=String(s.acct||''); go('findings'); $('#fq').value=String(s.q||''); $('#hidedone').checked=!!s.hide; renderGroups(); return; }
+  const a=S.act; a.account=String(s.account||''); a.type=String(s.type||''); a.flagged=!!s.flagged; a.q=String(s.q||''); a.from=String(s.from||''); a.to=String(s.to||''); a.offset=0; a.sel=-1;
+  go('activity',true); openSession(String(s.session||'')); }
+function renderBookmarks(box){
+  findReady.then(()=>notesReady).then(()=>{
+    box.replaceChildren();
+    const pins=S.notes.pins||[], fp=pins.filter(p=>String(p.target).startsWith('finding:')), ep=pins.filter(p=>String(p.target).startsWith('event:'));
+    box.append(h('div',{class:'panel'},h('h2',null,'Bookmarks'),h('p',null,'Bookmarks are written to the case file next to the evidence (notes/notes.jsonl, hash-chained, with your name and the time) and appear in the report. Saved filters stay in this browser only.')));
+    const fl=h('div',{class:'panel'},h('h2',null,'Bookmarked findings'));
+    if(!fp.length) fl.append(h('p',{class:'muted'},'None yet. Use “Bookmark” on a finding.'));
+    fp.forEach(p=>{ const f=S.findings.find(x=>x.key===p.target); fl.append(h('div',{class:'hit',style:'display:flex;gap:10px;align-items:center'},f?sevChip(f.severity):null,h('button',{class:'btn ghost',style:'flex:1;justify-content:flex-start',onclick:()=>f&&openGroup(f.rule_id,f.index)},f?plain(f).title:p.target),h('span',{class:'muted',style:'font-size:12.5px'},p.operator+', '+when(p.ts_utc||p.ts)),h('button',{class:'btn sm',onclick:()=>toggleBookmark(p.target,()=>renderMore())},'Remove'))); });
+    box.append(fl);
+    const el=h('div',{class:'panel'},h('h2',null,'Key evidence'),h('p',null,'Records marked “Key evidence” in the proof panel.'));
+    if(!ep.length) el.append(h('p',{class:'muted'},'None yet. Open any record’s proof and use “Mark as key evidence”.'));
+    ep.slice(0,100).forEach(p=>{ const id=String(p.target).slice(6); const t=h('span',null,id); const row=h('div',{class:'hit',style:'display:flex;gap:10px;align-items:center'},h('button',{class:'btn ghost',style:'flex:1;justify-content:flex-start;text-align:left',onclick:()=>showProof(id)},t),p.note?h('span',{class:'muted',style:'font-size:12.5px'},clip(p.note,80)):null,h('button',{class:'btn sm',onclick:()=>post('pin',p.target,'off','').then(()=>{toast('Removed'); renderMore();})},'Remove'));
+      el.append(row); api('/api/event/'+encodeURIComponent(id)).then(e=>{ t.textContent=when(e.timestamp)+' · '+clip(e.command?'$ '+e.command:(e.file||e.summary||id),140); }).catch(()=>{}); });
+    box.append(el);
+    const sl=h('div',{class:'panel'},h('h2',null,'Saved filters'),h('p',null,'Save one from Findings (“Save this filter”) or Activity (“Save this view”).'));
+    const L=savedFilters.get(); if(!L.length) sl.append(h('p',{class:'muted'},'None saved in this browser.'));
+    L.forEach((f,i)=>sl.append(h('div',{class:'hit',style:'display:flex;gap:10px;align-items:center'},h('button',{class:'btn ghost',style:'flex:1;justify-content:flex-start',onclick:()=>applyFilter(f)},f.name),h('span',{class:'tag'},f.view==='findings'?'Findings':'Activity'),h('button',{class:'btn sm',onclick:()=>{ const l=savedFilters.get(); l.splice(i,1); savedFilters.set(l); renderMore(); }},'Delete'))));
+    box.append(sl);
+  });
+}
+
+// ---- Compare two cases (serve A --compare B)
+const KINDW={account:'AI account',ioc:'Incident indicator',secret_fingerprint:'Same secret (by fingerprint)',network_destination:'Outside address',mcp_server:'Plugin (MCP server)',tool_definition:'Plugin tool definition',instruction_file:'Instructions file',session_id:'Conversation id',agent_id:'Agent id',host_name:'Computer name'};
+function renderCompare(box){
+  box.append(h('div',{class:'loading'},'Loading…'));
+  api('/api/compare').then(d=>{
+    box.replaceChildren();
+    box.append(h('div',{class:'panel'},h('h2',null,'Compare with another case'),h('p',null,'What this case and a second one have in common: accounts, outside addresses, secrets (by fingerprint, never the value), plugins, instruction files, ids — and when each was seen. Both cases are fully verified before anything is compared.')));
+    if(!d.available){ box.append(h('div',{class:'panel'},h('h2',null,d.problems?'The second case could not be compared':'No second case'),d.compare?h('p',{class:'muted mono'},d.compare):null,(d.problems||[]).length?h('ul',{class:'steps-l'},d.problems.map(p=>h('li',null,p))):null,
+      d.howto?h('div',null,h('p',null,'Start the explorer with a second package:'),h('div',{class:'cmdbox'},h('code',null,d.howto),h('button',{class:'btn sm',onclick:()=>copyText(d.howto).then(()=>toast('Copied'))},'Copy'))):null)); return; }
+    const r=d.report||{}; const cases=r.cases||[];
+    const ct=h('table',{class:'t'},h('tr',null,['','Computer','Case number','Integrity','Actions','Findings','Package'].map(c=>h('th',null,c))));
+    cases.forEach(c=>ct.append(h('tr',null,h('td',null,h('b',null,c.label)),h('td',null,c.host),h('td',{class:'mono'},c.case_id),h('td',null,(c.integrity||{}).result==='VERIFIED'?h('span',{class:'chip ok'},'Verified'):h('span',{class:'chip act'},'Not verified')),h('td',null,String(c.events)),h('td',null,String(c.findings)),h('td',{class:'mono'},c.path))));
+    box.append(h('div',{class:'panel',style:'overflow:auto'},h('h2',null,'The two cases'),r.includes_unverified_cases?h('p',{class:'drift'},'One case did not verify; everything from it is marked.'):null,ct));
+    const sh=r.shared||[];
+    const st=h('table',{class:'t'},h('tr',null,['What','Shared item'].concat(cases.map(c=>c.label)).map(c=>h('th',null,c))));
+    sh.forEach(s=>{ const by={}; (s.cases||[]).forEach(o=>by[o.case]=o);
+      st.append(h('tr',null,h('td',null,KINDW[s.kind]||s.kind),h('td',null,h('b',null,mask(s.display||s.key)),s.note?h('div',{class:'muted',style:'font-size:12.5px'},s.note):null),cases.map(c=>{ const o=by[c.label]; return h('td',null,o?h('span',null,plural(o.count||1,'time'),h('div',{class:'muted',style:'font-size:12px'},(o.first_seen?when(o.first_seen):'undated')+(o.last_seen&&o.last_seen!==o.first_seen?' → '+when(o.last_seen):'')),(o.where||[]).length?h('div',{class:'muted mono',style:'font-size:12px'},clip(o.where[0],80)):null,o.from_unverified_case?h('div',{class:'drift'},'from an unverified case'):null):'—'); }))); });
+    box.append(h('div',{class:'panel',style:'overflow:auto'},h('h2',null,sh.length?plural(sh.length,'item')+' in common':'Nothing in common'),sh.length?st:h('p',{class:'muted'},'The two cases share no account, address, secret, plugin, instruction file or id.')));
+    if((r.identity_links||[]).length) box.append(h('div',{class:'panel'},h('h2',null,'Same identity in both cases'),h('ul',{class:'steps-l'},r.identity_links.map(l=>h('li',null,l.identifier+' '+mask(l.value)+': '+(l.entities||[]).join(' · '))))));
+    const tl=r.timeline||[];
+    if(tl.length){ const pn=h('div',{class:'panel'},h('h2',null,'When the shared items were seen'),compareStrip(tl,cases)); const t=h('table',{class:'t'},h('tr',null,['Time','Case','What','Item',''].map(c=>h('th',null,c))));
+      tl.slice(0,300).forEach(x=>t.append(h('tr',null,h('td',{style:'white-space:nowrap'},when(x.time)),h('td',null,x.case),h('td',null,KINDW[x.kind]||x.kind),h('td',null,mask(x.display||x.key)),h('td',{class:'muted'},x.event==='first_seen'?'first seen':'last seen'))));
+      pn.append(h('div',{style:'overflow:auto;margin-top:10px'},t)); box.append(pn); }
+    if((r.notes||[]).length||(r.limits||[]).length) box.append(h('details',{class:'tech'},h('summary',null,'Notes and limits'),h('ul',{class:'steps-l'},[].concat(r.notes||[],r.limits||[]).map(x=>h('li',null,x)))));
+  }).catch(err=>box.replaceChildren(h('div',{class:'empty'},'Could not load: '+err.message)));
+}
+function compareStrip(tl,cases){
+  const ts=tl.map(x=>Date.parse(x.time)).filter(Boolean); if(!ts.length) return h('p',{class:'muted'},'No dated item.');
+  let t0=Math.min(...ts), t1=Math.max(...ts); if(t1-t0<60000){ t0-=30000; t1+=30000; } const pad=(t1-t0)*.03; t0-=pad; t1+=pad;
+  const L=60,W=1000,RH=28,H=cases.length*RH+26, X=t=>L+(t-t0)/(t1-t0)*(W-L-10);
+  const svg=sv('svg',{class:'strip',viewBox:'0 0 '+W+' '+H,role:'img','aria-label':'Shared items over time, one row per case'});
+  cases.forEach((c,i)=>{ const y=i*RH+4; svg.append(svText(0,y+15,c.label),sv('rect',{class:'lane',x:L,y,width:W-L-10,height:RH-8,rx:4}));
+    tl.filter(x=>x.case===c.label).forEach(x=>{ const t=Date.parse(x.time); if(!t) return; const ci=sv('circle',{class:'src',cx:X(t),cy:y+(RH-8)/2,r:5}); const tt=sv('title'); tt.textContent=when(x.time)+' — '+(KINDW[x.kind]||x.kind)+': '+mask(x.display||x.key); ci.append(tt); svg.append(ci); }); });
+  const y=cases.length*RH+18; svg.append(svText(L,y,when(new Date(t0+pad).toISOString())),svText(W-180,y,when(new Date(t1-pad).toISOString())));
+  return svg;
+}
+function showSessionLineage(id){ openDrawer('Who did what in this conversation'); const box=$('#dbody'); box.replaceChildren(h('p',{class:'muted',style:'margin-top:0'},'People, agents, helper agents, the actions they took and what those reached, left to right. Click a box or a line for the evidence behind it.'),lineagePanel('/api/lineage?session='+encodeURIComponent(id))); }
+$('#savef').addEventListener('click',()=>saveFilter('findings'));
+
 // ================= NAV =================
-const VIEWS=['overview','findings','activity','protect','more'];
+const VIEWS=['overview','findings','activity','coverage','protect','more'];
 function go(name,quiet){
   $$('.tabs button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.view===name)));
   VIEWS.forEach(v=>$('#v-'+v).classList.toggle('on',v===name));
@@ -1421,6 +1827,7 @@ function go(name,quiet){
   if(name==='activity'&&!quiet){ renderSessions(); renderActHead(); loadEvents(); }
   if(name==='more'&&!quiet) renderMore();
   if(name==='protect') renderProtect();
+  if(name==='coverage') renderCoverage();
 }
 $$('.tabs button').forEach(b=>b.addEventListener('click',()=>go(b.dataset.view)));
 if(!/Mac|iPhone|iPad/.test(navigator.platform||navigator.userAgent)) $('#gqk').textContent='Ctrl K';
@@ -1448,17 +1855,18 @@ function fuzzy(q,text){
 function palHL(text,idx){ const d=h('span'); if(!idx||!idx.length){ d.textContent=text; return d; } const set=new Set(idx); let buf='', inM=false;
   const flush=m=>{ if(!buf) return; d.append(m?h('mark',null,buf):buf); buf=''; };
   [...text].forEach((c,i)=>{ const m=set.has(i); if(m!==inM){ flush(inM); inM=m; } buf+=c; }); flush(inM); return d; }
-const MORE_TABS=[['search','Search everything','Every action, finding and original file'],['mcp','Plugin (MCP) activity','Every plugin call and what came back'],['plugins','Plugins installed','MCP servers in the settings files'],['memory','Memory files','What the agents keep between conversations'],['crosscheck','Cross-check','What independent evidence confirms'],['map','Agent map','Which agent started which'],['evidence','About the evidence','Integrity, seal and verification']];
+const MORE_TABS=[['search','Search everything','Every action, finding and original file'],['conversations','AI conversations','Chats from AI-service exports and browser history'],['extensions','Extensions & agent plugins','Editor extensions, agent plugins and skills'],['lineage','Who did what','People, agents, actions and what they reached'],['bookmarks','Bookmarks','Bookmarked findings, key evidence and saved filters'],['compare','Compare cases','What this case shares with another'],['mcp','Plugin (MCP) activity','Every plugin call and what came back'],['plugins','Plugins installed','MCP servers in the settings files'],['memory','Memory files','What the agents keep between conversations'],['crosscheck','Cross-check','What independent evidence confirms'],['map','Agent map','Which agent started which'],['evidence','About the evidence','Integrity, seal and verification']];
 function openMore(tab){ moreTab=tab; go('more'); $$('#moreseg button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.m===tab))); }
 function fullSearch(q){ palRecent.add(q); moreTab='search'; go('more',true); $$('#moreseg button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.m==='search'))); const box=$('#more'); box.replaceChildren(); renderSearch(box,q); }
 function palStatic(){
   const out=[];
-  [['overview','Overview','The verdict and what to look at first'],['findings','Findings','Everything flagged, most serious first'],['activity','Activity','Every conversation and action, in order'],['protect','Protect','Stop it happening again: guardrails and fixes']]
+  [['overview','Overview','The verdict and what to look at first'],['findings','Findings','Everything flagged, most serious first'],['activity','Activity','Every conversation and action, in order'],['coverage','Coverage','What the case can and cannot show, and what to collect next'],['protect','Protect','Stop it happening again: guardrails and fixes']]
     .forEach(([v,t,d])=>out.push({group:'Go to',title:t,sub:d,glyph:'→',keys:v,run:()=>go(v)}));
   MORE_TABS.forEach(([k,t,d])=>out.push({group:'Go to',title:t,sub:d,glyph:'→',keys:'more '+k,run:()=>openMore(k)}));
   out.push({group:'Actions',title:curTheme()==='dark'?'Switch to light theme':'Switch to dark theme',sub:'Theme',glyph:'◐',keys:'theme dark light mode',run:()=>$('#theme').click()});
   out.push({group:'Actions',title:'Verify every file in the case',sub:'Re-hash the whole evidence package',glyph:'✓',keys:'verify integrity hash seal',run:()=>openMore('evidence')});
   out.push({group:'Actions',title:'Apply guardrails',sub:'Preview and apply agentdfir mitigate from the Protect tab',glyph:'⛨',keys:'mitigate guardrails protect apply',run:()=>go('protect')});
+  savedFilters.get().forEach(f=>out.push({group:'Saved filters',title:f.name,sub:(f.view==='findings'?'Findings':'Activity')+' filter saved in this browser',glyph:'☆',keys:'saved filter '+f.name,run:()=>applyFilter(f)}));
   (S.groups||[]).forEach(g=>{ const n=g.items.length; out.push({group:'Findings',title:g.p.title,sub:plural(n,'time')+' · '+g.rule,sev:g.sev,keys:g.rule+' '+(g.items[0]&&g.items[0].title||''),run:()=>openGroup(g.key)}); });
   (S.sessions||[]).forEach(se=>{ if(se.case_level) return; out.push({group:'Conversations',title:mask(sessTitle(se)),sub:(se.product||'agent')+' · '+day(se.first),glyph:'💬',keys:se.id,run:()=>openSession(se.id)}); });
   return out;
@@ -1473,7 +1881,7 @@ function palBuild(q){
     st.filter(x=>x.group==='Actions').forEach(x=>items.push(x));
     return items;
   }
-  const limits={'Go to':5,'Actions':3,'Findings':6,'Conversations':4};
+  const limits={'Go to':5,'Actions':3,'Findings':6,'Conversations':4,'Saved filters':4};
   const scored=palStatic().map(x=>{ const a=fuzzy(q,x.title), b=x.keys?fuzzy(q,x.keys):null; const s=Math.max(a?a.score:-1,b?b.score*0.8:-1); return s<0?null:Object.assign({},x,{score:s,idx:a?a.idx:[]}); }).filter(Boolean);
   const byGroup={}; scored.forEach(x=>(byGroup[x.group]=byGroup[x.group]||[]).push(x));
   const order=Object.keys(byGroup).sort((a,b)=>Math.max(...byGroup[b].map(x=>x.score))-Math.max(...byGroup[a].map(x=>x.score)));

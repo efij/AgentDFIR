@@ -19,9 +19,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v3/internal/detect"
+	"github.com/efij/AgentDFIR/v4/internal/detect"
 
-	"github.com/efij/AgentDFIR/v3/internal/casepkg"
+	"github.com/efij/AgentDFIR/v4/internal/casepkg"
 )
 
 func secretKind(v string) (string, bool)   { return detect.SecretKind(v) }
@@ -170,6 +170,10 @@ var locations = []location{
 	{"gemini-cli", []string{".gemini/settings.json"}, fmtMCPServers, "user"},
 	{"opencode", []string{".config/opencode/opencode.json", ".config/opencode/config.json"}, fmtOpenCode, "user"},
 	{"codex-cli", []string{".codex/config.toml"}, fmtCodexTOML, "user"},
+	{"windsurf", []string{".codeium/windsurf/mcp_config.json"}, fmtMCPServers, "user"},
+	{"continue", []string{".continue/config.json"}, fmtContinueJSON, "user"},
+	{"continue", []string{".continue/config.yaml", ".continue/mcpServers/*.yaml", ".continue/mcpServers/*.yml"}, fmtContinueYAML, "user"},
+	{"continue", []string{".continue/mcpServers/*.json"}, fmtMCPServers, "user"},
 	{"claude-desktop", []string{
 		"Library/Application Support/Claude/claude_desktop_config.json",
 		".config/Claude/claude_desktop_config.json",
@@ -278,6 +282,19 @@ func parseInto(inv *Inventory, host, scope, path, logical string, f format, data
 		display = logical
 	}
 	switch f {
+	case fmtContinueYAML:
+		servers, problems, err := parseContinueYAML(data)
+		if err != nil {
+			inv.Problems = append(inv.Problems, display+": "+err.Error())
+			return
+		}
+		for _, pr := range problems {
+			inv.Problems = append(inv.Problems, display+": "+pr)
+		}
+		for i, cs := range servers {
+			addContinueServer(inv, cs, i, host, scope, display)
+		}
+		return
 	case fmtCodexTOML:
 		servers, err := parseCodexTOML(data)
 		if err != nil {
@@ -301,6 +318,8 @@ func parseInto(inv *Inventory, host, scope, path, logical string, f format, data
 		addServerMap(inv, doc["mcpServers"], host, scope, display, "")
 	case fmtServers:
 		addServerMap(inv, doc["servers"], host, scope, display, "")
+	case fmtContinueJSON:
+		parseContinueJSON(inv, doc, host, scope, display)
 	case fmtServersOrMCP:
 		if raw, ok := doc["mcpServers"]; ok {
 			addServerMap(inv, raw, "cursor-cli", scope, display, "")

@@ -1,0 +1,5 @@
+{
+  "collect": "ai-export",
+  "note": "Ordinary ChatGPT and Claude.ai account exports: many conversations in one file, a regenerated (branched) answer, code-interpreter and tool_use records, attachments. One file holding many sessions with interleaving timestamps is the normal shape of an export and must not raise AGENT_IDENTITY_MISMATCH or SESSION_TAMPERING.",
+  "allow": {}
+}

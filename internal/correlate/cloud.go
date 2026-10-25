@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v3/internal/endpoint"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/endpoint"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
 // Cloud audit correlation. An agent's az, aws or gcloud command is
@@ -42,6 +42,7 @@ func cloudPass(events []schema.Event, records []endpoint.Record, res *EndpointRe
 	}
 	sort.SliceStable(records, func(i, j int) bool { return records[i].Time.Before(records[j].Time) })
 	start, end := records[0].Time, records[len(records)-1].Time
+	res.CloudCoverageStart, res.CloudCoverageEnd = start.UTC().Format(time.RFC3339), end.UTC().Format(time.RFC3339)
 	matched := make([]bool, len(records))
 	matchedBy := map[int]*schema.Event{}
 
@@ -85,6 +86,7 @@ func cloudPass(events []schema.Event, records []endpoint.Record, res *EndpointRe
 			res.CloudRefused++
 		}
 		ev.Summary = appendNote(ev.Summary, note)
+		addMatch(res, "cloud", ev, r, bestScore, cloudWindow, nil)
 		res.CloudCorroborated++
 	}
 	return burstFindings(records, matchedBy, res)
@@ -344,9 +346,8 @@ func cloudScore(c cloudCall, r endpoint.Record) int {
 	if r.Resource == "" {
 		return 70
 	}
-	res := strings.ToLower(r.Resource)
 	for _, n := range c.names {
-		if n = strings.ToLower(strings.TrimSpace(n)); n != "" && strings.Contains(res, n) {
+		if resourceMatches(r.Resource, n) { // whole segments: "prod" never matches "nonprod-db"
 			return 95
 		}
 	}

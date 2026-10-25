@@ -8,21 +8,26 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v3/internal/correlate"
-	"github.com/efij/AgentDFIR/v3/internal/endpoint"
-	"github.com/efij/AgentDFIR/v3/internal/normalize"
-	"github.com/efij/AgentDFIR/v3/internal/overlay"
-	"github.com/efij/AgentDFIR/v3/internal/sanitize"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/correlate"
+	"github.com/efij/AgentDFIR/v4/internal/endpoint"
+	"github.com/efij/AgentDFIR/v4/internal/normalize"
+	"github.com/efij/AgentDFIR/v4/internal/overlay"
+	"github.com/efij/AgentDFIR/v4/internal/sanitize"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
-const correlateUsage = `usage: agentdfir correlate <package-dir> <endpoint-log>... [--window 3s] [--format auto|auditd|sysmon-xml|jsonl|csv]
+const correlateUsage = `usage: agentdfir correlate <package-dir> <endpoint-log>... [--window 3s] [--format auto|auditd|sysmon-xml|evtx|jsonl|csv]
                                                     [--known-destinations a.example,b.example]
 
 Second witness: match the agent transcript against OS telemetry.
   auditd      /var/log/audit/audit.log (SYSCALL/EXECVE/PATH/SOCKADDR)
   sysmon-xml  wevtutil qe Microsoft-Windows-Sysmon/Operational /f:xml   (events 1, 3, 11, 23)
+  evtx        raw .evtx files: Sysmon, Security 4688, PowerShell 4104, service installs, log clears
   jsonl/csv   Velociraptor, osquery, evtx_dump JSON, macOS eslogger — field names auto-mapped
+  zeek, dns-log, squid    Zeek dns/http/ssl, BIND/dnsmasq/Pi-hole/Unbound/Windows DNS, Squid
+  authlog, journald       /var/log/auth.log or /var/log/secure, journalctl -o json
+  k8s-audit, git-audit, storage-access   Kubernetes audit, GitHub/GitLab audit export, S3/GCS/Azure Storage logs
+  (these corroborate only: they never contradict a tool call)
 Format is sniffed per file. Results are written back to normalized/events.jsonl
 (OBSERVED → CORROBORATED / CONTRADICTED) and detections/corroboration.json.
 `
@@ -96,6 +101,9 @@ func runEndpointCorrelation(pkg string, logs []string, f endpoint.Format, opts c
 		for _, p := range lr.Problems {
 			fmt.Printf("  note: %s\n", sanitize.Terminal(p))
 		}
+		for _, n := range lr.Notices {
+			fmt.Printf("  notice: %s\n", sanitize.Terminal(n))
+		}
 		records = append(records, lr.Records...)
 	}
 	res, findings := correlate.Endpoint(events, records, opts)
@@ -120,9 +128,22 @@ func runEndpointCorrelation(pkg string, logs []string, f endpoint.Format, opts c
 	if !res.CoverageStart.IsZero() {
 		fmt.Printf("Telemetry coverage: %s → %s\n", res.CoverageStart.Format(time.RFC3339), res.CoverageEnd.Format(time.RFC3339))
 	}
+	if res.ScriptCorroborated > 0 {
+		fmt.Printf("PowerShell script blocks: %d more tool call(s) CORROBORATED.\n", res.ScriptCorroborated)
+	}
+	if res.ImagePartial > 0 {
+		fmt.Printf("Process creations without command lines: %d tool call(s) PARTIALLY_CORROBORATED by program name.\n", res.ImagePartial)
+	}
 	if res.CloudRecords > 0 {
 		fmt.Printf("Cloud audit correlation: %d cloud record(s), %d cloud command(s) checked — %d CORROBORATED (%d refused by the cloud); %d destructive burst(s).\n",
 			res.CloudRecords, res.CloudCommands, res.CloudCorroborated, res.CloudRefused, res.CloudBursts)
+	}
+	if res.CloudPartial > 0 {
+		fmt.Printf("Kubernetes/Git/storage audit: %d command(s) PARTLY CONFIRMED by operation only (the command names no resource to compare).\n", res.CloudPartial)
+	}
+	if res.WitnessRecords > 0 {
+		fmt.Printf("DNS/proxy/auth-log correlation: %d record(s) — %d tool call(s) CORROBORATED, %d PARTLY CONFIRMED; these logs never contradict.\n",
+			res.WitnessRecords, res.WitnessCorroborated, res.WitnessPartial)
 	}
 	return findings, res, 0
 }

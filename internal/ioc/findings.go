@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
 // Findings turns verdict hits into KNOWN_INCIDENT_IOC findings, one per
@@ -88,6 +88,8 @@ func surfaceText(s string) string {
 		return "a transcript"
 	case "mcp_inventory":
 		return "a configured MCP server"
+	case "extension_inventory":
+		return "an installed editor extension"
 	case "lockfile":
 		return "a lockfile (installed dependency)"
 	case "filesystem":

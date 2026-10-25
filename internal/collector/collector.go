@@ -27,8 +27,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/efij/AgentDFIR/v3/internal/casepkg"
-	"github.com/efij/AgentDFIR/v3/internal/products"
+	"github.com/efij/AgentDFIR/v4/internal/casepkg"
+	"github.com/efij/AgentDFIR/v4/internal/products"
 )
 
 // Options controls one collection run.
@@ -55,6 +55,9 @@ type Options struct {
 	// recorded as not acquired, with the reason. It never changes which
 	// files are collected or in what order — only when.
 	Pace func(size int64) error
+	// SkipPaths, for IngestLooseSessions only, names files already
+	// preserved under a more specific rule in the same round.
+	SkipPaths map[string]bool
 }
 
 // Defaults for size bounds.
@@ -123,6 +126,10 @@ type result struct {
 
 // Run walks every manifest entry and ingests matches into the builder.
 func Run(b *casepkg.Builder, man *products.CollectorManifest, opts Options) (*Stats, error) {
+	// products.Manifest returns (nil, nil) for an unknown product id.
+	if man == nil {
+		return nil, fmt.Errorf("no collector manifest for product %q", opts.Product)
+	}
 	if opts.MaxFileBytes == 0 {
 		opts.MaxFileBytes = DefaultMaxFileBytes
 	}
@@ -519,6 +526,84 @@ func logicalPath(path string, opts Options) string {
 // artifacts, support bundles, vendor exports) that carry agent transcripts
 // without a recognizable user-profile layout.
 func IngestLooseSessions(b *casepkg.Builder, root string, opts Options) (*Stats, error) {
+	looseDefaults(&opts)
+	st := &Stats{}
+	r := newRunner(b, opts, st)
+	entry := products.ManifestEntry{ID: "archive.sessions", Category: "agent_session", Sensitivity: "high"}
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		low := strings.ToLower(path)
+		if !strings.HasSuffix(low, ".json") && !strings.HasSuffix(low, ".jsonl") {
+			return nil
+		}
+		if opts.SkipPaths[path] {
+			return nil // already preserved under a more specific rule
+		}
+		r.ingestPath(entry, path)
+		return nil
+	})
+	if err != nil {
+		r.stop()
+		return st, err
+	}
+	return st, r.stop()
+}
+
+// FileSpec is one file to preserve under its own collector rule.
+type FileSpec struct {
+	Path    string
+	Entry   products.ManifestEntry
+	Product string // overrides opts.Product when set
+}
+
+// IngestFiles preserves an explicit list of files, each under the rule,
+// category and product its spec names, with logical paths relative to
+// opts.ProfileRoot. Used for trees whose files were classified up front
+// (AI-service account exports, UFDR layouts) rather than matched by a
+// product manifest. Files are acquired one product at a time, products in
+// order of first appearance and files in the caller's order, so
+// acquisition is deterministic.
+func IngestFiles(b *casepkg.Builder, files []FileSpec, opts Options) (*Stats, error) {
+	looseDefaults(&opts)
+	total := &Stats{}
+	var order []string
+	byProduct := map[string][]FileSpec{}
+	for _, f := range files {
+		pid := f.Product
+		if pid == "" {
+			pid = opts.Product
+		}
+		if _, ok := byProduct[pid]; !ok {
+			order = append(order, pid)
+		}
+		byProduct[pid] = append(byProduct[pid], f)
+	}
+	for _, pid := range order {
+		o := opts
+		o.Product = pid
+		st := &Stats{}
+		r := newRunner(b, o, st)
+		for _, f := range byProduct[pid] {
+			r.ingestPath(f.Entry, f.Path)
+		}
+		err := r.stop()
+		total.Acquired += st.Acquired
+		total.Carried += st.Carried
+		total.Symlinks += st.Symlinks
+		total.Skipped += st.Skipped
+		total.Failed += st.Failed
+		total.TotalBytes += st.TotalBytes
+		total.ReadBytes += st.ReadBytes
+		if err != nil {
+			return total, err
+		}
+	}
+	return total, nil
+}
+
+func looseDefaults(opts *Options) {
 	if opts.MaxFileBytes == 0 {
 		opts.MaxFileBytes = DefaultMaxFileBytes
 	}
@@ -531,25 +616,6 @@ func IngestLooseSessions(b *casepkg.Builder, root string, opts Options) (*Stats,
 			opts.Jobs = maxJobs
 		}
 	}
-	st := &Stats{}
-	r := newRunner(b, opts, st)
-	entry := products.ManifestEntry{ID: "archive.sessions", Category: "agent_session", Sensitivity: "high"}
-	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return nil
-		}
-		low := strings.ToLower(path)
-		if !strings.HasSuffix(low, ".json") && !strings.HasSuffix(low, ".jsonl") {
-			return nil
-		}
-		r.ingestPath(entry, path)
-		return nil
-	})
-	if err != nil {
-		r.stop()
-		return st, err
-	}
-	return st, r.stop()
 }
 
 // Survey walks the same patterns Run would, using only lstat, and reports

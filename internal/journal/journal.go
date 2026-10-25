@@ -32,7 +32,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/efij/AgentDFIR/v3/internal/hashchain"
+	"github.com/efij/AgentDFIR/v4/internal/hashchain"
 )
 
 // SealEvery is how often a seal record (and an off-file anchor) is written.

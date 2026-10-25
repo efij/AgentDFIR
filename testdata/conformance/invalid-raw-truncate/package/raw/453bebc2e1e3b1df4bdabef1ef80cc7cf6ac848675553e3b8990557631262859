@@ -1,0 +1,2 @@
+{"cwd":"/home/dev/app","isSidechain":false,"message":{"content":"list the files","role":"user"},"sessionId":"bbbbbbbb-0001-4000-8000-000000000001","timestamp":"2026-09-20T10:00:00Z","type":"user","uuid":"u-0001","version":"2.1.0"}
+{"cwd":"/home/dev/app","isSidechain":false,"message":{"content":[{"id":"toolu_bbbbbbbb_0002","input":{"command":"ls -la"},"name":"Bash","type":"tool_use"}],"model":"claude-sonnet-5","role":"assistant"},"

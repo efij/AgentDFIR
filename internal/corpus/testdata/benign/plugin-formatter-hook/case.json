@@ -1,0 +1,4 @@
+{
+  "note": "A plugin from the built-in marketplace with a PostToolUse formatter hook whose script blocks curl|sh with a grep pattern, plus a SessionStart health check against its own localhost worker. A pattern that names the attack is not the attack; loopback is not the network.",
+  "allow": {}
+}

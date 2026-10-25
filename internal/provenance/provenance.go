@@ -20,9 +20,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/efij/AgentDFIR/v3/internal/casepkg"
-	"github.com/efij/AgentDFIR/v3/internal/detect"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/casepkg"
+	"github.com/efij/AgentDFIR/v4/internal/detect"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
 // MaxFileBytes bounds an instruction file we attribute line by line.
@@ -295,29 +295,57 @@ func attributeFile(store *casepkg.Store, a casepkg.ArtifactRecord, relevant []Wr
 // skipped (the model always narrates before acting). The nearest human
 // prompt is also returned as context for the analyst.
 func trigger(events []schema.Event, idxs []int, at int) (kind, ref_, info, prompt string) {
+	t := TriggerFor(events, idxs, at)
+	return t.Kind, t.Ref, t.Detail, t.Prompt
+}
+
+// Trigger is what fed the model right before an action: the nearest
+// preceding input event in the same session, and the nearest human prompt
+// as context whether or not it was the trigger.
+type Trigger struct {
+	Kind       string `json:"kind"`                      // human_prompt | tool_result | unknown
+	Ref        string `json:"ref,omitempty"`             // evidence reference of the triggering event
+	Detail     string `json:"detail,omitempty"`          // prompt excerpt, or the tool/MCP source of the result
+	Prompt     string `json:"prompt,omitempty"`          // nearest preceding human prompt (excerpt)
+	PromptRef  string `json:"prompt_ref,omitempty"`      // its evidence reference
+	PromptTime string `json:"prompt_time,omitempty"`     // its timestamp
+	PromptIdx  int    `json:"-"`                         // its index in events, -1 when none
+	TriggerIdx int    `json:"-"`                         // the trigger event's index in events, -1 when none
+	Lookback   int    `json:"lookback_events,omitempty"` // how many session events were examined
+}
+
+// TriggerFor is trigger with every detail kept: the accountability report
+// needs the prompt's own reference and time, not only its text. idxs is
+// the session's event indices in ascending order; at is the action's
+// index. Only the 200 events before the action are examined.
+func TriggerFor(events []schema.Event, idxs []int, at int) Trigger {
 	pos := sort.SearchInts(idxs, at)
-	kind = "unknown"
+	t := Trigger{Kind: "unknown", PromptIdx: -1, TriggerIdx: -1}
 	for k := pos - 1; k >= 0 && k >= pos-200; k-- {
+		t.Lookback++
 		ev := events[idxs[k]]
 		switch ev.EventType {
 		case schema.EventHumanPrompt:
-			if kind == "unknown" {
-				kind, ref_, info = "human_prompt", ref(ev), trimTo(ev.Summary, 120)
+			if t.Kind == "unknown" {
+				t.Kind, t.Ref, t.Detail, t.TriggerIdx = "human_prompt", ref(ev), trimTo(ev.Summary, 120), idxs[k]
 			}
-			prompt = trimTo(ev.Summary, 120)
-			return
+			t.Prompt, t.PromptRef, t.PromptTime, t.PromptIdx = trimTo(ev.Summary, 120), ref(ev), ev.Timestamp, idxs[k]
+			return t
 		case schema.EventToolResult:
-			if kind == "unknown" {
+			if t.Kind == "unknown" {
 				src := toolSource(events, idxs, k, ev)
 				if isWriteTool(src) {
 					continue // a write's own "ok" result is not outside content
 				}
-				kind, ref_, info = "tool_result", ref(ev), src
+				t.Kind, t.Ref, t.Detail, t.TriggerIdx = "tool_result", ref(ev), src, idxs[k]
 			}
 		}
 	}
-	return
+	return t
 }
+
+// EvidenceRef is the reference every finding and report uses for an event.
+func EvidenceRef(ev schema.Event) string { return ref(ev) }
 
 // toolSource names the tool (or MCP server/tool) whose result an event
 // carries, resolving through the originating tool_call when the result

@@ -68,8 +68,12 @@ type Event struct {
 	// bytes) when Command was cut for display. Encoded payloads and the
 	// flags at the end of a long `claude -p "…"` live past the cut, so the
 	// decoder, IOC matching and the agent-CLI rules read FullCommand().
-	CommandFull    string `json:"command_full,omitempty"`
-	Cwd            string `json:"cwd,omitempty"` // working directory the tool ran in, when the transcript records it
+	CommandFull string `json:"command_full,omitempty"`
+	Cwd         string `json:"cwd,omitempty"` // working directory the tool ran in, when the transcript records it
+	// PermissionMode is the approval mode the client recorded on the
+	// transcript line (default, acceptEdits, plan, auto, bypassPermissions…).
+	// Empty when the line carries none.
+	PermissionMode string `json:"permission_mode,omitempty"`
 	File           string `json:"file,omitempty"`
 	NetworkDest    string `json:"network_destination,omitempty"`
 	Action         string `json:"action,omitempty"`
@@ -77,8 +81,13 @@ type Event struct {
 	Summary        string `json:"summary,omitempty"` // short, sanitized extract
 	SourceArtifact string `json:"source_artifact"`   // artifact_id in the sealed zone
 	SourcePath     string `json:"source_logical_path,omitempty"`
-	SourceOffset   int64  `json:"source_offset"` // byte offset of the source line
+	SourceOffset   int64  `json:"source_offset"` // byte offset of the source line, or of the record within it
 	SourceLine     int    `json:"source_line"`
+	// SourceJSONPath is an RFC 6901 JSON Pointer to the value inside the
+	// source artifact this event was read from, for formats where a line
+	// number alone does not locate it (one-line JSON documents such as
+	// AI-service account exports). Empty for line-oriented transcripts.
+	SourceJSONPath string `json:"source_json_path,omitempty"`
 	Corroboration  string `json:"corroboration_state"`
 	// WitnessNote names the independent source that confirmed or disproved
 	// this event, in a sentence an analyst can read. Empty when nothing

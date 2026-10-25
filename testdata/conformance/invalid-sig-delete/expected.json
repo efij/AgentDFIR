@@ -1,0 +1,6 @@
+{
+  "verdict": "FAILED",
+  "description": "delete SEAL.sig from a package whose last round recorded its signer",
+  "mutation": "sig-delete",
+  "spec": "0.2"
+}

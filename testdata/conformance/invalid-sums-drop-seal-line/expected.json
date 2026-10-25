@@ -1,0 +1,6 @@
+{
+  "verdict": "FAILED",
+  "description": "remove an archived seal's line from SHA256SUMS",
+  "mutation": "sums-drop-seal-line",
+  "spec": "0.2"
+}

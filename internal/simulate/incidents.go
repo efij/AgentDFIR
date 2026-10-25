@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v3/internal/journal"
+	"github.com/efij/AgentDFIR/v4/internal/journal"
 )
 
 // BaselineProfile is the subdirectory a scenario writes when it needs an

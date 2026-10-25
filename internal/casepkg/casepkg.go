@@ -43,8 +43,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v3/internal/hashchain"
-	"github.com/efij/AgentDFIR/v3/internal/version"
+	"github.com/efij/AgentDFIR/v4/internal/hashchain"
+	"github.com/efij/AgentDFIR/v4/internal/version"
 )
 
 // Artifact acquisition status values.
@@ -1318,6 +1318,9 @@ func verify(dir string, full bool) (*VerifyResult, error) {
 			res.Problems = append(res.Problems, "SHA256SUMS: malformed line: "+line)
 			continue
 		}
+		if _, dup := listed[parts[1]]; dup {
+			res.Problems = append(res.Problems, "SHA256SUMS: listed twice: "+parts[1])
+		}
 		listed[parts[1]] = parts[0]
 	}
 	haveManifest := false
@@ -1338,6 +1341,12 @@ func verify(dir string, full bool) (*VerifyResult, error) {
 	}
 
 	for rel, want := range listed {
+		// SHA256SUMS is input like everything else in the package: a path
+		// that leaves it is a malformed seal, not a file to go and read.
+		if !filepath.IsLocal(filepath.FromSlash(rel)) {
+			res.Problems = append(res.Problems, "SHA256SUMS: path outside the package: "+rel)
+			continue
+		}
 		isBlob := strings.HasPrefix(rel, "raw/")
 		path := filepath.Join(dir, filepath.FromSlash(rel))
 		if isBlob && !full {
@@ -1364,6 +1373,26 @@ func verify(dir string, full bool) (*VerifyResult, error) {
 	if entries, err := os.ReadDir(filepath.Join(dir, "raw")); err == nil {
 		for _, e := range entries {
 			rel := "raw/" + e.Name()
+			if _, ok := listed[rel]; !ok {
+				res.Problems = append(res.Problems, rel+": present but not covered by SHA256SUMS")
+			}
+		}
+	}
+	// The same holds for the rest of the sealed zone. ReadManifest prefers
+	// manifest.jsonl, so an unlisted one planted next to a sealed legacy
+	// manifest.json would be what analysis reads; an unlisted file in
+	// seals/ would pass for round history.
+	for _, f := range []string{manifestJSON, manifestJSONL} {
+		if _, ok := listed[f]; ok {
+			continue
+		}
+		if _, err := os.Lstat(filepath.Join(dir, f)); err == nil {
+			res.Problems = append(res.Problems, f+": present but not covered by SHA256SUMS")
+		}
+	}
+	if entries, err := os.ReadDir(filepath.Join(dir, sealsDir)); err == nil {
+		for _, e := range entries {
+			rel := sealsDir + "/" + e.Name()
 			if _, ok := listed[rel]; !ok {
 				res.Problems = append(res.Problems, rel+": present but not covered by SHA256SUMS")
 			}

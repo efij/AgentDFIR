@@ -1,0 +1,5 @@
+{
+  "collect": "ai-export",
+  "note": "ChatGPT account export (provider-side record): the user pasted a live CI token into a conversation, and a browsing result the model read carried an instruction-override phrase. The existing content rules must fire on the sealed export exactly as they do on an endpoint transcript.",
+  "expect": ["POTENTIAL_SECRET_EXPOSURE", "PROMPT_INJECTION_INDICATOR"]
+}

@@ -1,0 +1,6 @@
+{
+  "verdict": "FAILED",
+  "description": "add an unlisted legacy manifest.json next to manifest.jsonl",
+  "mutation": "manifest-plant-legacy",
+  "spec": "0.2"
+}

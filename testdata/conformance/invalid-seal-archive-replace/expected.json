@@ -1,0 +1,6 @@
+{
+  "verdict": "FAILED",
+  "description": "replace the archived seal seals/SHA256SUMS.1",
+  "mutation": "seal-archive-replace",
+  "spec": "0.2"
+}

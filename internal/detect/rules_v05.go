@@ -4,15 +4,15 @@ package detect
 
 import (
 	"fmt"
-	"github.com/efij/AgentDFIR/v3/internal/shellshape"
+	"github.com/efij/AgentDFIR/v4/internal/shellshape"
 	"regexp"
 	"sort"
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v3/internal/casepkg"
-	"github.com/efij/AgentDFIR/v3/internal/netdest"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/casepkg"
+	"github.com/efij/AgentDFIR/v4/internal/netdest"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
 const defaultSpawnThreshold = 10
@@ -503,8 +503,15 @@ func identityMismatch(res *schema.Normalized) []schema.Finding {
 // alone fired AGENT_IDENTITY_MISMATCH (30 sessions) and SESSION_TAMPERING
 // on every machine that had used the desktop app. Per-artifact integrity
 // rules only make sense for single-session, append-only files.
+//
+// AI-service account exports (timestamp source "provider_export…") are
+// the same shape: one conversations.json holds every conversation of the
+// account, and branches of one conversation interleave in time.
+// Browser history databases (one session per AI conversation, visits in
+// row order) and session indexes such as Continue's sessions.json are
+// multi-session stores of the same kind.
 func multiSessionStore(ev schema.Event) bool {
-	return ev.TimestampSrc == "database"
+	return ev.TimestampSrc == "database" || strings.HasPrefix(ev.TimestampSrc, "provider_export") || ev.Product == browserProduct || ev.Result == "session_index"
 }
 
 // SESSION_TAMPERING — chain breaks + backward timestamps per artifact.

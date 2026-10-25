@@ -1,0 +1,7 @@
+{
+  "note": "A private key encoded into /tmp, then an MCP tool that posts a message. The shell-only exfil rules never see the MCP send; AGENT_SENSITIVE_DATA_STAGING and CHAIN_CROSS_TOOL_EXFIL do.",
+  "expect": [
+    "AGENT_SENSITIVE_DATA_STAGING",
+    "CHAIN_CROSS_TOOL_EXFIL"
+  ]
+}

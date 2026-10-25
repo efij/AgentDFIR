@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/efij/AgentDFIR/v3/internal/store"
+	"github.com/efij/AgentDFIR/v4/internal/store"
 )
 
 // cmdStore inspects and reclaims the per-machine shared evidence store.

@@ -1,0 +1,30 @@
+[
+  {
+    "id": "ds-conv-0001",
+    "title": "Port scan question",
+    "inserted_at": "2026-09-01T18:00:00.000000+08:00",
+    "updated_at": "2026-09-01T18:05:00.000000+08:00",
+    "mapping": {
+      "root": {"id": "root", "parent": null, "children": ["1"], "message": null},
+      "1": {
+        "id": "1", "parent": "root", "children": ["2", "3"],
+        "message": {"files": [{"id": "dsf-1", "file_name": "hosts.txt"}], "model": "deepseek-chat", "inserted_at": "2026-09-01T18:00:01.000000+08:00",
+          "fragments": [{"type": "REQUEST", "content": "Which hosts in this list expose SSH?"}]}
+      },
+      "2": {
+        "id": "2", "parent": "1", "children": [],
+        "message": {"files": [], "model": "deepseek-reasoner", "inserted_at": "2026-09-01T18:00:05.000000+08:00",
+          "fragments": [
+            {"type": "THINK", "content": "The user wants SSH exposure."},
+            {"type": "SEARCH", "content": "ssh default port", "results": [{"url": "https://example.org/ssh", "title": "SSH port 22"}]},
+            {"type": "RESPONSE", "content": "Hosts with port 22 open expose SSH."}
+          ]}
+      },
+      "3": {
+        "id": "3", "parent": "1", "children": [],
+        "message": {"files": [], "model": "deepseek-chat", "inserted_at": "2026-09-01T18:01:00.000000+08:00",
+          "fragments": [{"type": "RESPONSE", "content": "A second answer from a regenerate."}]}
+      }
+    }
+  }
+]

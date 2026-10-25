@@ -5,15 +5,19 @@
 package netdest
 
 import (
-	"github.com/efij/AgentDFIR/v3/internal/shellshape"
+	"github.com/efij/AgentDFIR/v4/internal/shellshape"
+	"net"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
 )
 
 var (
-	urlRe = regexp.MustCompile(`(?i)\bhttps?://([A-Za-z0-9._-]+(?::\d+)?)`)
-	sshRe = regexp.MustCompile(`\b(?:scp|rsync|ssh|sftp)\b[^|;&]*?\b[A-Za-z0-9._-]+@([A-Za-z0-9._-]+)`)
+	// urlRe finds URL candidates only; URLHost decides what the host is.
+	urlRe      = regexp.MustCompile(`(?i)\bhttps?://[^\s"'<>|;&()` + "`" + `\\]+`)
+	hostnameRe = regexp.MustCompile(`^[a-z0-9._-]+$`)
+	sshRe      = regexp.MustCompile(`\b(?:scp|rsync|ssh|sftp)\b[^|;&]*?\b[A-Za-z0-9._-]+@([A-Za-z0-9._-]+)`)
 	// Flags that take a value: without consuming the value, `nc -w 3 host`
 	// reported "3" as the destination.
 	ncRe    = regexp.MustCompile(`\b(?:nc|ncat|netcat)\s+(?:-[a-zA-Z]+(?:\s+\d+)?\s+)*([A-Za-z0-9._-]+)\s+\d+`)
@@ -52,9 +56,18 @@ func Extract(cmd string) []string {
 		seen[h] = true
 		out = append(out, h)
 	}
-	for _, m := range urlRe.FindAllStringSubmatch(cmd, -1) {
-		add(m[1])
-	}
+	// URLs first, through net/url: the host is what a client contacts, so
+	// in https://trusted.com@evil.com/x it is evil.com, never the userinfo.
+	// Each URL is then replaced by its host alone, so the patterns below
+	// still see a URL's IP address but never anything from its userinfo.
+	cmd = urlRe.ReplaceAllStringFunc(cmd, func(raw string) string {
+		h, ok := URLHost(raw)
+		if !ok {
+			return " "
+		}
+		add(h)
+		return " " + Host(h) + " "
+	})
 	for _, m := range sshRe.FindAllStringSubmatch(cmd, -1) {
 		add(m[1])
 	}
@@ -68,6 +81,35 @@ func Extract(cmd string) []string {
 		add(m[1])
 	}
 	return out
+}
+
+// URLHost returns the destination (host, or host:port when the URL names a
+// port; IPv6 in brackets) of an http(s) URL as a client would contact it,
+// parsed with net/url: userinfo before '@' is never the host. URLs that
+// do not parse, have no host, or carry a percent-encoded host (clients
+// disagree on decoding it) yield ok=false, as do hosts with characters no
+// DNS name has (shell variables, globs).
+func URLHost(raw string) (string, bool) {
+	u, err := url.Parse(strings.TrimRight(raw, ".,"))
+	if err != nil || u.Host == "" || strings.Contains(u.Host, "%") {
+		return "", false
+	}
+	h := strings.TrimSuffix(strings.ToLower(u.Hostname()), ".")
+	switch {
+	case h == "":
+		return "", false
+	case strings.Contains(h, ":"): // IPv6 literal
+		if net.ParseIP(h) == nil {
+			return "", false
+		}
+		h = "[" + h + "]"
+	case !hostnameRe.MatchString(h):
+		return "", false
+	}
+	if p := u.Port(); p != "" {
+		h += ":" + p
+	}
+	return h, true
 }
 
 // Host strips a port suffix.

@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/efij/AgentDFIR/v3/internal/sanitize"
-	"github.com/efij/AgentDFIR/v3/internal/unpack"
+	"github.com/efij/AgentDFIR/v4/internal/sanitize"
+	"github.com/efij/AgentDFIR/v4/internal/unpack"
 )
 
 // collectDocker snapshots a container filesystem (or a saved `docker
@@ -97,5 +97,6 @@ func collectArchive(path string, o importOpts) int {
 	o.tree = tmp
 	o.notes = map[string]string{"mode": "archive", "archive_file": path, "archive_sha256": st.SHA256, "archive_kind": kind}
 	o.fallback = true
+	o.aiPlan = detectArchiveExport(tmp)
 	return collectImport(o)
 }

@@ -12,11 +12,11 @@ import (
 	"os/user"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v3/internal/mitigate"
-	"github.com/efij/AgentDFIR/v3/internal/notes"
-	"github.com/efij/AgentDFIR/v3/internal/sanitize"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
-	"github.com/efij/AgentDFIR/v3/internal/store"
+	"github.com/efij/AgentDFIR/v4/internal/mitigate"
+	"github.com/efij/AgentDFIR/v4/internal/notes"
+	"github.com/efij/AgentDFIR/v4/internal/sanitize"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/store"
 )
 
 // The Protect tab. GET /api/mitigations says what can be done about this

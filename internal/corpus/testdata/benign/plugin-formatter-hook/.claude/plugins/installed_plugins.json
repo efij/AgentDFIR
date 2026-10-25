@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "plugins": {
+    "tidy@claude-plugins-official": [
+      {
+        "scope": "user",
+        "installPath": "/Users/dev/.claude/plugins/cache/claude-plugins-official/tidy/2.0.0",
+        "version": "2.0.0",
+        "installedAt": "2026-08-01T10:00:00.000Z"
+      }
+    ]
+  }
+}

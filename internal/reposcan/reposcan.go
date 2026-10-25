@@ -27,8 +27,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/efij/AgentDFIR/v3/internal/mcpaudit"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/mcpaudit"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
 // Options bound the scan.

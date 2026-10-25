@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v3/internal/endpoint"
-	"github.com/efij/AgentDFIR/v3/internal/netdest"
-	"github.com/efij/AgentDFIR/v3/internal/products"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/endpoint"
+	"github.com/efij/AgentDFIR/v4/internal/netdest"
+	"github.com/efij/AgentDFIR/v4/internal/products"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
 // Endpoint correlation: the transcript is witness #1, OS telemetry is
@@ -39,11 +39,30 @@ type EndpointResult struct {
 	AgentProcesses int       `json:"agent_lineage_processes"`
 	Unlogged       int       `json:"unlogged_agent_records"`
 
+	ScriptCorroborated int `json:"script_corroborated,omitempty"` // by PowerShell script-block records
+	ImagePartial       int `json:"image_partial,omitempty"`       // program name only (4688 without command line)
+
 	CloudRecords      int `json:"cloud_records,omitempty"`
 	CloudCommands     int `json:"cloud_commands_checked,omitempty"`
 	CloudCorroborated int `json:"cloud_corroborated,omitempty"`
 	CloudRefused      int `json:"cloud_refused,omitempty"` // matched, and the cloud denied it
 	CloudBursts       int `json:"cloud_destructive_bursts,omitempty"`
+
+	CloudPartial int `json:"cloud_partial,omitempty"` // k8s/git/storage: operation matched, no resource to compare
+
+	// Partial-coverage witnesses: DNS, proxy, auth.log and journal records.
+	WitnessRecords      int `json:"witness_records,omitempty"`
+	WitnessCorroborated int `json:"witness_corroborated,omitempty"` // proxy host(+path), sudo/journal command line
+	WitnessPartial      int `json:"witness_partial,omitempty"`      // DNS lookup or ssh login only
+
+	// The time range the imported cloud audit records span (RFC 3339).
+	CloudCoverageStart string `json:"cloud_coverage_start,omitempty"`
+	CloudCoverageEnd   string `json:"cloud_coverage_end,omitempty"`
+
+	// Matches are the pairings behind the corroborated counts (see Match),
+	// at most MaxMatches; MatchesOmitted counts the ones past the bound.
+	Matches        []Match `json:"matches,omitempty"`
+	MatchesOmitted int     `json:"matches_omitted,omitempty"`
 }
 
 // Endpoint correlates events in place and returns findings.
@@ -56,16 +75,40 @@ func Endpoint(events []schema.Event, records []endpoint.Record, opts EndpointOpt
 	// its own rules: they never contradict a command (the export may cover
 	// another account), and they must not widen the host telemetry's
 	// coverage or every tool call outside it would look unexplained.
-	var host, cloud []endpoint.Record
+	// DNS, proxy and auth-log records ("sightings") and the cloud-like
+	// audit sources (Kubernetes, Git hosting, object storage) follow the
+	// same rule: they can only ever corroborate.
+	// PowerShell script-block records (native .evtx) are the same kind of
+	// witness one step removed: they can corroborate a command but are not
+	// exhaustive process telemetry, so they never contradict and never
+	// widen coverage. Security 4688 records without a command line
+	// ("process-image") are weaker still: they name only the program, so
+	// they can at most partly corroborate. Service-install and log-cleared
+	// records are notices for the operator, not correlation input.
+	var host, cloud, witnessCloud, sightings, script, image []endpoint.Record
 	for _, r := range records {
-		if r.Kind == "cloud" {
+		switch {
+		case endpoint.IsWitnessCloud(r):
+			witnessCloud = append(witnessCloud, r)
+		case r.Kind == "cloud":
 			cloud = append(cloud, r)
-		} else {
+		case endpoint.IsSighting(r):
+			sightings = append(sightings, r)
+		case r.Kind == "script":
+			script = append(script, r)
+		case r.Kind == endpoint.KindProcessImage:
+			image = append(image, r)
+		case r.Kind == "service", r.Kind == "log-clear":
+		default:
 			host = append(host, r)
 		}
 	}
 	findings := endpointHost(events, host, opts, res)
 	findings = append(findings, cloudPass(events, cloud, res)...)
+	findings = append(findings, witnessCloudPass(events, witnessCloud, res)...)
+	sightingPass(events, sightings, opts, res)
+	scriptPass(events, script, opts, res)
+	imagePass(events, image, opts, res)
 	return res, findings
 }
 
@@ -80,6 +123,7 @@ func endpointHost(events []schema.Event, records []endpoint.Record, opts Endpoin
 	agentNames := agentBinaryNames(opts.AgentBinaries)
 	lineage := buildLineage(records, agentNames)
 	matchedRec := make([]bool, len(records))
+	pids := newPIDIndex(records)
 
 	// Pass 1: tool calls → endpoint records.
 	var findings []schema.Finding
@@ -114,6 +158,7 @@ func endpointHost(events []schema.Event, records []endpoint.Record, opts Endpoin
 				ev.Corroboration = schema.StateCorroborated
 			}
 			ev.Summary = appendNote(ev.Summary, fmt.Sprintf("corroborated by %s %s (%s)", r.Source, r.Kind, r.Ref))
+			addMatch(res, "endpoint", ev, r, bestScore, opts.Window, pids.relatedOf(records, best))
 			res.Corroborated++
 			continue
 		}

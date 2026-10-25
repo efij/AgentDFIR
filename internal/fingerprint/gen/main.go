@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/efij/AgentDFIR/v3/internal/fingerprint/compute"
+	"github.com/efij/AgentDFIR/v4/internal/fingerprint/compute"
 )
 
 func main() {

@@ -5,7 +5,7 @@ package main
 import (
 	"os"
 
-	"github.com/efij/AgentDFIR/v3/internal/cli"
+	"github.com/efij/AgentDFIR/v4/internal/cli"
 )
 
 func main() {

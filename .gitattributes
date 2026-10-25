@@ -6,3 +6,6 @@
 # Windows checkout and break every hash — which is exactly what it did.
 # Nothing under here is text as far as git is concerned.
 internal/compat/testdata/** -text -diff
+
+# Conformance fixtures for the .adfir format: sealed bytes, same rule.
+testdata/conformance/** -text -diff

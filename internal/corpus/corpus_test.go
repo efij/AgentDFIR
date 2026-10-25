@@ -8,12 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v3/internal/analysis"
-	"github.com/efij/AgentDFIR/v3/internal/casepkg"
-	"github.com/efij/AgentDFIR/v3/internal/catalog"
-	"github.com/efij/AgentDFIR/v3/internal/collector"
-	"github.com/efij/AgentDFIR/v3/internal/products"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/analysis"
+	"github.com/efij/AgentDFIR/v4/internal/catalog"
+	"github.com/efij/AgentDFIR/v4/internal/products"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
 // analyseCase collects one corpus directory into a real sealed package and
@@ -21,23 +19,8 @@ import (
 // passes here passes in the product.
 func analyseCase(t *testing.T, c Case) []schema.Finding {
 	t.Helper()
-	man, err := products.ManifestAllPlatforms("claude-code")
-	if err != nil {
-		t.Fatal(err)
-	}
 	pkg := filepath.Join(t.TempDir(), "case.adfir")
-	b, err := casepkg.New(pkg, "CORPUS-"+c.Name, casepkg.CaseInfo{OperatorOSUser: "corpus"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer b.Close()
-	if _, err := collector.Run(b, man, collector.Options{
-		ProfileRoot: c.Dir, ConfigRoot: filepath.Join(c.Dir, ".claude"),
-		SystemRoot: c.Dir, Product: "claude-code",
-	}); err != nil {
-		t.Fatal(err)
-	}
-	if err := b.Seal(); err != nil {
+	if err := BuildPackage(c, pkg, "CORPUS-"+c.Name, "corpus"); err != nil {
 		t.Fatal(err)
 	}
 	res, err := analysis.Run(pkg, analysis.Options{})
@@ -140,8 +123,34 @@ func TestEveryCaseExplainsItself(t *testing.T) {
 		if c.Kind == "attack" && len(c.Expect) == 0 {
 			t.Errorf("attack/%s: expects no rules, so it asserts nothing", c.Name)
 		}
-		if _, err := os.Stat(filepath.Join(c.Dir, ".claude")); err != nil {
-			t.Errorf("%s/%s: no .claude profile to collect", c.Kind, c.Name)
+		if c.Collect == CollectAIExport {
+			if _, err := os.Stat(filepath.Join(c.Dir, "export")); err != nil {
+				t.Errorf("%s/%s: no export to collect", c.Kind, c.Name)
+			}
+		} else if !hasProfile(c) {
+			t.Errorf("%s/%s: no profile for %v to collect", c.Kind, c.Name, c.ProductIDs())
 		}
 	}
+}
+
+// hasProfile reports whether a case directory holds a config directory of
+// every product it is collected with.
+func hasProfile(c Case) bool {
+	for _, pid := range c.ProductIDs() {
+		prod, err := products.ByID(pid)
+		if err != nil {
+			return false
+		}
+		found := false
+		for _, d := range prod.ConfigDirs {
+			if _, err := os.Stat(filepath.Join(c.Dir, filepath.FromSlash(d))); err == nil {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
 }

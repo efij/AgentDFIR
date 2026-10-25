@@ -15,6 +15,7 @@
     { "id": "codex.auth", "paths": ["${CONFIG_ROOT}/auth.json"], "category": "credentials", "sensitivity": "critical" },
     { "id": "codex.logs", "paths": ["${CONFIG_ROOT}/log/**"], "category": "debug_logs", "sensitivity": "medium" },
     { "id": "codex.prompts", "paths": ["${CONFIG_ROOT}/prompts/**"], "category": "agent_instructions", "sensitivity": "medium" },
+    { "id": "codex.skills", "paths": ["${CONFIG_ROOT}/skills/**"], "category": "agent_definitions", "sensitivity": "medium" },
     { "id": "codex.plugins", "paths": ["${CONFIG_ROOT}/plugins/**"], "category": "agent_definitions", "sensitivity": "high" },
     { "id": "codex.app_state", "paths": ["${CONFIG_ROOT}/.codex-global-state.json", "${CONFIG_ROOT}/.codex-global-state.json.bak", "${CONFIG_ROOT}/installation_id", "${CONFIG_ROOT}/version.json", "${CONFIG_ROOT}/models_cache.json", "${CONFIG_ROOT}/chrome-native-hosts.json", "${CONFIG_ROOT}/chrome-native-hosts-v2.json"], "category": "product_state", "sensitivity": "medium" },
     { "id": "codex.browser", "paths": ["${CONFIG_ROOT}/browser/**"], "category": "agent_session", "sensitivity": "high" },

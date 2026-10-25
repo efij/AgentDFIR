@@ -5,9 +5,10 @@ import (
 	"path"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v3/internal/casepkg"
-	"github.com/efij/AgentDFIR/v3/internal/ioc"
-	"github.com/efij/AgentDFIR/v3/internal/mcpaudit"
+	"github.com/efij/AgentDFIR/v4/internal/casepkg"
+	"github.com/efij/AgentDFIR/v4/internal/extinv"
+	"github.com/efij/AgentDFIR/v4/internal/ioc"
+	"github.com/efij/AgentDFIR/v4/internal/mcpaudit"
 )
 
 // SimulatedMarker is the file `agentdfir simulate` writes at a synthetic
@@ -31,6 +32,37 @@ type HuntOptions struct {
 	IOCFiles       []string
 	RawTranscripts bool
 	Path           string
+	// Extensions is the case's extension inventory when the caller already
+	// has it; nil scans the package when an incident needs it.
+	Extensions *extinv.Inventory
+}
+
+// ExtRefs turns an extension inventory into hunt inputs.
+func ExtRefs(inv *extinv.Inventory) []ioc.ExtRef {
+	if inv == nil {
+		return nil
+	}
+	var out []ioc.ExtRef
+	for _, x := range inv.Extensions {
+		if x.ID == "" {
+			continue
+		}
+		out = append(out, ioc.ExtRef{ID: x.ID, Version: x.Version, Evidence: x.Dir + " (" + x.Editor + " extension)", Time: x.InstalledAt})
+	}
+	return out
+}
+
+// WantsExtensions reports whether any incident carries an extension
+// indicator (the extension scan is skipped otherwise).
+func WantsExtensions(incs []ioc.Incident) bool {
+	for _, inc := range incs {
+		for _, ind := range inc.Indicators {
+			if ind.Kind == ioc.KindVSCodeExtension {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // HuntCase runs the incident IOC check over an analyzed package. inv may
@@ -76,8 +108,19 @@ func HuntCase(pkg string, inv *mcpaudit.Inventory, o HuntOptions) ([]ioc.Verdict
 			pkgs = append(pkgs, ioc.PkgRef{Ecosystem: eco, Name: name, Version: ver, Evidence: s.ConfigPath + " (MCP server " + s.Name + ")"})
 		}
 	}
+	var exts []ioc.ExtRef
+	if WantsExtensions(incs) {
+		ei := o.Extensions
+		if ei == nil {
+			ei, _ = extinv.ScanPackage(pkg)
+		}
+		exts = ExtRefs(ei)
+		if o.Path != "" {
+			exts = append(exts, ExtRefs(extinv.ScanHome(o.Path))...)
+		}
+	}
 	in := ioc.Inputs{
-		Events: LoadEvents(pkg), Manifest: man, Store: casepkg.NewStore(pkg, man), Packages: pkgs,
+		Events: LoadEvents(pkg), Manifest: man, Store: casepkg.NewStore(pkg, man), Packages: pkgs, Extensions: exts,
 		RawTranscripts: o.RawTranscripts, Path: o.Path, Simulated: IsSimulated(man),
 	}
 	return ioc.Hunt(incs, in), notes, nil

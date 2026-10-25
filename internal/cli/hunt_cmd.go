@@ -8,9 +8,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v3/internal/analysis"
-	"github.com/efij/AgentDFIR/v3/internal/ioc"
-	"github.com/efij/AgentDFIR/v3/internal/sanitize"
+	"github.com/efij/AgentDFIR/v4/internal/analysis"
+	"github.com/efij/AgentDFIR/v4/internal/extinv"
+	"github.com/efij/AgentDFIR/v4/internal/ioc"
+	"github.com/efij/AgentDFIR/v4/internal/sanitize"
 )
 
 // cmdHunt answers "was this machine hit by X?" for the embedded incident
@@ -54,7 +55,11 @@ func cmdHunt(args []string) int {
 			fmt.Fprintln(os.Stderr, "error:", err)
 			return 2
 		}
-		verdicts = ioc.Hunt(incs, ioc.Inputs{Path: *dir})
+		in := ioc.Inputs{Path: *dir}
+		if analysis.WantsExtensions(incs) {
+			in.Extensions = analysis.ExtRefs(extinv.ScanHome(*dir))
+		}
+		verdicts = ioc.Hunt(incs, in)
 	} else {
 		if _, err := analysis.Ensure(pkg, io.Discard); err != nil {
 			fmt.Fprintln(os.Stderr, "error:", err)

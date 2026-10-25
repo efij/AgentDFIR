@@ -1,0 +1,6 @@
+{
+  "note": "Everyday Continue agent session: read a source file, run the test suite, report. Must not fire anything beyond building blocks; guards the Continue parser against inventing risk from ordinary tool calls.",
+  "products": [
+    "continue"
+  ]
+}

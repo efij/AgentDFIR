@@ -1,0 +1,6 @@
+{
+  "verdict": "FAILED",
+  "description": "flip one byte in an uncompressed blob",
+  "mutation": "raw-flip-byte",
+  "spec": "0.2"
+}

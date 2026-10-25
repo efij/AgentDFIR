@@ -3,24 +3,30 @@ package cli
 import (
 	"flag"
 	"fmt"
-	"github.com/efij/AgentDFIR/v3/internal/analysis"
-	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/analysis"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v3/internal/casepkg"
-	"github.com/efij/AgentDFIR/v3/internal/encrypt"
-	"github.com/efij/AgentDFIR/v3/internal/export"
-	"github.com/efij/AgentDFIR/v3/internal/notes"
-	"github.com/efij/AgentDFIR/v3/internal/report"
-	"github.com/efij/AgentDFIR/v3/internal/sanitize"
-	"github.com/efij/AgentDFIR/v3/internal/seal"
-	"github.com/efij/AgentDFIR/v3/internal/supportpkg"
+	"github.com/efij/AgentDFIR/v4/internal/casepkg"
+	"github.com/efij/AgentDFIR/v4/internal/encrypt"
+	"github.com/efij/AgentDFIR/v4/internal/export"
+	"github.com/efij/AgentDFIR/v4/internal/notes"
+	"github.com/efij/AgentDFIR/v4/internal/report"
+	"github.com/efij/AgentDFIR/v4/internal/sanitize"
+	"github.com/efij/AgentDFIR/v4/internal/seal"
+	"github.com/efij/AgentDFIR/v4/internal/supportpkg"
 )
 
 // cmdReport renders HTML/JSON/CSV/STIX/OTel outputs for a package.
 func cmdReport(args []string) int {
+	if len(args) > 0 && args[0] == "accountability" {
+		return cmdReportAccountability(args[1:])
+	}
+	if isRSMFReport(args) {
+		return cmdReportRSMF(args)
+	}
 	fs := flag.NewFlagSet("report", flag.ContinueOnError)
 	format := fs.String("format", "html", "html|pdf|json|csv|stix|otel|ocsf|sarif|timesketch|l2tcsv|all")
 	outDir := fs.String("out", "", "output directory (default: <package>/reports)")
@@ -28,7 +34,7 @@ func cmdReport(args []string) int {
 	// people type it; `report --format x pkg` is how flag parsing wants it.
 	pkg, rest := splitPositional(args)
 	if err := fs.Parse(rest); err != nil || (pkg == "" && fs.NArg() != 1) || (pkg != "" && fs.NArg() != 0) {
-		fmt.Fprintln(os.Stderr, "usage: agentdfir report <package-dir> [--format html|pdf|json|csv|stix|otel|ocsf|sarif|timesketch|l2tcsv|all] [--out dir]")
+		fmt.Fprintln(os.Stderr, "usage: agentdfir report <package-dir> [--format html|pdf|json|csv|stix|otel|ocsf|sarif|timesketch|l2tcsv|all] [--out dir]\n       agentdfir report <package-dir> --format rsmf [--out dir] [--session ID ...] [--redact ...]")
 		return 2
 	}
 	if pkg == "" {
@@ -158,8 +164,15 @@ func cmdReport(args []string) int {
 	return 0
 }
 
-// cmdExport handles `export --support`.
+// cmdExport handles `export --support`, `export custody` and the portable
+// case file.
 func cmdExport(args []string) int {
+	if len(args) > 0 && args[0] == "custody" {
+		return cmdExportCustody(args[1:])
+	}
+	if hasFlag(args, "production") {
+		return cmdExportProduction(args)
+	}
 	fs := flag.NewFlagSet("export", flag.ContinueOnError)
 	support := fs.Bool("support", false, "produce a redacted support package instead of a portable case file")
 	out := fs.String("out", "", "output path")

@@ -3,7 +3,7 @@ package mcpaudit
 import (
 	"strings"
 
-	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
 // projectConfigs are the MCP config files agents load from a working tree

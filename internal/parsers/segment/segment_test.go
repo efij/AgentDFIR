@@ -3,7 +3,7 @@ package segment
 import (
 	"testing"
 
-	"github.com/efij/AgentDFIR/v3/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
 // A parser hands addEntity a map it goes on to merge into. If the recorder
