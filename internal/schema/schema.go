@@ -79,6 +79,11 @@ type Event struct {
 	SourcePath     string `json:"source_logical_path,omitempty"`
 	SourceOffset   int64  `json:"source_offset"` // byte offset of the source line
 	SourceLine     int    `json:"source_line"`
+	// SourceJSONPath is an RFC 6901 JSON Pointer to the value inside the
+	// source artifact this event was read from, for formats where a line
+	// number alone does not locate it (one-line JSON documents such as
+	// AI-service account exports). Empty for line-oriented transcripts.
+	SourceJSONPath string `json:"source_json_path,omitempty"`
 	Corroboration  string `json:"corroboration_state"`
 	// WitnessNote names the independent source that confirmed or disproved
 	// this event, in a sentence an analyst can read. Empty when nothing
