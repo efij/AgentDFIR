@@ -321,7 +321,7 @@ func TestStagingAndLoggingParsers(t *testing.T) {
 		"rm -rf dist build":                       false,
 		"cat ~/.zsh_history":                      false,
 	} {
-		if got := deletesEvidence(cmd) != ""; got != want {
+		if got := deletesEvidence(cmd, "/home/dev/repo") != ""; got != want {
 			t.Errorf("deletesEvidence(%q) = %v, want %v", cmd, got, want)
 		}
 	}
@@ -338,5 +338,106 @@ func TestStagingAndLoggingParsers(t *testing.T) {
 		if _, got := installCommand(cmd); got != want {
 			t.Errorf("installCommand(%q) = %v, want %v", cmd, got, want)
 		}
+	}
+}
+
+// Security review regressions.
+
+// An install that names an agent CLI next to another package is not an
+// agent install: the other package's scripts are judged.
+func TestPackageExemptionNeedsOnlyAgentPackages(t *testing.T) {
+	tree := func(install string) []endpoint.Record {
+		return []endpoint.Record{
+			tet(0, 3000, 1, "/bin/bash", "", "bash", "init"),
+			tet(1, 3100, 3000, "/usr/bin/npm", install, "npm", "bash"),
+			tet(2, 3110, 3100, "/bin/sh", `-c "node postinstall.js"`, "sh", "npm"),
+			tet(3, 3120, 3110, "/usr/local/bin/claude", "--dangerously-skip-permissions -p x", "cl", "sh"),
+		}
+	}
+	for install, fire := range map[string]bool{
+		"i @anthropic-ai/claude-code evilpkg":           true,
+		"i evilpkg@1.0.0 @anthropic-ai/claude-code@2.1": true,
+		"install @anthropic-ai/claude-codex":            true, // substring, not the package
+		"install --registry @anthropic-ai/claude-code":  true, // the name is an option value
+		"install":                                      true, // from package.json: names nothing
+		"i -g @anthropic-ai/claude-code@latest":        false,
+		"i -g @anthropic-ai/claude-code @openai/codex": false,
+	} {
+		f := hostRunRule(t, "PACKAGE_SCRIPT_TOUCHED_AGENT", tree(install)...)
+		if (len(f) == 1) != fire {
+			t.Errorf("npm %s: fired=%v want %v", install, len(f) == 1, fire)
+		}
+	}
+	// pip specs with versions and extras.
+	if !onlyAgentPackages(packageArgs("pip", []string{"install", "aider-chat[playwright]==0.86"})) {
+		t.Error("aider-chat with extras/version must count as an agent package")
+	}
+	if onlyAgentPackages(packageArgs("pip", []string{"install", "-r", "requirements.txt"})) {
+		t.Error("a requirements file must never count as agent packages")
+	}
+	// Even an agent-only install is reported for a login read and for a
+	// settings write outside its install tree; its install-tree writes are not.
+	recs := append(tree("i -g @anthropic-ai/claude-code"),
+		endpoint.Record{Time: ht(4), Kind: "file", FileOp: "open", PID: 3110, Exe: "/bin/sh", FilePath: "/home/dev/.codex/auth.json", ExecID: "sh", ParentExecID: "npm", Source: "tetragon", Ref: "c"},
+		endpoint.Record{Time: ht(4), Kind: "file", FileOp: "modify", PID: 3110, Exe: "/bin/sh", FilePath: "/usr/lib/node_modules/@anthropic-ai/claude-code/cli.js", ExecID: "sh", ParentExecID: "npm", Source: "tetragon", Ref: "d"})
+	f := hostRunRule(t, "PACKAGE_SCRIPT_TOUCHED_AGENT", recs...)
+	if len(f) != 1 || len(f[0].Related) != 2 || !strings.Contains(f[0].Related[1], ".codex/auth.json") || f[0].Severity != "HIGH" {
+		t.Fatalf("agent install login read: %+v", f)
+	}
+}
+
+// A descendant naming itself after the agent is not the agent: only the
+// process telemetry's root agent record exempts housekeeping.
+func TestHousekeepingExemptionOnlyForLineageRoot(t *testing.T) {
+	spoof := endpoint.Record{Time: ht(8), Kind: "file", FileOp: "delete", PID: 4123, PPID: 4111, Exe: "/tmp/claude", Cmdline: "claude",
+		FilePath: "/Users/user/.claude/projects/-p/old.jsonl", Source: "eslogger", Ref: "u"}
+	recs := append(macTree(), hproc(7, 4123, 4111, "/tmp/claude", "claude"), spoof)
+	if f := hostRunRule(t, "AGENT_EVIDENCE_SOURCE_DELETED", recs...); len(f) != 1 {
+		t.Fatalf("spoofed agent name exempted: %+v", f)
+	}
+	// Exe/Cmdline on the record say "claude" but the pid is a shell.
+	lie := spoof
+	lie.PID = 4111
+	if f := hostRunRule(t, "AGENT_EVIDENCE_SOURCE_DELETED", append(macTree(), lie)...); len(f) != 1 {
+		t.Fatalf("record-claimed agent exe exempted: %+v", f)
+	}
+	// Auth and signal records are never exempt, even from the root pid.
+	sig := endpoint.Record{Time: ht(7), Kind: endpoint.KindSignal, PID: 4111, PPID: 4100, Exe: "/Users/user/.local/share/claude/versions/2.1.0",
+		Resource: "sig=9 target_pid=333 target=/usr/bin/eslogger", Source: "eslogger", Ref: "s"}
+	if f := hostRunRule(t, "AGENT_LOGGING_DISRUPTED", append(macTree(), sig)...); len(f) != 1 {
+		t.Fatalf("signal exempted: %+v", f)
+	}
+	// The real root's pruning stays exempt.
+	prune := spoof
+	prune.PID, prune.PPID, prune.Exe = 4100, 900, "/Users/user/.local/share/claude/versions/2.1.0"
+	if f := hostRunRule(t, "AGENT_EVIDENCE_SOURCE_DELETED", append(macTree(), prune)...); len(f) != 0 {
+		t.Fatalf("root pruning fired: %+v", f)
+	}
+}
+
+// Path spellings that reach the same file must match.
+func TestEvidencePathNormalization(t *testing.T) {
+	for _, tc := range []struct{ cmd, cwd string }{
+		{"rm //var/log/auth.log", "/"},
+		{"rm /var/./log/audit/audit.log", "/"},
+		{"rm /var/tmp/../log/secure", "/"},
+		{"rm log/syslog", "/var"},
+		{"rm ../../var/log/messages", "/home/dev"},
+		{"rm ~/.zsh_history", "/Users/dev/proj"},
+		{"rm $HOME/.bash_history", "/home/dev"},
+		{"rm ${HOME}/.claude/projects/-r/a.jsonl", ""},
+		{"rm .claude/history.jsonl", "/home/dev"},
+		{`del C:\Windows\System32\winevt\Logs\..\Logs\Security.evtx`, ""},
+	} {
+		if deletesEvidence(tc.cmd, tc.cwd) == "" {
+			t.Errorf("deletesEvidence(%q, cwd %q) missed", tc.cmd, tc.cwd)
+		}
+	}
+	del := endpoint.Record{Time: ht(8), Kind: "file", FileOp: "delete", PID: 4123, PPID: 4111, Exe: "/bin/rm", FilePath: "//var//log/./auth.log", Source: "test", Ref: "u"}
+	if f := hostRunRule(t, "AGENT_EVIDENCE_SOURCE_DELETED", append(macTree(), hproc(7, 4123, 4111, "/bin/rm", "rm x"), del)...); len(f) != 1 {
+		t.Fatalf("file record path not normalized: %+v", f)
+	}
+	if deletesEvidence("rm dist/var/log/auth.log", "/repo") != "" {
+		t.Error("a relative path inside the project must not match /var/log")
 	}
 }

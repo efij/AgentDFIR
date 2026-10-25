@@ -3,6 +3,7 @@ package correlate
 import (
 	"encoding/base64"
 	"fmt"
+	"path"
 	"regexp"
 	"sort"
 	"strings"
@@ -131,7 +132,7 @@ func (v *hostView) procAt(pid int, t time.Time) int {
 // old transcripts) is not an act of its tools.
 func (v *hostView) attributed(i int) bool {
 	r := v.recs[i]
-	if agentProcess(v.names, r.Exe, r.Cmdline) && r.Kind != "process" {
+	if v.isLineageRoot(i) {
 		return false
 	}
 	if v.lineage[i] {
@@ -144,6 +145,29 @@ func (v *hostView) attributed(i int) bool {
 		return v.lineage[j]
 	}
 	return false
+}
+
+// isLineageRoot reports whether a non-process record was produced by the
+// agent process itself: its pid resolves to a process record that is an
+// agent binary and does not itself descend from an agent. The record's own
+// Exe and Cmdline are not trusted for this (a tool can name itself
+// anything); only the process telemetry's record of that pid is. Auth and
+// signal records are never exempt.
+func (v *hostView) isLineageRoot(i int) bool {
+	r := v.recs[i]
+	switch r.Kind {
+	case "process", "auth", endpoint.KindSignal:
+		return false
+	}
+	if r.PID == 0 {
+		return false
+	}
+	j := v.procAt(r.PID, r.Time)
+	if j < 0 || j == i {
+		return false
+	}
+	p := v.recs[j]
+	return agentProcess(v.names, p.Exe, p.Cmdline) && !v.lineage[j]
 }
 
 // ancestors calls fn for each process-record ancestor of record i (parent
@@ -718,24 +742,81 @@ func (v *hostView) logging() ([]schema.Finding, HostRuleCoverage) {
 // evidencePathRe: files an investigation of agent activity reads.
 var evidencePathRe = regexp.MustCompile(`(?i)(/\.claude/projects/.+\.jsonl$|/\.claude/history\.jsonl$|/\.claude/transcripts/|/\.codex/(sessions|archived_sessions)/|/\.codex/history\.jsonl$|/\.gemini/tmp/.+\.json|/\.local/share/opencode/|\.aider\.chat\.history\.md$|/\.(bash|zsh|sh|ksh)_history$|/fish_history$|\\ConsoleHost_history\.txt$|^/var/log/(audit/|auth\.log|secure|syslog|messages|journal/|wtmp|btmp|lastlog)|^/private/var/log/|^/(private/)?var/db/diagnostics/|\\winevt\\logs\\[^\\]+\.evtx$|\.adfir(/|$))`)
 
+// normPath canonicalizes a path argument before it is matched: quotes
+// removed, ~ / $HOME / ${HOME} expanded, a relative path resolved against
+// the working directory (or the root when it is unknown), duplicate
+// separators and . / .. segments collapsed. Windows paths keep their
+// backslashes; repeated ones are collapsed.
+func normPath(p, cwd string) string {
+	p = strings.Trim(strings.TrimSpace(p), `"'`)
+	if p == "" {
+		return ""
+	}
+	if len(p) >= 2 && p[1] == ':' || strings.HasPrefix(p, `\\`) || strings.Contains(p, `\`) && !strings.Contains(p, "/") {
+		unc := strings.HasPrefix(p, `\\`)
+		q := path.Clean(strings.ReplaceAll(p, `\`, "/"))
+		if unc {
+			q = "/" + q
+		}
+		return strings.ReplaceAll(q, "/", `\`)
+	}
+	home := homeOf(cwd)
+	switch {
+	case p == "~" || p == "$HOME" || p == "${HOME}":
+		p = home
+	case strings.HasPrefix(p, "~/"):
+		p = home + p[1:]
+	case strings.HasPrefix(p, "$HOME/"):
+		p = home + p[len("$HOME"):]
+	case strings.HasPrefix(p, "${HOME}/"):
+		p = home + p[len("${HOME}"):]
+	}
+	if !strings.HasPrefix(p, "/") {
+		base := cwd
+		if !strings.HasPrefix(base, "/") {
+			base = "/"
+		}
+		p = base + "/" + p
+	}
+	return path.Clean(p)
+}
+
+// homeOf guesses the home directory from a working directory; the home
+// patterns are not anchored, so any home works when it is unknown.
+func homeOf(cwd string) string {
+	for _, pre := range []string{"/Users/", "/home/"} {
+		if strings.HasPrefix(cwd, pre) {
+			rest := cwd[len(pre):]
+			if i := strings.IndexByte(rest, '/'); i >= 0 {
+				rest = rest[:i]
+			}
+			if rest != "" {
+				return pre + rest
+			}
+		}
+	}
+	if cwd == "/root" || strings.HasPrefix(cwd, "/root/") {
+		return "/root"
+	}
+	return "/home/user"
+}
+
 var deleters = map[string]bool{"rm": true, "unlink": true, "shred": true, "srm": true, "truncate": true, "del": true, "erase": true, "remove-item": true, "ri": true}
 
 // deletesEvidence reports an invocation that deletes or empties an
 // evidence path.
-func deletesEvidence(cmd string) string {
+func deletesEvidence(cmd, cwd string) string {
 	why := ""
-	forEachInvocation(cmd, func(argv []string) bool {
+	check := func(argv []string) bool {
 		for k, a := range argv {
-			p := exeName(a)
-			if !deleters[p] {
+			if !deleters[exeName(a)] {
 				continue
 			}
 			for _, arg := range argv[k+1:] {
-				arg = strings.Trim(arg, `"'`)
-				if strings.HasPrefix(arg, "~/") {
-					arg = "/home/user/" + arg[2:]
+				if strings.HasPrefix(arg, "-") {
+					continue
 				}
-				if evidencePathRe.MatchString(arg) {
+				if evidencePathRe.MatchString(normPath(arg, cwd)) {
 					why = strings.Join(argv[k:], " ")
 					return true
 				}
@@ -743,7 +824,15 @@ func deletesEvidence(cmd string) string {
 			return false
 		}
 		return false
-	})
+	}
+	if forEachInvocation(cmd, check) {
+		return why
+	}
+	// Windows command lines: the shell-style lexer reads \ as an escape,
+	// so the raw whitespace-separated words are judged as well.
+	if strings.Contains(cmd, `\`) {
+		check(strings.Fields(cmd))
+	}
 	return why
 }
 
@@ -762,11 +851,11 @@ func (v *hostView) evidenceDeletion() ([]schema.Finding, HostRuleCoverage) {
 		var what string
 		switch r.Kind {
 		case "file":
-			if r.FileOp == "delete" && evidencePathRe.MatchString(r.FilePath) {
+			if r.FileOp == "delete" && evidencePathRe.MatchString(normPath(r.FilePath, r.Cwd)) {
 				what = "deleted " + r.FilePath
 			}
 		case "process":
-			what = deletesEvidence(r.Cmdline)
+			what = deletesEvidence(r.Cmdline, r.Cwd)
 		}
 		if what == "" || !v.attributed(i) {
 			continue
@@ -797,7 +886,15 @@ var agentPackages = []string{"@anthropic-ai/claude-code", "@openai/codex", "@goo
 // installCommand reports whether argv installs or builds packages (and so
 // runs their lifecycle or build scripts), and returns its text.
 func installCommand(cmd string) (string, bool) {
+	text, _, ok := installSpec(cmd)
+	return text, ok
+}
+
+// installSpec is installCommand plus the package specs the install names
+// (nil when it installs from a manifest or names none).
+func installSpec(cmd string) (string, []string, bool) {
 	found := ""
+	var pkgs []string
 	forEachInvocation(cmd, func(argv []string) bool {
 		for k := 0; k < len(argv) && k < 3; k++ {
 			p, rest := exeName(argv[k]), argv[k+1:]
@@ -838,22 +935,95 @@ func installCommand(cmd string) (string, bool) {
 			}
 			if ok {
 				found = strings.Join(argv[k:], " ")
+				pkgs = packageArgs(p, rest)
 				return true
 			}
 		}
 		return false
 	})
-	return found, found != ""
+	return found, pkgs, found != ""
 }
 
-func namesAgentPackage(cmd string) bool {
-	low := strings.ToLower(cmd)
+// installValued are package-manager options that take a separate value.
+var installValued = map[string]bool{"--registry": true, "--prefix": true, "-C": true, "--cwd": true, "--dir": true, "--cache": true,
+	"--userconfig": true, "--tag": true, "-i": true, "--index-url": true, "--extra-index-url": true, "-f": true, "--find-links": true,
+	"-t": true, "--target": true, "--root": true, "--python": true, "-p": true, "--source": true, "-v": true, "--version": true,
+	"--path": true, "--git": true, "--branch": true, "--rev": true, "--features": true, "--group": true, "-G": true, "--filter": true}
+
+// packageArgs returns the package specs after the subcommand. Anything
+// that installs from a file, a URL, a requirements list or an editable
+// path yields a spec that is not a bare name, so it never matches an
+// agent package.
+func packageArgs(pm string, rest []string) []string {
+	var out []string
+	sub := false
+	for j := 0; j < len(rest); j++ {
+		a := rest[j]
+		if strings.HasPrefix(a, "-") {
+			switch {
+			case a == "-r" || a == "--requirement" || a == "-e" || a == "--editable" || a == "-c" || a == "--constraint":
+				out = append(out, a) // a file or path whose packages the argv does not reveal
+				j++
+			case installValued[a]:
+				j++
+			}
+			continue
+		}
+		if !sub {
+			sub = true // the subcommand: install, add, ci, …
+			continue
+		}
+		if pm == "uv" && a == "install" && len(out) == 0 {
+			continue // uv pip install / uv tool install
+		}
+		out = append(out, a)
+	}
+	return out
+}
+
+// packageName strips a version, tag, extras or marker from a spec:
+// @scope/name@1.2 → @scope/name, name@latest → name, pkg[extra]==1.0 →
+// pkg.
+func packageName(spec string) string {
+	s := strings.ToLower(strings.Trim(spec, `"'`))
+	if strings.HasPrefix(s, "@") {
+		if i := strings.Index(s[1:], "@"); i >= 0 {
+			s = s[:i+1]
+		}
+	} else if i := strings.IndexAny(s, "@=<>!~;[ "); i >= 0 {
+		s = s[:i]
+	}
+	return s
+}
+
+var agentPackageSet = func() map[string]bool {
+	m := map[string]bool{}
 	for _, p := range agentPackages {
-		if strings.Contains(low, p) {
-			return true
+		m[p] = true
+	}
+	return m
+}()
+
+// onlyAgentPackages reports whether an install names packages and every
+// one of them is an agent CLI.
+func onlyAgentPackages(pkgs []string) bool {
+	if len(pkgs) == 0 {
+		return false
+	}
+	for _, p := range pkgs {
+		if !agentPackageSet[packageName(p)] {
+			return false
 		}
 	}
-	return false
+	return true
+}
+
+// insideInstallDir: a path in a package-manager install tree, where an
+// agent CLI's own install scripts write.
+func insideInstallDir(p string) bool {
+	low := strings.ToLower(strings.ReplaceAll(p, `\`, "/"))
+	return strings.Contains(low, "/node_modules/") || strings.Contains(low, "/site-packages/") || strings.Contains(low, "/.bun/install/") ||
+		strings.Contains(low, "/pipx/venvs/") || strings.Contains(low, "/.local/share/uv/tools/")
 }
 
 var (
@@ -881,31 +1051,30 @@ func (v *hostView) packageScripts() ([]schema.Finding, HostRuleCoverage) {
 	}
 	roots := map[int]*root{}
 	var order []int
-	isRoot := map[int]int{} // process index → 1 install root, -1 not, 2 agent package install
-	rootOf := func(i int) int {
-		found := -1
+	isRoot := map[int]int{} // process index → 1 install root, -1 not, 2 install of agent CLIs only
+	// rootOf returns the nearest install ancestor and whether that install
+	// names only agent CLI packages (the agent being installed).
+	rootOf := func(i int) (int, bool) {
+		found, agentOnly := -1, false
 		v.ancestors(i, func(j int) bool {
 			st, ok := isRoot[j]
 			if !ok {
 				st = -1
-				if _, inst := installCommand(v.recs[j].Cmdline); inst {
+				if _, pkgs, inst := installSpec(v.recs[j].Cmdline); inst {
 					st = 1
-					if namesAgentPackage(v.recs[j].Cmdline) {
+					if onlyAgentPackages(pkgs) {
 						st = 2
 					}
 				}
 				isRoot[j] = st
 			}
 			if st != -1 {
-				found = j
-				if st == 2 {
-					found = -2
-				}
+				found, agentOnly = j, st == 2
 				return true
 			}
 			return false
 		})
-		return found
+		return found, agentOnly
 	}
 	for i, r := range v.recs {
 		var what string
@@ -928,8 +1097,14 @@ func (v *hostView) packageScripts() ([]schema.Finding, HostRuleCoverage) {
 		if what == "" {
 			continue
 		}
-		ri := rootOf(i)
+		ri, agentOnly := rootOf(i)
 		if ri < 0 {
+			continue
+		}
+		// Installing an agent CLI runs its own scripts, which may start the
+		// CLI and write inside its install tree. Logins read and settings
+		// written elsewhere still count.
+		if agentOnly && (r.Kind == "process" || insideInstallDir(r.FilePath)) {
 			continue
 		}
 		rt := roots[ri]
