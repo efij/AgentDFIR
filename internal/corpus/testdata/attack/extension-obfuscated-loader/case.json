@@ -1,0 +1,6 @@
+{
+  "note": "An Open VSX extension whose entry code decodes a string and evals it, and spawns curl piped into sh: the delivery shape of the GlassWorm-class extension worms (Oct 2025), minus the invisible carrier. Synthetic; no real extension IDs.",
+  "expect": [
+    "EXTENSION_OBFUSCATED_LOADER"
+  ]
+}

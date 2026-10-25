@@ -24,6 +24,7 @@ import (
 	"github.com/efij/AgentDFIR/v3/internal/correlate"
 	"github.com/efij/AgentDFIR/v3/internal/detect"
 	"github.com/efij/AgentDFIR/v3/internal/endpoint"
+	"github.com/efij/AgentDFIR/v3/internal/extinv"
 	"github.com/efij/AgentDFIR/v3/internal/fingerprint"
 	"github.com/efij/AgentDFIR/v3/internal/index"
 	"github.com/efij/AgentDFIR/v3/internal/ioc"
@@ -517,11 +518,33 @@ func Run(pkg string, o Options) (*Result, error) {
 	} else {
 		res.StageNotes = append(res.StageNotes, "mcp audit skipped: "+err.Error())
 	}
+	// IDE extensions, agent plugins and skills: inventory and heuristics.
+	// SKILL_HIDDEN_INSTRUCTIONS is left to the content scan here: in a case
+	// the same markdown is already judged by TOOL_POISONING_INDICATOR and
+	// INVISIBLE_UNICODE_INSTRUCTION, and one problem should be one finding.
+	ext, err := extinv.ScanPackage(pkg)
+	if err == nil {
+		var ef []schema.Finding
+		for _, f := range extinv.Evaluate(ext) {
+			if f.RuleID != "SKILL_HIDDEN_INSTRUCTIONS" {
+				ef = append(ef, f)
+			}
+		}
+		findings = append(findings, ef...)
+		_ = overlay.WriteJSON(filepath.Join(detDir, "extensions.json"), struct {
+			Inventory *extinv.Inventory `json:"inventory"`
+			Findings  []schema.Finding  `json:"findings"`
+		}{ext, ef})
+		o.logf("Extensions: %d IDE extension(s), %d plugin(s), %d skill file(s), %d finding(s)", len(ext.Extensions), len(ext.Plugins), len(ext.Skills), len(ef))
+	} else {
+		ext = nil
+		res.StageNotes = append(res.StageNotes, "extension inventory skipped: "+err.Error())
+	}
 	// Known-incident indicators (the embedded packs, plus --iocs feeds):
 	// commands, tool output, configs, shell history, MCP packages and file
 	// hashes. Raw transcript bytes and lockfiles on disk are `agentdfir
 	// hunt`'s job; this keeps analyze at one read per small artifact.
-	if hf, notes, err := HuntCase(pkg, inv, HuntOptions{IOCFiles: o.IOCFiles}); err == nil {
+	if hf, notes, err := HuntCase(pkg, inv, HuntOptions{IOCFiles: o.IOCFiles, Extensions: ext}); err == nil {
 		findings = append(findings, ioc.Findings(hf)...)
 		res.StageNotes = append(res.StageNotes, notes...)
 		_ = overlay.WriteJSON(filepath.Join(detDir, "hunt.json"), hf)

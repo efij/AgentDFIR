@@ -37,6 +37,12 @@ func analyseCase(t *testing.T, c Case) []schema.Finding {
 	}); err != nil {
 		t.Fatal(err)
 	}
+	// IDE extensions, for the cases that carry an editor profile.
+	if ext, err := products.ManifestAllPlatforms("ide-extensions"); err == nil && ext != nil {
+		if _, err := collector.Run(b, ext, collector.Options{ProfileRoot: c.Dir, SystemRoot: c.Dir, Product: "ide-extensions"}); err != nil {
+			t.Fatal(err)
+		}
+	}
 	if err := b.Seal(); err != nil {
 		t.Fatal(err)
 	}

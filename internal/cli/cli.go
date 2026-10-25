@@ -97,6 +97,7 @@ BEFORE AN INCIDENT
   agentdfir monitor --journal [--journal-anchor f]   hash-chain every transcript append; later edits become provable
   agentdfir journal verify [--anchor <head>]         check the journal and an off-host anchor
   agentdfir mcp audit                                MCP servers on this machine: unpinned, plaintext, poisoned
+  agentdfir extensions [--path <home>]               IDE extensions, agent plugins, skills: hidden loaders, remote hooks
   agentdfir baseline create|check · agentdfir diff <a> <b>     known-good configs and drift
   agentdfir simulate --scenario list                 synthetic incidents: keyv-hook, sandworm-mcp, s1ngularity, mcpoison-rugpull,
                                                      pocketos-wipe, swarm-antiforensics, toxic-chain, orphan-agent
@@ -123,6 +124,8 @@ func Main(args []string) int {
 		return cmdPacks(args[1:])
 	case "mcp":
 		return cmdMCP(args[1:])
+	case "extensions":
+		return cmdExtensions(args[1:])
 	case "correlate":
 		return cmdCorrelate(args[1:])
 	case "provenance":

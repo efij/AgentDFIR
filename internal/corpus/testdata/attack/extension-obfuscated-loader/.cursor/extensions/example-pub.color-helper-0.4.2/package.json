@@ -1,0 +1,1 @@
+{"name": "color-helper", "publisher": "example-pub", "version": "0.4.2", "main": "./out/extension.js", "activationEvents": ["onLanguage:css"]}

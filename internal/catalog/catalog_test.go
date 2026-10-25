@@ -22,7 +22,7 @@ import (
 var ruleIDRe = regexp.MustCompile(`(?m)(?:RuleID:\s*|\bfinding\(|\},\s*|^\s*ID:\s*)"([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)",?\s*$?`)
 
 // emittingPackages are the Go packages whose findings the catalog mirrors.
-var emittingPackages = []string{"detect", "mcpaudit", "provenance", "correlate", "chain", "rulepack", "ioc", "reposcan", "journal"}
+var emittingPackages = []string{"detect", "mcpaudit", "provenance", "correlate", "chain", "rulepack", "ioc", "reposcan", "journal", "extinv"}
 
 // TestCatalogMatchesSource fails when a rule ID emitted by the code has no
 // catalog entry, or a catalog entry names a rule the code never emits.
