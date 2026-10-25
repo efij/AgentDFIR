@@ -21,15 +21,16 @@ var (
 )
 
 type auditEvent struct {
-	ts      time.Time
-	serial  string
-	syscall map[string]string
-	execve  map[string]string
-	cwd     string
-	paths   []map[string]string
-	saddr   string
-	contid  string // container id: CONTAINER_ID/CONTAINER_OP contid=, or a cgroup path in any field
-	line    int
+	ts       time.Time
+	serial   string
+	syscall  map[string]string
+	execve   map[string]string
+	cwd      string
+	paths    []map[string]string
+	saddr    string
+	contid   string // container id: CONTAINER_ID/CONTAINER_OP contid=, or a cgroup= field
+	contAuth bool   // contid came from contid= and overrides a cgroup= value
+	line     int
 }
 
 func loadAuditd(path string) (*LoadResult, error) {
@@ -56,8 +57,8 @@ func loadAuditd(path string) (*LoadResult, error) {
 			order = append(order, key)
 		}
 		fields := parseKV(body)
-		if ev.contid == "" {
-			ev.contid = auditContainerID(typ, fields, body)
+		if id, auth := auditContainerID(typ, fields); id != "" && !ev.contAuth && (auth || ev.contid == "") {
+			ev.contid, ev.contAuth = id, auth
 		}
 		switch typ {
 		case "SYSCALL":
@@ -136,29 +137,23 @@ func loadAuditd(path string) (*LoadResult, error) {
 	return res, nil
 }
 
-// auditContainerID reads a container id from an audit record: the contid
-// field of the audit container-id records (CONTAINER_ID, CONTAINER_OP;
-// kernels carrying that patch set), or a container cgroup path
-// (/proc/<pid>/cgroup style: docker-<id>.scope, /kubepods/…/<id>) in any
-// field of a kernel-written record. Records that carry user-controlled
-// strings (EXECVE argv, PATH and CWD names, PROCTITLE, USER_CMD) are not
-// scanned: a command that merely names a cgroup path is not inside it.
-// Stock kernels log neither, and then the record has no container.
-func auditContainerID(typ string, fields map[string]string, body string) string {
-	switch typ {
-	case "CONTAINER_ID", "CONTAINER_OP":
+// auditContainerID reads a container id from kernel-written audit fields
+// only: contid= of the audit container-id records (CONTAINER_ID,
+// CONTAINER_OP; kernels carrying that patch set), which is authoritative,
+// or a dedicated cgroup= field holding a /proc/<pid>/cgroup style path.
+// exe, comm, argv and path names are user-controlled (a binary can be
+// named docker-<id>.scope) and are never scanned. Stock kernels log
+// neither field, and then the record has no container.
+func auditContainerID(typ string, fields map[string]string) (id string, authoritative bool) {
+	if typ == "CONTAINER_ID" || typ == "CONTAINER_OP" {
 		if c := unq(fields["contid"]); c != "" && c != "-1" && c != "18446744073709551615" {
-			return c
-		}
-	case "EXECVE", "PATH", "CWD", "PROCTITLE", "USER_CMD":
-		return ""
-	}
-	for _, hint := range []string{"docker", "kubepods", "crio", "libpod", "containerd"} {
-		if strings.Contains(body, hint) {
-			return ContainerIDFromCgroup(body)
+			return c, true
 		}
 	}
-	return ""
+	if cg, ok := fields["cgroup"]; ok {
+		return ContainerIDFromCgroup(unq(cg)), false
+	}
+	return "", false
 }
 
 // isWriteSyscall: open/openat with write flags (a1/a2 contain O_WRONLY|O_RDWR|O_CREAT|O_TRUNC).

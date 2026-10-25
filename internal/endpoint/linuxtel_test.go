@@ -221,8 +221,19 @@ type=CONTAINER_ID msg=audit(1792922400.100:900): contid=` + fixtureCID + `
 type=SYSCALL msg=audit(1792922401.100:901): arch=c000003e syscall=59 success=yes exit=0 ppid=4000 pid=4101 auid=1000 uid=1000 comm="cat" exe="/usr/bin/cat"
 type=EXECVE msg=audit(1792922401.100:901): argc=2 a0="cat" a1="/sys/fs/cgroup/system.slice/docker-` + fixtureCID + `.scope/memory.max"
 `
+	// A binary named after a container scope must not spoof attribution;
+	// contid= overrides a cgroup= field in the same event.
+	other := strings.Repeat("ab", 32)
+	log += `type=SYSCALL msg=audit(1792922402.100:902): arch=c000003e syscall=59 success=yes exit=0 ppid=4000 pid=4102 auid=1000 uid=1000 comm="docker-` + fixtureCID + `" exe="/tmp/docker-` + fixtureCID + `.scope"
+type=EXECVE msg=audit(1792922402.100:902): argc=1 a0="x"
+type=SYSCALL msg=audit(1792922403.100:903): arch=c000003e syscall=59 success=yes exit=0 ppid=4000 pid=4103 auid=1000 uid=1000 comm="id" exe="/usr/bin/id" cgroup="0::/system.slice/docker-` + other + `.scope"
+type=EXECVE msg=audit(1792922403.100:903): argc=1 a0="id"
+type=CONTAINER_ID msg=audit(1792922403.100:903): contid=` + fixtureCID + `
+type=SYSCALL msg=audit(1792922404.100:904): arch=c000003e syscall=59 success=yes exit=0 ppid=4000 pid=4104 auid=1000 uid=1000 comm="id" exe="/usr/bin/id" cgroup="0::/kubepods/burstable/pod1/` + other + `"
+type=EXECVE msg=audit(1792922404.100:904): argc=1 a0="id"
+`
 	res := load(t, "audit.log", log, FormatAuditd)
-	if len(res.Records) != 2 {
+	if len(res.Records) != 5 {
 		t.Fatalf("records %+v", res.Records)
 	}
 	if r := res.Records[0]; r.ContainerID != fixtureCID || r.Cwd != "/home/dev" {
@@ -230,6 +241,15 @@ type=EXECVE msg=audit(1792922401.100:901): argc=2 a0="cat" a1="/sys/fs/cgroup/sy
 	}
 	if r := res.Records[1]; r.ContainerID != "" {
 		t.Fatalf("a command naming a cgroup path is not inside it: %+v", r)
+	}
+	if r := res.Records[2]; r.ContainerID != "" {
+		t.Fatalf("exe/comm spoofed a container: %+v", r)
+	}
+	if r := res.Records[3]; r.ContainerID != fixtureCID {
+		t.Fatalf("contid must override cgroup=: %+v", r)
+	}
+	if r := res.Records[4]; r.ContainerID != other {
+		t.Fatalf("cgroup= field: %+v", r)
 	}
 }
 
