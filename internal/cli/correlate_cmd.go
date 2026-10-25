@@ -16,12 +16,13 @@ import (
 	"github.com/efij/AgentDFIR/v3/internal/schema"
 )
 
-const correlateUsage = `usage: agentdfir correlate <package-dir> <endpoint-log>... [--window 3s] [--format auto|auditd|sysmon-xml|jsonl|csv]
+const correlateUsage = `usage: agentdfir correlate <package-dir> <endpoint-log>... [--window 3s] [--format auto|auditd|sysmon-xml|evtx|jsonl|csv]
                                                     [--known-destinations a.example,b.example]
 
 Second witness: match the agent transcript against OS telemetry.
   auditd      /var/log/audit/audit.log (SYSCALL/EXECVE/PATH/SOCKADDR)
   sysmon-xml  wevtutil qe Microsoft-Windows-Sysmon/Operational /f:xml   (events 1, 3, 11, 23)
+  evtx        raw .evtx files: Sysmon, Security 4688, PowerShell 4104, service installs, log clears
   jsonl/csv   Velociraptor, osquery, evtx_dump JSON, macOS eslogger — field names auto-mapped
   zeek, dns-log, squid    Zeek dns/http/ssl, BIND/dnsmasq/Pi-hole/Unbound/Windows DNS, Squid
   authlog, journald       /var/log/auth.log or /var/log/secure, journalctl -o json
@@ -100,6 +101,9 @@ func runEndpointCorrelation(pkg string, logs []string, f endpoint.Format, opts c
 		for _, p := range lr.Problems {
 			fmt.Printf("  note: %s\n", sanitize.Terminal(p))
 		}
+		for _, n := range lr.Notices {
+			fmt.Printf("  notice: %s\n", sanitize.Terminal(n))
+		}
 		records = append(records, lr.Records...)
 	}
 	res, findings := correlate.Endpoint(events, records, opts)
@@ -123,6 +127,9 @@ func runEndpointCorrelation(pkg string, logs []string, f endpoint.Format, opts c
 		res.ToolCalls, res.Corroborated, res.Contradicted, res.OutsideCover, res.AgentProcesses, res.Unlogged)
 	if !res.CoverageStart.IsZero() {
 		fmt.Printf("Telemetry coverage: %s → %s\n", res.CoverageStart.Format(time.RFC3339), res.CoverageEnd.Format(time.RFC3339))
+	}
+	if res.ScriptCorroborated > 0 {
+		fmt.Printf("PowerShell script blocks: %d more tool call(s) CORROBORATED.\n", res.ScriptCorroborated)
 	}
 	if res.CloudRecords > 0 {
 		fmt.Printf("Cloud audit correlation: %d cloud record(s), %d cloud command(s) checked — %d CORROBORATED (%d refused by the cloud); %d destructive burst(s).\n",

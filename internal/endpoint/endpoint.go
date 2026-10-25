@@ -1,8 +1,9 @@
 // Package endpoint loads independent operating-system telemetry — the
 // second witness for what an agent did on a machine. Adapters turn
 // auditd logs, Sysmon XML exports and generic process/network/file event
-// exports (Velociraptor, osquery, evtx_dump JSON, macOS eslogger) into one
-// Record model that the correlation engine consumes.
+// exports (Velociraptor, osquery, evtx_dump JSON, macOS eslogger) and
+// native Windows .evtx files into one Record model that the correlation
+// engine consumes.
 //
 // Inputs are hostile evidence: bounded reads, no execution, tolerant
 // parsing that records problems instead of aborting.
@@ -18,12 +19,14 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/efij/AgentDFIR/v3/internal/endpoint/evtx"
 )
 
 // Record is one endpoint observation.
 type Record struct {
 	Time      time.Time `json:"time"`
-	Kind      string    `json:"kind"` // process | network | file | cloud | dns | auth
+	Kind      string    `json:"kind"` // process | network | file | cloud | dns | auth | script | service | log-clear (evtx)
 	PID       int       `json:"pid,omitempty"`
 	PPID      int       `json:"ppid,omitempty"`
 	Exe       string    `json:"exe,omitempty"`
@@ -58,6 +61,7 @@ const (
 	FormatJSONL  Format = "jsonl"
 	FormatCSV    Format = "csv"
 	FormatCloud  Format = "cloud-audit" // AWS CloudTrail, Azure Activity Log, GCP Cloud Audit Logs
+	FormatEVTX   Format = "evtx"        // native Windows event log files
 	MaxLogBytes         = 2 << 30       // 2 GiB streaming bound
 	maxLineBytes        = 4 << 20
 )
@@ -68,6 +72,10 @@ type LoadResult struct {
 	Records  []Record
 	Skipped  int      // lines/events that did not parse
 	Problems []string // first few parse problems, for the operator
+	// Notices are forensically notable events the adapter recognized
+	// but that are not process/network/file telemetry (an event log
+	// cleared, a service installed). Shown to the operator; no rule.
+	Notices []string
 }
 
 // Load reads one endpoint log with the given (or sniffed) format.
@@ -97,6 +105,8 @@ func Load(path string, f Format) (*LoadResult, error) {
 		res, err = loadCSV(path)
 	case FormatCloud:
 		res, err = loadCloud(path)
+	case FormatEVTX:
+		res, err = loadEVTX(path)
 	default:
 		var ok bool
 		if res, ok, err = loadTelemetry(path, f); !ok {
@@ -120,6 +130,9 @@ func Sniff(path string) (Format, error) {
 	defer f.Close()
 	head := make([]byte, 64<<10)
 	n, _ := io.ReadFull(f, head)
+	if bytes.HasPrefix(head[:n], []byte(evtx.FileMagic)) {
+		return FormatEVTX, nil
+	}
 	head = bytes.TrimLeft(head[:n], "\xef\xbb\xbf \t\r\n")
 	if tf := sniffTelemetry(head); tf != "" {
 		return tf, nil
@@ -141,7 +154,7 @@ func Sniff(path string) (Format, error) {
 	if bytes.Count(first, []byte(",")) >= 2 {
 		return FormatCSV, nil
 	}
-	return "", errors.New("cannot determine endpoint log format; pass --format auditd|sysmon-xml|jsonl|csv|cloud-audit|" + telemetryFormatList)
+	return "", errors.New("cannot determine endpoint log format; pass --format auditd|sysmon-xml|evtx|jsonl|csv|cloud-audit|" + telemetryFormatList)
 }
 
 func min(a, b int) int {
@@ -172,6 +185,21 @@ func (r *LoadResult) problem(msg string) {
 	r.Skipped++
 	if len(r.Problems) < 5 {
 		r.Problems = append(r.Problems, msg)
+	}
+}
+
+// note records an operator-facing problem without counting a skipped
+// event (the caller accounts for skips itself).
+func (r *LoadResult) note(msg string) {
+	if len(r.Problems) < 10 {
+		r.Problems = append(r.Problems, msg)
+	}
+}
+
+// notice records a notable recognized event; see LoadResult.Notices.
+func (r *LoadResult) notice(msg string) {
+	if len(r.Notices) < 50 {
+		r.Notices = append(r.Notices, msg)
 	}
 }
 

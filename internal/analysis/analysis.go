@@ -33,6 +33,7 @@ import (
 	"github.com/efij/AgentDFIR/v3/internal/overlay"
 	"github.com/efij/AgentDFIR/v3/internal/provenance"
 	"github.com/efij/AgentDFIR/v3/internal/rulepack"
+	"github.com/efij/AgentDFIR/v3/internal/sanitize"
 	"github.com/efij/AgentDFIR/v3/internal/schema"
 	"github.com/efij/AgentDFIR/v3/internal/verify"
 	"github.com/efij/AgentDFIR/v3/internal/version"
@@ -377,6 +378,9 @@ func Run(pkg string, o Options) (*Result, error) {
 					return nil, fmt.Errorf("endpoint log %s: %w", p, err)
 				}
 				o.logf("Endpoint log %s: %s, %d records (%d skipped)", filepath.Base(p), lr.Format, len(lr.Records), lr.Skipped)
+				for _, n := range lr.Notices {
+					o.logf("  notice: %s", sanitize.Terminal(n))
+				}
 				records = append(records, lr.Records...)
 			}
 			cres, cf := correlate.Endpoint(events, records, correlate.EndpointOptions{Window: o.Window, KnownDests: o.KnownDests})
