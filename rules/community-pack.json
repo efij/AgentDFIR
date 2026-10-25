@@ -1,6 +1,6 @@
 {
   "pack": "agentdfir-community",
-  "version": "6",
+  "version": "7",
   "rules": [
     {
       "id": "CURL_PIPE_SHELL",
@@ -1389,6 +1389,43 @@
       ],
       "mitre_attack": "T1552",
       "mitre_atlas": "AML.T0057"
+    },
+    {
+      "id": "AGENT_SENSITIVE_DATA_STAGING",
+      "title": "Credential File Encoded or Copied Into a Staging Location",
+      "description": "Agent command base64/hex/gzip-encodes or copies a credential file (SSH key, cloud credentials, .netrc, .env, agent login) into /tmp, /dev/shm or another temp directory: the collection step that comes before a transfer. Archives of whole credential directories are CREDENTIAL_DIR_ARCHIVE; this covers the single-file and encoded forms.",
+      "severity": "HIGH",
+      "confidence": "medium",
+      "match": {
+        "type": "command",
+        "regex": "(?i)(\\b(base64|xxd|gzip\\s+-c|openssl\\s+(base64|enc))\\b[^|;&\\n]*(\\.ssh/id_\\w+|\\.aws/credentials|\\.config/gcloud/\\S*credentials\\S*|\\.azure/\\S+|\\.kube/config|\\.docker/config\\.json|\\.netrc\\b|\\.npmrc\\b|\\.pypirc\\b|\\.git-credentials\\b|\\.env([\\s\\\"']|$)|\\.claude/\\.credentials\\.json|\\.codex/auth\\.json|/etc/shadow\\b|\\.gnupg/\\S+)[^|;&\\n]*>\\s*[\\\"']?(/tmp/|/var/tmp/|/dev/shm/|/private/tmp/|\\$\\{?TMPDIR|%TEMP%|\\$env:TEMP)|\\bcat\\s+[^|;&\\n]*(\\.ssh/id_\\w+|\\.aws/credentials|\\.config/gcloud/\\S*credentials\\S*|\\.azure/\\S+|\\.kube/config|\\.docker/config\\.json|\\.netrc\\b|\\.npmrc\\b|\\.pypirc\\b|\\.git-credentials\\b|\\.env([\\s\\\"']|$)|\\.claude/\\.credentials\\.json|\\.codex/auth\\.json|/etc/shadow\\b|\\.gnupg/\\S+)[^;&\\n]*\\|\\s*(base64|xxd|gzip|openssl)\\b[^|;&\\n]*>\\s*[\\\"']?(/tmp/|/var/tmp/|/dev/shm/|/private/tmp/|\\$\\{?TMPDIR|%TEMP%|\\$env:TEMP)|\\b(cp|install|ditto|rsync)\\s+[^|;&\\n]*(\\.ssh/id_\\w+|\\.aws/credentials|\\.config/gcloud/\\S*credentials\\S*|\\.azure/\\S+|\\.kube/config|\\.docker/config\\.json|\\.netrc\\b|\\.npmrc\\b|\\.pypirc\\b|\\.git-credentials\\b|\\.env([\\s\\\"']|$)|\\.claude/\\.credentials\\.json|\\.codex/auth\\.json|/etc/shadow\\b|\\.gnupg/\\S+)[^|;&\\n]*\\s[\\\"']?(/tmp/|/var/tmp/|/dev/shm/|/private/tmp/|\\$\\{?TMPDIR|%TEMP%|\\$env:TEMP)|\\bcat\\s+[^|;&\\n]*(\\.ssh/id_\\w+|\\.aws/credentials|\\.config/gcloud/\\S*credentials\\S*|\\.azure/\\S+|\\.kube/config|\\.docker/config\\.json|\\.netrc\\b|\\.npmrc\\b|\\.pypirc\\b|\\.git-credentials\\b|\\.env([\\s\\\"']|$)|\\.claude/\\.credentials\\.json|\\.codex/auth\\.json|/etc/shadow\\b|\\.gnupg/\\S+)[^|;&\\n]*>>?\\s*[\\\"']?(/tmp/|/var/tmp/|/dev/shm/|/private/tmp/|\\$\\{?TMPDIR|%TEMP%|\\$env:TEMP))",
+        "scope": "shell"
+      },
+      "false_positive_notes": "Backing up a key before rotating it, or handing a kubeconfig to a container through /tmp. The encoding step is the part that is rarely needed.",
+      "references": [
+        "https://attack.mitre.org/techniques/T1074/001/",
+        "https://atlas.mitre.org/techniques/AML.T0055"
+      ],
+      "mitre_attack": "T1074.001",
+      "mitre_atlas": "AML.T0055"
+    },
+    {
+      "id": "AGENT_AUDIT_COVERAGE_LOSS",
+      "title": "Agent Turned Off Logging or Telemetry",
+      "description": "Agent command stops or unloads a logging/telemetry agent (syslog, journald, osquery, EDR sensors, Sysmon, Windows Event Log), disables an event log or audit policy, silences macOS unified logging, or sets the agent's own transcript retention (cleanupPeriodDays) below a week. Missing telemetry on its own is never a finding; this is the act of removing it. Clearing logs is OS_LOG_TAMPER; auditd/SELinux/Defender are DISABLE_SECURITY_TOOL and WINDOWS_DEFENSE_DISABLE.",
+      "severity": "HIGH",
+      "confidence": "high",
+      "match": {
+        "type": "command",
+        "regex": "(?i)(cleanupPeriodDays[\\\"']?\\s*[:=]\\s*[\\\"']?[0-6]\\b|\\bclaude\\s+config\\s+set\\s+(-g\\s+|--global\\s+)?cleanupPeriodDays\\s+[\\\"']?[0-6]\\b|\\blaunchctl\\s+(unload|bootout|disable|remove)\\b[^|;&\\n]*(auditd|osquery|falcon|crowdstrike|sentinel|santa|elastic|wazuh|sysmon|syslogd|com\\.apple\\.logd|endpoint)|\\bsystemctl\\s+(stop|disable|mask)\\s+[^|;&\\n]*\\b(rsyslog|syslog-ng|systemd-journald|osqueryd|falcon-sensor|wazuh-agent|sysmon|auditbeat|filebeat|elastic-agent|td-agent|fluent-bit|datadog-agent)\\b|\\b(Stop-Service|Set-Service|sc(\\.exe)?\\s+(stop|config))\\s+[^|;&\\n]*\\b(EventLog|Sysmon64|Sysmon|wazuh|osqueryd)\\b|\\bwevtutil(\\.exe)?\\s+(sl|set-log)\\s+[^|;&\\n]*/e:false|\\bauditpol(\\.exe)?\\s+/(clear|remove)\\b|\\blog\\s+config\\s+[^|;&\\n]*--mode\\s+[\\\"']?level:off)",
+        "exclude_regex": "^\\s*git\\s+(commit|log|show|tag)\\b"
+      },
+      "false_positive_notes": "Maintenance on a logging pipeline (restarting a forwarder, replacing one agent with another). A retention change the person asked for is a policy decision, not an attack, but it shortens what any later investigation can see.",
+      "references": [
+        "https://attack.mitre.org/techniques/T1562/001/",
+        "https://attack.mitre.org/techniques/T1562/002/"
+      ],
+      "mitre_attack": "T1562.001"
     }
   ]
 }

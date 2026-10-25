@@ -1,0 +1,4 @@
+{
+  "note": "A rejected move followed by the person's own correction and a re-run, a failing deploy retried after a fix (a failure is not a refusal), and a read repeated after a rejection. None is an autonomous retry of a refused change.",
+  "allow": {}
+}

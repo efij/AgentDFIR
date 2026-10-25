@@ -1,0 +1,7 @@
+{
+  "note": "An installer saved to /tmp by one command and run by a later one. DOWNLOAD_THEN_EXECUTE only sees both halves on one command line; AGENT_EXTERNAL_ARTIFACT_EXECUTION links them by path.",
+  "expect": [
+    "AGENT_EXTERNAL_ARTIFACT_EXECUTION",
+    "CHAIN_DOWNLOAD_AND_EXECUTE"
+  ]
+}

@@ -1,0 +1,4 @@
+{
+  "note": "A session launched in bypass mode stays there, then narrows to default and acceptEdits; the agent greps a project policy file and writes an unrelated fixture to /tmp. No permission was widened during the session.",
+  "allow": {}
+}

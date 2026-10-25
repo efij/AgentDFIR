@@ -1,0 +1,4 @@
+{
+  "note": "A tool result stamped twenty seconds before its call: ordinary clock jitter between processes, inside the one-minute tolerance.",
+  "allow": {}
+}

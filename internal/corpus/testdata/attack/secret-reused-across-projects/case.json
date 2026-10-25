@@ -1,0 +1,7 @@
+{
+  "note": "The same bearer token (credential-shaped, built from harmless parts) shows up in a payments project and in an unrelated side project. AGENT_CROSS_SESSION_SECRET_REUSE links them by fingerprint; the value is never stored.",
+  "expect": [
+    "AGENT_CROSS_SESSION_SECRET_REUSE",
+    "POTENTIAL_SECRET_EXPOSURE"
+  ]
+}

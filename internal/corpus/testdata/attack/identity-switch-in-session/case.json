@@ -1,0 +1,6 @@
+{
+  "note": "The agent switched the GitHub identity its commands run as, then acted under it. AI_SESSION_IDENTITY_SWITCH (LOW) records the change of attribution inside one session.",
+  "expect": [
+    "AI_SESSION_IDENTITY_SWITCH"
+  ]
+}
