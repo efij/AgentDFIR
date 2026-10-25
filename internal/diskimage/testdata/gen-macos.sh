@@ -178,5 +178,5 @@ gz "$work/hfsx.dmg" "$hfsdir/hfsx.img.gz"
 for f in apfs-gpt.raw apfs-multi.dmg apfs-udzo.dmg apfs-udbz.dmg apfs-ulfo.dmg hfs-udzo.dmg enc-head.dmg; do
   gz "$work/$f" "$here/$f.gz"
 done
-tar -C "$work" -cf - apfs.sparsebundle | gzip -9 -n > "$here/apfs.sparsebundle.tar.gz"
+COPYFILE_DISABLE=1 tar -C "$work" -cf - apfs.sparsebundle | gzip -9 -n > "$here/apfs.sparsebundle.tar.gz"
 ls -la "$apfsdir" "$hfsdir" "$here"/apfs* "$here"/hfs* "$here"/enc*

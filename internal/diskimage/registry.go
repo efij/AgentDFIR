@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/fs"
 
+	"github.com/efij/AgentDFIR/v4/internal/diskimage/apfs"
 	"github.com/efij/AgentDFIR/v4/internal/diskimage/ext4"
 	"github.com/efij/AgentDFIR/v4/internal/diskimage/fat"
 	"github.com/efij/AgentDFIR/v4/internal/diskimage/ntfs"
@@ -24,6 +25,7 @@ var filesystems = []Filesystem{
 	{"ntfs", ntfs.Probe, ntfs.Open},
 	{"ext4", ext4.Probe, ext4.Open},
 	{"fat", fat.Probe, fat.Open},
+	{"apfs", apfs.Probe, apfs.Open},
 }
 
 // Register adds a reader at the end of the registry (for readers that
@@ -83,7 +85,7 @@ func OpenFS(r io.ReaderAt, size int64) FSResult {
 		fsys, err := f.Open(r, size)
 		if err != nil {
 			kind := ErrCorrupt
-			if errors.Is(err, ntfs.ErrUnsupported) || errors.Is(err, ErrUnsupported) {
+			if errors.Is(err, ntfs.ErrUnsupported) || errors.Is(err, ErrUnsupported) || errors.Is(err, errors.ErrUnsupported) {
 				kind = ErrUnsupported
 			}
 			return FSResult{Type: f.Name, Reason: err.Error(), Err: &Error{Kind: kind, Format: f.Name, Reason: err.Error()}}
