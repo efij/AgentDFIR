@@ -42,6 +42,26 @@ func TestVerifyPackageMissingSignatureIsAProblem(t *testing.T) {
 	}
 }
 
+// A corrupt case.json must not turn the signer-downgrade check off.
+func TestVerifyPackageMissingSignatureWithCorruptCaseJSON(t *testing.T) {
+	pkg := newCase(t)
+	if err := os.Remove(filepath.Join(pkg, seal.SigFile)); err != nil {
+		t.Fatal(err)
+	}
+	cj := filepath.Join(pkg, "case.json")
+	_ = os.Chmod(cj, 0o600)
+	if err := os.WriteFile(cj, []byte("{not json"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c, err := VerifyPackage(pkg, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !contains(c.Package.Problems, "case.json is unreadable") {
+		t.Fatalf("missing signature with corrupt case.json not reported: %v", c.Package.Problems)
+	}
+}
+
 // Re-signing with another key is legitimate (`agentdfir sign`) unless the
 // caller pinned the key.
 func TestVerifyPackageOtherKeyNeedsAPin(t *testing.T) {

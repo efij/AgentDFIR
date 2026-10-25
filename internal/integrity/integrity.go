@@ -230,7 +230,15 @@ func VerifyPackage(pkg, pubkey string) (*Check, error) {
 	case !c.Signature.Present && pubkey != "":
 		res.Problems = append(res.Problems, "SEAL.sig: missing, but a signer key was pinned")
 	case !c.Signature.Present:
-		if ci, err := casepkg.ReadCaseInfo(pkg); err == nil && len(ci.Rounds) > 0 {
+		// Whether a signature was expected is read from case.json, which is
+		// itself sealed. If it cannot be read the question has no answer,
+		// and that is a problem in its own right, never a silent pass.
+		ci, err := casepkg.ReadCaseInfo(pkg)
+		if err != nil {
+			res.Problems = append(res.Problems, "SEAL.sig: missing, and case.json is unreadable, so whether the package was signed cannot be determined: "+err.Error())
+			break
+		}
+		if len(ci.Rounds) > 0 {
 			if last := ci.Rounds[len(ci.Rounds)-1]; last.Signer != "" {
 				res.Problems = append(res.Problems, fmt.Sprintf("SEAL.sig: missing, but round %d was sealed for key %s", last.Round, seal.Fingerprint(last.Signer)))
 			}
