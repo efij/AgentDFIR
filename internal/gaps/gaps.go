@@ -809,7 +809,7 @@ func (b *builder) witness() {
 			}
 		}
 		w.Sources = append(w.Sources, WitnessSource{Name: "endpoint telemetry", Start: rfc(epStart), End: rfc(epEnd),
-			Records: c.Records - c.CloudRecords - c.WitnessRecords, Verified: verifiedBy["endpoint telemetry"],
+			Records: c.Records - c.CloudRecords - c.WitnessRecords - c.ContextRecords, Verified: verifiedBy["endpoint telemetry"],
 			Note: "process, file and network records imported with --endpoint; inside this range a command with no matching process is DISPROVED"})
 	}
 	if c != nil && c.CloudRecords > 0 {
@@ -820,6 +820,14 @@ func (b *builder) witness() {
 	if c != nil && (c.WitnessRecords > 0 || verifiedBy[srcSightings] > 0) {
 		w.Sources = append(w.Sources, WitnessSource{Name: srcSightings, Records: c.WitnessRecords, Verified: verifiedBy[srcSightings],
 			Note: "partial-coverage logs: they corroborate, never contradict and never widen coverage; a DNS lookup or ssh login only PARTLY CONFIRMS"})
+	}
+	if c != nil && c.ContextRecords > 0 {
+		kinds := make([]string, 0, len(c.ContextKinds))
+		for _, k := range sortedKeys(c.ContextKinds) {
+			kinds = append(kinds, fmt.Sprintf("%s %d", k, c.ContextKinds[k]))
+		}
+		w.Sources = append(w.Sources, WitnessSource{Name: "Windows event log context", Records: c.ContextRecords,
+			Note: "telemetry present: " + strings.Join(kinds, ", ") + "; read by the Windows persistence and credential rules, never used to confirm or disprove a tool call"})
 	}
 	if n := verifiedBy[srcEventLog]; n > 0 {
 		w.Sources = append(w.Sources, WitnessSource{Name: srcEventLog, Verified: n,

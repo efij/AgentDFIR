@@ -1,0 +1,6 @@
+{
+  "note": "Windows re-reports its built-in SCM Event Log consumer binding during an agent session, a monitoring tool holds a temporary subscription, and a management agent binds its own permanent consumer hours after the session ended. None is a consumer created during the session.",
+  "endpoint": [
+    "endpoint/windows-events.xml"
+  ]
+}

@@ -18,12 +18,15 @@ import (
 //	Service Control Manager           7045 service installed → kind "service"
 //	Microsoft-Windows-Eventlog        1102 / 104 log cleared → kind "log-clear"
 //
+// plus the context events in evtxkinds.go (Sysmon 5, 12-14; Security
+// 4689, 4625, 4648, 4672, 4697; PowerShell 4103; TaskScheduler; WMI).
+//
 // "process-image", "script", "service" and "log-clear" records are not
 // process telemetry: the correlation engine never lets them contradict a
 // command or widen coverage, and the last two are surfaced to the
 // operator as notices.
-// Everything else (logons, registry, process exit, other providers) is
-// counted and left out.
+// Everything else (successful logons, other providers) is counted and
+// left out.
 
 // KindProcessImage is a process creation known only by its image path
 // (Security 4688 without command-line auditing).
@@ -41,7 +44,11 @@ func loadEVTX(path string) (*LoadResult, error) {
 	}
 	res := &LoadResult{}
 	unmapped := map[string]int{}
+	base := baseName(path)
 	st, err := evtx.Parse(f, fi.Size(), func(ev *evtx.Event) {
+		if res.addWinContext(ev, fmt.Sprintf("file %s, offset %d", base, ev.Offset)) {
+			return
+		}
 		if !res.addEVTX(ev) {
 			unmapped[ev.System.Provider+" "+ev.System.EventID]++
 		}
@@ -159,7 +166,7 @@ func (res *LoadResult) addEVTX(ev *evtx.Event) bool {
 		r := Record{Time: ts, Kind: "service", Exe: d["ImagePath"], Cmdline: d["ImagePath"], User: d["AccountName"],
 			Source: "system", Ref: ref("system", "service "+d["ServiceName"])}
 		res.Records = append(res.Records, r)
-		res.notice(fmt.Sprintf("%s service %q installed: %s (account %s) [%s]", ts.Format("2006-01-02T15:04:05Z"), d["ServiceName"], d["ImagePath"], d["AccountName"], r.Ref))
+		res.noticeOf(noticeService, fmt.Sprintf("%s service %q installed: %s (account %s) [%s]", ts.Format("2006-01-02T15:04:05Z"), d["ServiceName"], d["ImagePath"], d["AccountName"], r.Ref))
 		return true
 	case prov == "microsoft-windows-eventlog" && (s.EventID == "1102" || s.EventID == "104"):
 		if !tsOK {
@@ -170,7 +177,7 @@ func (res *LoadResult) addEVTX(ev *evtx.Event) bool {
 		r := Record{Time: ts, Kind: "log-clear", User: winUser(d["SubjectDomainName"], d["SubjectUserName"]),
 			Source: "eventlog", Ref: ref("eventlog", "channel "+channel)}
 		res.Records = append(res.Records, r)
-		res.notice(fmt.Sprintf("%s event log %q cleared by %s [%s]", ts.Format("2006-01-02T15:04:05Z"), channel, firstOf(r.User, "unknown user"), r.Ref))
+		res.noticeOf(noticeLogClear, fmt.Sprintf("%s event log %q cleared by %s [%s]", ts.Format("2006-01-02T15:04:05Z"), channel, firstOf(r.User, "unknown user"), r.Ref))
 		return true
 	}
 	return false

@@ -1,0 +1,6 @@
+{
+  "note": "The agent sets an application preference under HKCU\\Software\\Acme while OneDrive (not descended from the agent) refreshes its own Run value at the same moment. Neither is agent-written persistence: the agent's write is not a Run/service key, and the Run write has no agent ancestry.",
+  "endpoint": [
+    "endpoint/windows-events.xml"
+  ]
+}

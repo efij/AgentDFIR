@@ -26,7 +26,7 @@ import (
 // Record is one endpoint observation.
 type Record struct {
 	Time      time.Time `json:"time"`
-	Kind      string    `json:"kind"` // process | network | file | cloud | dns | auth | process-image | script | service | log-clear (evtx)
+	Kind      string    `json:"kind"` // process | network | file | cloud | dns | auth | process-image | script | service | log-clear | process-exit | registry | scheduled-task | wmi (evtx)
 	PID       int       `json:"pid,omitempty"`
 	PPID      int       `json:"ppid,omitempty"`
 	Exe       string    `json:"exe,omitempty"`
@@ -47,8 +47,14 @@ type Record struct {
 	Resource  string `json:"resource,omitempty"`  // resource ids and names the record names
 	SourceIP  string `json:"source_ip,omitempty"`
 	Failed    string `json:"failed,omitempty"` // error code when the cloud refused the call
-	Source    string `json:"source"`           // adapter name
-	Ref       string `json:"ref"`              // file:line or event id
+	// Windows event log context records (kinds registry, scheduled-task,
+	// wmi, auth from the Security log); see evtxkinds.go.
+	ValueName   string `json:"value_name,omitempty"`   // registry value name
+	Details     string `json:"details,omitempty"`      // registry data, task action, WMI query or consumer text (bounded)
+	SubjectUser string `json:"subject_user,omitempty"` // account that acted (User is the target account)
+	LogonType   string `json:"logon_type,omitempty"`
+	Source      string `json:"source"` // adapter name
+	Ref         string `json:"ref"`    // file:line or event id
 }
 
 // Format names an adapter.
@@ -76,6 +82,14 @@ type LoadResult struct {
 	// but that are not process/network/file telemetry (an event log
 	// cleared, a service installed). Shown to the operator; no rule.
 	Notices []string
+
+	// ContextDropped counts, per kind, Windows context records past the
+	// per-file bound: coverage of that kind is incomplete.
+	ContextDropped map[string]int
+
+	ctxKept      map[string]int // Windows context records kept per kind (evtxkinds.go)
+	ctxNoted     map[string]bool
+	noticeCounts map[string]int
 }
 
 // Load reads one endpoint log with the given (or sniffed) format.
@@ -197,6 +211,32 @@ func (r *LoadResult) note(msg string) {
 }
 
 // notice records a notable recognized event; see LoadResult.Notices.
+// Notice categories, each with its own bound so one flood (task or WMI
+// churn) cannot crowd out another (a cleared log, a service install).
+const (
+	noticeLogClear = "log-clear"
+	noticeService  = "service"
+	noticeTask     = "scheduled-task"
+	noticeWMI      = "wmi"
+)
+
+var noticeLimits = map[string]int{noticeLogClear: 1000, noticeService: 1000, noticeTask: 50, noticeWMI: 50}
+
+// noticeOf records a notice under its category's own bound; the first
+// notice past the bound says how the rest are handled.
+func (r *LoadResult) noticeOf(cat, msg string) {
+	if r.noticeCounts == nil {
+		r.noticeCounts = map[string]int{}
+	}
+	r.noticeCounts[cat]++
+	switch n := r.noticeCounts[cat]; {
+	case n <= noticeLimits[cat]:
+		r.Notices = append(r.Notices, msg)
+	case n == noticeLimits[cat]+1:
+		r.Notices = append(r.Notices, fmt.Sprintf("more %s notices not shown (the records are kept)", cat))
+	}
+}
+
 func (r *LoadResult) notice(msg string) {
 	if len(r.Notices) < 50 {
 		r.Notices = append(r.Notices, msg)

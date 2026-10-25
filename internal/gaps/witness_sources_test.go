@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/efij/AgentDFIR/v4/internal/correlate"
 	"github.com/efij/AgentDFIR/v4/internal/endpoint"
@@ -43,3 +44,22 @@ func TestSightingAndEventLogMatchesCountedBySource(t *testing.T) {
 		t.Errorf("text: %s", buf.String())
 	}
 }
+
+// Windows event log context kinds are listed as telemetry present and
+// kept out of the endpoint telemetry record count.
+func TestWindowsContextKindsListed(t *testing.T) {
+	in := baseInput()
+	in.Correlation = &correlate.EndpointResult{Records: 7, ContextRecords: 4, ContextKinds: map[string]int{"registry": 2, "wmi": 1, "scheduled-task": 1},
+		CoverageStart: mustTime("2026-08-30T10:00:00Z"), CoverageEnd: mustTime("2026-08-30T11:00:00Z")}
+	r := Build(in, Options{})
+	got := map[string]WitnessSource{}
+	for _, s := range r.Witness.Sources {
+		got[s.Name] = s
+	}
+	ctx := got["Windows event log context"]
+	if ctx.Records != 4 || !strings.Contains(ctx.Note, "registry 2, scheduled-task 1, wmi 1") || got["endpoint telemetry"].Records != 3 {
+		t.Fatalf("sources: %+v", r.Witness.Sources)
+	}
+}
+
+func mustTime(s string) time.Time { t, _ := time.Parse(time.RFC3339, s); return t }
