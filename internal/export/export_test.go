@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/efij/AgentDFIR/v4/internal/repro"
 	"github.com/efij/AgentDFIR/v4/internal/schema"
 )
 
@@ -27,11 +28,17 @@ func TestSTIXBundleValidShape(t *testing.T) {
 	if err := json.Unmarshal(data, &bundle); err != nil {
 		t.Fatal(err)
 	}
-	if bundle.Type != "bundle" || len(bundle.Objects) != 1 {
+	// identity + one note per finding + the case report.
+	if bundle.Type != "bundle" || len(bundle.Objects) != 3 {
 		t.Fatalf("bad bundle: %+v", bundle)
 	}
-	if bundle.Objects[0]["spec_version"] != "2.1" {
-		t.Fatal("missing spec_version 2.1")
+	for _, o := range bundle.Objects {
+		if o["spec_version"] != "2.1" {
+			t.Fatal("missing spec_version 2.1")
+		}
+	}
+	if p, _ := repro.CheckSTIX(data); len(p) > 0 {
+		t.Fatalf("bundle fails the STIX 2.1 check: %v", p)
 	}
 	// Deterministic IDs across re-export.
 	path2 := filepath.Join(t.TempDir(), "b2.json")

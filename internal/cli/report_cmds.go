@@ -1,9 +1,13 @@
 package cli
 
 import (
+	"encoding/json"
 	"flag"
+	"time"
+
 	"fmt"
 	"github.com/efij/AgentDFIR/v4/internal/analysis"
+	"github.com/efij/AgentDFIR/v4/internal/overlay"
 	"github.com/efij/AgentDFIR/v4/internal/schema"
 	"os"
 	"path/filepath"
@@ -121,7 +125,9 @@ func cmdReport(args []string) int {
 		ok = do("timeline.csv", func() error { return report.WriteTimelineCSV(c, filepath.Join(dir, "timeline.csv")) }) && ok
 	}
 	if want("stix") {
-		ok = do("findings.stix.json", func() error { return export.WriteSTIX(findings, man.CaseID, filepath.Join(dir, "findings.stix.json")) }) && ok
+		ok = do("findings.stix.json", func() error {
+			return export.WriteSTIXBundle(stixInput(pkg, man.CaseID, man.CreatedUTC, findings), filepath.Join(dir, "findings.stix.json"))
+		}) && ok
 	}
 	if want("otel") {
 		ok = do("events.otel.json", func() error { return export.WriteOTel(res.Events, filepath.Join(dir, "events.otel.json")) }) && ok
@@ -305,4 +311,18 @@ func cmdDecrypt(args []string) int {
 	}
 	fmt.Printf("Decrypted package extracted to %s. Run `agentdfir verify %s` to confirm integrity.\n", dst, dst)
 	return 0
+}
+
+// stixInput gathers what the STIX bundle needs beyond the findings: the
+// known-incident IOC hunt and the case's creation time (the bundle's one
+// timestamp, so a re-export is byte-identical).
+func stixInput(pkg, caseID, createdUTC string, findings []schema.Finding) export.STIXInput {
+	in := export.STIXInput{Findings: findings, CaseID: caseID}
+	if t, err := time.Parse(time.RFC3339Nano, createdUTC); err == nil {
+		in.Created = t
+	}
+	if data, err := overlay.ReadFile(filepath.Join(pkg, "detections", "hunt.json")); err == nil {
+		_ = json.Unmarshal(data, &in.Hunt)
+	}
+	return in
 }
