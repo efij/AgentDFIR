@@ -375,6 +375,7 @@ func Run(pkg string, o Options) (*Result, error) {
 		}
 		if len(o.EndpointLogs) > 0 {
 			var records []endpoint.Record
+			var health []*endpoint.SourceHealth
 			for _, p := range o.EndpointLogs {
 				lr, err := endpoint.Load(p, o.EndpointFormat)
 				if err != nil {
@@ -384,9 +385,13 @@ func Run(pkg string, o Options) (*Result, error) {
 				for _, n := range lr.Notices {
 					o.logf("  notice: %s", sanitize.Terminal(n))
 				}
+				if h := lr.Health; h != nil && h.Verdict == endpoint.HealthPartial {
+					o.logf("  collection health: PARTIAL (%d sequence gap(s), %d drop signal(s)); absence in the affected intervals is not evaluated", h.Gaps, len(h.Drops)+h.DropsOmitted)
+				}
 				records = append(records, lr.Records...)
+				health = append(health, lr.Health)
 			}
-			cres, cf := correlate.Endpoint(events, records, correlate.EndpointOptions{Window: o.Window, KnownDests: o.KnownDests})
+			cres, cf := correlate.Endpoint(events, records, correlate.EndpointOptions{Window: o.Window, KnownDests: o.KnownDests, Health: health})
 			res.Correlation = cres
 			findings = append(findings, cf...)
 			_ = overlay.WriteJSON(filepath.Join(detDir, "corroboration.json"), struct {

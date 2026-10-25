@@ -48,11 +48,17 @@ func loadTetragon(path string) (*LoadResult, error) {
 			return
 		case "rate_limit_info":
 			res.ignore()
+			dt, _ := parseTime(leaf(doc, "time"))
+			res.dropSignal(DropSignal{Signal: "rate-limit", End: dt, Count: num(body["number_of_dropped_process_events"]), Ref: ref,
+				Detail: "Tetragon rate limiter dropped process events before this time"})
 			res.note(fmt.Sprintf("%s: Tetragon rate limiter dropped %s process event(s): coverage incomplete around %s",
 				ref, firstNonEmpty(leaf(body, "number_of_dropped_process_events"), "an unknown number of"), leaf(doc, "time")))
 			return
 		case "process_throttle":
 			res.ignore()
+			dt, _ := parseTime(leaf(doc, "time"))
+			res.dropSignal(DropSignal{Signal: "throttle", Start: dt, Ref: ref,
+				Detail: "Tetragon throttled events (" + leaf(body, "type") + ") for cgroup " + leaf(body, "cgroup")})
 			res.note(fmt.Sprintf("%s: Tetragon throttled events (%s) for cgroup %s: coverage incomplete", ref, leaf(body, "type"), leaf(body, "cgroup")))
 			return
 		case "process_exec", "process_kprobe", "process_lsm", "process_tracepoint":
@@ -72,6 +78,7 @@ func loadTetragon(path string) (*LoadResult, error) {
 		}
 		r := tetragonProcess(proc, body)
 		r.Time, r.Source, r.Ref = t, "tetragon", ref
+		r.Host = leaf(doc, "node_name")
 		switch typ {
 		case "process_exec":
 			r.Kind = "process"

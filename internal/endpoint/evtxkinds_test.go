@@ -151,6 +151,9 @@ func stripProvenance(rs []Record) []Record {
 		} else if j := strings.LastIndex(r.Ref, ", "); j >= 0 {
 			r.Ref = r.Ref[:j] + ")"
 		}
+		// Collection provenance only the native reader has (record id
+		// domain, computer name) and the file the record came from.
+		r.Seq, r.SeqDomain, r.Host, r.Origin = 0, "", "", ""
 		out[i] = r
 	}
 	return out

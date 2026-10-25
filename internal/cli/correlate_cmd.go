@@ -106,6 +106,10 @@ func runEndpointCorrelation(pkg string, logs []string, f endpoint.Format, opts c
 			fmt.Printf("  notice: %s\n", sanitize.Terminal(n))
 		}
 		records = append(records, lr.Records...)
+		opts.Health = append(opts.Health, lr.Health)
+		if h := lr.Health; h != nil && h.Verdict == endpoint.HealthPartial {
+			fmt.Printf("  collection health: PARTIAL (%d sequence gap(s), %d drop signal(s)); absence in the affected intervals is not evaluated\n", h.Gaps, len(h.Drops)+h.DropsOmitted)
+		}
 	}
 	res, findings := correlate.Endpoint(events, records, opts)
 	if err := overlay.WriteJSONL(filepath.Join(dir, "events.jsonl"), len(events), func(i int) any { return events[i] }); err != nil {

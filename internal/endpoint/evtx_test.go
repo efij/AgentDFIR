@@ -150,7 +150,7 @@ func TestEVTXMatchesSysmonXML(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(fromXML.Records) != 3 || !reflect.DeepEqual(fromXML.Records, fromEVTX.Records) {
+	if len(fromXML.Records) != 3 || !reflect.DeepEqual(stripProvenance(fromXML.Records), stripProvenance(fromEVTX.Records)) {
 		t.Fatalf("xml vs evtx differ:\n%+v\n%+v", fromXML.Records, fromEVTX.Records)
 	}
 }

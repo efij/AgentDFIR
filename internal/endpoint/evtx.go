@@ -46,6 +46,8 @@ func loadEVTX(path string) (*LoadResult, error) {
 	unmapped := map[string]int{}
 	base := baseName(path)
 	st, err := evtx.Parse(f, fi.Size(), func(ev *evtx.Event) {
+		n := len(res.Records)
+		defer func() { res.evtxSeq(ev, base, n) }()
 		if res.addWinContext(ev, fmt.Sprintf("file %s, offset %d", base, ev.Offset)) {
 			return
 		}
@@ -181,6 +183,42 @@ func (res *LoadResult) addEVTX(ev *evtx.Event) bool {
 		return true
 	}
 	return false
+}
+
+// evtxSeq tracks the event's record id for collection health, mapped or
+// not (a gap between two kept records may be an event the adapter does
+// not use, which is no gap at all), and stamps the records the event
+// produced (from index n on) with the id, its channel domain and the
+// computer name. Record ids are unique per channel log, so the domain is
+// the channel ("evtx/<channel>"); the file name stands in when the event
+// names no channel.
+func (res *LoadResult) evtxSeq(ev *evtx.Event, base string, n int) {
+	seq := ev.RecordID
+	if seq == 0 {
+		v, err := strconv.ParseUint(strings.TrimSpace(ev.System.EventRecordID), 10, 64)
+		if err != nil {
+			return
+		}
+		seq = v
+	}
+	ch := strings.TrimSpace(ev.System.Channel)
+	if ch == "" {
+		ch = base
+	}
+	domain := "evtx/" + ch
+	t, ok := parseTime(ev.System.TimeCreated)
+	if !ok {
+		t = ev.Written.UTC()
+	}
+	res.seqObserve(domain, seq, t, true)
+	for i := n; i < len(res.Records); i++ {
+		r := &res.Records[i]
+		r.Seq, r.SeqDomain = seq, domain
+		if r.Host == "" {
+			r.Host = strings.TrimSpace(ev.System.Computer)
+		}
+		res.seqKind(domain, r.Kind)
+	}
 }
 
 // winPID parses Security-log process ids, rendered as hex ("0x1a2b").

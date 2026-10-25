@@ -57,6 +57,7 @@ func loadAuditd(path string) (*LoadResult, error) {
 			order = append(order, key)
 		}
 		fields := parseKV(body)
+		auditDropSignal(res, typ, fields, ev.ts, fmt.Sprintf("audit.log:%d (serial %s)", n, serial))
 		if id, auth := auditContainerID(typ, fields); id != "" && !ev.contAuth && (auth || ev.contid == "") {
 			ev.contid, ev.contAuth = id, auth
 		}
@@ -76,9 +77,20 @@ func loadAuditd(path string) (*LoadResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	// The audit serial numbers every kernel audit event; it is tracked for
+	// each event in the file, used or not. It restarts at boot, and numbers
+	// that repeat are not read as gaps (the file is sorted by serial).
+	domain := "auditd/" + baseName(path)
+	for _, key := range order {
+		ev := events[key]
+		if sn, err := strconv.ParseUint(ev.serial, 10, 64); err == nil && sn > 0 {
+			res.seqObserve(domain, sn, ev.ts, true)
+		}
+	}
 	for _, key := range order {
 		ev := events[key]
 		ref := fmt.Sprintf("audit.log:%d (serial %s)", ev.line, ev.serial)
+		n0 := len(res.Records)
 		pid, _ := strconv.Atoi(ev.syscall["pid"])
 		ppid, _ := strconv.Atoi(ev.syscall["ppid"])
 		exe := unq(ev.syscall["exe"])
@@ -132,9 +144,33 @@ func loadAuditd(path string) (*LoadResult, error) {
 					Cmdline: unq(ev.syscall["comm"]), FilePath: name, FileOp: op, User: user, ContainerID: ev.contid, Source: "auditd", Ref: ref})
 			}
 		}
+		if sn, err := strconv.ParseUint(ev.serial, 10, 64); err == nil && sn > 0 {
+			for i := n0; i < len(res.Records); i++ {
+				res.Records[i].Seq, res.Records[i].SeqDomain = sn, domain
+				res.seqKind(domain, res.Records[i].Kind)
+			}
+		}
 	}
 	sort.SliceStable(res.Records, func(i, j int) bool { return res.Records[i].Time.Before(res.Records[j].Time) })
 	return res, nil
+}
+
+// auditDropSignal notes records in which auditd or the kernel says
+// events were lost: DAEMON_ERR / DAEMON_ABORT, and a nonzero lost= or
+// audit_lost= counter (CONFIG_CHANGE, DAEMON_* and status records).
+func auditDropSignal(res *LoadResult, typ string, fields map[string]string, t time.Time, ref string) {
+	lost := 0
+	for _, k := range []string{"lost", "audit_lost"} {
+		if v, err := strconv.Atoi(unq(fields[k])); err == nil && v > lost {
+			lost = v
+		}
+	}
+	switch {
+	case typ == "DAEMON_ERR" || typ == "DAEMON_ABORT":
+		res.dropSignal(DropSignal{Signal: "daemon", Start: t, Detail: "auditd " + typ + ": events after this point may not have been written", Ref: ref})
+	case lost > 0:
+		res.dropSignal(DropSignal{Signal: "lost-events", End: t, Count: lost, Detail: fmt.Sprintf("audit lost counter is %d: the kernel dropped events before this record", lost), Ref: ref})
+	}
 }
 
 // auditContainerID reads a container id from kernel-written audit fields
