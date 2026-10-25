@@ -214,7 +214,7 @@ func Probe(r io.ReaderAt, size int64) (ok bool) {
 		return false
 	}
 	_, err := parseSuper(b)
-	return err == nil || errors.Is(err, errors.ErrUnsupported)
+	return err == nil
 }
 
 // FS is a read-only XFS filesystem. It implements fs.FS, fs.ReadDirFS and

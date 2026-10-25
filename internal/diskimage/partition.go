@@ -17,10 +17,22 @@ type Volume struct {
 	Size   int64  `json:"size"`
 	Type   string `json:"type"`           // MBR type byte (0x07) or GPT type GUID
 	Name   string `json:"name,omitempty"` // GPT partition name, or a friendly type name
+	// Segments is set for a volume mapped onto several disk ranges (a
+	// multi-segment LVM2 linear LV); Offset is then the first one's.
+	Segments []Extent `json:"segments,omitempty"`
+	// LVM is set on an LVM2 physical volume whose logical volumes were
+	// appended to the table: it is a container, not a filesystem.
+	LVM string `json:"lvm,omitempty"`
+	// Unsupported says why the volume cannot be read (an LVM2 LV that is
+	// not linear); the filesystem probe must not run on it.
+	Unsupported string `json:"unsupported,omitempty"`
 }
 
 // Section returns the volume's bytes as an io.ReaderAt.
 func (v Volume) Section(r io.ReaderAt) *io.SectionReader {
+	if len(v.Segments) > 0 {
+		return io.NewSectionReader(&segmentReader{r: r, segs: v.Segments}, 0, v.Size)
+	}
 	return io.NewSectionReader(r, v.Offset, v.Size)
 }
 
@@ -38,8 +50,18 @@ const (
 
 // Partitions reads the partition table of a disk of the given size.
 // A disk with no recognizable table (a bare volume image) yields one
-// whole-disk volume.
+// whole-disk volume. LVM2 physical volumes among the volumes are expanded:
+// their logical volumes are appended (see expandLVM).
 func Partitions(r io.ReaderAt, size int64) (*PartitionTable, error) {
+	t, err := partitions(r, size)
+	if err != nil {
+		return nil, err
+	}
+	t.expandLVM(r)
+	return t, nil
+}
+
+func partitions(r io.ReaderAt, size int64) (*PartitionTable, error) {
 	if size < 512 {
 		return nil, corrupt("partition", "disk is %d bytes", size)
 	}
