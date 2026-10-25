@@ -223,7 +223,7 @@ func platformScenarios() []platformScenario {
 					return writeLogs(logs, t)
 				},
 				claims: []claim{
-					{desc: "Bash `pytest -q` inside the sequence gap", match: toolCall("pytest -q"), want: "not:" + schema.StateContradicted, xfail: perKindFix},
+					{desc: "Bash `pytest -q` inside the sequence gap", match: toolCall("pytest -q"), want: "not:" + schema.StateContradicted},
 					{desc: "Bash `go vet ./...` where numbering is contiguous", match: toolCall("go vet ./..."), want: schema.StateContradicted},
 				}})
 		}
@@ -256,7 +256,7 @@ func platformScenarios() []platformScenario {
 				return writeLogs(logs, p, q)
 			},
 			claims: []claim{
-				{desc: "Bash at 10 min, after the process file ended", match: toolCall("terraform apply -auto-approve"), want: "not:" + schema.StateContradicted, xfail: perKindFix},
+				{desc: "Bash at 10 min, after the process file ended", match: toolCall("terraform apply -auto-approve"), want: "not:" + schema.StateContradicted},
 			}})
 	}
 	// Linux: Tetragon as the host witness.
