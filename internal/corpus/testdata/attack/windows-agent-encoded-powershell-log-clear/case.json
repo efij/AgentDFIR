@@ -1,0 +1,10 @@
+{
+  "endpoint": [
+    "windows.evtx"
+  ],
+  "expect": [
+    "WIN_AGENT_SUSPICIOUS_POWERSHELL",
+    "AGENT_LOGGING_DISRUPTED"
+  ],
+  "note": "Synthetic .evtx (Sysmon 1, PowerShell 4104, Eventlog 1102; written by evtxtest, see README-v45-rules.md): under the agent's `npm test` cmd.exe, a hidden encoded PowerShell runs a download cradle (also in its 4104 script block), then wevtutil clears the Security log and Windows writes 1102. The transcript shows only npm test."
+}

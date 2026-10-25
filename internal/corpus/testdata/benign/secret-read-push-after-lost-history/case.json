@@ -1,0 +1,8 @@
+{
+  "allow": {
+    "SENSITIVE_FILE_READ": ".env was read",
+    "SESSION_TAMPERING": "the dangling parent can read as a chain break",
+    "TRACE_GAP": "records point at a parent that was not collected"
+  },
+  "note": "Incomplete transcript: .env is read, then the history between is lost (the next record's parent is not in the file), then a push. Whether a new remote was added in the lost part is unknown; CHAIN_SECRET_TO_NEW_REMOTE_PUSH needs that step recorded and must not fire."
+}

@@ -1,0 +1,7 @@
+{
+  "allow": {
+    "CLOUD_STORAGE_UPLOAD": "an upload to object storage happened; the deploy bucket is the organization's",
+    "EVIDENCE_STAGING": "an archive was created; true and harmless here"
+  },
+  "note": "Benign twin of source-archived-to-tmp-then-bucket: a release job archives the dist/ build output (in the tree, not the tree itself, not into a temp dir) and uploads it to the deploy bucket. The single-command rules are right to note archive and upload; the staging chain must not fire."
+}

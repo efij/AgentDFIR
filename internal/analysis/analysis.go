@@ -387,6 +387,13 @@ func Run(pkg string, o Options) (*Result, error) {
 				records = append(records, lr.Records...)
 			}
 			cres, cf := correlate.Endpoint(events, records, correlate.EndpointOptions{Window: o.Window, KnownDests: o.KnownDests})
+			hf, hcov := correlate.HostRules(events, records, correlate.EndpointOptions{Window: o.Window, KnownDests: o.KnownDests})
+			cf = append(cf, hf...)
+			for _, c := range hcov {
+				if !c.Evaluated {
+					o.logf("  host rule %s not evaluated: %s", c.Rule, c.Missing)
+				}
+			}
 			res.Correlation = cres
 			findings = append(findings, cf...)
 			_ = overlay.WriteJSON(filepath.Join(detDir, "corroboration.json"), struct {
