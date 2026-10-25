@@ -46,7 +46,7 @@ COLLECT — where the evidence is
   agentdfir collect --docker <container|export.tar>                            a container (read-only export)
   agentdfir collect --archive <zip|tar|tgz>                                    CI artifact, support bundle, vendor export
   agentdfir collect --ai-export <zip|dir>                                      ChatGPT / Claude.ai / DeepSeek / Gemini Takeout export, UFDR
-  agentdfir collect --image <E01|raw|.001|vhd|vhdx|vmdk>                        forensic disk image, read-only (NTFS, ext2/3/4, FAT, exFAT; docs/disk-images.md)
+  agentdfir collect --image <E01|raw|.001|vhd|vhdx|vmdk|qcow2>                  forensic disk image, read-only (NTFS, ext2/3/4, FAT, exFAT, XFS, Btrfs, LVM2; docs/disk-images.md)
       --include-browser   any mode above, and "run": also take browser history (opt-in; only AI-service visits are parsed)
   agentdfir verify <pkg>                                                       prove the package was not modified
   agentdfir compact <pkg>                                                      delete the regenerable analysis overlay (analyze rebuilds it)
@@ -288,7 +288,7 @@ func cmdCollect(args []string) int {
 	archive := fs.String("archive", "", "zip / tar / tar.gz: GitHub Actions artifact, support bundle, vendor data export")
 	aiExport := fs.String("ai-export", "", "AI-service account export (ChatGPT, Claude.ai, DeepSeek, Gemini Takeout) or Cellebrite UFDR: zip/tar or unpacked directory")
 	includeBrowser := fs.Bool("include-browser", false, "also collect browser history databases (opt-in: AI-service visits are parsed, the rest is sealed unread)")
-	image := fs.String("image", "", "forensic disk image (raw/dd, split .001/.aa, E01, VHD, VHDX, VMDK): read-only, agent evidence only")
+	image := fs.String("image", "", "forensic disk image (raw/dd, split .001/.aa, E01, VHD, VHDX, VMDK, QCOW2): read-only, agent evidence only")
 	skipImageVerify := fs.Bool("skip-image-verify", false, "with --image: do not re-read an E01 to check its stored MD5/SHA-1")
 	if err := fs.Parse(args); err != nil {
 		return 2
