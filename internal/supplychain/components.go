@@ -182,7 +182,9 @@ func (b *builder) extComponents(inv *extinv.Inventory) {
 			c.Origin = b.localOrigin(p)
 		}
 		if s.Plugin != "" {
-			c.Name = s.Plugin + ":" + name
+			// The host invokes a plugin skill as <plugin>:<skill>; the
+			// inventory labels the plugin <plugin>@<marketplace>.
+			c.Name = strings.SplitN(s.Plugin, "@", 2)[0] + ":" + name
 		}
 		b.add(c)
 		if parent != "" {

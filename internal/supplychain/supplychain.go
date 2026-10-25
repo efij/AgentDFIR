@@ -167,12 +167,12 @@ type RoundInfo struct {
 
 // Component is one thing an agent loads on its own.
 type Component struct {
-	ID     string `json:"id"`
-	Kind   string `json:"kind"`
-	Name   string `json:"name"`
-	Host   string `json:"host,omitempty"`   // the agent product that loads it
-	Parent string `json:"parent,omitempty"` // containing component (a plugin's skills and hooks)
-	Origin Origin `json:"origin"`
+	ID     string   `json:"id"`
+	Kind   string   `json:"kind"`
+	Name   string   `json:"name"`
+	Host   string   `json:"host,omitempty"`   // the agent product that loads it
+	Parent string   `json:"parent,omitempty"` // containing component (a plugin's skills and hooks)
+	Origin Origin   `json:"origin"`
 	Paths  []string `json:"paths,omitempty"`
 	// SHA256 is the component's identity hash now; HashBasis says what it
 	// covers (a file's content, a declared command, a server definition).

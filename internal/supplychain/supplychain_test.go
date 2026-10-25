@@ -13,12 +13,12 @@ import (
 func TestSafeURLDropsCredentials(t *testing.T) {
 	for in, want := range map[string]string{
 		"https://user:ghp_abcdefghijklmnopqrstuvwxyz0123456789@github.com/o/r.git": "https://github.com/o/r.git",
-		"https://x-token@github.com/o/r":                                          "https://github.com/o/r",
-		"https://mcp.example/sse?token=s3cret&x=1":                                "https://mcp.example/sse?token=%3Credacted%3E&x=%3Credacted%3E",
-		"git+https://u:p@git.example/o/r.git":                                     "git+https://git.example/o/r.git",
-		"git@github.com:o/r.git":                                                  "git@github.com:o/r.git",
-		"user:pass@host.example:o/r.git":                                          "host.example:o/r.git",
-		"":                                                                        "",
+		"https://x-token@github.com/o/r":                                           "https://github.com/o/r",
+		"https://mcp.example/sse?token=s3cret&x=1":                                 "https://mcp.example/sse?token=%3Credacted%3E&x=%3Credacted%3E",
+		"git+https://u:p@git.example/o/r.git":                                      "git+https://git.example/o/r.git",
+		"git@github.com:o/r.git":                                                   "git@github.com:o/r.git",
+		"user:pass@host.example:o/r.git":                                           "host.example:o/r.git",
+		"":                                                                         "",
 	} {
 		if got := safeURL(in); got != want {
 			t.Errorf("safeURL(%q) = %q, want %q", in, got, want)
@@ -40,7 +40,7 @@ func TestTimelineNormalizesAndRenderSanitizes(t *testing.T) {
 		t.Errorf("unparseable time not flagged: %+v", b.rep.Timeline[1])
 	}
 	r := &Report{CaseID: "C", Timeline: b.rep.Timeline,
-		Relations: Relations{Inferred: []Relation{{From: "a", To: "b", Type: "x\x1b[2J", Confidence: "\x1b]0;t\x07", Basis: "b"}}},
+		Relations:  Relations{Inferred: []Relation{{From: "a", To: "b", Type: "x\x1b[2J", Confidence: "\x1b]0;t\x07", Basis: "b"}}},
 		Components: []Component{{ID: "c", Kind: "skill\x1b[1m", Name: "n", Origin: Origin{Trust: "\x1b[0m"}}}}
 	var out bytes.Buffer
 	WriteText(&out, r)

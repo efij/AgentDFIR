@@ -280,7 +280,9 @@ func (b *builder) drift() {
 			var chain []serverSnap
 			key := strings.TrimPrefix(c.ID, "mcp_server:")
 			bl := append([]MCPBaseline(nil), b.in.MCPBaselines...)
-			sort.SliceStable(bl, func(i, j int) bool { return bl[i].B != nil && bl[j].B != nil && bl[i].B.CreatedUTC < bl[j].B.CreatedUTC })
+			sort.SliceStable(bl, func(i, j int) bool {
+				return bl[i].B != nil && bl[j].B != nil && bl[i].B.CreatedUTC < bl[j].B.CreatedUTC
+			})
 			for _, mb := range bl {
 				if mb.B == nil {
 					continue
