@@ -4,10 +4,10 @@
 
 | | |
 |---|---|
-| Rules (built-in + shipped packs) | **200** (115 built-in, 85 in `rules/`) |
-| HIGH / CRITICAL rules | 138, of which **136** carry a MITRE mapping |
+| Rules (built-in + shipped packs) | **207** (122 built-in, 85 in `rules/`) |
+| HIGH / CRITICAL rules | 145, of which **143** carry a MITRE mapping |
 | Distinct MITRE ATLAS techniques covered | **28** (ATLAS 5.6.0) |
-| Distinct MITRE ATT&CK techniques covered | **76** |
+| Distinct MITRE ATT&CK techniques covered | **80** |
 
 Every HIGH/CRITICAL rule must map to at least one MITRE technique; every
 `mitre_atlas` value must exist in the embedded ATLAS release. Both are
@@ -73,7 +73,7 @@ agentdfir rules list --packs rules --json   # machine-readable
 | [`T1048.003`](https://attack.mitre.org/techniques/T1048/003/) | `CURL_FILE_UPLOAD` (agentdfir-community), `DNS_EXFIL_LABELS` (agentdfir-community) |
 | [`T1053`](https://attack.mitre.org/techniques/T1053/) | `CRON_PERSISTENCE` (agentdfir-community) |
 | [`T1053.003`](https://attack.mitre.org/techniques/T1053/003/) | `AGENT_CRONTAB_MODIFIED` |
-| [`T1053.005`](https://attack.mitre.org/techniques/T1053/005/) | `WINDOWS_SCHEDULED_TASK` (agentdfir-community) |
+| [`T1053.005`](https://attack.mitre.org/techniques/T1053/005/) | `WIN_AGENT_SCHEDULED_TASK`, `WINDOWS_SCHEDULED_TASK` (agentdfir-community) |
 | [`T1059`](https://attack.mitre.org/techniques/T1059/) | `AI_CLI_HEADLESS_BYPASS`, `CHAIN_CONTEXT_POISON_TO_EXEC`, `SHELL_EXECUTION`, `BIND_SHELL_LISTENER` (agentdfir-community), `REVERSE_SHELL` (agentdfir-community) |
 | [`T1059.001`](https://attack.mitre.org/techniques/T1059/001/) | `POWERSHELL_ENCODED_OR_REMOTE_EXEC` (agentdfir-community) |
 | [`T1059.004`](https://attack.mitre.org/techniques/T1059/004/) | `REPO_GIT_REF_INJECTION`, `CONFIG_HOOK_REMOTE_FETCH` (agentdfir-community), `CURL_PIPE_SHELL` (agentdfir-community) |
@@ -86,7 +86,7 @@ agentdfir rules list --packs rules --json   # machine-readable
 | [`T1071`](https://attack.mitre.org/techniques/T1071/) | `UNLOGGED_AGENT_NETWORK` |
 | [`T1074`](https://attack.mitre.org/techniques/T1074/) | `EVIDENCE_STAGING` (agentdfir-starter) |
 | [`T1074.001`](https://attack.mitre.org/techniques/T1074/001/) | `AGENT_SENSITIVE_DATA_STAGING` (agentdfir-community) |
-| [`T1078`](https://attack.mitre.org/techniques/T1078/) | `AI_SESSION_IDENTITY_SWITCH` |
+| [`T1078`](https://attack.mitre.org/techniques/T1078/) | `AI_SESSION_IDENTITY_SWITCH`, `WIN_AGENT_EXPLICIT_CREDENTIALS` |
 | [`T1080`](https://attack.mitre.org/techniques/T1080/) | `PROMPT_SELF_REPLICATION` (agentdfir-community) |
 | [`T1083`](https://attack.mitre.org/techniques/T1083/) | `AGENT_CONFIG_DISCOVERY` (agentdfir-community) |
 | [`T1090.003`](https://attack.mitre.org/techniques/T1090/003/) | `ANON_PROXY_ROUTING` (agentdfir-community) |
@@ -106,20 +106,24 @@ agentdfir rules list --packs rules --json   # machine-readable
 | [`T1490`](https://attack.mitre.org/techniques/T1490/) | `CLOUD_RECOVERY_PROTECTION_REMOVED` (agentdfir-community) |
 | [`T1496`](https://attack.mitre.org/techniques/T1496/) | `CRYPTOMINER_EXECUTION` (agentdfir-community) |
 | [`T1543`](https://attack.mitre.org/techniques/T1543/) | `SERVICE_PERSISTENCE` (agentdfir-community) |
+| [`T1543.001`](https://attack.mitre.org/techniques/T1543/001/) | `MACOS_LAUNCHD_PERSISTENCE_BY_AGENT` |
 | [`T1543.002`](https://attack.mitre.org/techniques/T1543/002/) | `AGENT_SYSTEMD_PERSISTENCE` |
 | [`T1546`](https://attack.mitre.org/techniques/T1546/) | `REPO_AGENT_HOOK_AUTORUN`, `REPO_CODEX_PROJECT_CONFIG`, `REPO_DEVCONTAINER_HOST_COMMAND`, `REPO_GIT_EXEC_CONFIG`, `REPO_VSCODE_AUTORUN_TASK`, `AGENT_CONFIG_SHELL_WRITE` (agentdfir-community), `GIT_HOOK_INSTALL` (agentdfir-community), `MEMORY_INSTRUCTION_CALLOUT` (agentdfir-community) |
+| [`T1546.003`](https://attack.mitre.org/techniques/T1546/003/) | `WIN_AGENT_WMI_PERSISTENCE` |
 | [`T1546.004`](https://attack.mitre.org/techniques/T1546/004/) | `SHELL_RC_PERSISTENCE` (agentdfir-community) |
 | [`T1547`](https://attack.mitre.org/techniques/T1547/) | `INSTRUCTION_FROM_TOOL_RESULT` |
-| [`T1547.001`](https://attack.mitre.org/techniques/T1547/001/) | `WINDOWS_RUN_KEY` (agentdfir-community) |
+| [`T1547.001`](https://attack.mitre.org/techniques/T1547/001/) | `WIN_AGENT_REGISTRY_PERSISTENCE`, `WINDOWS_RUN_KEY` (agentdfir-community) |
 | [`T1547.006`](https://attack.mitre.org/techniques/T1547/006/) | `KERNEL_MODULE_LOAD` (agentdfir-community) |
 | [`T1548`](https://attack.mitre.org/techniques/T1548/) | `AGENT_PERMISSION_BOUNDARY_CROSSING`, `AGENT_UNEXPECTED_AUTONOMOUS_RETRY`, `MCP_AUTO_APPROVE`, `MCP_GATEWAY_DENIED_CALL`, `MCP_WILDCARD_TOOL_PERMISSION` |
 | [`T1548.001`](https://attack.mitre.org/techniques/T1548/001/) | `SUID_BIT_SET` (agentdfir-community) |
 | [`T1548.003`](https://attack.mitre.org/techniques/T1548/003/) | `SUDOERS_NOPASSWD_PERSIST` (agentdfir-community) |
+| [`T1548.006`](https://attack.mitre.org/techniques/T1548/006/) | `MACOS_TCC_MODIFIED_BY_AGENT` |
 | [`T1552`](https://attack.mitre.org/techniques/T1552/) | `AGENT_CROSS_SESSION_SECRET_REUSE`, `CHAIN_MCP_RESULT_TO_PRIVILEGED`, `POTENTIAL_SECRET_EXPOSURE`, `SECRET_ACCESS`, `ENV_SECRET_ECHO` (agentdfir-community), `SECRET_IN_URL` (agentdfir-community) |
 | [`T1552.001`](https://attack.mitre.org/techniques/T1552/001/) | `HEADLESS_AGENT_SECRET_HUNT`, `MCP_SECRET_IN_CONFIG`, `SENSITIVE_FILE_READ`, `AGENT_CREDENTIAL_STORE_ACCESS` (agentdfir-community), `GIT_CREDENTIAL_EXPOSURE` (agentdfir-community), `TERRAFORM_STATE_ACCESS` (agentdfir-community), `TOOLCHAIN_CREDENTIAL_FILE_ACCESS` (agentdfir-community) |
 | [`T1552.004`](https://attack.mitre.org/techniques/T1552/004/) | `SSH_PRIVATE_KEY_READ` (agentdfir-community) |
 | [`T1552.005`](https://attack.mitre.org/techniques/T1552/005/) | `UNEXPECTED_NETWORK_DESTINATION`, `CLOUD_CREDENTIAL_EXPORT` (agentdfir-community), `CLOUD_METADATA_ACCESS` (agentdfir-community) |
 | [`T1552.007`](https://attack.mitre.org/techniques/T1552/007/) | `KUBE_SECRET_DUMP` (agentdfir-community) |
+| [`T1555.001`](https://attack.mitre.org/techniques/T1555/001/) | `MACOS_KEYCHAIN_ACCESS_BY_AGENT` |
 | [`T1555.003`](https://attack.mitre.org/techniques/T1555/003/) | `BROWSER_CREDENTIAL_ACCESS` (agentdfir-community) |
 | [`T1557`](https://attack.mitre.org/techniques/T1557/) | `INSECURE_MCP_TRANSPORT`, `MCP_INSECURE_TRANSPORT` (agentdfir-community) |
 | [`T1560.001`](https://attack.mitre.org/techniques/T1560/001/) | `CREDENTIAL_DIR_ARCHIVE` (agentdfir-community) |
@@ -228,6 +232,9 @@ agentdfir rules list --packs rules --json   # machine-readable
 | HIGH | `KUBE_SECRET_DUMP` | command | T1552.007 | AML.T0055 | agentdfir-community |
 | HIGH | `LD_PRELOAD_INJECT` | command | T1574.006 | - | agentdfir-community |
 | HIGH | `LOG_DELETION` | command | T1070.004 | - | builtin |
+| HIGH | `MACOS_KEYCHAIN_ACCESS_BY_AGENT` | endpoint | T1555.001 | - | builtin |
+| HIGH | `MACOS_LAUNCHD_PERSISTENCE_BY_AGENT` | endpoint | T1543.001 | - | builtin |
+| HIGH | `MACOS_TCC_MODIFIED_BY_AGENT` | endpoint | T1548.006 | - | builtin |
 | HIGH | `MCP_ALL_PROJECT_SERVERS_TRUSTED` | mcp | T1195 | AML.T0010 | builtin |
 | HIGH | `MCP_AUTO_APPROVE` | mcp | T1548 | AML.T0053 | builtin |
 | HIGH | `MCP_GATEWAY_CONTRADICTED_CALL` | mcp | T1562 | - | builtin |
@@ -279,6 +286,10 @@ agentdfir rules list --packs rules --json   # machine-readable
 | HIGH | `WINDOWS_DEFENSE_DISABLE` | command | T1562.001 | - | agentdfir-community |
 | HIGH | `WINDOWS_RUN_KEY` | command | T1547.001 | - | agentdfir-community |
 | HIGH | `WINDOWS_SCHEDULED_TASK` | command | T1053.005 | - | agentdfir-community |
+| HIGH | `WIN_AGENT_EXPLICIT_CREDENTIALS` | endpoint | T1078 | - | builtin |
+| HIGH | `WIN_AGENT_REGISTRY_PERSISTENCE` | endpoint | T1547.001 | - | builtin |
+| HIGH | `WIN_AGENT_SCHEDULED_TASK` | endpoint | T1053.005 | - | builtin |
+| HIGH | `WIN_AGENT_WMI_PERSISTENCE` | endpoint | T1546.003 | - | builtin |
 | MEDIUM | `AGENT_CONFIG_DISCOVERY` | command | T1083 | AML.T0084.001 | agentdfir-community |
 | MEDIUM | `AGENT_SESSION_CLOCK_ANOMALY` | transcript | T1565.001 | - | builtin |
 | MEDIUM | `AGENT_SPAWN_EXPLOSION` | transcript | - | AML.T0034.002 | builtin |

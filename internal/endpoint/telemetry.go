@@ -46,7 +46,8 @@ var sightingSources = map[string]bool{
 	"bind": true, "dnsmasq": true, "pihole": true, "unbound": true, "windows-dns": true,
 	"squid": true, "proxy-export": true,
 	"authlog": true, "journald": true,
-	"plaso": true,
+	"plaso":      true,
+	"unifiedlog": true,
 }
 
 // IsSighting reports whether a record comes from a partial-coverage

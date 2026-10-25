@@ -1,0 +1,5 @@
+{
+  "note": "Synthetic eslogger capture: while an agent writes CHANGES.md, the user's own Terminal shell (not under the agent) installs a Homebrew LaunchAgent and reads a keychain item with `security find-generic-password -w`; an hour later System Settings grants a TCC right. Nothing descends from the agent and the TCC change is outside the session, so the macOS rules must stay quiet.",
+  "endpoint": ["eslogger.jsonl"],
+  "allow": {}
+}

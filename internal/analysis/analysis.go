@@ -29,6 +29,7 @@ import (
 	"github.com/efij/AgentDFIR/v4/internal/index"
 	"github.com/efij/AgentDFIR/v4/internal/ioc"
 	"github.com/efij/AgentDFIR/v4/internal/journal"
+	"github.com/efij/AgentDFIR/v4/internal/macoshost"
 	"github.com/efij/AgentDFIR/v4/internal/mcpaudit"
 	"github.com/efij/AgentDFIR/v4/internal/normalize"
 	"github.com/efij/AgentDFIR/v4/internal/overlay"
@@ -450,6 +451,20 @@ func Run(pkg string, o Options) (*Result, error) {
 		findings = append(findings, jf...)
 		if len(jf) > 0 {
 			o.logf("Monitor journal: %d finding(s)", len(jf))
+		}
+		// macOS host state (opt-in collection): TCC.db rows inside agent
+		// session windows, plus an inventory for the analyst.
+		if hs := macoshost.Read(man, casepkg.NewStore(pkg, man)); !hs.Empty() {
+			hf := correlate.HostState(allEvents(), hs.TCCRows)
+			findings = append(findings, hf...)
+			_ = overlay.WriteJSON(filepath.Join(detDir, "macos_host.json"), hs)
+			o.logf("macOS host state: %s; %d finding(s)", hs.Summary(), len(hf))
+			for _, u := range hs.Unsupported {
+				o.logf("  %s", sanitize.Terminal(u))
+			}
+			for _, sk := range hs.Skipped {
+				o.logf("  not readable: %s", sanitize.Terminal(sk))
+			}
 		}
 	}
 

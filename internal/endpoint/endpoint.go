@@ -26,7 +26,7 @@ import (
 // Record is one endpoint observation.
 type Record struct {
 	Time      time.Time `json:"time"`
-	Kind      string    `json:"kind"` // process | network | file | cloud | dns | auth | process-image | script | service | log-clear | process-exit | registry | scheduled-task | wmi (evtx) | syscall | container
+	Kind      string    `json:"kind"` // process | network | file | cloud | dns | auth | process-image | script | service | log-clear | process-exit | registry | scheduled-task | wmi (evtx) | syscall | container (linux) | process-fork | persistence | tcc | av | ipc | signal | log (macOS)
 	PID       int       `json:"pid,omitempty"`
 	PPID      int       `json:"ppid,omitempty"`
 	Exe       string    `json:"exe,omitempty"`
@@ -82,6 +82,31 @@ type Record struct {
 	Detection string `json:"detection,omitempty"`
 	Source    string `json:"source"` // adapter name
 	Ref       string `json:"ref"`    // file:line or event id
+
+	// Process identity beyond pid/ppid, for sources that record it (macOS
+	// Endpoint Security via eslogger fills all of them; other adapters may
+	// fill some). UID/EUID are strings so that root (0) is not dropped.
+	OrigPPID       int    `json:"orig_ppid,omitempty"` // parent at process start, before any reparenting
+	RespPID        int    `json:"resp_pid,omitempty"`  // macOS responsible process
+	AuditToken     string `json:"audit_token,omitempty"`
+	SigningID      string `json:"signing_id,omitempty"`
+	TeamID         string `json:"team_id,omitempty"`
+	CDHash         string `json:"cdhash,omitempty"`
+	PlatformBinary bool   `json:"platform_binary,omitempty"`
+	UID            string `json:"uid,omitempty"`
+	EUID           string `json:"euid,omitempty"`
+	ProcSession    int    `json:"proc_session,omitempty"` // POSIX session id of the process
+	// Collection health: a source-assigned sequence number. Seq is
+	// contiguous within SeqDomain (eslogger seq_num per event type, an EVTX
+	// channel's EventRecordID, an audit serial); GlobalSeq is a stream-wide
+	// counter (eslogger global_seq_num). A jump means the source dropped
+	// events. Zero means the source has no sequence numbers.
+	Seq       uint64 `json:"seq,omitempty"`
+	SeqDomain string `json:"seq_domain,omitempty"`
+	GlobalSeq uint64 `json:"global_seq,omitempty"`
+	// Message is the raw text of a log record kept for the timeline
+	// (kind log, macOS unified log), bounded.
+	Message string `json:"message,omitempty"`
 }
 
 // Format names an adapter.
@@ -117,6 +142,11 @@ type LoadResult struct {
 	ctxKept      map[string]int // Windows context records kept per kind (evtxkinds.go)
 	ctxNoted     map[string]bool
 	noticeCounts map[string]int
+	// Unsupported counts input records of a type the adapter recognized
+	// as well-formed but does not map (an eslogger event type it has no
+	// mapping for), keyed by that type. Counted and reported, never
+	// silently dropped.
+	Unsupported map[string]int
 }
 
 // Load reads one endpoint log with the given (or sniffed) format.
@@ -151,7 +181,9 @@ func Load(path string, f Format) (*LoadResult, error) {
 	default:
 		var ok bool
 		if res, ok, err = loadTelemetry(path, f); !ok {
-			return nil, fmt.Errorf("unknown endpoint format %q", f)
+			if res, ok, err = loadMacOS(path, f); !ok {
+				return nil, fmt.Errorf("unknown endpoint format %q", f)
+			}
 		}
 	}
 	if err != nil {
@@ -178,6 +210,9 @@ func Sniff(path string) (Format, error) {
 	if tf := sniffTelemetry(head); tf != "" {
 		return tf, nil
 	}
+	if mf := sniffMacOS(head); mf != "" {
+		return mf, nil
+	}
 	switch {
 	case bytes.HasPrefix(head, []byte("type=")) || bytes.Contains(head[:min(len(head), 4096)], []byte("\ntype=")):
 		return FormatAuditd, nil
@@ -195,7 +230,7 @@ func Sniff(path string) (Format, error) {
 	if bytes.Count(first, []byte(",")) >= 2 {
 		return FormatCSV, nil
 	}
-	return "", errors.New("cannot determine endpoint log format; pass --format auditd|sysmon-xml|evtx|jsonl|csv|cloud-audit|" + telemetryFormatList)
+	return "", errors.New("cannot determine endpoint log format; pass --format auditd|sysmon-xml|evtx|jsonl|csv|cloud-audit|" + telemetryFormatList + "|" + macOSFormatList)
 }
 
 func min(a, b int) int {

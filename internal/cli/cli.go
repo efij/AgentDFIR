@@ -16,6 +16,7 @@ import (
 	"github.com/efij/AgentDFIR/v4/internal/hostpersist"
 	"github.com/efij/AgentDFIR/v4/internal/integrity"
 	"github.com/efij/AgentDFIR/v4/internal/live"
+	"github.com/efij/AgentDFIR/v4/internal/macoshost"
 	"github.com/efij/AgentDFIR/v4/internal/products"
 	"github.com/efij/AgentDFIR/v4/internal/sanitize"
 	"github.com/efij/AgentDFIR/v4/internal/seal"
@@ -50,6 +51,7 @@ COLLECT — where the evidence is
   agentdfir collect --suite-export <path>                                      UFDR, AXIOM CSV / Portable Case, Plaso timeline, Autopsy report (docs/forensic-suite-interop.md)
   agentdfir collect --image <E01|raw|.001|vhd|vhdx|vmdk>                        forensic disk image, read-only (NTFS, ext2/3/4, FAT, exFAT; docs/disk-images.md)
       --include-browser   any mode above, and "run": also take browser history (opt-in; only AI-service visits are parsed)
+      --include-macos-host  current-user / --path: also take macOS host state (launchd, BTM, TCC.db, keychain listing; opt-in)
   agentdfir verify <pkg>                                                       prove the package was not modified
   agentdfir compact <pkg>                                                      delete the regenerable analysis overlay (analyze rebuilds it)
   agentdfir store status | store gc                                            shared evidence store: what it holds, reclaim what no case uses
@@ -109,6 +111,7 @@ EDISCOVERY — derivative productions for legal review (structural RSMF validati
 BEFORE AN INCIDENT
   agentdfir monitor --detect --alert <url|file>      live sensor: findings pushed as they happen
   agentdfir monitor --journal [--journal-anchor f]   hash-chain every transcript append; later edits become provable
+  sudo agentdfir monitor --es [--es-events a,b]     macOS: also capture Endpoint Security events via Apple's eslogger (root + Full Disk Access)
   agentdfir journal verify [--anchor <head>]         check the journal and an off-host anchor
   agentdfir mcp audit                                MCP servers on this machine: unpinned, plaintext, poisoned
   agentdfir extensions [--path <home>]               IDE extensions, agent plugins, skills: hidden loaders, remote hooks
@@ -294,6 +297,7 @@ func cmdCollect(args []string) int {
 	aiExport := fs.String("ai-export", "", "AI-service account export (ChatGPT, Claude.ai, DeepSeek, Gemini Takeout) or Cellebrite UFDR: zip/tar or unpacked directory")
 	suiteExport := fs.String("suite-export", "", "forensic-suite export: UFDR, AXIOM CSV export / Portable Case, Plaso psort timeline, Autopsy Files - Text report (file, zip/tar or directory)")
 	includeBrowser := fs.Bool("include-browser", false, "also collect browser history databases (opt-in: AI-service visits are parsed, the rest is sealed unread)")
+	includeMacHost := fs.Bool("include-macos-host", false, "also collect macOS host state: launchd plists, BTM, login items, TCC.db, keychain file listing (opt-in; keychains never opened)")
 	image := fs.String("image", "", "forensic disk image (raw/dd, split .001/.aa, E01, VHD, VHDX, VMDK): read-only, agent evidence only")
 	skipImageVerify := fs.Bool("skip-image-verify", false, "with --image: do not re-read an E01 to check its stored MD5/SHA-1")
 	recoverDeleted := fs.Bool("recover-deleted", false, "with --image: also seal recoverable deleted NTFS file content (RECOVERED_UNVERIFIED); metadata is always listed")
@@ -408,6 +412,9 @@ func cmdCollect(args []string) int {
 	if *includeBrowser || productID == browserProductID {
 		info.Notes["browser_history"] = browserNote
 	}
+	if *includeMacHost || productID == macoshost.Product {
+		info.Notes["macos_host"] = macHostNote
+	}
 	if *offlineRoot != "" {
 		info.Notes["mode"] = "offline-path"
 		info.Notes["offline_root"] = *offlineRoot
@@ -480,6 +487,13 @@ func cmdCollect(args []string) int {
 		if pErr != nil {
 			fmt.Fprintln(os.Stderr, "linux persistence collection (continuing):", pErr)
 		}
+	}
+	if (*includeMacHost || productID == macoshost.Product) && runErr == nil {
+		// Opt-in pass: macOS host state (or, for --product macos-host, the
+		// keychain listing the manifest cannot express).
+		mst, mErr := collectMacOSHost(b, opts, productID != macoshost.Product)
+		addStats(st, mst)
+		runErr = mErr
 	}
 	roundStats := b.Stats()
 	signing := prepareSigning(b, *signKey, *noSign)

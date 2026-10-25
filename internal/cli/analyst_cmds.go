@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/efij/AgentDFIR/v4/internal/detect"
+	"github.com/efij/AgentDFIR/v4/internal/endpoint"
 	"github.com/efij/AgentDFIR/v4/internal/journal"
 	"github.com/efij/AgentDFIR/v4/internal/normalize"
 	"github.com/efij/AgentDFIR/v4/internal/products"
@@ -156,6 +157,8 @@ func cmdMonitor(args []string) int {
 	quiet := fs.Bool("quiet", false, "print findings only, not every transcript line")
 	useJournal := fs.Bool("journal", false, "keep a hash-chained journal of every transcript append (~/.agentdfir/monitor/journal.jsonl) so later edits are provable")
 	anchorFile := fs.String("journal-anchor", "", "also append each journal seal's chain head to this file (put it somewhere the watched user cannot write)")
+	useES := fs.Bool("es", false, "macOS: also run Apple's eslogger (root + Full Disk Access) and capture Endpoint Security events to ~/.agentdfir/monitor/eslogger-*.jsonl")
+	esEvents := fs.String("es-events", "", "with --es: comma-separated eslogger event types (default: process, file-change, persistence, TCC, auth, XProtect)")
 	// Directories may come first or after the flags.
 	var positional []string
 	rest := args
@@ -164,7 +167,7 @@ func cmdMonitor(args []string) int {
 		rest = rest[1:]
 	}
 	if err := fs.Parse(rest); err != nil {
-		fmt.Fprintln(os.Stderr, "usage: agentdfir monitor [dirs...] [--detect] [--alert <target>]... [--honeytokens f] [--min-severity S] [--quiet]")
+		fmt.Fprintln(os.Stderr, "usage: agentdfir monitor [dirs...] [--detect] [--alert <target>]... [--honeytokens f] [--min-severity S] [--quiet] [--journal] [--es [--es-events a,b]]")
 		return 2
 	}
 	paths := append(positional, fs.Args()...)
@@ -232,6 +235,8 @@ func cmdMonitor(args []string) int {
 		defer eng.Close()
 		w.OnLine = eng.OnLine
 	}
+	es := &esHandle{}
+	var jnl *journal.Journal
 	if *useJournal || *anchorFile != "" {
 		home, _ := os.UserHomeDir()
 		jp := journal.DefaultPath(home)
@@ -257,11 +262,27 @@ func cmdMonitor(args []string) int {
 		signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
 		go func() {
 			<-sig
+			es.Stop()
 			_ = jn.Close()
 			os.Exit(130)
 		}()
+		jnl = jn
 		w.OnBaseline, w.OnGrow, w.OnShrink, w.OnGone = jn.Baseline, jn.Grow, jn.Shrink, jn.Gone
 		fmt.Printf("journal: %s (verify later: agentdfir journal verify --anchor <head>)\n", jp)
+	}
+	if *useES {
+		home, _ := os.UserHomeDir()
+		startES(endpoint.NewESLauncher(), *esEvents, *quiet, jnl, home, es)
+		defer es.Stop()
+		if jnl == nil {
+			sig := make(chan os.Signal, 1)
+			signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
+			go func() {
+				<-sig
+				es.Stop()
+				os.Exit(130)
+			}()
+		}
 	}
 	mode := "tail"
 	if *detectLive {

@@ -1,0 +1,4 @@
+{"type": "user", "uuid": "u1", "sessionId": "m1", "timestamp": "2026-10-20T09:00:01Z", "cwd": "/Users/user/proj", "message": {"role": "user", "content": "run the tests"}}
+{"type": "assistant", "uuid": "a1", "sessionId": "m1", "timestamp": "2026-10-20T09:00:04Z", "cwd": "/Users/user/proj", "parentUuid": "u1", "message": {"role": "assistant", "content": [{"type": "tool_use", "id": "t1", "name": "Bash", "input": {"command": "npm test"}}]}}
+{"type": "user", "uuid": "u2", "sessionId": "m1", "timestamp": "2026-10-20T09:00:12Z", "cwd": "/Users/user/proj", "parentUuid": "a1", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t1", "content": "12 passing"}]}}
+{"type": "assistant", "uuid": "a2", "sessionId": "m1", "timestamp": "2026-10-20T09:00:14Z", "cwd": "/Users/user/proj", "parentUuid": "u2", "message": {"role": "assistant", "content": [{"type": "text", "text": "All 12 tests pass."}]}}
