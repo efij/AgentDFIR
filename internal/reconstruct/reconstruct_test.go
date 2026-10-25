@@ -537,18 +537,18 @@ func TestBuildDegradesOnIncompleteInput(t *testing.T) {
 
 func TestStageClassification(t *testing.T) {
 	for step, want := range map[string]string{
-		"injection in tool result":               StageInitialAccess,
+		"injection in tool result":                StageInitialAccess,
 		"agent wrote its own instructions/config": StagePersistence,
-		"shell command executed":                 StageExecution,
-		"secret or credential file accessed":     StageCredential,
-		"upload-shaped command":                  StageExfiltration,
-		"agent logs deleted":                     StageAntiForensics,
-		"destructive command":                    StageImpact,
-		"permissions widened":                    StagePrivEsc,
-		"credential material collected":          StageCredential,
-		"MCP tool that sends data out":           StageExfiltration,
-		"download":                               StageInitialAccess,
-		"nothing recognizable":                   "",
+		"shell command executed":                  StageExecution,
+		"secret or credential file accessed":      StageCredential,
+		"upload-shaped command":                   StageExfiltration,
+		"agent logs deleted":                      StageAntiForensics,
+		"destructive command":                     StageImpact,
+		"permissions widened":                     StagePrivEsc,
+		"credential material collected":           StageCredential,
+		"MCP tool that sends data out":            StageExfiltration,
+		"download":                                StageInitialAccess,
+		"nothing recognizable":                    "",
 	} {
 		if got := StepStage(step); got != want {
 			t.Errorf("StepStage(%q) = %q, want %q", step, got, want)

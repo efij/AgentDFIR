@@ -1556,7 +1556,7 @@ func (b *builder) missing() {
 		}
 		if noTelemetry && calls > 0 {
 			out = append(out, Missing{Scope: "case", Target: ci.Label, Case: ci.Label, Host: ci.Host, Status: gaps.VerifyNext, Category: "second_witness",
-				Text: fmt.Sprintf("host %s (%s) has no endpoint telemetry or other second witness: %d tool call(s) in %d segment(s) can be neither confirmed nor refuted", ci.Host, ci.Label, calls, segsWithCalls),
+				Text:    fmt.Sprintf("host %s (%s) has no endpoint telemetry or other second witness: %d tool call(s) in %d segment(s) can be neither confirmed nor refuted", ci.Host, ci.Label, calls, segsWithCalls),
 				Collect: fmt.Sprintf("process and network telemetry from %s covering %s (EDR export, Sysmon, auditd, eslogger), then: agentdfir analyze %s --endpoint <log>", ci.Host, span(start, end), ci.Path),
 				Source:  "reconstruct"})
 		}
