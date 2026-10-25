@@ -68,6 +68,7 @@ LOOK — same results, different views
   agentdfir gaps <pkg> [--json]           what the evidence does not show, and what to collect next
   agentdfir lineage <pkg> [--finding id|--session id] [--format text|json|mermaid|dot]   human → agent → tool → process → destination
   agentdfir correlate-cases <a> <b> [...] [--json]   what several cases share (destinations, IOCs, key fingerprints, accounts)
+  agentdfir reconstruct <pkg|case> [...] [--json|--mermaid|--dot] [--out f]   one incident across hosts: timeline, delegation, hand-offs, stages, missing evidence
 
 MOVE A CASE — look at another computer's case here
   agentdfir export [<pkg>]                one file (<case>.adfir.tgz) + its SHA-256; default: this machine's case
@@ -141,6 +142,8 @@ func Main(args []string) int {
 		return cmdCorrelate(args[1:])
 	case "correlate-cases":
 		return cmdCorrelateCases(args[1:])
+	case "reconstruct":
+		return cmdReconstruct(args[1:])
 	case "gaps":
 		return cmdGaps(args[1:])
 	case "lineage":
