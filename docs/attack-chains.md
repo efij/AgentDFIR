@@ -27,10 +27,12 @@ Chains run last in `agentdfir analyze`, after detections, rule packs, MCP audit 
 | `CHAIN_CROSS_TOOL_EXFIL` | credential store / private key / staged secret / secrets MCP tool → MCP tool that sends, posts or publishes | session · 60 min | HIGH | ATLAS AML.T0086 · ATT&CK T1567 |
 | `CHAIN_MCP_RESULT_TO_PRIVILEGED` | instructions in an MCP tool result → credential read, permission grant or upload | session · 60 min | HIGH | ATLAS AML.T0099 · ATT&CK T1552 |
 | `CHAIN_PERMISSION_ESCALATION_TO_IMPACT` | permissions widened (bypass mode, self-granted tools, nested bypass, denied tool ran) → destructive command, logging shutdown or upload | session · 120 min | HIGH | ATLAS AML.T0081 · ATT&CK T1562.001 |
+| `CHAIN_STAGED_DATA_TO_TRANSFER` | credential archive / encoded credential file / database dump / working tree or home archived into a temp dir → object-storage copy, scp/rsync to a host, curl file upload, paste or webhook destination, push to a URL remote | session · 60 min | HIGH | ATLAS AML.T0086 · ATT&CK T1567 |
+| `CHAIN_SECRET_TO_NEW_REMOTE_PUSH` | credential or sensitive read → `git remote add|set-url` or `gh repo|gist create` → `git push` | session · 120 min | HIGH | ATLAS AML.T0086 · ATT&CK T1567.001 |
 
-The last three were added in v4 after a dedupe against the chains above; see [detection-v4.md](detection-v4.md). They report a *possible* path: the order of events is recorded, causation is not.
+`CHAIN_CROSS_TOOL_EXFIL`, `CHAIN_MCP_RESULT_TO_PRIVILEGED` and `CHAIN_PERMISSION_ESCALATION_TO_IMPACT` were added in v4 after a dedupe against the chains above (see [detection-v4.md](detection-v4.md)); the last two in v4.5 (see [detection-v45.md](detection-v45.md)). They report a *possible* path: the order of events is recorded, causation is not.
 
-All eleven are in `internal/catalog`, `agentdfir rules list` and [detection-coverage.md](detection-coverage.md).
+All thirteen are in `internal/catalog`, `agentdfir rules list` and [detection-coverage.md](detection-coverage.md).
 
 ## How matching works
 

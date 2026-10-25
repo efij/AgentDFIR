@@ -1,0 +1,6 @@
+{
+  "endpoint": [
+    "powershell.evtx"
+  ],
+  "note": "Incomplete telemetry (synthetic .evtx, PowerShell/Operational only): the attack case's download cradle is in a 4104 script block, but there is no Sysmon or 4688 process telemetry to tie that PowerShell to the agent. WIN_AGENT_SUSPICIOUS_POWERSHELL must report itself not evaluated and fire nothing; script blocks never DISPROVE the transcript's command."
+}

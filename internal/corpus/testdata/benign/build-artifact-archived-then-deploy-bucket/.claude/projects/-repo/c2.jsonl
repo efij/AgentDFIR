@@ -1,0 +1,5 @@
+{"cwd":"/repo","message":{"content":"package the release and push it to the deploy bucket","role":"user"},"sessionId":"c2","timestamp":"2026-10-22T10:00:00Z","type":"user","uuid":"c2-1"}
+{"cwd":"/repo","message":{"content":[{"id":"t2","input":{"command":"tar czf dist.tgz dist/"},"name":"Bash","type":"tool_use"}],"role":"assistant"},"parentUuid":"c2-1","sessionId":"c2","timestamp":"2026-10-22T10:00:02Z","type":"assistant","uuid":"c2-2"}
+{"cwd":"/repo","message":{"content":[{"content":"","tool_use_id":"t2","type":"tool_result"}],"role":"user"},"parentUuid":"c2-2","sessionId":"c2","timestamp":"2026-10-22T10:00:04Z","type":"user","uuid":"c2-3"}
+{"cwd":"/repo","message":{"content":[{"id":"t4","input":{"command":"aws s3 cp dist.tgz s3://acme-deploy-artifacts/releases/dist.tgz"},"name":"Bash","type":"tool_use"}],"role":"assistant"},"parentUuid":"c2-3","sessionId":"c2","timestamp":"2026-10-22T10:00:09Z","type":"assistant","uuid":"c2-4"}
+{"cwd":"/repo","message":{"content":[{"content":"upload: dist.tgz","tool_use_id":"t4","type":"tool_result"}],"role":"user"},"parentUuid":"c2-4","sessionId":"c2","timestamp":"2026-10-22T10:00:11Z","type":"user","uuid":"c2-5"}

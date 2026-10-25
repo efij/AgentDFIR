@@ -1,0 +1,5 @@
+{"cwd":"/repo","message":{"content":"check the config","role":"user"},"sessionId":"r3","timestamp":"2026-10-22T10:00:00Z","type":"user","uuid":"r3-1"}
+{"cwd":"/repo","message":{"content":[{"id":"t2","input":{"command":"cat .env"},"name":"Bash","type":"tool_use"}],"role":"assistant"},"parentUuid":"r3-1","sessionId":"r3","timestamp":"2026-10-22T10:00:02Z","type":"assistant","uuid":"r3-2"}
+{"cwd":"/repo","message":{"content":[{"content":"DATABASE_URL=postgres://app@db/app","tool_use_id":"t2","type":"tool_result"}],"role":"user"},"parentUuid":"r3-2","sessionId":"r3","timestamp":"2026-10-22T10:00:04Z","type":"user","uuid":"r3-3"}
+{"cwd":"/repo","message":{"content":[{"id":"t4","input":{"command":"git push backup main"},"name":"Bash","type":"tool_use"}],"role":"assistant"},"parentUuid":"r3-lost-12","sessionId":"r3","timestamp":"2026-10-22T10:00:15Z","type":"assistant","uuid":"r3-4"}
+{"cwd":"/repo","message":{"content":[{"content":"ok","tool_use_id":"t4","type":"tool_result"}],"role":"user"},"parentUuid":"r3-4","sessionId":"r3","timestamp":"2026-10-22T10:00:17Z","type":"user","uuid":"r3-5"}

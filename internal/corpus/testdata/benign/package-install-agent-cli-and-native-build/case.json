@@ -1,0 +1,6 @@
+{
+  "endpoint": [
+    "tetragon.jsonl"
+  ],
+  "note": "Benign twin of package-postinstall-launches-agent (synthetic Tetragon): installing an agent CLI itself (its postinstall touches only its own install directory), `npm ci` with a node-gyp native build writing into node_modules, and the person then starting claude from their shell (not from a package script). PACKAGE_SCRIPT_TOUCHED_AGENT must not fire."
+}

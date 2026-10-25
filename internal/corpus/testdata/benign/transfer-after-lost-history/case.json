@@ -1,0 +1,8 @@
+{
+  "allow": {
+    "CLOUD_STORAGE_UPLOAD": "the upload itself is recorded",
+    "SESSION_TAMPERING": "the dangling parent can read as a chain break",
+    "TRACE_GAP": "the first record points at a parent that was not collected"
+  },
+  "note": "Incomplete transcript: the session's first part is missing (the first record's parent is not in the file), so whatever produced /tmp/src.tgz is not recorded. CHAIN_STAGED_DATA_TO_TRANSFER needs the staging step and must not fire; the missing history is a gap, never evidence that nothing was staged."
+}

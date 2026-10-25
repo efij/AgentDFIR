@@ -86,6 +86,12 @@ var Builtin = []Rule{
 	{ID: "CHAIN_PERMISSION_ESCALATION_TO_IMPACT", Package: "chain", Surface: "transcript", MaxSeverity: "HIGH",
 		Title: "Permissions Widened, Then Something Destructive or an Upload Ran", Summary: "Toxic combination: permission widening (bypass mode, self-granted tools, nested bypass, denied tool ran) → destructive command, logging shutdown or upload.",
 		MitreATTACK: "T1562.001", MitreATLAS: "AML.T0081"},
+	{ID: "CHAIN_STAGED_DATA_TO_TRANSFER", Package: "chain", Surface: "transcript", MaxSeverity: "HIGH",
+		Title: "Data Staged Into an Archive or Temp File, Then Copied Off the Host", Summary: "Toxic combination: credential archive / encoded credential file / database dump / working tree or home archived into a temp dir → object-storage copy, scp/rsync to a host, curl file upload, paste/webhook destination or push to a URL remote. Needs: transcript shell commands.",
+		MitreATTACK: "T1567", MitreATLAS: "AML.T0086"},
+	{ID: "CHAIN_SECRET_TO_NEW_REMOTE_PUSH", Package: "chain", Surface: "transcript", MaxSeverity: "HIGH",
+		Title: "Sensitive Data Read, New git Remote or Repository Created, Then Pushed", Summary: "Toxic combination: credential or sensitive read → git remote add/set-url or gh repo/gist create → git push. Needs: transcript shell commands; push contents are never in the transcript.",
+		MitreATTACK: "T1567.001", MitreATLAS: "AML.T0086"},
 	// ---------------------------------------------------------------- detect
 	// v4 agent-behaviour rules (agent_v4*.go); dedupe verdicts in docs/detection-v4.md.
 	{ID: "AGENT_CROSS_SESSION_SECRET_REUSE", Package: "detect", Surface: "transcript", MaxSeverity: "HIGH",
@@ -321,6 +327,23 @@ var Builtin = []Rule{
 	{ID: "MACOS_KEYCHAIN_ACCESS_BY_AGENT", Package: "correlate", Surface: "endpoint", MaxSeverity: "HIGH",
 		Title: "Agent Process Read from the macOS Keychain", Summary: "An agent-descended process ran security find-*-password -w/-g, dump-keychain or export, or opened a keychain database directly.",
 		MitreATTACK: "T1555.001"},
+	// v4.5 host-witness rules (internal/correlate/hostrules.go, docs/detection-v45.md).
+	// Each names the telemetry it needs; without it the rule is not evaluated.
+	{ID: "WIN_AGENT_SUSPICIOUS_POWERSHELL", Package: "correlate", Surface: "endpoint", MaxSeverity: "HIGH",
+		Title: "Agent-Descended PowerShell Ran an Encoded, Hidden or Download-and-Run Command", Summary: "An agent-descended powershell/pwsh with -EncodedCommand, a hidden window, a download piped to IEX, AMSI or Defender tampering, or offensive cmdlets, in its command line or a 4104/4103 script block. Needs: Windows process telemetry with command lines (Sysmon 1 / 4688); 4104/4103 optional.",
+		MitreATTACK: "T1059.001", MitreATLAS: "AML.T0050"},
+	{ID: "AGENT_PRIVILEGE_ELEVATION", Package: "correlate", Surface: "endpoint", MaxSeverity: "HIGH",
+		Title: "Agent-Descended Process Switched to Another Identity (sudo, su, pkexec)", Summary: "A sudo/su/pkexec/polkit record with a target identity from a process in the agent's tree; HIGH when granted, MEDIUM when only refused. Needs: privilege-change records (auth.log/journal, eslogger sudo/su) plus process telemetry with parent linkage. Windows 4672 names no process and is not used.",
+		MitreATTACK: "T1548.003"},
+	{ID: "AGENT_LOGGING_DISRUPTED", Package: "correlate", Surface: "endpoint", MaxSeverity: "HIGH",
+		Title: "Logging Stopped, Killed or Cleared From the Agent's Process Tree", Summary: "An agent-descended process stops/kills/unloads auditd, eslogger, syslog, journald, Sysmon, EDR or the Event Log, clears or disables an event log or audit policy, or signals a logger; an EVTX 1102/104 log clear during an agent session (MEDIUM, time overlap only). Needs: process telemetry with parent linkage, or EVTX 1102/104 plus transcripts.",
+		MitreATTACK: "T1562.001"},
+	{ID: "AGENT_EVIDENCE_SOURCE_DELETED", Package: "correlate", Surface: "endpoint", MaxSeverity: "HIGH",
+		Title: "Agent-Descended Process Deleted Transcripts, Shell History or System Logs", Summary: "A file delete record, or an rm/shred/truncate/Remove-Item command, by a process in the agent's tree against agent transcripts, shell history, audit/system logs or .evtx files. The agent client's own pruning is excluded. Needs: process telemetry with parent linkage; file delete telemetry optional.",
+		MitreATTACK: "T1070.004", MitreATLAS: "AML.T0101"},
+	{ID: "PACKAGE_SCRIPT_TOUCHED_AGENT", Package: "correlate", Surface: "endpoint", MaxSeverity: "CRITICAL",
+		Title: "Package Install Script Launched an AI Agent or Changed Its Configuration", Summary: "A process descended from npm/yarn/pnpm/bun/pip/uv/poetry/gem/cargo/composer install launched an agent CLI (CRITICAL with permission-bypass flags), wrote agent settings/hooks/skills/MCP config or read an agent login. Installing the agent CLI itself is excluded. Needs: process telemetry with parent linkage; file telemetry for the write/read branch.",
+		MitreATTACK: "T1195.002", MitreATLAS: "AML.T0011.001"},
 	// ---------------------------------------------------------- rulepack
 	{ID: "ENCODED_EXEC_UNRESOLVED", Package: "rulepack", Surface: "command", MaxSeverity: "MEDIUM",
 		Title: "Encoded Data Run Through an Interpreter, Payload Not Recoverable", Summary: "A decode step is piped into an interpreter (or eval'd) but the payload is not in the command line.",

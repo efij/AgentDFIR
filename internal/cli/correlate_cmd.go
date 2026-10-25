@@ -108,6 +108,13 @@ func runEndpointCorrelation(pkg string, logs []string, f endpoint.Format, opts c
 		records = append(records, lr.Records...)
 	}
 	res, findings := correlate.Endpoint(events, records, opts)
+	hf, hcov := correlate.HostRules(events, records, opts)
+	findings = append(findings, hf...)
+	for _, c := range hcov {
+		if !c.Evaluated {
+			fmt.Printf("  host rule %s not evaluated: %s\n", c.Rule, sanitize.Terminal(c.Missing))
+		}
+	}
 	if err := overlay.WriteJSONL(filepath.Join(dir, "events.jsonl"), len(events), func(i int) any { return events[i] }); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return nil, nil, 1

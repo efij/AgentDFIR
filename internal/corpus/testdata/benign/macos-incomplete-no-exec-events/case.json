@@ -1,0 +1,6 @@
+{
+  "endpoint": [
+    "eslogger.jsonl"
+  ],
+  "note": "Incomplete telemetry (synthetic eslogger run as `eslogger sudo signal unlink`): the same sudo, logger kill and transcript deletion as the attack case, but no exec events, so no process ancestry. The host rules must report themselves not evaluated, fire nothing, and the transcript's command must not be DISPROVED (no process telemetry)."
+}

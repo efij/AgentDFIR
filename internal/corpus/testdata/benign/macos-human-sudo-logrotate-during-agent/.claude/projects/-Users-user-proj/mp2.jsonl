@@ -1,0 +1,5 @@
+{"cwd":"/Users/user/proj","message":{"content":"build the app, then clean dist","role":"user"},"sessionId":"mp2","timestamp":"2026-10-22T10:00:00Z","type":"user","uuid":"mp2-1"}
+{"cwd":"/Users/user/proj","message":{"content":[{"id":"t2","input":{"command":"npm run build"},"name":"Bash","type":"tool_use"}],"role":"assistant"},"parentUuid":"mp2-1","sessionId":"mp2","timestamp":"2026-10-22T10:00:02Z","type":"assistant","uuid":"mp2-2"}
+{"cwd":"/Users/user/proj","message":{"content":[{"content":"built in 4.1s","tool_use_id":"t2","type":"tool_result"}],"role":"user"},"parentUuid":"mp2-2","sessionId":"mp2","timestamp":"2026-10-22T10:00:04Z","type":"user","uuid":"mp2-3"}
+{"cwd":"/Users/user/proj","message":{"content":[{"id":"t4","input":{"command":"npm run clean"},"name":"Bash","type":"tool_use"}],"role":"assistant"},"parentUuid":"mp2-3","sessionId":"mp2","timestamp":"2026-10-22T10:00:08.8Z","type":"assistant","uuid":"mp2-4"}
+{"cwd":"/Users/user/proj","message":{"content":[{"content":"","tool_use_id":"t4","type":"tool_result"}],"role":"user"},"parentUuid":"mp2-4","sessionId":"mp2","timestamp":"2026-10-22T10:00:10.8Z","type":"user","uuid":"mp2-5"}

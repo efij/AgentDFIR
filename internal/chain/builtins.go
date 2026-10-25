@@ -151,4 +151,40 @@ var Builtin = []Chain{
 		MitreATLAS: "AML.T0081", MitreATTACK: "T1562.001",
 		FalsePositive: "A person running a cleanup in bypass mode on purpose. Ask who switched the mode and whether the follow-up was the task.",
 	},
+	// v4.5 (docs/detection-v45.md): transfer routes the earlier chains do
+	// not see. CHAIN_SECRET_TO_EXFIL's upload step is curl/scp/rsync-shaped,
+	// so object-storage copies and git pushes never completed it.
+	{
+		ID: "CHAIN_STAGED_DATA_TO_TRANSFER", Severity: "HIGH", Scope: "session", WindowMinutes: 60,
+		Title:       "Data Staged Into an Archive or Temp File, Then Copied Off the Host",
+		Description: "The agent collected data into a staging file (a credential directory archived, a credential file encoded into a temp directory, a database dumped, or the project or home directory archived into a temp directory) and then copied something to object storage, a remote host, a paste or webhook service, or pushed to a URL remote. The order is recorded; that the staged file is what left is possible, not proven: commands name paths, not contents.",
+		Steps: []Step{
+			{Name: "data staged", FindingRules: []string{"CREDENTIAL_DIR_ARCHIVE", "AGENT_SENSITIVE_DATA_STAGING", "DATABASE_DUMP"},
+				Or: []Step{{EventTypes: []string{"tool_call"}, CommandRegex: stagingIntoTemp}}},
+			{Name: "copied off the host", FindingRules: []string{"CLOUD_STORAGE_UPLOAD", "REMOTE_COPY_TO_HOST", "CURL_FILE_UPLOAD", "GIT_PUSH_TO_URL", "PASTE_SITE_DESTINATION", "WEBHOOK_C2_EXFIL"},
+				Or: []Step{{EventTypes: []string{"tool_call"}, Upload: true}}},
+		},
+		MitreATLAS: "AML.T0086", MitreATTACK: "T1567",
+		FalsePositive: "A release or backup job asked of the agent: archive, then upload to the organization's bucket. Check the destination bucket or host.",
+	},
+	{
+		ID: "CHAIN_SECRET_TO_NEW_REMOTE_PUSH", Severity: "HIGH", Scope: "session", WindowMinutes: 120,
+		Title:       "Sensitive Data Read, New git Remote or Repository Created, Then Pushed",
+		Description: "The agent read credential or sensitive material, then configured a git remote or created a repository or gist, then pushed. A repository the project never used is a transfer channel that looks like ordinary work. The push's contents are not in the transcript: what was pushed is unconfirmed.",
+		Steps: []Step{
+			{Name: "sensitive data read", FindingRules: []string{"SENSITIVE_FILE_READ", "SECRET_ACCESS", "AGENT_SENSITIVE_DATA_STAGING", "CREDENTIAL_DIR_ARCHIVE", "SSH_PRIVATE_KEY_READ", "DATABASE_DUMP", "CLOUD_CREDENTIAL_EXPORT", "KUBE_SECRET_DUMP", "AGENT_CREDENTIAL_STORE_ACCESS"}},
+			{Name: "new remote or repository", FindingRules: []string{"GIT_REMOTE_ADDED", "GITHUB_EXFIL_REPO_CREATE"},
+				Or: []Step{{EventTypes: []string{"tool_call"}, CommandRegex: `\bgit\s+remote\s+(add|set-url)\s|\bgh\s+(repo\s+create|gist\s+create)\b`}}},
+			{Name: "pushed", FindingRules: []string{"AGENT_GENERATED_PUSH", "GIT_PUSH_TO_URL"},
+				Or: []Step{{EventTypes: []string{"tool_call"}, CommandRegex: `\bgit\s+push\b`}}},
+		},
+		MitreATLAS: "AML.T0086", MitreATTACK: "T1567.001",
+		FalsePositive: "Setting up a fork after reading a project's .env for configuration. Check the new remote's owner.",
+	},
 }
+
+// stagingIntoTemp: an archive written into a temp directory whose inputs
+// are the working tree, the home directory, a git directory or a
+// credential directory. `tar czf /tmp/src.tgz .` matches; `tar czf
+// dist.tgz dist/` (a build artifact in the tree) does not.
+const stagingIntoTemp = `(?i)(\btar\s+-?[a-z]*c[a-z]*\s+(-f\s*)?|\bzip\s+-[a-z]*r[a-z]*\s+(-q\s+)?|\b7z\s+a\s+)["']?(/tmp/|/var/tmp/|/dev/shm/|/private/tmp/|\$\{?TMPDIR\}?/|%TEMP%\\|\$env:TEMP\\)\S*\s+([^|;&\n]*\s)?["']?(\.|\./|~|~/|\$HOME|\$\{HOME\}|/Users/[^/\s]+/?|/home/[^/\s]+/?|\S*\.git|\S*\.ssh|\S*\.aws|\S*\.gnupg|\S*\.kube)["']?(\s|$)`
