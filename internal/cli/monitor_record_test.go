@@ -149,3 +149,40 @@ func TestEndpointDirExpansion(t *testing.T) {
 		t.Fatal("an empty directory must be an error, not a silent no-op")
 	}
 }
+
+// The anchor file checked by `monitor status` comes from the flag, never
+// from status.json (writable by the monitored user); anchor lines match
+// on the full journal path.
+func TestMonitorStatusAnchorFromFlagOnly(t *testing.T) {
+	dir := t.TempDir()
+	jp := filepath.Join(dir, "journal.jsonl")
+	jn, err := journal.Open(jp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = jn.Close()
+	head, _ := journal.Head(jp)
+	anchor := filepath.Join(t.TempDir(), "anchor.log")
+	other := filepath.Join(t.TempDir(), "elsewhere", "journal.jsonl")
+	_ = os.WriteFile(anchor, []byte("2026-10-01T00:00:00Z "+jp+" "+head+"\n2026-10-01T00:00:01Z "+other+" ffff\n"), 0o600)
+	forged := filepath.Join(t.TempDir(), "forged.log")
+	r := recorder.New(dir, nil)
+	r.AnchorFile = forged
+	if err := r.Save(); err != nil {
+		t.Fatal(err)
+	}
+	_, out := capture(t, "monitor", "status", "--dir", dir)
+	if !strings.Contains(out, "not checked") || strings.Contains(out, "anchored (") {
+		t.Fatalf("status.json anchor was trusted:\n%s", out)
+	}
+	_, out = capture(t, "monitor", "status", "--dir", dir, "--journal-anchor", anchor)
+	if !strings.Contains(out, "anchored (") || !strings.Contains(out, "status.json names anchor file") {
+		t.Fatalf("flag anchor not checked or mismatch not warned:\n%s", out)
+	}
+	// A head recorded for another journal path does not count.
+	_ = os.WriteFile(anchor, []byte("2026-10-01T00:00:00Z "+other+" "+head+"\n"), 0o600)
+	_, out = capture(t, "monitor", "status", "--dir", dir, "--journal-anchor", anchor)
+	if strings.Contains(out, "anchored (") {
+		t.Fatalf("head for another journal path accepted:\n%s", out)
+	}
+}

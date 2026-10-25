@@ -138,9 +138,12 @@ daemon is needed; `--dir <path>` reads a state directory copied off a host.
   rotations, permission and other problems;
 - retention: policy, capture files and bytes on disk, files and bytes
   pruned, the last prune and its reason;
-- journal: record count, chain intact or broken, head, last seal time, and
-  whether the newest head in the `--journal-anchor` file is still in the
-  chain.
+- journal: record count, chain intact or broken, head, last seal time, and,
+  with `monitor status --journal-anchor <file>`, whether the newest head
+  recorded in that file for this exact journal path is still in the chain.
+  The anchor file named in status.json is shown for information only
+  (status.json lives where the monitored user can write) and a mismatch
+  with the flag is warned about.
 
 `--json` prints the same as one object. Exit code 1 when there is no status
 file or the journal chain is broken.
@@ -163,7 +166,10 @@ file or the journal chain is broken.
 ## Privacy
 
 Everything stays on the host, under `~/.agentdfir/monitor` (mode 0700,
-files 0600). Nothing is sent anywhere; the only thing that leaves the
+files 0600). A root monitor uses root's own home (resolved from the uid,
+not an inherited `$HOME`), refuses a state directory that is a symlink or
+owned by another user, and creates every file exclusively (no planted
+link is ever written through). Nothing is sent anywhere; the only thing that leaves the
 journal file is the chain head (a hash) written to the system log and the
 optional anchor file.
 

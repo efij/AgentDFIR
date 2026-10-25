@@ -134,8 +134,13 @@ type journalInfo struct {
 	Error       string `json:"error,omitempty"`
 	Head        string `json:"head,omitempty"`
 	LastSealUTC string `json:"last_seal_utc,omitempty"`
-	AnchorFile  string `json:"anchor_file,omitempty"`
-	Anchor      string `json:"anchor"` // anchored | NOT FOUND | not configured | unreadable
+	AnchorFile  string `json:"anchor_file,omitempty"` // the one checked (--journal-anchor)
+	Anchor      string `json:"anchor"`                // anchored | NOT FOUND | not configured | unreadable | not checked
+	// StatusAnchorFile is what status.json names. status.json is written
+	// in a directory the monitored user can write, so it is shown as
+	// information only and never used to pick the file that is checked.
+	StatusAnchorFile string `json:"status_anchor_file,omitempty"`
+	Warning          string `json:"warning,omitempty"`
 }
 
 type monitorStatusOut struct {
@@ -150,8 +155,9 @@ func cmdMonitorStatus(args []string) int {
 	fs := flag.NewFlagSet("monitor status", flag.ContinueOnError)
 	asJSON := fs.Bool("json", false, "machine-readable output")
 	dir := fs.String("dir", "", "monitor state directory (default ~/.agentdfir/monitor; a copied one works offline)")
+	anchorFlag := fs.String("journal-anchor", "", "anchor file the monitor appends chain heads to (the --journal-anchor it was started with); checked against the journal")
 	if err := fs.Parse(args); err != nil || fs.NArg() != 0 {
-		fmt.Fprintln(os.Stderr, "usage: agentdfir monitor status [--dir <state-dir>] [--json]")
+		fmt.Fprintln(os.Stderr, "usage: agentdfir monitor status [--dir <state-dir>] [--journal-anchor <file>] [--json]")
 		return 2
 	}
 	if *dir == "" {
@@ -166,11 +172,16 @@ func cmdMonitorStatus(args []string) int {
 	} else {
 		out.Note = "no recorder status in " + *dir + " (start one with `agentdfir monitor --record`)"
 	}
-	anchorFile := ""
-	if st != nil {
-		anchorFile = st.AnchorFile
+	out.Journal = inspectJournal(filepath.Join(*dir, "journal.jsonl"), *anchorFlag)
+	if st != nil && st.AnchorFile != "" {
+		out.Journal.StatusAnchorFile = st.AnchorFile
+		switch {
+		case *anchorFlag == "":
+			out.Journal.Anchor = "not checked: status.json names " + st.AnchorFile + " (status.json is not trusted; pass --journal-anchor <file> to check)"
+		case filepath.Clean(*anchorFlag) != filepath.Clean(st.AnchorFile):
+			out.Journal.Warning = "status.json names anchor file " + st.AnchorFile + ", not " + *anchorFlag + ": the monitor was started with another anchor, or status.json was edited"
+		}
 	}
-	out.Journal = inspectJournal(filepath.Join(*dir, "journal.jsonl"), anchorFile)
 	rc := 0
 	if out.Status == nil || (out.Journal.Present && !out.Journal.Intact) {
 		rc = 1
@@ -240,8 +251,9 @@ func lastSeal(p string) string {
 	return last
 }
 
-// lastAnchorHead reads the newest "<ts> <journal> <head>" line for a
-// journal from a --journal-anchor file.
+// lastAnchorHead reads the newest "<ts> <journal path> <head>" line for
+// exactly this journal path from a --journal-anchor file (heads of other
+// journals in the same file never count).
 func lastAnchorHead(anchorFile, jp string) string {
 	f, err := os.Open(anchorFile)
 	if err != nil {
@@ -249,11 +261,18 @@ func lastAnchorHead(anchorFile, jp string) string {
 	}
 	defer f.Close()
 	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 0, 64<<10), 1<<20)
+	want := filepath.Clean(jp)
 	head := ""
 	for sc.Scan() {
-		fields := strings.Fields(sc.Text())
-		if len(fields) >= 3 && (fields[len(fields)-2] == jp || filepath.Base(fields[len(fields)-2]) == filepath.Base(jp)) {
-			head = fields[len(fields)-1]
+		line := strings.TrimSpace(sc.Text())
+		first := strings.IndexByte(line, ' ')
+		last := strings.LastIndexByte(line, ' ')
+		if first < 0 || last <= first {
+			continue
+		}
+		if filepath.Clean(strings.TrimSpace(line[first+1:last])) == want {
+			head = line[last+1:]
 		}
 	}
 	return head
@@ -331,6 +350,9 @@ func printMonitorStatus(o monitorStatusOut) {
 		fmt.Printf("journal: %s — BROKEN after record %d (%s)\n", sanitize.Terminal(j.Path), j.Records, sanitize.Terminal(j.Error))
 	}
 	fmt.Println("anchor:  " + sanitize.Terminal(j.Anchor))
+	if j.Warning != "" {
+		fmt.Println("  ! " + sanitize.Terminal(j.Warning))
+	}
 	if j.Present {
 		fmt.Println("check recorded files against the journal: agentdfir journal verify " + sanitize.Terminal(j.Path))
 	}
