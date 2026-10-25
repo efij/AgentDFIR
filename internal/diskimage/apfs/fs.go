@@ -81,10 +81,6 @@ func (f *FS) lookup(op, name string) (loc, error) {
 			}
 		default:
 			t := cur.t
-			if cur.in.id == rootIno && t.snapDir != nil && p == t.snapDirName {
-				cur = loc{vd: t.snapDir}
-				continue
-			}
 			if !cur.in.isDir() {
 				return loc{}, &fs.PathError{Op: op, Path: name, Err: fmt.Errorf("%w: not a directory", fs.ErrNotExist)}
 			}
@@ -93,6 +89,11 @@ func (f *FS) lookup(op, name string) (loc, error) {
 				return loc{}, &fs.PathError{Op: op, Path: name, Err: err}
 			}
 			if !ok {
+				// A real child always wins over the virtual snapshot directory.
+				if cur.in.id == rootIno && t.snapDir != nil && p == t.snapDirName {
+					cur = loc{vd: t.snapDir}
+					continue
+				}
 				return loc{}, &fs.PathError{Op: op, Path: name, Err: fs.ErrNotExist}
 			}
 			if cur.anc[id] {

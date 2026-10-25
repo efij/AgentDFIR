@@ -156,15 +156,18 @@ func (f *FS) addSnapshots(t *tree, prefix string) {
 	if len(snaps) == 0 {
 		return
 	}
-	// A real entry named .snapshots wins; the virtual one moves aside.
-	t.snapDirName = ".snapshots"
+	// Real entries always win: the virtual directory takes the first of
+	// .snapshots, .apfs-snapshots, .apfs-snapshots-2 … that no root entry
+	// matches, compared case-insensitively.
+	var rootNames []string
 	if ents, err := t.dirEntries(rootIno); err == nil {
 		for _, e := range ents.ents {
-			if e.name == t.snapDirName {
-				t.snapDirName = ".apfs-snapshots"
-			}
+			rootNames = append(rootNames, e.name)
 		}
+	} else {
+		f.noteProblem("volume %q: root directory: %v", t.vol.Name, err)
 	}
+	t.snapDirName = snapDirNameFor(rootNames)
 	t.snapDir = &virtDir{name: t.snapDirName, children: map[string]any{}}
 	used := map[string]bool{}
 	for i := range snaps {
@@ -185,6 +188,31 @@ func (f *FS) addSnapshots(t *tree, prefix string) {
 		st.ns = uint64(len(f.trees))
 		f.trees = append(f.trees, st)
 		t.snapDir.add(name, st)
+	}
+}
+
+// snapDirNameFor picks a name for the virtual snapshot directory that no
+// existing name equals, ignoring case.
+func snapDirNameFor(existing []string) string {
+	taken := func(n string) bool {
+		for _, e := range existing {
+			if strings.EqualFold(e, n) {
+				return true
+			}
+		}
+		return false
+	}
+	for i := 0; ; i++ {
+		n := ".snapshots"
+		switch {
+		case i == 1:
+			n = ".apfs-snapshots"
+		case i > 1:
+			n = fmt.Sprintf(".apfs-snapshots-%d", i)
+		}
+		if !taken(n) {
+			return n
+		}
 	}
 }
 
@@ -471,16 +499,24 @@ func (t *tree) xattrValue(x xattr, limit int64) ([]byte, error) {
 	if x.data != nil || x.streamID == 0 {
 		return x.data, nil
 	}
-	if int64(x.size) > limit {
-		return nil, corrupt("xattr %q is %d bytes (limit %d)", x.name, x.size, limit)
+	if int64(x.size) > limit || int64(x.size) > t.f.c.size {
+		return nil, corrupt("xattr %q is %d bytes (limit %d, container %d)", x.name, x.size, limit, t.f.c.size)
 	}
 	d, err := t.dataStream(x.streamID, int64(x.size))
 	if err != nil {
 		return nil, err
 	}
-	b := make([]byte, x.size)
-	if _, err := d.ReadAt(b, 0); err != nil && err != io.EOF {
+	// An xattr stream (a resource fork, a big value) is never sparse: one
+	// that is mostly holes is a crafted size, not data.
+	if alloc := d.allocated(); alloc+t.f.c.bs < int64(x.size) {
+		return nil, corrupt("xattr %q declares %d bytes but only %d are allocated", x.name, x.size, alloc)
+	}
+	b, err := io.ReadAll(io.NewSectionReader(d, 0, int64(x.size)))
+	if err != nil {
 		return nil, err
+	}
+	if len(b) != int(x.size) {
+		return nil, corrupt("xattr %q read %d of %d bytes", x.name, len(b), x.size)
 	}
 	return b, nil
 }
@@ -502,7 +538,10 @@ type data struct {
 
 // dataStream maps the extents of a dstream (private id) of size bytes.
 func (t *tree) dataStream(private uint64, size int64) (*data, error) {
-	if size < 0 || size > t.f.c.size*64 && size > 1<<40 {
+	// Sparse files may exceed the container, but not by more than 64×,
+	// and never past 1 TiB. Extraction is capped separately (per file and
+	// in total) by diskimage.Limits.
+	if size < 0 || size > t.f.c.size*64 || size > 1<<40 {
 		return nil, corrupt("stream %d size %d implausible", private, size)
 	}
 	maxRuns := int(min(t.f.c.size/int64(t.f.c.bs)+16, 1<<22))
@@ -567,6 +606,17 @@ func (t *tree) dataStream(private uint64, size int64) (*data, error) {
 		}
 	}
 	return &data{c: t.f.c, runs: runs, size: size}, nil
+}
+
+// allocated is the number of bytes backed by extents (holes excluded).
+func (d *data) allocated() int64 {
+	var n int64
+	for _, r := range d.runs {
+		if r.phys != 0 {
+			n += r.length
+		}
+	}
+	return n
 }
 
 func (d *data) ReadAt(p []byte, off int64) (int, error) {
@@ -698,6 +748,10 @@ func DecodeDecmpfs(attr []byte, rsrc func() ([]byte, error)) ([]byte, error) {
 	return nil, fmt.Errorf("decmpfs: %w: %s compression is not supported (the file is listed; its content is not decoded)", errors.ErrUnsupported, compressionName(h.Type))
 }
 
+// maxRatio bounds how far zlib data may expand (deflate's own limit is
+// about 1032:1).
+const maxRatio = 1032
+
 // inflateBlock decodes one decmpfs zlib block: a leading 0xFF (or a low
 // nibble of 0xF) marks data stored raw after that byte.
 func inflateBlock(b []byte, want uint64) ([]byte, error) {
@@ -713,16 +767,23 @@ func inflateBlock(b []byte, want uint64) ([]byte, error) {
 		}
 		return b[1 : 1+want], nil
 	}
+	if want > uint64(len(b))*maxRatio {
+		return nil, corrupt("decmpfs zlib block of %d bytes cannot expand to %d", len(b), want)
+	}
 	zr, err := zlib.NewReader(bytes.NewReader(b))
 	if err != nil {
 		return nil, corrupt("decmpfs zlib: %v", err)
 	}
 	defer zr.Close()
-	out := make([]byte, want)
-	if _, err := io.ReadFull(zr, out); err != nil {
+	// Grow with the decoded data instead of trusting want up front.
+	var out bytes.Buffer
+	if _, err := io.Copy(&out, io.LimitReader(zr, int64(want)+1)); err != nil {
 		return nil, corrupt("decmpfs zlib: %v", err)
 	}
-	return out, nil
+	if uint64(out.Len()) != want {
+		return nil, corrupt("decmpfs zlib block decodes to %d bytes, want %d", out.Len(), want)
+	}
+	return out.Bytes(), nil
 }
 
 // zlibResourceFork decodes a type-4 resource fork: a resource-fork header
@@ -739,10 +800,10 @@ func zlibResourceFork(fork []byte, size uint64) ([]byte, error) {
 	base := dataOff + 4 // past the resource length
 	nblk := uint64(le.Uint32(fork[base:]))
 	need := (size + 0xffff) / 0x10000
-	if nblk != need || base+4+8*nblk > uint64(len(fork)) {
+	if nblk != need || base+4+8*nblk > uint64(len(fork)) || size > uint64(len(fork))*maxRatio {
 		return nil, corrupt("resource fork block table: %d blocks for %d bytes", nblk, size)
 	}
-	out := make([]byte, 0, size)
+	var out []byte
 	for i := uint64(0); i < nblk; i++ {
 		e := fork[base+4+8*i:]
 		bo, bl := uint64(le.Uint32(e)), uint64(le.Uint32(e[4:]))
