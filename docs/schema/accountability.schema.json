@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://efij.github.io/AgentDFIR/schema/accountability.schema.json",
+  "title": "AgentDFIR Accountability Report",
+  "description": "Who asked, what was allowed, what the agent did, and whether it went beyond the request — for every consequential action in a case. Evidence states are the case's own and are never upgraded. Not legal advice.",
+  "type": "object",
+  "required": ["schema", "generated_utc", "case", "actions", "summary", "limits"],
+  "properties": {
+    "schema": {"const": "agentdfir.accountability/1"},
+    "generated_utc": {"type": "string"},
+    "tool_version": {"type": "string"},
+    "case": {
+      "type": "object",
+      "required": ["case_id", "seal_digest", "verify"],
+      "properties": {
+        "case_id": {"type": "string"},
+        "host": {"type": "string"},
+        "os": {"type": "string"},
+        "operator_os_user": {"type": "string"},
+        "operator_asserted": {"type": "string"},
+        "created_utc": {"type": "string"},
+        "seal_digest": {"type": "string", "description": "sha256 of the package's SHA256SUMS"},
+        "signed": {"type": "boolean"},
+        "signature_valid": {"type": "boolean"},
+        "signer_fingerprint": {"type": "string"},
+        "anchored": {"type": "boolean"},
+        "verify": {
+          "type": "object",
+          "required": ["result"],
+          "properties": {
+            "depth": {"enum": ["quick", "full", ""]},
+            "result": {"enum": ["VERIFIED", "FAILED", "ERROR"]},
+            "problems": {"type": "array", "items": {"type": "string"}}
+          }
+        },
+        "rounds": {"type": "array", "items": {"type": "object"}},
+        "authorization": {
+          "type": "object",
+          "properties": {
+            "reference": {"type": "string"},
+            "records": {"type": "array", "items": {"type": "object"}}
+          }
+        },
+        "accounts": {"type": "array", "items": {"type": "object"}},
+        "simulated": {"type": "boolean"}
+      }
+    },
+    "filter": {"type": "object"},
+    "actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["index", "session_id", "class", "instruction", "authority", "action", "gaps"],
+        "properties": {
+          "index": {"type": "integer"},
+          "session_id": {"type": "string"},
+          "agent_id": {"type": "string"},
+          "account": {"type": "string"},
+          "class": {"enum": ["destructive", "cloud_destructive", "exfiltration", "credential", "config_change", "execution", "other"]},
+          "findings": {"type": "array", "items": {"type": "object"}},
+          "instruction": {
+            "type": "object",
+            "required": ["trigger", "statement"],
+            "properties": {
+              "trigger": {"enum": ["human_prompt", "tool_result", "unknown"]},
+              "trigger_ref": {"type": "string"},
+              "trigger_detail": {"type": "string"},
+              "prompt": {"type": "string"},
+              "prompt_ref": {"type": "string"},
+              "statement": {"type": "string"}
+            }
+          },
+          "authority": {
+            "type": "object",
+            "required": ["statement"],
+            "properties": {
+              "session_permission_mode": {"type": "string"},
+              "headless_launch": {"type": "object"},
+              "configs": {"type": "array", "items": {"type": "object"}},
+              "changed_between_rounds": {"type": "array", "items": {"type": "object"}},
+              "agent_writes_to_permissions": {"type": "array", "items": {"type": "object"}},
+              "case_indicators": {"type": "array", "items": {"type": "object"}},
+              "mcp_servers": {"type": "array", "items": {"type": "string"}},
+              "statement": {"type": "string"}
+            }
+          },
+          "action": {
+            "type": "object",
+            "required": ["event_id", "state", "evidence"],
+            "properties": {
+              "event_id": {"type": "string"},
+              "timestamp": {"type": "string"},
+              "tool": {"type": "string"},
+              "command": {"type": "string", "description": "credential-looking values are masked"},
+              "file": {"type": "string"},
+              "network_destination": {"type": "string"},
+              "target": {"type": "string"},
+              "state": {"$ref": "event.schema.json#/properties/corroboration_state"},
+              "state_label": {"type": "string"},
+              "witness": {"type": "string"},
+              "evidence": {"type": "string"},
+              "chain_steps": {"type": "array"},
+              "narrative_after": {"type": "string"}
+            }
+          },
+          "gaps": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["code", "reason"],
+              "properties": {
+                "code": {"enum": ["NONE_DETECTED", "NO_HUMAN_INSTRUCTION", "ACTION_CLASS_NOT_REQUESTED", "TARGET_NOT_NAMED_IN_INSTRUCTION", "INSTRUCTION_FORBADE_TARGET", "NETWORK_ACTION_LOCAL_INSTRUCTION", "WITNESS_CONTRADICTS_CLAIM", "REASSURANCE_UNVERIFIED", "PERMISSION_WEAKENED_BY_AGENT"]},
+                "reason": {"type": "string"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "properties": {
+        "actions": {"type": "integer"},
+        "sessions": {"type": "integer"},
+        "actions_with_gaps": {"type": "integer"},
+        "by_gap": {"type": "object"},
+        "by_trigger": {"type": "object"},
+        "by_class": {"type": "object"}
+      }
+    },
+    "limits": {"type": "array", "items": {"type": "string"}}
+  }
+}

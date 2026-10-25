@@ -692,7 +692,7 @@ Open http://127.0.0.1:54222/</pre>
   <div class="wrap">
     <div class="rv head">
       <h2>Chain of custody that survives cross-examination.</h2>
-      <p class="sub">Every acquisition is a sealed <code>.adfir</code> package: content-addressed blobs, hash-chained collection and custody logs, a SHA-256 seal over the evidence zone, optional ed25519 signature. The format is open, so any tool can verify it without AgentDFIR.</p>
+      <p class="sub">Every acquisition is a sealed <code>.adfir</code> package: content-addressed blobs, hash-chained collection and custody logs, a SHA-256 seal over the evidence zone, optional ed25519 signature. The format is open, so any tool can verify it without AgentDFIR. <code>agentdfir export custody</code> packages the whole chain with a pre-filled FRE&nbsp;902(13)/(14) certification template for a qualified person to complete; <code>agentdfir report accountability</code> turns it into who asked, who allowed, and what the agent did. Not legal advice.</p>
     </div>
     <div class="rv pair">
       <div class="panel">
@@ -829,6 +829,9 @@ Result:             <span class="bad">FAILED — 2 problem(s):</span>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/hunt.md"><b>Hunt</b><span>Was this machine hit by a known incident? IOC packs, STIX and MISP.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/scan-repo.md"><b>Scan a repo</b><span>Committed agent hooks and auto-run tasks, before an agent opens it.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/mitigate.md"><b>Mitigate</b><span>Guardrail packs, fix-now controls, the ledger, drift and revert.</span></a>
+      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/accountability.md"><b>Accountability</b><span>Who asked, who allowed, what happened, and whether it went beyond the request.</span></a>
+      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/evidence-authentication.md"><b>Evidence authentication</b><span>Seal chain, custody package, FRE 902(13)/(14) certification. Not legal advice.</span></a>
+      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/selfcheck.md"><b>Offline self-check</b><span>Prove on your own machine: no socket, no child process, no stray writes.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/serve.md"><b>Case explorer</b><span>Overview, findings, story diagram, activity, search, case notes.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/detection-coverage.md"><b>Detection coverage</b><span>172 detections mapped to MITRE ATLAS 5.6 and ATT&amp;CK.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/attack-chains.md"><b>Attack chains</b><span>The eight built-in chains and how to write your own.</span></a>
