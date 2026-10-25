@@ -351,7 +351,7 @@ func TestPackageExemptionNeedsOnlyAgentPackages(t *testing.T) {
 			tet(0, 3000, 1, "/bin/bash", "", "bash", "init"),
 			tet(1, 3100, 3000, "/usr/bin/npm", install, "npm", "bash"),
 			tet(2, 3110, 3100, "/bin/sh", `-c "node postinstall.js"`, "sh", "npm"),
-			tet(3, 3120, 3110, "/usr/local/bin/claude", "--dangerously-skip-permissions -p x", "cl", "sh"),
+			tet(3, 3120, 3110, "/usr/local/bin/claude", "-p x", "cl", "sh"),
 		}
 	}
 	for install, fire := range map[string]bool{
@@ -439,5 +439,74 @@ func TestEvidencePathNormalization(t *testing.T) {
 	}
 	if deletesEvidence("rm dist/var/log/auth.log", "/repo") != "" {
 		t.Error("a relative path inside the project must not match /var/log")
+	}
+}
+
+// Aliases, direct references and source overrides are never "the agent
+// CLI being installed".
+func TestAgentSpecRejectsAliasesAndOverrides(t *testing.T) {
+	for spec, want := range map[string]bool{
+		"@anthropic-ai/claude-code":                     true,
+		"@anthropic-ai/claude-code@2.1.0":               true,
+		"@anthropic-ai/claude-code@latest":              true,
+		"@anthropic-ai/claude-code@next":                true,
+		"aider-chat":                                    true,
+		"aider-chat==0.86.1":                            true,
+		"aider-chat[playwright]":                        true,
+		"@anthropic-ai/claude-code@npm:evil":            false,
+		"@anthropic-ai/claude-code@npm:evil@1.0.0":      false,
+		"@anthropic-ai/claude-code/extra":               false,
+		"@anthropic-ai/claude-code@^2.0.0":              false,
+		"@anthropic-ai/claude-code@file:../evil":        false,
+		"@anthropic-ai/claude-code@git+https://x/y.git": false,
+		"@anthropic-ai/claude-code@https://x/y.tgz":     false,
+		"aider-chat @ https://evil.example/a.whl":       false,
+		"aider-chat@https://evil.example/a.whl":         false,
+		"aider-chat>=0.1":                               false,
+		"aider-chat; python_version>'3'":                false,
+		"file:../evil":                                  false,
+		"git+https://github.com/x/claude-code":          false,
+	} {
+		if got := agentSpec(spec); got != want {
+			t.Errorf("agentSpec(%q) = %v, want %v", spec, got, want)
+		}
+	}
+	for _, args := range [][]string{
+		{"i", "-g", "@anthropic-ai/claude-code", "--registry", "https://evil.example"},
+		{"i", "-g", "--registry=https://evil.example", "@anthropic-ai/claude-code"},
+		{"install", "--index-url", "https://evil.example/simple", "aider-chat"},
+		{"install", "--extra-index-url=https://evil.example/simple", "aider-chat"},
+		{"install", "--find-links", "/tmp/w", "aider-chat"},
+	} {
+		if onlyAgentPackages(packageArgs("npm", args)) {
+			t.Errorf("%v: a source override must never be agent-only", args)
+		}
+	}
+}
+
+func TestPackageExemptionNeedsPackageManagerAndNoBypass(t *testing.T) {
+	agentInstall := func(exe, args string, launch string) []endpoint.Record {
+		return []endpoint.Record{
+			tet(0, 3000, 1, "/bin/bash", "", "bash", "init"),
+			tet(1, 3100, 3000, exe, args, "npm", "bash"),
+			tet(2, 3110, 3100, "/bin/sh", `-c "node postinstall.js"`, "sh", "npm"),
+			tet(3, 3120, 3110, "/usr/local/bin/claude", launch, "cl", "sh"),
+		}
+	}
+	// The real agent install starting its CLI for a version check: exempt.
+	if f := hostRunRule(t, "PACKAGE_SCRIPT_TOUCHED_AGENT", agentInstall("/usr/bin/npm", "i -g @anthropic-ai/claude-code", "--version")...); len(f) != 0 {
+		t.Fatalf("plain agent install fired: %+v", f)
+	}
+	// A bypass launch is never exempt, even under an agent install.
+	if f := hostRunRule(t, "PACKAGE_SCRIPT_TOUCHED_AGENT", agentInstall("/usr/bin/npm", "i -g @anthropic-ai/claude-code", "--dangerously-skip-permissions -p x")...); len(f) != 1 || f[0].Severity != "CRITICAL" {
+		t.Fatalf("bypass launch exempted: %+v", f)
+	}
+	// An install command line on a process that is not a package manager.
+	if f := hostRunRule(t, "PACKAGE_SCRIPT_TOUCHED_AGENT", agentInstall("/tmp/x/npm-helper", "npm i -g @anthropic-ai/claude-code", "--version")...); len(f) != 1 {
+		t.Fatalf("non-package-manager install exempted: %+v", f)
+	}
+	// An alias spec is an ordinary install root.
+	if f := hostRunRule(t, "PACKAGE_SCRIPT_TOUCHED_AGENT", agentInstall("/usr/bin/npm", "i -g @anthropic-ai/claude-code@npm:evil", "--version")...); len(f) != 1 {
+		t.Fatalf("alias exempted: %+v", f)
 	}
 }

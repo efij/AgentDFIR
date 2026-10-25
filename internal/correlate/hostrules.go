@@ -960,7 +960,13 @@ func packageArgs(pm string, rest []string) []string {
 	for j := 0; j < len(rest); j++ {
 		a := rest[j]
 		if strings.HasPrefix(a, "-") {
+			name, _, _ := strings.Cut(a, "=")
 			switch {
+			case sourceOverride[name]:
+				out = append(out, "!source-override "+a) // never an agent package
+				if !strings.Contains(a, "=") {
+					j++
+				}
 			case a == "-r" || a == "--requirement" || a == "-e" || a == "--editable" || a == "-c" || a == "--constraint":
 				out = append(out, a) // a file or path whose packages the argv does not reveal
 				j++
@@ -981,19 +987,51 @@ func packageArgs(pm string, rest []string) []string {
 	return out
 }
 
-// packageName strips a version, tag, extras or marker from a spec:
-// @scope/name@1.2 → @scope/name, name@latest → name, pkg[extra]==1.0 →
-// pkg.
-func packageName(spec string) string {
-	s := strings.ToLower(strings.Trim(spec, `"'`))
+// sourceOverride are options that point a package manager at another
+// source: whatever it installs is not the published agent CLI.
+var sourceOverride = map[string]bool{"--registry": true, "--index-url": true, "-i": true, "--extra-index-url": true, "--find-links": true,
+	"-f": true, "--git": true, "--path": true, "--source": true, "--@anthropic-ai:registry": true}
+
+// plainVersion: a semver (or a prefix of one) or a dist-tag. Aliases
+// (npm:), URLs, git and file references, ranges and markers are not.
+var plainVersion = regexp.MustCompile(`^(v?\d+(\.\d+){0,2}(-[0-9a-z.]+)?(\+[0-9a-z.]+)?|latest|next|stable)$`)
+
+// agentSpec reports whether a package spec is exactly an agent CLI from
+// its default source: the bare name, optionally @version / @dist-tag
+// (npm) or [extras] and ==version (pip).
+func agentSpec(spec string) bool {
+	s := strings.ToLower(spec)
+	if s == "" || strings.ContainsAny(s, ": \t\\;") {
+		return false // npm:alias, file:, git+…, URLs, PEP 508 markers / "name @ url"
+	}
+	name, ver := s, ""
 	if strings.HasPrefix(s, "@") {
 		if i := strings.Index(s[1:], "@"); i >= 0 {
-			s = s[:i+1]
+			name, ver = s[:i+1], s[i+2:]
 		}
-	} else if i := strings.IndexAny(s, "@=<>!~;[ "); i >= 0 {
-		s = s[:i]
+		if strings.Count(name, "/") != 1 {
+			return false
+		}
+	} else {
+		if strings.Contains(s, "/") || strings.Contains(s, "@") {
+			return false
+		}
+		if i := strings.Index(s, "=="); i >= 0 {
+			name, ver = s[:i], s[i+2:]
+		} else if strings.ContainsAny(s, "<>!~=") {
+			return false
+		}
+		if i := strings.IndexByte(name, '['); i >= 0 {
+			if !strings.HasSuffix(name, "]") {
+				return false
+			}
+			name = name[:i]
+		}
 	}
-	return s
+	if ver != "" && !plainVersion.MatchString(ver) {
+		return false
+	}
+	return agentPackageSet[name]
 }
 
 var agentPackageSet = func() map[string]bool {
@@ -1011,11 +1049,23 @@ func onlyAgentPackages(pkgs []string) bool {
 		return false
 	}
 	for _, p := range pkgs {
-		if !agentPackageSet[packageName(p)] {
+		if !agentSpec(strings.Trim(p, `"'`)) {
 			return false
 		}
 	}
 	return true
+}
+
+// packageManagerExe: the process image is a package manager (or the
+// interpreter that runs one), so its own argv is what it was asked to do.
+func packageManagerExe(exe string) bool {
+	switch exeName(exe) {
+	case "npm", "pnpm", "cnpm", "yarn", "bun", "pip", "pip3", "pipx", "uv", "poetry", "pdm", "gem", "cargo", "composer",
+		"node", "nodejs", "python", "python3":
+		return true
+	}
+	n := exeName(exe)
+	return strings.HasPrefix(n, "python3.") || strings.HasPrefix(n, "pip3.")
 }
 
 // insideInstallDir: a path in a package-manager install tree, where an
@@ -1062,7 +1112,7 @@ func (v *hostView) packageScripts() ([]schema.Finding, HostRuleCoverage) {
 				st = -1
 				if _, pkgs, inst := installSpec(v.recs[j].Cmdline); inst {
 					st = 1
-					if onlyAgentPackages(pkgs) {
+					if packageManagerExe(v.recs[j].Exe) && onlyAgentPackages(pkgs) {
 						st = 2
 					}
 				}
@@ -1104,7 +1154,7 @@ func (v *hostView) packageScripts() ([]schema.Finding, HostRuleCoverage) {
 		// Installing an agent CLI runs its own scripts, which may start the
 		// CLI and write inside its install tree. Logins read and settings
 		// written elsewhere still count.
-		if agentOnly && (r.Kind == "process" || insideInstallDir(r.FilePath)) {
+		if agentOnly && ((r.Kind == "process" && !critical) || (r.Kind == "file" && insideInstallDir(r.FilePath))) {
 			continue
 		}
 		rt := roots[ri]
