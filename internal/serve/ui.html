@@ -1581,7 +1581,7 @@ function covStrip(sw){
 // ---- Lineage: who did what, through whom
 const LKIND={human:['Person (AI account)',0],agent:['AI agent',1],subagent:['Helper agent',2],tool_call:['Agent action',3],process:['Program the computer ran',4],mcp_server:['Plugin',5],network:['Outside address',5],file:['File',5],cloud_resource:['Cloud resource',5]};
 const LCOLS=['Person','AI agent','Helper agents','Agent actions','Programs the computer ran','Addresses, files, cloud'];
-const LREL={prompted:'asked',spawned:'started',invoked:'did',named_destination:'names address',wrote:'wrote',edited:'edited',read:'read',named_file:'names file',called:'called plugin',executed_as:'ran as',touched:'touched',connected_to:'connected to',acted_on:'acted on',child_process:'started program'};
+const LREL={prompted:'asked',spawned:'started',invoked:'did',named_destination:'names address',wrote:'wrote',edited:'edited',read:'read',named_file:'names file',called:'called plugin',executed_as:'ran as',touched:'touched',connected_to:'connected to',acted_on:'acted on',child_process:'started program',looked_up:'looked up',ran_script:'ran script',logged_in:'logged in to'};
 const SSHORT={CORROBORATED:'confirmed',PARTIALLY_CORROBORATED:'partly confirmed',CONTRADICTED:'records disagree',REPORTED:'claimed only',REQUESTED:'asked for'};
 const ESTATE={CORROBORATED:'ok',PARTIALLY_CORROBORATED:'look',CONTRADICTED:'act',REPORTED:'claim',REQUESTED:'claim'};
 function lineagePanel(url,flagIds){
