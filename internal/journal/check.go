@@ -139,7 +139,16 @@ func checkPath(p string, rs []rec, bySource map[string]casepkg.ArtifactRecord, s
 	a, ok := bySource[p]
 	if !ok {
 		last := rs[len(rs)-1]
-		if last.Kind == "deleted" || last.Kind == "append" || last.Kind == "baseline" {
+		if last.Kind == "prune" {
+			// Deleted by the monitor's own retention policy, and journaled
+			// as such (monitor --retain): accounted for, not a deletion.
+			return out
+		}
+		if (last.Kind == "deleted" || last.Kind == "append" || last.Kind == "baseline") && isRecorderCapture(p) {
+			out = append(out, schema.Finding{RuleID: "TRANSCRIPT_DELETED", Severity: "HIGH", Title: "Recorded Capture Deleted Without a Prune Record",
+				Description:  fmt.Sprintf("%s is a black-box recorder capture the monitor journaled, and it is not among the collected files. Retention journals every file it prunes; this one has no prune record, so something else removed it (or it was not collected).", p),
+				EvidenceRefs: []string{jref}, Related: []string{"path: " + p}, Status: schema.StateObserved, Endpoint: schema.StateUnknown, MitreATTACK: "T1070.004"})
+		} else if last.Kind == "deleted" || last.Kind == "append" || last.Kind == "baseline" {
 			out = append(out, schema.Finding{RuleID: "TRANSCRIPT_DELETED", Severity: "INFO", Title: "Journaled Transcript Not in the Case",
 				Description:  fmt.Sprintf("%s was journaled by the monitor but is not among the collected files. Agents clean up old sessions on their own (Claude Code: cleanupPeriodDays); check whether this one was due.", p),
 				EvidenceRefs: []string{jref}, Related: []string{"path: " + p}, Status: schema.StateObserved, Endpoint: schema.StateUnknown, MitreATTACK: "T1070.004"})
@@ -178,6 +187,14 @@ func checkPath(p string, rs []rec, bySource map[string]casepkg.ArtifactRecord, s
 		}
 	}
 	return out
+}
+
+// isRecorderCapture reports whether p is a capture file the monitor itself
+// wrote (~/.agentdfir/monitor/<source>-<UTC>.<ext>), as opposed to an
+// agent transcript.
+func isRecorderCapture(p string) bool {
+	p = strings.ReplaceAll(p, `\`, "/")
+	return strings.Contains(p, "/.agentdfir/monitor/") && !strings.HasSuffix(p, "/journal.jsonl")
 }
 
 func truncated(p, aref, jref string, have, want int64, at string) schema.Finding {
