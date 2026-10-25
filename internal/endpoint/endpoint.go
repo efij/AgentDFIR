@@ -26,7 +26,7 @@ import (
 // Record is one endpoint observation.
 type Record struct {
 	Time      time.Time `json:"time"`
-	Kind      string    `json:"kind"` // process | network | file | cloud | dns | auth | script | service | log-clear (evtx)
+	Kind      string    `json:"kind"` // process | network | file | cloud | dns | auth | process-image | script | service | log-clear (evtx)
 	PID       int       `json:"pid,omitempty"`
 	PPID      int       `json:"ppid,omitempty"`
 	Exe       string    `json:"exe,omitempty"`

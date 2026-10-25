@@ -13,16 +13,21 @@ import (
 // internal/endpoint/evtx. Events used:
 //
 //	Microsoft-Windows-Sysmon          1, 2, 3, 11, 23, 26 (same mapping as the XML export), 22 DNS query
-//	Microsoft-Windows-Security-Auditing 4688 process creation
+//	Microsoft-Windows-Security-Auditing 4688 process creation; kind "process-image" without a command line
 //	Microsoft-Windows-PowerShell      4104 script block      → kind "script"
 //	Service Control Manager           7045 service installed → kind "service"
 //	Microsoft-Windows-Eventlog        1102 / 104 log cleared → kind "log-clear"
 //
-// "script", "service" and "log-clear" records are not process
-// telemetry: the correlation engine never lets them contradict a
-// command, and the latter two are surfaced to the operator as notices.
+// "process-image", "script", "service" and "log-clear" records are not
+// process telemetry: the correlation engine never lets them contradict a
+// command or widen coverage, and the last two are surfaced to the
+// operator as notices.
 // Everything else (logons, registry, process exit, other providers) is
 // counted and left out.
+
+// KindProcessImage is a process creation known only by its image path
+// (Security 4688 without command-line auditing).
+const KindProcessImage = "process-image"
 
 func loadEVTX(path string) (*LoadResult, error) {
 	f, err := os.Open(path)
@@ -131,8 +136,11 @@ func (res *LoadResult) addEVTX(ev *evtx.Event) bool {
 		if r.User == "" {
 			r.User = winUser(d["SubjectDomainName"], d["SubjectUserName"])
 		}
-		if r.Cmdline == "" { // command-line auditing off: the image is all there is
-			r.Cmdline = r.Exe
+		if strings.TrimSpace(r.Cmdline) == "" {
+			// Command-line auditing off: the image is all there is. Such a
+			// record can only partly corroborate (by program name); it must
+			// not contradict a command or widen process coverage.
+			r.Kind, r.Cmdline = KindProcessImage, ""
 		}
 		res.Records = append(res.Records, r)
 		return true
