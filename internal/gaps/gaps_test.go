@@ -34,7 +34,9 @@ func ev(id string, typ string, d time.Duration, opts ...evOpt) schema.Event {
 	return e
 }
 
-func cmd(c string) evOpt { return func(e *schema.Event) { e.Command = c; e.Action = "shell_execution"; e.Tool = "Bash" } }
+func cmd(c string) evOpt {
+	return func(e *schema.Event) { e.Command = c; e.Action = "shell_execution"; e.Tool = "Bash" }
+}
 func state(s string) evOpt { return func(e *schema.Event) { e.Corroboration = s } }
 
 func baseInput() Input {
