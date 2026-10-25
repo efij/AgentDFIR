@@ -4,7 +4,7 @@
 
 **Open-source digital forensics and incident response for AI agents.**
 
-*Collect, preserve, reconstruct and investigate activity from Claude Code, Claude Cowork, Codex (CLI and desktop app), Cursor, Gemini CLI, Copilot and other AI agents.*
+*Collect, preserve, reconstruct and investigate activity from Claude Code, Claude Cowork, Codex (CLI and desktop app), Cursor, Gemini CLI, Copilot and other AI agents — from a live machine, a disk image or an AI-service account export.*
 
 [![CI](https://github.com/efij/AgentDFIR/actions/workflows/ci.yml/badge.svg)](https://github.com/efij/AgentDFIR/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -104,12 +104,13 @@ Add a second witness and the same commands upgrade every finding from *the agent
 
 ```sh
 agentdfir analyze CASE-2026-042.adfir --endpoint /var/log/audit/audit.log   # auditd / Sysmon XML / EDR exports
+agentdfir analyze CASE-2026-042.adfir --endpoint Sysmon.evtx                # raw Windows .evtx, no export step
 agentdfir analyze CASE-2026-042.adfir --endpoint cloudtrail.json           # CloudTrail / Azure Activity Log / GCP audit exports
 agentdfir analyze CASE-2026-042.adfir --gateway-log mcp-gateway.jsonl        # your MCP gateway's own log
 ```
 
-Other ways in: `collect --path <copied home>`, `--import <KAPE/Velociraptor tree>`, `--docker <container>`, `--archive <zip|tar>`.
-Other ways out: `report --format pdf|html|ocsf|sarif|timesketch|…`, `rules list --packs rules` (every detection → [MITRE ATLAS / ATT&CK](docs/detection-coverage.md)), `rules export --sigma`. Before an incident: `monitor --detect --alert <url>`, `mcp audit`.
+Other ways in: `collect --path <copied home>`, `--import <KAPE/Velociraptor tree>`, `--image <E01|raw|vhd|vhdx|vmdk>`, `--ai-export <zip|dir>`, `--docker <container>`, `--archive <zip|tar>`; add `--include-browser` to any of them for AI-service browser history (opt-in).
+Other ways out: `report --format pdf|html|ocsf|sarif|timesketch|rsmf|…`, `export --production`, `rules list --packs rules` (every detection → [MITRE ATLAS / ATT&CK](docs/detection-coverage.md)), `rules export --sigma`. Before an incident: `monitor --detect --alert <url>`, `mcp audit`, `extensions`.
 Every command is listed by workflow step in `agentdfir help`.
 
 Example finding:
@@ -125,6 +126,33 @@ HIGH — Unexpected Agent Activity [ORPHAN_AGENT]
 ```
 
 No auto-escalation to "compromise" or "exfiltration" — findings state exactly what the evidence shows, with clickable references to the raw artifact behind every claim.
+
+## 🧪 v4.0 — from coding agents to every AI evidence source
+
+Agent transcripts on a live machine are one source. v4 reads the others an
+investigation runs into, and says plainly what each one can and cannot prove.
+
+```sh
+agentdfir collect --image suspect.E01                      # forensic disk image, read-only: NTFS, ext2/3/4, FAT, exFAT
+agentdfir collect --ai-export chatgpt-export.zip           # ChatGPT / Claude.ai / DeepSeek / Gemini Takeout export, UFDR layout
+agentdfir collect --product claude --include-browser       # opt-in: AI-service visits from browser history (never content)
+agentdfir analyze CASE.adfir --endpoint Security.evtx --endpoint dns.log --endpoint access.log   # .evtx, DNS, proxy witnesses
+agentdfir gaps CASE.adfir                                  # what the case does not show, and what to collect next
+agentdfir lineage CASE.adfir --finding 3 --format mermaid  # human → agent → tool call → process → destination
+agentdfir correlate-cases CASE-A.adfir CASE-B.adfir        # what several verified cases share
+agentdfir extensions                                       # IDE extensions, agent plugins, skills: hidden loaders, remote hooks
+agentdfir benchmark                                        # SYNTHETIC: detection, evidence states, provenance, tamper detection
+agentdfir report CASE.adfir --format rsmf                  # RSMF 2.0 per session, for legal review
+agentdfir export CASE.adfir --production --redact secrets  # production set + manifest; redaction touches derivatives only
+```
+
+- **[Disk images](docs/disk-images.md)** — raw/split, E01 (stored MD5/SHA-1 re-checked), VHD, VHDX, VMDK; MBR/GPT; NTFS, ext2/3/4, FAT12/16/32, exFAT. Only known agent files are extracted, each with its partition, inode and MACB times. The image is hashed before and after. Encrypted and unsupported volumes are named, with the mount-read-only-then-`--import` route.
+- **[AI-service exports](docs/ai-service-exports.md)** and **[browser sessions](docs/browser-ai-sessions.md)** — an export is the provider's record, so its tool calls can never be confirmed against the machine; browser history proves a visit, never what was said, and is read only with `--include-browser`.
+- **[More witnesses](docs/endpoint-corroboration.md)** — raw `.evtx` (Sysmon, Security 4688, PowerShell 4104), DNS, proxy, auth/journald, Kubernetes, GitHub/GitLab and storage access logs. The partial ones confirm or partly confirm; they never contradict a tool call.
+- **[Gaps, lineage, cross-case](docs/investigation-graph.md)** — every lineage edge names the evidence behind it; a gap is "nothing recorded", never "something hidden".
+- **[Continue and Windsurf](docs/ai-ide-products.md)**, **[extensions and plugins](docs/extensions-plugins.md)**, **[v4 detections](docs/detection-v4.md)**, **[eDiscovery](docs/ediscovery.md)** (structural RSMF validation; no admissibility claim), **[benchmark and an independent Python verifier](docs/benchmark.md)** (synthetic: 100% precision/recall on its own labeled fixtures is not real-world accuracy; 24/24 tamper mutations detected).
+
+**Honest coverage.** Every format page has a coverage table: what is read, what is sealed but not parsed, and what is reported UNSUPPORTED — for example Windsurf Cascade stores (protobuf with no published schema, encrypted on current builds) are sealed and reported, not guessed at, and APFS/BitLocker volumes are named with the route to read them. Nothing unsupported is skipped silently.
 
 ## 🧭 The last twelve months of agent incidents, as commands (v3.0)
 
@@ -231,7 +259,7 @@ canary so a non-enforcing sandbox can never pass. Details:
 A list of 700 findings is not an answer. The explorer (`agentdfir serve`) turns it into one:
 
 - **The answer first, in plain words.** *"4 alerts need action now"*, then the few kinds of issue to start with. Findings are grouped by kind (1,237 → ~60 on a real machine), and each reads *what happened · why it matters · ask yourself · what to do*, with one verdict line (*"Act now if real · Needs your check"*) and the **account** it ran under — for people who are not security analysts.
-- **Attack chains (toxic combinations).** Individually unremarkable steps that together are an attack: *injection in a tool result → agent rewrites its own instructions → shell runs*, *secret read → upload*, *orphan agent → config change → tool use*, *poisoned MCP result → destructive command*, *injection → commit → push*, *action → log deletion*… Eight ship built in, matched inside one session or one agent's lineage within a time window, mapped to MITRE ATLAS / ATT&CK. Add your own as `*.chains.json` ([docs](docs/attack-chains.md)).
+- **Attack chains (toxic combinations).** Individually unremarkable steps that together are an attack: *injection in a tool result → agent rewrites its own instructions → shell runs*, *secret read → upload*, *orphan agent → config change → tool use*, *poisoned MCP result → destructive command*, *injection → commit → push*, *action → log deletion*… Eleven ship built in, matched inside one session or one agent's lineage within a time window, mapped to MITRE ATLAS / ATT&CK. Add your own as `*.chains.json` ([docs](docs/attack-chains.md)).
 - **How it happened, as a story.** Every finding opens to a swimlane diagram — *You · The AI agent · Tools & outside world* — one card per evidence line in time order, the flagged steps in red, the outside addresses they reach, and the **most likely start** (your request, an automatic skill message, injected text the agent read, or a helper agent) marked on its card. Every card opens the exact sealed log line.
 - **Plugin (MCP) activity.** Every MCP call in time order with the account, plugin, what the agent sent and what came back.
 - **Command palette.** `Cmd+K` / `Ctrl+K` (or `/`) opens one box for everything: jump to any view, finding or conversation by fuzzy match, run actions, and see matching actions from the evidence as you type. `Cmd/Ctrl+Enter` runs the full search.
@@ -315,6 +343,9 @@ Ships with wrappers for tools IR teams already run:
 - **Velociraptor** — [`deploy/velociraptor/`](deploy/velociraptor): client artifact invoking `agentdfir collect`
 - **Containers, CI, exports** — `collect --docker <container|export.tar>` and `collect --archive <zip|tar|tgz>` ([docs](docs/container-ci-collection.md))
 - **Triage-tree import** — `collect --import <tree>` turns any KAPE/Velociraptor/CyLR output or mounted image into one sealed package (all products, all users)
+- **Disk images** — `collect --image <E01|raw|vhd|vhdx|vmdk>` reads the image directly, no mount, no libewf ([docs](docs/disk-images.md))
+- **Windows event logs, DNS and proxy logs** — `analyze --endpoint Sysmon.evtx` (or Security / PowerShell `.evtx`), Zeek, BIND, Pi-hole, Squid ([docs](docs/endpoint-corroboration.md))
+- **Legal review** — `report --format rsmf` and `export --production` ([docs](docs/ediscovery.md))
 - **Timesketch / Plaso** — `report --format timesketch|l2tcsv` puts the agent timeline next to your host timeline ([docs](docs/dfir-interop.md))
 
 ## 🗺️ Roadmap
@@ -323,10 +354,10 @@ Ships with wrappers for tools IR teams already run:
 |---|---|
 | ✅ | Sealed `.adfir` packages, hash-chained custody, `verify` |
 | ✅ | Claude Code: detect, collect, normalize, timeline, triage |
-| ✅ | [172 deterministic detections](docs/detection-coverage.md) (91 built-in incl. 8 attack chains + 81 pack rules; 117 HIGH/CRITICAL, all but two mapped to MITRE ATLAS 5.6 / ATT&CK — 28 ATLAS and 69 ATT&CK techniques): rogue/orphan agents, exfiltration via tool invocation, context/memory/tool/MCP poisoning, agent credential-store theft, agent config modification, jailbreak & system-prompt extraction, secret & sensitive-file access, persistence (rc files, services, run keys, git hooks), credential dumping, bulk encryption, self-modification, log deletion, timestomping, session tampering… `agentdfir rules list` prints the matrix |
+| ✅ | [196 deterministic detections](docs/detection-coverage.md) (111 built-in incl. 11 attack chains + 85 pack rules; 134 HIGH/CRITICAL, all but two mapped to MITRE ATLAS 5.6 / ATT&CK — 28 ATLAS and 73 ATT&CK techniques): rogue/orphan agents, exfiltration via tool invocation, context/memory/tool/MCP poisoning, agent credential-store theft, agent config modification, jailbreak & system-prompt extraction, secret & sensitive-file access, persistence (rc files, services, run keys, git hooks), credential dumping, bulk encryption, self-modification, log deletion, timestomping, session tampering… `agentdfir rules list` prints the matrix |
 | ✅ | `simulate` — synthetic incident generation (adversary emulation for AI agents): `orphan-agent`, `toxic-chain`, and reproductions of real incidents — `keyv-hook`, `sandworm-mcp`, `s1ngularity`, `mcpoison-rugpull`, `pocketos-wipe`, `swarm-antiforensics` (v3.0) |
 | ✅ | [Attack chains](docs/attack-chains.md), session cards, investigation tree, whole-case search and the hash-chained analyst case file in the [explorer](docs/serve.md) (v1.0) |
-| ✅ | Full parsers for 13 products: Claude Code, Claude Cowork (desktop-app agent mode: HMAC audit log, in-VM transcripts, shared folders and egress allowlist per session), Codex CLI + Codex desktop app (rollout JSONL and the SQLite thread store, read with a stdlib-only reader that applies the write-ahead log), Gemini CLI, Cursor, Copilot CLI, Copilot Chat (VS Code), Cline, Roo, OpenClaw, OpenCode, Aider, Warp — plus Kiro (steering, specs, MCP, powers, skills and extension state; no transcript store to parse) |
+| ✅ | Full parsers for 14 products: Claude Code, Claude Cowork (desktop-app agent mode: HMAC audit log, in-VM transcripts, shared folders and egress allowlist per session), Codex CLI + Codex desktop app (rollout JSONL and the SQLite thread store, read with a stdlib-only reader that applies the write-ahead log), Gemini CLI, Cursor, Copilot CLI, Copilot Chat (VS Code), Cline, Roo, OpenClaw, OpenCode, Aider, Warp, Continue (v4.0) — plus Windsurf (rules, memories, workflows, MCP; Cascade stores sealed, content UNSUPPORTED) and Kiro (steering, specs, MCP, powers, skills and extension state; no transcript store to parse) — [Continue and Windsurf](docs/ai-ide-products.md) |
 | ✅ | [Enrich with a second witness](docs/endpoint-corroboration.md) — auditd, Sysmon XML, Velociraptor/osquery/eslogger/EDR exports, and AWS CloudTrail / Azure Activity Log / GCP Cloud Audit Log exports for the agent's `az` / `aws` / `gcloud` commands: tool calls → CONFIRMED / DISPROVED, unlogged agent processes and connections surfaced |
 | ✅ | Reports: network-silent HTML, self-contained PDF (stdlib writer, no renderer deps), JSON, CSV, STIX 2.1, OTel · [OCSF 1.3, SARIF 2.1, Sigma export](docs/siem-interop.md) for SIEM/SOC pipelines |
 | ✅ | [`serve`](docs/serve.md) — local browser case explorer: agent tree, density-scrubber timeline, raw evidence pane, findings, topology; loopback-only, zero external resources |
@@ -342,7 +373,16 @@ Ships with wrappers for tools IR teams already run:
 | ✅ | [`hunt`](docs/hunt.md) — known-incident IOC packs + STIX 2.1 / MISP import, lockfile and on-disk checks, evidence-window verdicts (v3.0) |
 | ✅ | [`scan-repo`](docs/scan-repo.md) — pre-open repository check, SARIF, GitHub Action, pre-commit hook (v3.0) |
 | ✅ | [Offline decoder](docs/decode.md), MCP rug-pull fingerprints and typosquat detection, `monitor --journal` tamper-evident transcripts (v3.0) |
-| 🔜 | Raw-NTFS/VSS locked-file fallback, EDR/DNS adapters, fleet integrations, npm cache/log parsing for `hunt` |
+| ✅ | [Disk images](docs/disk-images.md) — `collect --image`: E01, raw/split, VHD, VHDX, VMDK; MBR/GPT; NTFS, ext2/3/4, FAT, exFAT; read-only, pure Go (v4.0) |
+| ✅ | [AI-service account exports](docs/ai-service-exports.md) (ChatGPT, Claude.ai, DeepSeek, Gemini Takeout; UFDR layout import) and opt-in [browser AI sessions](docs/browser-ai-sessions.md) (v4.0) |
+| ✅ | [More second witnesses](docs/endpoint-corroboration.md) — native `.evtx`, DNS, web proxy, auth/journald, Kubernetes, GitHub/GitLab and object-storage audit logs (v4.0) |
+| ✅ | [`gaps`, `lineage`, `correlate-cases`](docs/investigation-graph.md) — evidence gaps, evidence-backed lineage graph, cross-case correlation of verified packages (v4.0) |
+| ✅ | [`extensions`](docs/extensions-plugins.md) — IDE extension, agent plugin and skill audit; [v4 detections](docs/detection-v4.md) (v4.0) |
+| ✅ | [eDiscovery](docs/ediscovery.md) — RSMF 2.0, production sets, derivative redaction (v4.0) |
+| ✅ | [`benchmark`](docs/benchmark.md) (synthetic), [`.adfir` spec 0.2.1](docs/adfir-spec.md) with conformance fixtures and an independent Python verifier (v4.0) |
+| ✅ | [Accountability report, custody export](docs/accountability.md), [`selfcheck --offline`](docs/selfcheck.md) (v4.0) |
+| ✅ | Explorer: Coverage, Who did what, Second witness, AI conversations, Extensions, Bookmarks, `serve --compare` ([docs](docs/serve.md)) (v4.0) |
+| 🔜 | Volume Shadow Copy parsing, live raw-volume read for locked files, npm cache/log parsing for `hunt` |
 
 ## 🤝 Contributing
 

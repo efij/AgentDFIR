@@ -98,28 +98,28 @@ read reports that as a problem rather than passing.
 
 ## Current numbers
 
-agentdfir 3.2.0 + this branch, darwin/arm64, 11 CPUs, go1.27.1. Synthetic.
+agentdfir 4.0.0, `benchmark --no-perf`, darwin/arm64, 11 CPUs, go1.27.1. Synthetic.
 
 | Section | Result |
 |---|---|
-| Detection | precision 100.0%, recall 100.0% (29 TP, 0 FP, 0 FN) over 3 attack cases, 8 scenarios, 24 benign cases |
-| Rule coverage | 26 of 171 alert rules have an attack fixture; 145 have none (listed in the report); 4 building blocks |
+| Detection | precision 100.0%, recall 100.0% (53 TP, 0 FP, 0 FN) over 20 attack cases, 8 scenarios, 41 benign cases |
+| Rule coverage | 46 of 192 alert rules have an attack fixture; 146 have none (listed in the report); 4 building blocks |
 | Evidence states | 12/12 labeled checks, 0 contract violations over 25 events |
-| Provenance | 0 dangling: 259/259 events resolved to artifact, line and line start; 159 of 161 finding references resolved, 2 cite external endpoint logs |
+| Provenance | 0 dangling over 81 packages: 451 of 483 events resolved to artifact, line and line start (the other 32 describe a whole artifact, line 0); 259 of 261 finding references resolved, 2 cite external endpoint logs |
 | Integrity mutations | 24/24 detected |
 | Compatibility | 5/5 historical packages verify and analyze |
 | Robustness | 7/7 cases |
-| Performance | analyze 3.6–4.4 s, peak heap 152–170 MiB on 48,800 events (baseline 3,574 ms, 152.3 MiB) |
+| Performance | not measured in this run (`--no-perf`); the recorded baseline is 3,574 ms and 152.3 MiB peak heap on 48,800 events |
 
 Read the detection line for what it is. The labels were written next to
 the rules, and the corpus gates the build, so 100% means the rules still
 do what their fixtures say, not that they are 100% accurate. The number
-that carries information is the coverage gap: 145 alert rules have no
-attack fixture at all. Performance was recorded on a shared, loaded
-machine; re-record the baseline with `--save-baseline` on a quiet one
+that carries information is the coverage gap: 146 alert rules have no
+attack fixture at all. The performance baseline was recorded on a shared,
+loaded machine; re-record it with `--save-baseline` on a quiet one
 before relying on the 25% warning.
 
-### Defects the benchmark found (fixed on this branch)
+### Defects the benchmark found (fixed in 4.0.0)
 
 | Found by | Defect | Fix |
 |---|---|---|

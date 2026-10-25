@@ -7,13 +7,168 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-The question agent incidents raise has moved from *is the agent safe* to *who
-is accountable when it acts beyond what was asked* — the frame of the FTC's
-2026-09-30 inquiry into AI-agent providers (news context only; AgentDFIR names
-no vendor as a target). This release hands the evidence over in that shape, and
-lets anyone prove the tool's offline claim on their own machine.
+## [4.0.0] — 2026-10-25
+
+From coding agents to every AI evidence source. A case can now start from a
+forensic disk image, a ChatGPT / Claude.ai / DeepSeek / Gemini account export
+or (opt-in) browser history, and the second witness reads raw Windows `.evtx`
+files, DNS, proxy, auth, Kubernetes, Git-hosting and storage logs. Three new
+commands say what a case does not show (`gaps`), who did what through whom
+(`lineage`) and what several cases share (`correlate-cases`). Evidence leaves
+in the forms legal review uses (RSMF, production sets), and a synthetic
+benchmark plus an independent Python verifier let anyone check the tool's
+claims about itself.
+
+The question agent incidents raise has also moved from *is the agent safe* to
+*who is accountable when it acts beyond what was asked* — the frame of the
+FTC's 2026-09-30 inquiry into AI-agent providers (news context only;
+AgentDFIR names no vendor as a target). This release hands the evidence over
+in that shape, and lets anyone prove the tool's offline claim on their own
+machine.
+
+196 rules (111 built-in including 11 attack chains, 85 in shipped packs);
+134 are HIGH/CRITICAL, 132 of them MITRE-mapped, across 28 ATLAS and 73
+ATT&CK techniques.
 
 ### Added
+- **`agentdfir collect --image <path>`** — reads a forensic disk image
+  directly, without mounting it, and seals the same `.adfir` package
+  `collect --import` builds. Pure Go: no libewf, no Sleuth Kit, no loop
+  device, no FUSE, nothing on the image executed. Containers: raw/dd, split
+  raw (`.001…`, `.aa…`), E01 (zlib and stored chunks, split segments, the
+  stored MD5 + SHA-1 checked against a full re-read; `--skip-image-verify`
+  records `not verified`), VHD (fixed, dynamic), VHDX and VMDK
+  (monolithicSparse, streamOptimized, flat and multi-extent descriptors).
+  Partitions: MBR with extended/logical, GPT with CRC checks and backup
+  fallback. Filesystems: NTFS (`$MFT` data runs, fixups, resident and
+  non-resident `$DATA`, LZNT1, `$ATTRIBUTE_LIST`, alternate streams listed),
+  ext2/3/4 and FAT12/16/32/exFAT. Only the candidate files of known agent
+  products are extracted. Every segment is hashed before and after; a
+  changed image exits 1. A sealed `image-provenance.jsonl` gives, per file,
+  the segment hashes, partition, filesystem, inode/MFT record, original
+  path, content hash and MACB times. Encrypted (BitLocker, LUKS) and
+  unsupported (APFS, HFS+, ReFS, XFS, Btrfs, LVM2, ZFS, QCOW2, VDI, DMG,
+  Ex01/L01, differencing disks) volumes and containers are named and
+  reported, never skipped silently, with the mount-read-only-then-`--import`
+  route. Every size read from an image is bounded before it drives an
+  allocation, staging paths are checked by the extractor itself, and
+  sibling segments that are symlinks are refused. See `docs/disk-images.md`.
+- **`agentdfir collect --ai-export <zip|tar|dir>`** — AI-service account
+  exports become sealed cases: ChatGPT (the full `mapping` tree, alternate
+  branches kept and marked), Claude.ai (`chat_messages` with `tool_use` /
+  `tool_result`, projects), DeepSeek (unresolved forks marked, never
+  guessed) and Gemini Apps from Google Takeout (JSON; the HTML export is
+  reported UNSUPPORTED). Files are recognized by structure, not name. Each
+  event points back to its sealed artifact, byte offset and an RFC 6901 JSON
+  Pointer, and keeps the provider's original timestamp field. An export is
+  a provider's record, not endpoint execution: export tool calls never
+  carry a command, file or destination, so they can never be CONFIRMED
+  against the examined machine. A Cellebrite UFDR is imported by layout
+  (`report.xml` sealed, not interpreted). `--archive` and `--import`
+  recognize the same exports. See `docs/ai-service-exports.md`.
+- **Browser AI-service sessions, opt-in only** (`--include-browser` on every
+  `collect` mode and on `run`, or `--product browser`). Chrome, Edge, Brave,
+  Arc, Vivaldi, Opera, Chromium, Firefox and Safari history is sealed and
+  read with AgentDFIR's own read-only SQLite reader (WAL applied). Only rows
+  for 17 listed AI services (ChatGPT, Claude, Gemini, Copilot, Perplexity,
+  DeepSeek, Grok, …) become events — visits, grouped sessions with their
+  page titles, share links; every other URL and title is discarded at
+  classification and only counted. History never yields prompt or response
+  text. New rule `AI_WEB_SHARE_LINK_VISITED` (LOW). Without the flag no
+  history file is opened, listed or sealed. See `docs/browser-ai-sessions.md`.
+- **Continue and Windsurf collectors.** Continue sessions are parsed in full
+  (prompts, responses, thinking, tool calls and results, context items),
+  with its MCP servers in the MCP audit. Windsurf global rules, memories,
+  workflows and `mcp_config.json` are read; Cascade conversations and
+  memory stores are sealed and reported as UNSUPPORTED content (protobuf
+  with no published schema, encrypted on current builds). See
+  `docs/ai-ide-products.md`.
+- **Native `.evtx` second witness.** `--endpoint` / `correlate` read raw
+  Windows event logs with a pure-Go parser (no Windows API): Sysmon 1/3/11/
+  2/23/26/22, Security 4688, PowerShell 4104 script blocks, service
+  installs (7045) and log clears (1102/104) as operator notices. Script
+  blocks corroborate only on an exact or bounded containment match and
+  never contradict; 4688 without a command line gives PARTLY CONFIRMED at
+  most. Header and chunk CRCs, damaged chunks and records are noted, not
+  fatal.
+- **Partial and cloud-like witnesses**: DNS query logs (Zeek, BIND,
+  dnsmasq/Pi-hole, Unbound, Windows DNS), web proxy logs (Squid, Zeek
+  http/ssl, proxy exports), Linux auth logs and `journalctl -o json`,
+  Kubernetes audit, GitHub/GitLab audit exports, and S3/GCS/Azure Storage
+  access logs (`--format dns-log|zeek|squid|authlog|journald|k8s-audit|
+  git-audit|storage-access`). They corroborate or partly confirm a tool
+  call and never contradict one, never count as telemetry coverage and
+  never raise `UNLOGGED_*` findings. See `docs/endpoint-corroboration.md`.
+- **`agentdfir gaps <pkg>`** — what the case does not show and what to
+  collect next: silences inside sessions, transcript integrity breaks,
+  acquisition windows per product, second-witness coverage per host and
+  action kind (with why each unverified call stayed unverified), clock
+  consistency and broken agent chains, as known / unknown / verify-next
+  items. Stored by `analyze` as `normalized/coverage.json`.
+- **`agentdfir lineage <pkg>`** — human → agent → subagent → tool call →
+  process → network / file / cloud resource, where every edge names the
+  evidence behind it and correlated links carry their match confidence.
+  Scoped by `--finding` or `--session`; `text`, `json`, `mermaid`, `dot`.
+  Credentials are masked before any label is cut.
+- **`agentdfir correlate-cases <a> <b> …`** — what several cases share
+  (accounts, IOC hits, secret fingerprints without values, destinations,
+  MCP servers, tool definitions, instruction files, session and agent ids,
+  host names). Every package is fully verified and must be analyzed by
+  this version first; `--allow-unverified` compares anyway and marks it.
+  Hosts and users are never merged without a shared exact identifier. See
+  `docs/investigation-graph.md`.
+- **v4 detections**: `AGENT_UNEXPECTED_AUTONOMOUS_RETRY`,
+  `AGENT_PERMISSION_BOUNDARY_CROSSING` (a completed call a collected deny
+  rule covers), `AGENT_TOOL_PERMISSION_ESCALATION`,
+  `AGENT_UNVERIFIED_SUCCESS_CLAIM`, `AGENT_EXTERNAL_ARTIFACT_EXECUTION`,
+  `AI_SESSION_IDENTITY_SWITCH`, `AGENT_SESSION_CLOCK_ANOMALY`,
+  `AGENT_CROSS_SESSION_SECRET_REUSE`; pack rules
+  `AGENT_SENSITIVE_DATA_STAGING` and `AGENT_AUDIT_COVERAGE_LOSS`; chains
+  `CHAIN_CROSS_TOOL_EXFIL`, `CHAIN_MCP_RESULT_TO_PRIVILEGED` and
+  `CHAIN_PERMISSION_ESCALATION_TO_IMPACT`. Each has an attack fixture and a
+  benign twin. Fifteen proposed families were checked against existing
+  rules first; the dedupe verdicts, including the two that are not
+  feasible, are in `docs/detection-v4.md`.
+- **`agentdfir extensions`** — inventory of IDE extensions (VS Code,
+  Insiders, VSCodium, Cursor, Windsurf, Kiro, Trae, Positron and remote
+  servers), Claude Code plugins, marketplaces and skills, live, on an
+  offline home or in a case (`analyze` writes `detections/extensions.json`).
+  Rules `EXTENSION_INVISIBLE_CODE`, `EXTENSION_OBFUSCATED_LOADER`,
+  `EXTENSION_SIDELOADED_UNSIGNED`, `EXTENSION_STARTUP_ACTIVATION_WITH_NETWORK`,
+  `PLUGIN_HOOK_EXECUTES_REMOTE`, `SKILL_HIDDEN_INSTRUCTIONS`,
+  `PLUGIN_MARKETPLACE_UNTRUSTED`. Nothing is executed and no indicator
+  values ship; `hunt --iocs` packs gain a `vscode_extension` indicator kind.
+  `run` collects a new `ide-extensions` product. See
+  `docs/extensions-plugins.md`.
+- **eDiscovery**: `report <pkg> --format rsmf` writes one RSMF 2.0 file per
+  session, each checked by a built-in structural validator; `export <pkg>
+  --production` writes a production set (RSMF, HTML/PDF report, timeline
+  and findings CSV, `traceability.csv` back to the sealed line, and a
+  production manifest with hashes, processing history and missing records).
+  `--redact secrets,emails,paths,ips,custom:<file>` applies to the
+  derivatives only; the sealed case is never modified. Reproducible with
+  `--produced-at` / `SOURCE_DATE_EPOCH`. Not tested against a review
+  platform; no admissibility claim. See `docs/ediscovery.md`.
+- **`agentdfir benchmark`** — synthetic measurement of detection
+  (precision/recall on labeled fixtures), evidence-state contract,
+  provenance, 24 integrity mutations, packages written by five released
+  versions (v1.0.0 to v3.2.0),
+  robustness and performance. Built into the binary; CI runs its hard
+  checks. Every report says in its first line that synthetic results are
+  not evidence of real-world accuracy. Current run: precision and recall
+  100% on the fixtures, 24/24 mutations detected, 0 dangling provenance
+  references, 5/5 historical packages verify. See `docs/benchmark.md`.
+- **`tools/adfir-verify/adfir_verify.py`** — an independent `.adfir`
+  verifier written from the spec with the Python 3 standard library only
+  (pure-Python ed25519), and `testdata/conformance/` with one valid and one
+  invalid package per tamper case. `agentdfir verify` and the Python
+  verifier are both tested against them.
+- **Explorer views** (`agentdfir serve`): **Coverage**, **Who did what**
+  (lineage graph on every finding, conversation and the whole case),
+  **Second witness** side-by-side comparison, **AI conversations** (exports
+  and browser history, with evidence-class badges), **Extensions & agent
+  plugins**, **Bookmarks** and saved filters, and **Compare cases** with
+  `serve <case> --compare <other>`. See `docs/serve.md`.
 - **`agentdfir report accountability`** — for every consequential action in a
   case (HIGH/CRITICAL findings and any destructive, cloud, exfiltration,
   credential, configuration-change or execution rule), one row with four parts:
@@ -41,8 +196,9 @@ lets anyone prove the tool's offline claim on their own machine.
   **`agentdfir case log`** — record who authorized an acquisition into a
   hash-chained custody **activity log** outside the seal (each record names the
   seal digest it was made against), and print both logs with their chain state.
-  The `report_generated`, `custody_exported` and `acquisition_authorized` events
-  are recorded there, so generating a report never re-seals the case.
+  The `report_generated`, `custody_exported`, `acquisition_authorized` and
+  `production_generated` events are recorded there, so generating a report never
+  re-seals the case.
 - **`agentdfir selfcheck --offline`** — prove on your own machine that an
   AgentDFIR collection and analysis opens no network socket, spawns no child
   process, and writes only inside the case/state directories. Runs the binary as
@@ -61,6 +217,58 @@ lets anyone prove the tool's offline claim on their own machine.
   that other jurisdictions differ (ISO/IEC 27037). Plus `docs/accountability.md`,
   `docs/selfcheck.md` and `docs/templates/certification-902-14.md`. Not legal
   advice; the docs never claim "admissible" or "compliant".
+
+### Changed
+- **Module path is now `github.com/efij/AgentDFIR/v4`** (Go semantic import
+  versioning). This only affects `go install`:
+  `go install github.com/efij/AgentDFIR/v4/cmd/agentdfir@latest`. Commands,
+  flags, exit codes and `.adfir` 0.2 packages are unchanged; packages
+  written by earlier versions verify and analyze as before.
+- **`.adfir` spec revision 0.2.1** — clarifications, no format change: the
+  `SHA256SUMS` line format and path rules, which manifest records have
+  stored content, exact hash-chain rules, the `SEAL.sig` file format, a
+  verification step that covers `seals/` and an unlisted second manifest
+  form, what a signature proves without a pinned key, optional round-history
+  checks, and a conformance section. See `docs/adfir-spec.md`.
+- **Browser history is never read unless asked for.** `detect` and a default
+  `run` never probe browsers; `case.json` records it when it was collected.
+- Every `analyze` also writes `normalized/coverage.json` and
+  `normalized/lineage.json`; this stage cannot fail an analysis.
+  `detections/corroboration.json` gains optional `matches` (the pairing
+  behind each corroborated call, with basis and confidence) and
+  `cloud_coverage_start` / `cloud_coverage_end`; existing fields are
+  unchanged.
+- Codex skills (`~/.codex/skills/**`) are collected.
+- `report --format all` is unchanged and does not include RSMF; `export`
+  without `--production` behaves exactly as before.
+
+### Fixed
+- The Sysmon XML adapter skipped event 22 (DNS query). It is now mapped like
+  the `.evtx` reader maps it: a `network` record naming the process, so it
+  corroborates a call that names the host and can raise
+  `UNLOGGED_AGENT_NETWORK`.
+- `collector.Run` panicked on the nil manifest of an unknown product id; it
+  now returns an error (found by the benchmark's robustness cases).
+
+### Security
+- **`verify` catches a planted `manifest.jsonl`** next to a sealed legacy
+  `manifest.json` (readers prefer the `.jsonl` form) and unlisted files in
+  `seals/`, not only in `raw/`.
+- **A `SHA256SUMS` path that climbs out of the package** is reported as
+  malformed and never read.
+- **A deleted `SEAL.sig`** is a problem when the last round recorded a
+  signer, when a key is pinned with `--pubkey`, or when `case.json` cannot
+  be read; deleting the signature no longer turns a signed package into a
+  verified "unsigned" one.
+- **A path listed twice in `SHA256SUMS`** is reported instead of silently
+  accepted.
+- **URL userinfo can no longer pose as the host** for corroboration: hosts
+  are taken with a URL parser, so in `curl https://trusted.com@evil.com/x`
+  the host is `evil.com`; URLs that do not parse, or whose host is
+  percent-encoded, are dropped rather than guessed at.
+- **Cloud resource names match whole segments**: `prod` matches
+  `…/storageAccounts/prod`, never `nonprod-db` (earlier versions matched any
+  substring).
 
 ## [3.2.0] — 2026-10-01
 
