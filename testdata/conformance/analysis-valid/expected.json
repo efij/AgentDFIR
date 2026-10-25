@@ -1,0 +1,6 @@
+{
+  "verdict": "VERIFIED",
+  "description": "an analyzed package (second witness and an IOC hit): analysis-manifest.json whose findings_fingerprint matches findings.json, a 0.2.2 action graph, a STIX 2.1 bundle",
+  "spec": "0.2.2",
+  "kind": "analysis"
+}

@@ -1,0 +1,7 @@
+{
+  "verdict": "FAILED",
+  "description": "remove the telemetry record from a correlated edge",
+  "mutation": "graph-correlated-no-telemetry",
+  "spec": "0.2.2",
+  "kind": "analysis"
+}

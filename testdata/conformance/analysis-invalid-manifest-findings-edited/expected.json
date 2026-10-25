@@ -1,0 +1,7 @@
+{
+  "verdict": "FAILED",
+  "description": "change one finding's severity in findings.json after the analysis: the recomputed findings_fingerprint no longer matches",
+  "mutation": "manifest-findings-edited",
+  "spec": "0.2.2",
+  "kind": "analysis"
+}

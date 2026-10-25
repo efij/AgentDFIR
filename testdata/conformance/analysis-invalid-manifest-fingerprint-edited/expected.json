@@ -1,0 +1,7 @@
+{
+  "verdict": "FAILED",
+  "description": "replace findings_fingerprint in the manifest",
+  "mutation": "manifest-fingerprint-edited",
+  "spec": "0.2.2",
+  "kind": "analysis"
+}

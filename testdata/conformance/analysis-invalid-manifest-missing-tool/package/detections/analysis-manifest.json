@@ -1,0 +1,68 @@
+{
+  "adfir_spec": "0.2.2",
+  "analyzed_utc": "2026-10-25T21:40:11Z",
+  "findings": {
+    "algorithm": "adfir-findings-sha256/1",
+    "count": 4,
+    "fields": [
+      "rule_id",
+      "severity",
+      "status",
+      "endpoint_corroboration",
+      "session_id",
+      "agent_id",
+      "evidence_refs"
+    ],
+    "file": "detections/findings.json"
+  },
+  "findings_fingerprint": "sha256:11fac348d278d17e6c02a0482e944ad3a08c63e7008f689bceaebfbf1f3d6f4c",
+  "input": {
+    "adfir_version": "0.2",
+    "artifacts": 1,
+    "case_id": "CONFORMANCE-ANALYSIS",
+    "inputs_digest": "a32adaeed00c68e10e4087f57e7825e3f05acf72c23f038db2b73d228b74f0da",
+    "manifest_file": "manifest.jsonl",
+    "manifest_sha256": "6fc6a987d73ed6bc504c65941ce3f336cbecb662abd3695e10bb061f8ad472bc",
+    "seal_sha256": "e2774d2ab3b834b5758b862e1a13fdefaba7baaa5c8586c2c632dc020afe1964"
+  },
+  "options": {
+    "endpoint_logs": [
+      {
+        "path": "audit.log",
+        "sha256": "39b38e495ba0cd11548c98a80f9c7b94f0594224e789822cf710d2e8eeba76d8",
+        "size": 499
+      }
+    ],
+    "ioc_files": [
+      {
+        "path": "iocs.json",
+        "sha256": "297b188946d6ef117ff207adc97dd752b544fa1b515068c1078cbb45525f6d39",
+        "size": 225
+      }
+    ],
+    "no_builtin_packs": false,
+    "reused_correlation_findings": 0,
+    "spawn_threshold": 10
+  },
+  "rule_set": {
+    "builtin_fingerprint": "ef051995de313248bfc41102483d928e7084dd69cdc1f9a33a9b1d5cd2ad16e1",
+    "builtin_packs": true,
+    "packs": [
+      {
+        "origin": "embedded",
+        "pack": "agentdfir-community",
+        "rules": 82,
+        "sha256": "cd4d4d4fdcd7b1b43082195b6ba6f912206a853e9b0e4321af5bae2fab70fd1a",
+        "version": "7"
+      },
+      {
+        "origin": "embedded",
+        "pack": "agentdfir-starter",
+        "rules": 4,
+        "sha256": "6276d2193cb845ee7a6ef09f087157778f22a2210786b57cf8e9e838a9abb3f5",
+        "version": "2"
+      }
+    ]
+  },
+  "schema": "agentdfir.analysis-manifest/1"
+}
