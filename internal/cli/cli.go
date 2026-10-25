@@ -70,6 +70,7 @@ LOOK — same results, different views
   agentdfir timeline <pkg>                the unified timeline in your terminal
   agentdfir investigate <pkg>             interactive terminal explorer
   agentdfir replay <pkg>                  step through one session
+  agentdfir replay ~/.agentdfir/monitor   step through a black-box recording (journal checked first)
   agentdfir explain <pkg>                 plain-language case digest (no AI, nothing sent anywhere)
   agentdfir gaps <pkg> [--json]           what the evidence does not show, and what to collect next
   agentdfir lineage <pkg> [--finding id|--session id] [--format text|json|mermaid|dot]   human → agent → tool → process → destination
@@ -115,7 +116,11 @@ BEFORE AN INCIDENT
   agentdfir monitor --detect --alert <url|file>      live sensor: findings pushed as they happen
   agentdfir monitor --journal [--journal-anchor f]   hash-chain every transcript append; later edits become provable
   sudo agentdfir monitor --es [--es-events a,b]     macOS: also capture Endpoint Security events via Apple's eslogger (root + Full Disk Access)
-  agentdfir journal verify [--anchor <head>]         check the journal and an off-host anchor
+  agentdfir journal verify [--anchor <head>]         check the journal, an off-host anchor and the recorder's captures
+  agentdfir monitor --record [--auditd f] [--tail f]... [--retain 7d,2GB]
+                                                     black-box recorder: journaled OS telemetry + MCP config changes
+  agentdfir monitor status [--json]                  recorder health: sources, gaps, retention, journal anchor
+  agentdfir run --endpoint ~/.agentdfir/monitor      investigate a recording: correlate transcripts with it
   agentdfir mcp audit                                MCP servers on this machine: unpinned, plaintext, poisoned
   agentdfir extensions [--path <home>]               IDE extensions, agent plugins, skills: hidden loaders, remote hooks
   agentdfir baseline create|check · agentdfir diff <a> <b>     known-good configs and drift
