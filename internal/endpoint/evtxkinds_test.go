@@ -281,3 +281,67 @@ func FuzzContextXML(f *testing.F) {
 		}
 	})
 }
+
+// Records the Windows rules act on are kept past the per-kind bound, so
+// a flood of noise cannot push evidence out; the bound marks coverage
+// incomplete.
+func TestContextCapKeepsActionable(t *testing.T) {
+	old := maxContextPerKind
+	maxContextPerKind = 2
+	defer func() { maxContextPerKind = old }()
+	var evs []w.Event
+	for i := 0; i < 10; i++ {
+		evs = append(evs, host.SysmonRegistry(uint64(i+1), 13, at0.Add(time.Duration(i)*time.Millisecond), "SetValue", 10, `C:\x.exe`, `HKCU\Software\Noise\V`, "1", `DESK\dev`))
+	}
+	evs = append(evs,
+		host.SysmonRegistry(20, 13, at0.Add(time.Second), "SetValue", 10, `C:\x.exe`, runKey+`\Updater`, `C:\u.exe`, `DESK\dev`),
+		host.SysmonRegistry(21, 12, at0.Add(time.Second), "CreateKey", 10, `C:\x.exe`, `HKLM\System\CurrentControlSet\Services\evil`, "", `DESK\dev`))
+	for i := 0; i < 5; i++ {
+		evs = append(evs, host.TaskScheduler(uint64(30+i), 201, at0.Add(time.Second), `\Noise`, "", `C:\n.exe`, 1))
+	}
+	evs = append(evs, host.TaskScheduler(40, 106, at0.Add(2*time.Second), `\Updater`, `DESK\dev`, "", 0),
+		host.Security4648(41, at0.Add(2*time.Second), "S-1-5-21-1", "dev", "DESK", "svc", "CORP", "srv", 0x10, `C:\net.exe`, "-"),
+		host.WMIActivity(42, 5861, at0.Add(2*time.Second), w.F("Namespace", w.String("//./root/subscription")), w.F("ESS", w.String("F")), w.F("CONSUMER", w.String(`CommandLineEventConsumer="C"`))))
+	res, err := Load(writeBytes(t, "flood.evtx", w.Build(w.Events(evs), w.Options{})), FormatAuto)
+	if err != nil {
+		t.Fatal(err)
+	}
+	kept := map[string]bool{}
+	for _, r := range res.Records {
+		head, _, _ := strings.Cut(r.Ref, ",")
+		kept[head] = true
+	}
+	for _, want := range []string{"sysmon:13 (record 20", "sysmon:12 (record 21", "taskscheduler:106 (record 40", "security:4648 (record 41", "wmi:5861 (record 42"} {
+		if !kept[want] {
+			t.Errorf("actionable record %s dropped", want)
+		}
+	}
+	if res.ContextDropped[KindRegistry] != 8 || res.ContextDropped[KindScheduledTask] != 3 || !strings.Contains(strings.Join(res.Problems, "\n"), "registry coverage is INCOMPLETE") {
+		t.Fatalf("dropped %v problems %v", res.ContextDropped, res.Problems)
+	}
+}
+
+// Notices have per-category bounds: task churn cannot crowd out a
+// cleared log or a service install, and 140 (updated) gets no notice.
+func TestNoticeCategories(t *testing.T) {
+	var evs []w.Event
+	for i := 0; i < 300; i++ {
+		evs = append(evs, host.TaskScheduler(uint64(i+1), 140, at0, fmt.Sprintf(`\T%d`, i), `DESK\dev`, "", 0))
+	}
+	for i := 0; i < 80; i++ {
+		evs = append(evs, host.TaskScheduler(uint64(1000+i), 106, at0, fmt.Sprintf(`\R%d`, i), `DESK\dev`, "", 0))
+	}
+	evs = append(evs, host.Security4697(2000, at0, "S-1-5-21-1", "dev", "DESK", "updsvc", `C:\u.exe`, "LocalSystem"),
+		w.Event{Provider: "Microsoft-Windows-Eventlog", EventID: 1102, Qualifiers: -1, Time: at0, RecordID: 2001, Channel: "Security", Computer: "DESK-01",
+			UserDataElement: "LogFileCleared", UserDataNS: "http://manifests.microsoft.com/win/2004/08/windows/eventlog",
+			UserData: []w.KV{w.F("SubjectUserName", w.String("dev")), w.F("SubjectDomainName", w.String("DESK"))}})
+	res, err := Load(writeBytes(t, "churn.evtx", w.Build(w.Events(evs), w.Options{})), FormatAuto)
+	if err != nil {
+		t.Fatal(err)
+	}
+	all := strings.Join(res.Notices, "\n")
+	if strings.Contains(all, " updated by ") || strings.Count(all, " registered by ") != 50 || !strings.Contains(all, "more scheduled-task notices not shown") ||
+		!strings.Contains(all, `service "updsvc" installed`) || !strings.Contains(all, `event log "Security" cleared`) {
+		t.Fatalf("%d notices:\n%s", len(res.Notices), all)
+	}
+}

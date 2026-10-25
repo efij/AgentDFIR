@@ -2,6 +2,7 @@ package endpoint
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -172,7 +173,7 @@ func (res *LoadResult) addWinContext(ev *evtx.Event, at string) bool {
 			r.Kind, r.Exe, r.Cmdline, r.User = "service", d["ServiceFileName"], d["ServiceFileName"], firstOf(d["ServiceAccount"], subject)
 			r.SubjectUser, r.PID = subject, 0
 			r.Ref = ref(prefix, "service "+d["ServiceName"])
-			res.notice(fmt.Sprintf("%s service %q installed: %s (account %s, by %s) [%s]", ts.Format("2006-01-02T15:04:05Z"), d["ServiceName"],
+			res.noticeOf(noticeService, fmt.Sprintf("%s service %q installed: %s (account %s, by %s) [%s]", ts.Format("2006-01-02T15:04:05Z"), d["ServiceName"],
 				bound(d["ServiceFileName"]), d["ServiceAccount"], firstOf(subject, "unknown user"), r.Ref))
 		default:
 			r.Kind = KindAuth
@@ -225,8 +226,10 @@ func (res *LoadResult) addWinContext(ev *evtx.Event, at string) bool {
 			return true
 		}
 		r.Ref = ref(prefix, "task "+r.Resource)
-		if s.EventID == "106" || s.EventID == "140" || s.EventID == "141" {
-			res.notice(fmt.Sprintf("%s scheduled task %q %s by %s [%s]", ts.Format("2006-01-02T15:04:05Z"), r.Resource, r.Operation, firstOf(r.User, "unknown user"), r.Ref))
+		// 140 (updated) is routine (every task edit, every Windows update)
+		// and gets no notice; registrations and deletions do.
+		if s.EventID == "106" || s.EventID == "141" {
+			res.noticeOf(noticeTask, fmt.Sprintf("%s scheduled task %q %s by %s [%s]", ts.Format("2006-01-02T15:04:05Z"), r.Resource, r.Operation, firstOf(r.User, "unknown user"), r.Ref))
 		}
 	case "microsoft-windows-wmi-activity":
 		r.Kind = KindWMI
@@ -249,11 +252,11 @@ func (res *LoadResult) addWinContext(ev *evtx.Event, at string) bool {
 			r.Operation = "consumer-binding"
 			r.Resource = strings.TrimSpace(d["CONSUMER"] + " ← " + d["ESS"])
 			r.Details = bound(firstOf(d["PossibleCause"], d["CONSUMER"]))
-			res.notice(fmt.Sprintf("%s WMI permanent event consumer bound: %s (namespace %s) [%s]", ts.Format("2006-01-02T15:04:05Z"),
+			res.noticeOf(noticeWMI, fmt.Sprintf("%s WMI permanent event consumer bound: %s (namespace %s) [%s]", ts.Format("2006-01-02T15:04:05Z"),
 				boundN(d["CONSUMER"], 200), firstOf(d["Namespace"], "?"), r.Ref))
 		}
 	}
-	if !res.keepContext(r.Kind) {
+	if !RuleActionable(r) && !res.keepContext(r.Kind) {
 		return true
 	}
 	res.Records = append(res.Records, r)
@@ -271,9 +274,52 @@ func (res *LoadResult) keepContext(kind string) bool {
 		return true
 	}
 	res.Skipped++
+	if res.ContextDropped == nil {
+		res.ContextDropped = map[string]int{}
+	}
+	res.ContextDropped[kind]++
 	if !res.ctxNoted[kind] {
 		res.ctxNoted[kind] = true
-		res.note(fmt.Sprintf("windows event log: more than %d %s record(s) in one file; later ones counted as skipped, not kept", maxContextPerKind, kind))
+		res.note(fmt.Sprintf("windows event log: more than %d %s record(s) in one file; later ones counted as skipped, not kept: %s coverage is INCOMPLETE (records the Windows rules act on are always kept)", maxContextPerKind, kind, kind))
+	}
+	return false
+}
+
+var (
+	runKeyRe     = regexp.MustCompile(`(?i)\\(?:microsoft\\windows\\currentversion\\(?:run|runonce|runonceex|runservices|runservicesonce)|microsoft\\windows\\currentversion\\policies\\explorer\\run)$`)
+	serviceKeyRe = regexp.MustCompile(`(?i)\\(?:currentcontrolset|controlset\d{3})\\services\\[^\\]+(\\parameters)?$`)
+)
+
+// PersistenceKey classifies a registry record that installs autostart
+// persistence: a Run/RunOnce value ("run"), or a service key created or
+// its ImagePath / ServiceDll set ("service"). Anything else is "".
+func PersistenceKey(r Record) string {
+	if r.Kind != KindRegistry {
+		return ""
+	}
+	switch {
+	case r.Operation == "set-value" && runKeyRe.MatchString(r.Resource):
+		return "run"
+	case serviceKeyRe.MatchString(r.Resource) && (r.Operation == "create-key" ||
+		(r.Operation == "set-value" && (strings.EqualFold(r.ValueName, "ImagePath") || strings.EqualFold(r.ValueName, "ServiceDll")))):
+		return "service"
+	}
+	return ""
+}
+
+// RuleActionable reports whether a context record is one the Windows
+// rules act on. These are never dropped by the per-kind bound, so noise
+// of the same kind cannot push evidence out.
+func RuleActionable(r Record) bool {
+	switch r.Kind {
+	case KindRegistry:
+		return PersistenceKey(r) != ""
+	case KindAuth:
+		return r.Operation == "explicit-credentials"
+	case KindScheduledTask:
+		return r.Operation == "registered" || r.Operation == "updated"
+	case KindWMI:
+		return r.Operation == "consumer-binding"
 	}
 	return false
 }

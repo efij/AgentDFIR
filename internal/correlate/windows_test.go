@@ -1,6 +1,7 @@
 package correlate
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -124,7 +125,7 @@ func TestWindowsScheduledTask(t *testing.T) {
 
 func TestWindowsWMIPersistence(t *testing.T) {
 	bind := func(at, consumer string) endpoint.Record {
-		return endpoint.Record{Time: ts(at), Kind: endpoint.KindWMI, Operation: "consumer-binding", Resource: consumer + ` ← Updater`, Details: "CommandLineTemplate = u.exe",
+		return endpoint.Record{Time: ts(at), Kind: endpoint.KindWMI, Operation: "consumer-binding", Resource: consumer, Details: "CommandLineTemplate = u.exe",
 			Source: "wmi", Ref: "wmi:5861 (" + at + ")"}
 	}
 	events := []schema.Event{
@@ -132,9 +133,9 @@ func TestWindowsWMIPersistence(t *testing.T) {
 		tc("e2", "2026-08-30T10:10:00Z", "Bash", "echo end"),
 	}
 	recs := []endpoint.Record{
-		bind("2026-08-30T10:05:00Z", `CommandLineEventConsumer="Updater"`),               // inside the session → fires
-		bind("2026-08-30T10:06:00Z", `NTEventLogEventConsumer="SCM Event Log Consumer"`), // Windows default → no
-		bind("2026-08-30T14:00:00Z", `ActiveScriptEventConsumer="Late"`),                 // outside any session → no
+		bind("2026-08-30T10:05:00Z", `CommandLineEventConsumer="Updater" ← Updater`),                            // inside the session → fires
+		bind("2026-08-30T10:06:00Z", `NTEventLogEventConsumer="SCM Event Log Consumer" ← SCM Event Log Filter`), // exact Windows default → no
+		bind("2026-08-30T14:00:00Z", `ActiveScriptEventConsumer="Late" ← Late`),                                 // outside any session → no
 		{Time: ts("2026-08-30T10:05:00Z"), Kind: endpoint.KindWMI, Operation: "temporary-subscription", Source: "wmi", Ref: "wmi:5860"},
 	}
 	_, f := Endpoint(events, recs, EndpointOptions{})
@@ -169,5 +170,45 @@ func TestModuleLogMatchIsStrict(t *testing.T) {
 	}
 	if events[1].Corroboration != schema.StateObserved || res.ScriptCorroborated != 1 || len(f) != 0 {
 		t.Fatalf("loose must not match: %+v %+v", events[1], res)
+	}
+}
+
+// Only the exact Windows default binding is skipped: a consumer that
+// borrows the default's name, under another class or filter, still fires.
+func TestWindowsWMIDefaultNameNotTrusted(t *testing.T) {
+	events := []schema.Event{tc("e1", "2026-08-30T10:00:00Z", "Bash", "echo start")}
+	var recs []endpoint.Record
+	for i, b := range []string{
+		`CommandLineEventConsumer="SCM Event Log Consumer" ← SCM Event Log Filter`,
+		`ActiveScriptEventConsumer="SCM Event Log Consumer" ← SCM Event Log Filter`,
+		`NTEventLogEventConsumer="SCM Event Log Consumer" ← EvilFilter`,
+		`NTEventLogEventConsumer="SCM Event Log Consumer (2)" ← SCM Event Log Filter`,
+	} {
+		recs = append(recs, endpoint.Record{Time: ts("2026-08-30T10:00:01Z"), Kind: endpoint.KindWMI, Operation: "consumer-binding", Resource: b,
+			Source: "wmi", Ref: fmt.Sprintf("wmi:5861 (record %d)", i)})
+	}
+	_, f := Endpoint(events, recs, EndpointOptions{})
+	if n := ruleCount(f)["WIN_AGENT_WMI_PERSISTENCE"]; n != 4 {
+		t.Fatalf("lookalike bindings skipped: %d of 4 fired\n%+v", n, f)
+	}
+}
+
+// `schtasks -create` and an agent-descended PowerShell or schtasks with
+// any command line link to a task registration.
+func TestWindowsScheduledTaskSpellings(t *testing.T) {
+	for _, c := range []struct{ exe, cmd string }{
+		{`C:\Windows\System32\schtasks.exe`, `schtasks -create -tn Updater -tr C:\u.exe -sc onlogon`},
+		{`C:\Windows\System32\schtasks.exe`, `"C:\Windows\System32\schtasks.exe" /xml task.xml /tn Updater`},
+		{`C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe`, `powershell -enc SQBuAHYAbwBrAGUA`},
+		{`C:\Program Files\PowerShell\7\pwsh.exe`, `pwsh -File setup.ps1`},
+		{`C:\Windows\System32\cmd.exe`, `cmd /c schtasks -change -tn Updater -tr C:\u.exe`},
+	} {
+		recs := []endpoint.Record{
+			proc("2026-08-30T10:00:00Z", 500, 200, c.exe, c.cmd, claudeExe),
+			{Time: ts("2026-08-30T10:00:30Z"), Kind: endpoint.KindScheduledTask, Operation: "registered", Resource: `\Updater`, Source: "taskscheduler", Ref: "taskscheduler:106"},
+		}
+		if _, f := Endpoint(nil, recs, EndpointOptions{}); ruleCount(f)["WIN_AGENT_SCHEDULED_TASK"] != 1 {
+			t.Errorf("%s: not linked: %+v", c.cmd, f)
+		}
 	}
 }

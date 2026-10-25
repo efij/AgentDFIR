@@ -83,8 +83,13 @@ type LoadResult struct {
 	// cleared, a service installed). Shown to the operator; no rule.
 	Notices []string
 
-	ctxKept  map[string]int // Windows context records kept per kind (evtxkinds.go)
-	ctxNoted map[string]bool
+	// ContextDropped counts, per kind, Windows context records past the
+	// per-file bound: coverage of that kind is incomplete.
+	ContextDropped map[string]int
+
+	ctxKept      map[string]int // Windows context records kept per kind (evtxkinds.go)
+	ctxNoted     map[string]bool
+	noticeCounts map[string]int
 }
 
 // Load reads one endpoint log with the given (or sniffed) format.
@@ -206,6 +211,32 @@ func (r *LoadResult) note(msg string) {
 }
 
 // notice records a notable recognized event; see LoadResult.Notices.
+// Notice categories, each with its own bound so one flood (task or WMI
+// churn) cannot crowd out another (a cleared log, a service install).
+const (
+	noticeLogClear = "log-clear"
+	noticeService  = "service"
+	noticeTask     = "scheduled-task"
+	noticeWMI      = "wmi"
+)
+
+var noticeLimits = map[string]int{noticeLogClear: 1000, noticeService: 1000, noticeTask: 50, noticeWMI: 50}
+
+// noticeOf records a notice under its category's own bound; the first
+// notice past the bound says how the rest are handled.
+func (r *LoadResult) noticeOf(cat, msg string) {
+	if r.noticeCounts == nil {
+		r.noticeCounts = map[string]int{}
+	}
+	r.noticeCounts[cat]++
+	switch n := r.noticeCounts[cat]; {
+	case n <= noticeLimits[cat]:
+		r.Notices = append(r.Notices, msg)
+	case n == noticeLimits[cat]+1:
+		r.Notices = append(r.Notices, fmt.Sprintf("more %s notices not shown (the records are kept)", cat))
+	}
+}
+
 func (r *LoadResult) notice(msg string) {
 	if len(r.Notices) < 50 {
 		r.Notices = append(r.Notices, msg)

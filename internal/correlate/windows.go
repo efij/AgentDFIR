@@ -32,9 +32,7 @@ const (
 )
 
 var (
-	runKeyRe     = regexp.MustCompile(`(?i)\\(?:microsoft\\windows\\currentversion\\(?:run|runonce|runonceex|runservices|runservicesonce)|microsoft\\windows\\currentversion\\policies\\explorer\\run)$`)
-	serviceKeyRe = regexp.MustCompile(`(?i)\\(?:currentcontrolset|controlset\d{3})\\services\\[^\\]+(\\parameters)?$`)
-	taskCmdRe    = regexp.MustCompile(`(?i)(\bschtasks(?:\.exe)?\b[^|;&]*\s/(?:create|change)\b|\b(?:register|set)-scheduledtask\b)`)
+	taskCmdRe = regexp.MustCompile(`(?i)(\bschtasks(?:\.exe)?\b[^|;&]*\s[/-](?:create|change)\b|\b(?:register|set)-scheduledtask\b)`)
 )
 
 // windowsPass counts the context records and runs the four rules.
@@ -194,11 +192,10 @@ func refsOf(r endpoint.Record, p endpoint.Record) []string {
 // process.
 func (w *winRules) registry(r endpoint.Record) (schema.Finding, bool) {
 	where, attack := "", ""
-	switch {
-	case r.Operation == "set-value" && runKeyRe.MatchString(r.Resource):
+	switch endpoint.PersistenceKey(r) {
+	case "run":
 		where, attack = "a Run/RunOnce key (runs at every logon)", "T1547.001"
-	case serviceKeyRe.MatchString(r.Resource) && (r.Operation == "create-key" ||
-		(r.Operation == "set-value" && (strings.EqualFold(r.ValueName, "ImagePath") || strings.EqualFold(r.ValueName, "ServiceDll")))):
+	case "service":
 		where, attack = "a service definition (runs as a service)", "T1543.003"
 	default:
 		return schema.Finding{}, false
@@ -266,8 +263,18 @@ func (w *winRules) task(r endpoint.Record) (schema.Finding, bool) {
 	best, named := -1, false
 	for j := lowerBound(w.host, r.Time.Add(-taskLookback)); j < len(w.host) && !w.host[j].Time.After(r.Time.Add(pidSlack)); j++ {
 		p := w.host[j]
-		if p.Kind != "process" || !taskCmdRe.MatchString(p.Cmdline) {
+		// A task-creating command line, or any scheduler-capable program
+		// (schtasks, PowerShell) whatever its spelling: a switch or
+		// cmdlet alias must not hide the link.
+		if p.Kind != "process" {
 			continue
+		}
+		switch exeName(p.Exe) {
+		case "schtasks", "powershell", "pwsh":
+		default:
+			if !taskCmdRe.MatchString(p.Cmdline) {
+				continue
+			}
 		}
 		if !w.descended(j) {
 			continue
@@ -295,6 +302,12 @@ func (w *winRules) task(r endpoint.Record) (schema.Finding, bool) {
 	}, true
 }
 
+// scmDefaultBinding is the one permanent binding Windows ships, exactly
+// as the endpoint adapter renders it (CONSUMER ← ESS). Any other class
+// or name, CommandLineEventConsumer and ActiveScriptEventConsumer above
+// all, is never skipped.
+const scmDefaultBinding = `NTEventLogEventConsumer="SCM Event Log Consumer" ← SCM Event Log Filter`
+
 // wmi: WIN_AGENT_WMI_PERSISTENCE — a permanent WMI event consumer bound
 // (WMI-Activity 5861) during an agent session. 5861 names no process,
 // so the tie is the session's time only; the description says so.
@@ -304,7 +317,7 @@ func (w *winRules) wmi(r endpoint.Record) (schema.Finding, bool) {
 	}
 	// Windows ships one permanent binding (the SCM event log consumer);
 	// it is re-reported at boot and is not persistence by anyone.
-	if strings.Contains(strings.ToLower(r.Resource), "scm event log consumer") {
+	if r.Resource == scmDefaultBinding {
 		return schema.Finding{}, false
 	}
 	for _, s := range w.sessions {

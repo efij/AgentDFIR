@@ -166,7 +166,7 @@ func (res *LoadResult) addEVTX(ev *evtx.Event) bool {
 		r := Record{Time: ts, Kind: "service", Exe: d["ImagePath"], Cmdline: d["ImagePath"], User: d["AccountName"],
 			Source: "system", Ref: ref("system", "service "+d["ServiceName"])}
 		res.Records = append(res.Records, r)
-		res.notice(fmt.Sprintf("%s service %q installed: %s (account %s) [%s]", ts.Format("2006-01-02T15:04:05Z"), d["ServiceName"], d["ImagePath"], d["AccountName"], r.Ref))
+		res.noticeOf(noticeService, fmt.Sprintf("%s service %q installed: %s (account %s) [%s]", ts.Format("2006-01-02T15:04:05Z"), d["ServiceName"], d["ImagePath"], d["AccountName"], r.Ref))
 		return true
 	case prov == "microsoft-windows-eventlog" && (s.EventID == "1102" || s.EventID == "104"):
 		if !tsOK {
@@ -177,7 +177,7 @@ func (res *LoadResult) addEVTX(ev *evtx.Event) bool {
 		r := Record{Time: ts, Kind: "log-clear", User: winUser(d["SubjectDomainName"], d["SubjectUserName"]),
 			Source: "eventlog", Ref: ref("eventlog", "channel "+channel)}
 		res.Records = append(res.Records, r)
-		res.notice(fmt.Sprintf("%s event log %q cleared by %s [%s]", ts.Format("2006-01-02T15:04:05Z"), channel, firstOf(r.User, "unknown user"), r.Ref))
+		res.noticeOf(noticeLogClear, fmt.Sprintf("%s event log %q cleared by %s [%s]", ts.Format("2006-01-02T15:04:05Z"), channel, firstOf(r.User, "unknown user"), r.Ref))
 		return true
 	}
 	return false
