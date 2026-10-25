@@ -50,14 +50,16 @@ Raw Windows event log files are read directly by a parser written for AgentDFIR 
 | | 3 | network | DestinationIp, DestinationPort, DestinationHostname |
 | | 11 / 2 / 23 / 26 | file (create / modify / delete / delete) | TargetFilename |
 | | 22 | network (DNS query) | QueryName → destination host, Image, ProcessId |
-| Microsoft-Windows-Security-Auditing (Security) | 4688 | process | NewProcessName, CommandLine (image only if command-line auditing is off), NewProcessId / ProcessId (hex), ParentProcessName, user |
+| Microsoft-Windows-Security-Auditing (Security) | 4688 | process; process-image when no command line was audited | NewProcessName, CommandLine, NewProcessId / ProcessId (hex), ParentProcessName, user |
 | Microsoft-Windows-PowerShell (PowerShell/Operational) | 4104 | script | ScriptBlockText, Execution ProcessID, MessageNumber/MessageTotal, Path |
 | Service Control Manager (System) | 7045 | service + operator notice | ServiceName, ImagePath, AccountName |
 | Microsoft-Windows-Eventlog (Security / System) | 1102 / 104 | log-clear + operator notice | SubjectUserName, SubjectDomainName, Channel |
 
 Sysmon events go through the same mapping as the XML export, so the same events read from `Sysmon.evtx` or from `wevtutil … /f:xml` give identical records, notes and states.
 
-Script blocks (4104) are a weaker witness: they can **corroborate** a command (`powershell -c Remove-Item …` matches the logged block), but they are not complete process telemetry, so they never contradict a command and never extend the telemetry's coverage window. If a command was already CONTRADICTED by process telemetry and a matching script block exists, the state stays CONTRADICTED and the block is named in the evidence note (an in-process PowerShell host runs scripts without starting a process).
+Script blocks (4104) are a weaker witness. They can **corroborate** a command, but only on an exact match (whitespace collapsed, case ignored) or when the whole command appears inside the block with a token boundary on both sides. Containment needs at least 12 characters and two tokens. For `powershell|pwsh -c|-Command <script>`, the inner script is tried as well. Only the first 64 KiB of a block is considered. Script blocks are not complete process telemetry, so they never contradict a command and never extend the telemetry's coverage window. A match is recorded in the event's `witness_note` with the basis `script-block:`. If a command was already CONTRADICTED by process telemetry and a matching script block exists, the state stays CONTRADICTED and the block is named in the evidence note (an in-process PowerShell host runs scripts without starting a process).
+
+Security 4688 records with no command line (command-line auditing off) become `process-image` records. They name only the program, so the most they give is **PARTLY CONFIRMED** (`PARTIALLY_CORROBORATED`): a command, or one of its `&&` / `|` / `;` segments, must start with a program whose name equals the record's image basename (`.exe` ignored) within the window. They never contradict a command and never widen coverage, and a match is marked `process-image:` in `witness_note`. 4688 records that do carry a command line, including ones in the same file, are ordinary process telemetry and behave like Sysmon event 1.
 
 Service installs and cleared logs are not correlation input. They are listed as `notice:` lines under the log's summary (`agentdfir correlate`, and the `analyze` / `run` log). No new detection rule is attached to them.
 
@@ -78,7 +80,7 @@ Binary XML support: fragment headers, elements with and without the dependency i
 
 Not read, by design: records left in chunk slack space after the free-space offset (counted and noted, not parsed), the header's dirty flag (noted; records are read as found), registry events (Sysmon 12–14), process termination (Sysmon 5), logons (Security 4624/4625) and every other provider/event ID (a single note counts them and names the most common). Message strings from provider DLLs are not resolved; only the event's own data is used.
 
-Bounds: files up to 2 GiB, read one 64 KiB chunk at a time; nesting depth 32; per-chunk and per-record caps on parsed nodes, rendered nodes and rendered text; a fault inside one record is converted to a recorded problem.
+Bounds: files up to 2 GiB, read one 64 KiB chunk at a time; nesting depth 32; per-chunk and per-record caps on parsed nodes, rendered nodes and rendered text (attribute values included); a fault inside one record is converted to a recorded problem.
 
 Fixtures are synthetic. The tests build .evtx files with a test-only writer (`internal/endpoint/evtx/evtxtest`) that emits valid headers, chunks with correct CRCs and string/template tables, and templates with substitution arrays; no real Windows logs are committed. A fuzz test (`FuzzChunk`) mutates chunks seeded from that writer.
 
