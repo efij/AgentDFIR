@@ -91,12 +91,15 @@ func sightingPass(events []schema.Event, records []endpoint.Record, opts Endpoin
 					continue
 				}
 				s := score(ev, r)
-				if s < 60 && ev.Command != "" {
-					// sudo logs the command it was asked to run, not "sudo …".
+				if s < 100 && ev.Command != "" {
+					// sudo logs the command it was asked to run, not "sudo …";
+					// the inner command is the better comparison when it scores higher.
 					if inner := stripSudo(ev.Command); inner != ev.Command {
 						cp := *ev
 						cp.Command = inner
-						s = score(&cp, r)
+						if s2 := score(&cp, r); s2 > s {
+							s = s2
+						}
 					}
 				}
 				if s >= 60 && s > fullScore {
@@ -140,6 +143,8 @@ func sightingPass(events []schema.Event, records []endpoint.Record, opts Endpoin
 			}
 			ev.Summary = appendNote(ev.Summary, fmt.Sprintf("corroborated by %s %s: %s (%s)", r.Source, r.Kind, sightingWhat(r), r.Ref))
 			res.WitnessCorroborated++
+			basis, conf, win := sightingBasis(dests, r, fullScore, false, opts.Window)
+			addMatchBasis(res, WitnessSighting, ev, r, fullScore, basis, conf, win, nil)
 		case part >= 0:
 			r := records[part]
 			if r.Kind == "network" {
@@ -151,8 +156,45 @@ func sightingPass(events []schema.Event, records []endpoint.Record, opts Endpoin
 			}
 			ev.Summary = appendNote(ev.Summary, fmt.Sprintf("partly corroborated by %s %s: %s (%s)", r.Source, r.Kind, sightingWhat(r), r.Ref))
 			res.WitnessPartial++
+			// The score only ranks the partial rungs: proxy request to
+			// another path 50, DNS lookup 40, ssh login 30.
+			pscore := 20 + 10*partRank
+			basis, conf, win := sightingBasis(dests, r, pscore, true, opts.Window)
+			addMatchBasis(res, WitnessSighting, ev, r, pscore, basis, conf, win, nil)
 		}
 	}
+}
+
+// sightingBasis states what a sighting match compared, its confidence
+// and the window it was searched in. Process records (sudo COMMAND=,
+// journal _CMDLINE) were matched like host process telemetry inside the
+// match window; everything else inside sightingWindow.
+func sightingBasis(dests []dest, r endpoint.Record, score int, partial bool, window time.Duration) (string, string, time.Duration) {
+	wide := sightingWindow
+	if window > wide {
+		wide = window
+	}
+	src := r.Source
+	switch r.Kind {
+	case "process":
+		b, conf := MatchBasis("process", score)
+		return src + " command line: " + b, conf, window
+	case "network":
+		if partial {
+			return "proxy request to " + r.DestHost + " (another path) within ±" + wide.String(), "LOW", wide
+		}
+		for _, d := range dests {
+			if proxyHostMatch(d.host, r.DestHost) && d.path != "" && d.path == recordPath(r.URL) {
+				return "proxy request host+path " + r.DestHost + d.path + " within ±" + wide.String(), "MEDIUM", wide
+			}
+		}
+		return "proxy request host " + r.DestHost + " within ±" + wide.String(), "MEDIUM", wide
+	case "dns":
+		return "DNS lookup of " + r.DestHost + " within ±" + wide.String(), "LOW", wide
+	case "auth":
+		return "sshd login accepted for " + r.User + " within ±" + wide.String() + " (the log does not name the host)", "LOW", wide
+	}
+	return src + " record", "LOW", wide
 }
 
 // eventDests: the hosts (and URL paths) a tool call reached for, from

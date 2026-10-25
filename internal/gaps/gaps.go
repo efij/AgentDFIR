@@ -144,9 +144,13 @@ type Thresholds struct {
 
 // Summary counts the report.
 type Summary struct {
-	Sessions   int `json:"sessions"`
-	ToolCalls  int `json:"tool_calls"`
-	Verified   int `json:"tool_calls_verified"`
+	Sessions  int `json:"sessions"`
+	ToolCalls int `json:"tool_calls"`
+	Verified  int `json:"tool_calls_verified"`
+	// Partial is how many of the Verified calls are only PARTLY CONFIRMED
+	// (a DNS lookup, a proxy request to another path, an image-only process
+	// creation, a cloud operation with no resource to compare).
+	Partial    int `json:"tool_calls_partial,omitempty"`
 	Disproved  int `json:"tool_calls_disproved"`
 	Unverified int `json:"tool_calls_unverified"`
 	TimeGaps   int `json:"time_gaps"`
@@ -259,6 +263,7 @@ type ActionCoverage struct {
 	Action     string         `json:"action"`
 	Total      int            `json:"total"`
 	Verified   int            `json:"verified"`
+	Partial    int            `json:"partial,omitempty"` // of Verified, PARTLY CONFIRMED only
 	Disproved  int            `json:"disproved"`
 	Unverified int            `json:"unverified"`
 	Reasons    map[string]int `json:"unverified_reasons,omitempty"`
@@ -422,8 +427,13 @@ func (b *builder) index() {
 // verifiedBy names the independent source behind a confirmed tool call.
 func verifiedBy(ev schema.Event, matches map[string]correlate.Match) string {
 	if m, ok := matches[ev.EventID]; ok {
-		if m.Witness == "cloud" {
+		switch m.Witness {
+		case correlate.WitnessCloud:
 			return "cloud audit log"
+		case correlate.WitnessSighting:
+			return srcSightings
+		case correlate.WitnessScript, correlate.WitnessProcessImage:
+			return srcEventLog
 		}
 		return "endpoint telemetry"
 	}
@@ -437,6 +447,12 @@ func verifiedBy(ev schema.Event, matches map[string]correlate.Match) string {
 	}
 	return "independent source (not named on the event)"
 }
+
+// Independent sources beside endpoint telemetry and cloud audit logs.
+const (
+	srcSightings = "DNS, proxy, auth and journal logs"
+	srcEventLog  = "Windows event log (script block or image-only process creation)"
+)
 
 func isVerified(state string) bool {
 	return state == schema.StateCorroborated || state == schema.StatePartial
@@ -793,13 +809,21 @@ func (b *builder) witness() {
 			}
 		}
 		w.Sources = append(w.Sources, WitnessSource{Name: "endpoint telemetry", Start: rfc(epStart), End: rfc(epEnd),
-			Records: c.Records - c.CloudRecords, Verified: verifiedBy["endpoint telemetry"],
+			Records: c.Records - c.CloudRecords - c.WitnessRecords, Verified: verifiedBy["endpoint telemetry"],
 			Note: "process, file and network records imported with --endpoint; inside this range a command with no matching process is DISPROVED"})
 	}
 	if c != nil && c.CloudRecords > 0 {
 		w.Sources = append(w.Sources, WitnessSource{Name: "cloud audit log", Start: c.CloudCoverageStart, End: c.CloudCoverageEnd,
 			Records: c.CloudRecords, Verified: verifiedBy["cloud audit log"],
 			Note: "control-plane records; a miss is never a contradiction (the export may cover another account)"})
+	}
+	if c != nil && (c.WitnessRecords > 0 || verifiedBy[srcSightings] > 0) {
+		w.Sources = append(w.Sources, WitnessSource{Name: srcSightings, Records: c.WitnessRecords, Verified: verifiedBy[srcSightings],
+			Note: "partial-coverage logs: they corroborate, never contradict and never widen coverage; a DNS lookup or ssh login only PARTLY CONFIRMS"})
+	}
+	if n := verifiedBy[srcEventLog]; n > 0 {
+		w.Sources = append(w.Sources, WitnessSource{Name: srcEventLog, Verified: n,
+			Note: "PowerShell 4104 script blocks and 4688 without a command line; corroborate only, an image name only PARTLY CONFIRMS"})
 	}
 	if wr := b.in.Witness; wr != nil {
 		w.Sources = append(w.Sources, WitnessSource{Name: "host witness", Start: wr.GatheredUTC, End: wr.GatheredUTC, Records: len(wr.Files) + len(wr.Repos),
@@ -843,6 +867,10 @@ func (b *builder) witness() {
 		case isVerified(ev.Corroboration):
 			ac.Verified++
 			b.r.Summary.Verified++
+			if ev.Corroboration == schema.StatePartial {
+				ac.Partial++
+				b.r.Summary.Partial++
+			}
 		case ev.Corroboration == schema.StateContradicted:
 			ac.Disproved++
 			b.r.Summary.Disproved++
@@ -939,6 +967,9 @@ func (b *builder) witness() {
 	s := b.r.Summary
 	if s.ToolCalls > 0 {
 		txt := fmt.Sprintf("%d of %d tool call(s) are CONFIRMED by an independent source", s.Verified, s.ToolCalls)
+		if s.Partial > 0 {
+			txt = fmt.Sprintf("%d of %d tool call(s) are checked by an independent source: %d CONFIRMED, %d PARTLY CONFIRMED", s.Verified, s.ToolCalls, s.Verified-s.Partial, s.Partial)
+		}
 		if len(verifiedBy) > 0 {
 			txt += " (" + mapList(verifiedBy) + ")"
 		}

@@ -574,6 +574,35 @@ func (g *builder) correlated(e schema.Event, tid string, m correlate.Match) {
 		for _, rel := range m.Related {
 			g.related(pid, rel)
 		}
+	case "script", endpoint.KindProcessImage:
+		// A PowerShell script block, or a process creation known only by
+		// its image path: the process the call ran as, on a weaker basis.
+		pid := g.processNode(r)
+		if pid == "" {
+			return
+		}
+		rel := "executed_as"
+		if r.Kind == "script" {
+			rel = "ran_script"
+		}
+		g.edge(Edge{From: tid, To: pid, Relation: rel, Basis: basis, State: e.Corroboration, Confidence: m.Confidence, Note: note, Refs: refs})
+	case "dns":
+		// A lookup shows intent to connect, not a connection.
+		if h := strings.ToLower(r.DestHost); h != "" && g.node(Node{ID: "network:" + h, Kind: KindNetwork, Label: h}) != nil {
+			g.edge(Edge{From: tid, To: "network:" + h, Relation: "looked_up", Basis: basis, State: e.Corroboration, Confidence: m.Confidence,
+				Note: note + noteIf("; client "+r.SourceIP, r.SourceIP != ""), Refs: refs})
+		}
+	case "auth":
+		// sshd names the account and the client address, not the host the
+		// log came from; the node is the login itself.
+		id := "network:ssh-login:" + r.Source + ":" + r.Ref
+		label := "ssh login " + r.User
+		if r.SourceIP != "" {
+			label += " from " + r.SourceIP
+		}
+		if g.node(Node{ID: id, Kind: KindNetwork, Label: label, State: schema.StateObserved, Attrs: nonEmpty(map[string]string{"user": r.User, "client": r.SourceIP, "operation": r.Operation})}) != nil {
+			g.edge(Edge{From: tid, To: id, Relation: "logged_in", Basis: basis, State: e.Corroboration, Confidence: m.Confidence, Note: note, Refs: refs})
+		}
 	case "file":
 		if g.node(Node{ID: "file:" + r.FilePath, Kind: KindFile, Label: detect.MaskSecrets(r.FilePath)}) != nil {
 			g.edge(Edge{From: tid, To: "file:" + r.FilePath, Relation: "touched", Basis: basis, State: e.Corroboration, Confidence: m.Confidence, Note: note, Refs: refs})
@@ -605,6 +634,9 @@ func (g *builder) correlated(e schema.Event, tid string, m correlate.Match) {
 func (g *builder) processNode(r endpoint.Record) string {
 	id := "process:" + r.Source + ":" + r.Ref
 	attrs := map[string]string{"time": r.Time.UTC().Format(time.RFC3339)}
+	if r.Kind != "process" {
+		attrs["record_kind"] = r.Kind // script block or image-only process creation
+	}
 	if r.PID != 0 {
 		attrs["pid"] = fmt.Sprint(r.PID)
 	}
@@ -757,6 +789,16 @@ func noteIf(s string, ok bool) string {
 		return s
 	}
 	return ""
+}
+
+// nonEmpty drops blank attribute values.
+func nonEmpty(m map[string]string) map[string]string {
+	for k, v := range m {
+		if v == "" {
+			delete(m, k)
+		}
+	}
+	return m
 }
 
 func contains(l []string, v string) bool {

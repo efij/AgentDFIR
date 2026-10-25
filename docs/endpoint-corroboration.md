@@ -28,7 +28,7 @@ Format is sniffed per file (`--format auditd|sysmon-xml|evtx|jsonl|csv|cloud-aud
 | Source | How to get it | What it yields |
 |---|---|---|
 | **auditd** | `/var/log/audit/audit.log` (execve auditing: `-a always,exit -F arch=b64 -S execve`) | process (SYSCALL+EXECVE, hex args decoded, CWD), network (SOCKADDR AF_INET/6), file (PATH create/delete, write opens) |
-| **Sysmon** | `wevtutil qe Microsoft-Windows-Sysmon/Operational /f:xml > sysmon.xml` | EventID 1 process, 3 network, 11/23/2 file |
+| **Sysmon** | `wevtutil qe Microsoft-Windows-Sysmon/Operational /f:xml > sysmon.xml` | EventID 1 process, 3 network, 22 network (DNS query), 11/23/2/26 file |
 | **Windows .evtx** | the raw files: `C:\Windows\System32\winevt\Logs\*.evtx` (or a KAPE/triage copy) | Sysmon, Security 4688, PowerShell 4104 and more — see [Native .evtx files](#native-evtx-files) |
 | **Generic JSONL / CSV** | Velociraptor (`Linux.Events.ProcessExecutions`, `Windows.System.Pslist`…), osquery `process_events`, `evtx_dump -o jsonl`, macOS `eslogger exec open create unlink` | nested JSON flattened; ~90 field aliases cover pid/ppid/exe/cmdline/parent/user/dest ip+port/file path |
 
@@ -56,6 +56,8 @@ Raw Windows event log files are read directly by a parser written for AgentDFIR 
 | Microsoft-Windows-Eventlog (Security / System) | 1102 / 104 | log-clear + operator notice | SubjectUserName, SubjectDomainName, Channel |
 
 Sysmon events go through the same mapping as the XML export, so the same events read from `Sysmon.evtx` or from `wevtutil … /f:xml` give identical records, notes and states.
+
+**Why Sysmon event 22 is a `network` record, not a `dns` record.** The DNS query log adapters (Zeek, BIND, dnsmasq, Unbound, Windows DNS) produce kind `dns`: partial-coverage records that can at most PARTLY CONFIRM a call and never raise `UNLOGGED_*` findings, because a resolver log names a client IP, not a process. Sysmon event 22 is different: it names the process (`ProcessId`, `Image`) that made the lookup, so it is host telemetry. As a `network` record it (a) raises `UNLOGGED_AGENT_NETWORK` when the agent process resolves a name no tool call references, and (b) corroborates a call that names that host, like event 3. Moving it to kind `dns` would drop finding (a), so it stays `network`, from both the XML export and `.evtx` (the XML adapter used to skip event 22; it now maps it the same way). Event 22 records do count toward the telemetry's coverage window, as event 3 records do. A query without a `QueryName` is a recorded problem, not a record.
 
 Script blocks (4104) are a weaker witness. They can **corroborate** a command, but only on an exact match (whitespace collapsed, case ignored) or when the whole command appears inside the block with a token boundary on both sides. Containment needs at least 12 characters and two tokens. For `powershell|pwsh -c|-Command <script>`, the inner script is tried as well. Only the first 64 KiB of a block is considered. Script blocks are not complete process telemetry, so they never contradict a command and never extend the telemetry's coverage window. A match is recorded in the event's `witness_note` with the basis `script-block:`. If a command was already CONTRADICTED by process telemetry and a matching script block exists, the state stays CONTRADICTED and the block is named in the evidence note (an in-process PowerShell host runs scripts without starting a process).
 

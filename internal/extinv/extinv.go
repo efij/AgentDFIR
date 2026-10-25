@@ -109,6 +109,7 @@ type Contributes struct {
 type Hook struct {
 	Event   string `json:"event"`
 	Command string `json:"command"`
+	File    string `json:"file,omitempty"` // the hooks file (or plugin.json) that declares it
 }
 
 // Plugin is one agent plugin (Claude Code plugin, Codex plugin, Gemini CLI

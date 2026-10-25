@@ -254,6 +254,12 @@ func TestRulesLive(t *testing.T) {
 	if sev["plugin: evil-hooks@shady event: SessionStart"] != "CRITICAL" || sev["plugin: evil-hooks@shady event: PostToolUse"] != "HIGH" || len(hooks) != 2 {
 		t.Fatalf("PLUGIN_HOOK_EXECUTES_REMOTE: %v", sev)
 	}
+	for _, f := range hooks {
+		// The finding cites the file that declares the hook, not the plugin directory.
+		if len(f.EvidenceRefs) != 1 || !strings.HasSuffix(f.EvidenceRefs[0], "evil-hooks/1.0.0/hooks/hooks.json") {
+			t.Fatalf("PLUGIN_HOOK_EXECUTES_REMOTE refs: %v", f.EvidenceRefs)
+		}
+	}
 
 	sk := m["SKILL_HIDDEN_INSTRUCTIONS"]
 	got := map[string]string{}

@@ -28,6 +28,25 @@ type importOpts struct {
 	beforeSeal                                  func(b *casepkg.Builder) error // image mode: provenance sidecar + log entries
 }
 
+// discoveryProducts is the product list --import and --image look for.
+// Opt-in products (browser history) join only with --include-browser, so
+// a profile holding nothing but a browser is found then, and never
+// otherwise.
+func discoveryProducts(includeOptIn bool) ([]products.Product, error) {
+	prods, err := products.All()
+	if err != nil {
+		return nil, err
+	}
+	if includeOptIn {
+		extra, err := products.OptIn()
+		if err != nil {
+			return nil, err
+		}
+		prods = append(prods, extra...)
+	}
+	return prods, nil
+}
+
 // collectImport acquires from a KAPE / Velociraptor / CyLR / image tree:
 // it discovers every user profile that holds a known AI agent product and
 // collects ALL products for ALL users into one sealed package. Manifests
@@ -43,17 +62,10 @@ func collectImport(o importOpts) int {
 		fmt.Fprintf(os.Stderr, "--import: %s is not a directory\n", sanitize.Terminal(root))
 		return 2
 	}
-	prods, err := products.All()
+	prods, err := discoveryProducts(o.includeBrowser)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
-	}
-	if o.includeBrowser {
-		// Opt-in products join discovery only when asked for, so a profile
-		// holding nothing but a browser is found too.
-		if extra, err := products.OptIn(); err == nil {
-			prods = append(prods, extra...)
-		}
 	}
 	var profiles []collector.Profile
 	if !o.aiOnly {

@@ -195,7 +195,7 @@ func readClaudePlugin(inv *Inventory, t tree, dir string, p *Plugin) {
 				hookFiles = append(hookFiles, join(dir, r))
 			}
 		} else {
-			p.Hooks = append(p.Hooks, hooksFrom(hooksRef)...)
+			p.Hooks = append(p.Hooks, hooksFrom(hooksRef, t.ref(manifest))...)
 		}
 	}
 	seenHookFile := map[string]bool{}
@@ -221,7 +221,7 @@ func readClaudePlugin(inv *Inventory, t tree, dir string, p *Plugin) {
 		if raw == nil {
 			raw, _ = json.Marshal(doc)
 		}
-		p.Hooks = append(p.Hooks, hooksFrom(raw)...)
+		p.Hooks = append(p.Hooks, hooksFrom(raw, t.ref(hf))...)
 	}
 
 	// MCP servers: .mcp.json in the plugin root, or plugin.json mcpServers.
@@ -288,7 +288,7 @@ func serverNames(b []byte) []string {
 }
 
 // hooksFrom reads {"Event": [{"matcher": …, "hooks": [{"command": …}]}]}.
-func hooksFrom(raw json.RawMessage) []Hook {
+func hooksFrom(raw json.RawMessage, file string) []Hook {
 	var m map[string]any
 	if json.Unmarshal(raw, &m) != nil {
 		return nil
@@ -301,7 +301,7 @@ func hooksFrom(raw json.RawMessage) []Hook {
 	var out []Hook
 	for _, ev := range events {
 		for _, c := range commandsUnder(m[ev], 0) {
-			out = append(out, Hook{Event: ev, Command: c})
+			out = append(out, Hook{Event: ev, Command: c, File: file})
 			if len(out) >= 256 {
 				return out
 			}

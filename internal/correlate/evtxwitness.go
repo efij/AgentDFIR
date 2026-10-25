@@ -64,6 +64,13 @@ func scriptPass(events []schema.Event, records []endpoint.Record, opts EndpointO
 			how = "whole command inside the block"
 		}
 		ev.WitnessNote = appendNote(ev.WitnessNote, fmt.Sprintf("script-block: PowerShell script block log, %s match (%s)", how, r.Ref))
+		// The pairing is recorded even beside a contradiction: the block
+		// exists, and the lineage edge carries the event's own state.
+		if bestScore >= 100 {
+			addMatchBasis(res, WitnessScript, ev, r, bestScore, "script block exact match (whitespace and case collapsed)", "HIGH", opts.Window, nil)
+		} else {
+			addMatchBasis(res, WitnessScript, ev, r, bestScore, "script block contains the whole command at token boundaries", "MEDIUM", opts.Window, nil)
+		}
 		if ev.Corroboration == schema.StateContradicted {
 			ev.Summary = appendNote(ev.Summary, fmt.Sprintf("PowerShell script block log shows a matching script (%s)", r.Ref))
 			continue
@@ -198,6 +205,7 @@ func imagePass(events []schema.Event, records []endpoint.Record, opts EndpointOp
 		used[best] = true
 		r := records[best]
 		ev.WitnessNote = appendNote(ev.WitnessNote, fmt.Sprintf("process-image: %s started %s (program name only, no command line audited) (%s)", r.Source, baseName(r.Exe), r.Ref))
+		addMatchBasis(res, WitnessProcessImage, ev, r, 50, "process image basename "+exeName(r.Exe)+" (no command line audited)", "LOW", opts.Window, nil)
 		if ev.Corroboration == schema.StateContradicted {
 			continue
 		}
