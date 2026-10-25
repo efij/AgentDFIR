@@ -109,6 +109,7 @@ ACCOUNTABILITY — who asked, who allowed, what happened (not legal advice)
 
 EDISCOVERY — derivative productions for legal review (structural RSMF validation; no admissibility claim)
   agentdfir report <pkg> --format rsmf [--session id] [--redact secrets,emails,paths,ips]   RSMF 2.0 per session
+  agentdfir report <pkg> --format proof [--json] [--session id]   per-action evidence chain, coverage and collection health
   agentdfir export <pkg> --production [--out dir] [--examiner n] [--redact …] [--produced-at t]   production set + manifest
 
 BEFORE AN INCIDENT
