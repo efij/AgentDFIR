@@ -133,11 +133,23 @@ func findRepoRoot(hint string) string {
 
 func isRepoRoot(dir string) bool {
 	b, err := os.ReadFile(filepath.Join(dir, "go.mod"))
-	if err != nil || !bytes.Contains(b, []byte("module github.com/efij/AgentDFIR/v4\n")) {
+	if err != nil || !declaresModule(b) {
 		return false
 	}
 	fi, err := os.Stat(filepath.Join(dir, "internal", "diskimage"))
 	return err == nil && fi.IsDir()
+}
+
+// declaresModule reports whether a go.mod declares this module. A Windows
+// checkout with git's end-of-line conversion has CRLF line endings, so the
+// module line is matched after trimming, not byte for byte.
+func declaresModule(gomod []byte) bool {
+	for _, line := range bytes.Split(gomod, []byte("\n")) {
+		if string(bytes.TrimSpace(line)) == "module github.com/efij/AgentDFIR/v4" {
+			return true
+		}
+	}
+	return false
 }
 
 // noCheckout is the skip reason when no source checkout was found.

@@ -220,7 +220,8 @@ func coreutilsManifest(rel, prefix string) func(string) ([]manifestEntry, string
 		sc := bufio.NewScanner(f)
 		sc.Buffer(make([]byte, 1<<16), 1<<20)
 		for sc.Scan() {
-			p := strings.SplitN(sc.Text(), " ", 5)
+			// TrimRight: a Windows checkout may carry CRLF line endings.
+			p := strings.SplitN(strings.TrimRight(sc.Text(), "\r"), " ", 5)
 			if len(p) != 5 || !strings.HasPrefix(p[4], prefix) {
 				continue
 			}
@@ -261,7 +262,7 @@ func shaManifest(rel, base string, names map[string]string, only []string, prefi
 		var out []manifestEntry
 		sc := bufio.NewScanner(f)
 		for sc.Scan() {
-			sum, p, ok := strings.Cut(sc.Text(), "  ")
+			sum, p, ok := strings.Cut(strings.TrimRight(sc.Text(), "\r"), "  ")
 			if !ok || len(sum) != 64 {
 				continue
 			}
