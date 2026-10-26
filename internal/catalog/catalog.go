@@ -426,6 +426,12 @@ var Builtin = []Rule{
 		Title: "Hidden or Overriding Instructions in an Agent Skill", Summary: "Skill, sub-agent, command or extension context markdown with tag/variation-selector characters or an instruction-override phrase (live scans; in a case the content scan covers the same files).",
 		MitreATLAS: "AML.T0110"},
 	// ------------------------------------------------------- supplychain
+	{ID: "AGENT_CROSS_HOST_ACTIVITY", Package: "crosscase", Surface: "cross-case", MaxSeverity: "HIGH",
+		Title: "One Agent's Activity Spans Several Hosts", Summary: "correlate-cases --graph: strong joins (session/agent ID, delegation reference, tool-call ID, commit, file hash, cloud principal + resource) tie agent activity on two or more hosts or execution environments. Weak joins (IP, filename, prompt text) never raise it.",
+		MitreATTACK: "T1021", MitreATLAS: "AML.T0112.000"},
+	{ID: "CHAIN_CROSS_HOST_AGENT_PROPAGATION", Package: "crosscase", Surface: "cross-case", MaxSeverity: "HIGH",
+		Title: "Agent Launched or Delegated Remotely, Then Acted on the Second Host", Summary: "correlate-cases --graph: an agent CLI started or delegated to another host in one case, a strongly linked session on that host in another case within a bounded window, then a consequential action there.",
+		MitreATTACK: "T1021", MitreATLAS: "AML.T0112.000"},
 	{ID: "SUPPLY_FLAGGED_COMPONENT_REUSED", Package: "supplychain", Surface: "config", MaxSeverity: "HIGH",
 		Title: "Component Flagged as Malicious Was Used in Several Sessions", Summary: "A skill, plugin, hook, MCP server or extension that a malicious-indicating finding cites ran in two or more sessions (logged invocations), or the hash-identical component is present in another case.",
 		MitreATTACK: "T1195.002", MitreATLAS: "AML.T0010.005"},

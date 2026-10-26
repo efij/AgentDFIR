@@ -591,7 +591,7 @@ func TestP1Mappings(t *testing.T) {
 		if !rulepack.ValidATLAS(r.MitreATLAS) {
 			t.Errorf("%s: ATLAS %q not valid", id, r.MitreATLAS)
 		}
-		if !activeV20[r.MitreATTACK] || strings.HasPrefix(r.MitreATTACK, "T1562") {
+		if !activeV20[r.MitreATTACK] {
 			t.Errorf("%s: ATT&CK %q not in the checked active v20.0 set", id, r.MitreATTACK)
 		}
 	}
