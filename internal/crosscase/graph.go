@@ -59,8 +59,8 @@ import (
 const GraphSchema = "agentdfir.crosscase-graph/1"
 
 // Node kinds, in reporting order.
-// maxCommitPrefixPeers bounds how many ids sharing a 7-digit prefix are
-// tried when matching an abbreviated commit id.
+// maxCommitPrefixPeers is how many ids may share a 7-digit prefix before
+// an abbreviated commit id is reported as ambiguous instead of matched.
 const maxCommitPrefixPeers = 16
 
 const (
@@ -1015,17 +1015,25 @@ func (g *gbuild) pair(a, b *cidx) {
 	// match is a map lookup plus a bounded scan, not a pass over every id.
 	byPrefix := map[string][]string{}
 	for _, d := range sortedKeys(b.commits) {
-		if len(d) >= 7 && len(byPrefix[d[:7]]) < maxCommitPrefixPeers {
+		if len(d) >= 7 {
 			byPrefix[d[:7]] = append(byPrefix[d[:7]], d)
 		}
 	}
+	ambiguous := 0
 	for _, c := range sortedKeys(a.commits) {
 		sb := b.commits[c]
 		var cb string
 		if sb != nil {
 			cb = c
 		} else if len(c) >= 7 {
-			for _, d := range byPrefix[c[:7]] {
+			peers := byPrefix[c[:7]]
+			if len(peers) > maxCommitPrefixPeers {
+				// Too many ids share this prefix to pick one: say so
+				// rather than join on a guess or drop it silently.
+				ambiguous++
+				continue
+			}
+			for _, d := range peers {
 				if c != d && (strings.HasPrefix(c, d) || strings.HasPrefix(d, c)) {
 					sb, cb = b.commits[d], d
 					break
@@ -1049,6 +1057,10 @@ func (g *gbuild) pair(a, b *cidx) {
 		}
 		g.join("same_commit", key, c, x, g.entityNode(NodeCommit, x, xk, "commit "+xk, xs, "named_commit"), xs, xs.ev,
 			y, g.entityNode(NodeCommit, y, yk, "commit "+yk, ys, "named_commit"), ys, ys.ev, conf, reason)
+	}
+	if ambiguous > 0 {
+		g.notes = append(g.notes, fmt.Sprintf("%s ↔ %s: %d abbreviated commit id(s) not joined: more than %d commits share their first 7 hex digits",
+			a.c.Label, b.c.Label, ambiguous, maxCommitPrefixPeers))
 	}
 	for _, h := range sortedKeys(a.files) {
 		fb, ok := b.files[h]
