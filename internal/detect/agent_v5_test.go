@@ -3,6 +3,7 @@ package detect
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -270,7 +271,7 @@ func TestMCPArgumentBehaviorMismatch(t *testing.T) {
 func TestMCPArgumentBehaviorMismatchBenign(t *testing.T) {
 	defs := defsFor(t)
 	cases := map[string]*evb{
-		"declared": newEvb().mcp("m1", "docs", "read_doc", func(e *schema.Event) { e.ArgKeys = "path" }),
+		"declared":    newEvb().mcp("m1", "docs", "read_doc", func(e *schema.Event) { e.ArgKeys = "path" }),
 		"open schema": newEvb().mcp("m1", "q", "query", func(e *schema.Event) { e.ArgKeys = "q,anything" }),
 		// A write is allowed for a non-destructive tool; only a delete is not.
 		"additive write": newEvb().mcp("m1", "notes", "append_note", func(e *schema.Event) { e.ParentToolCallID = "" }).
@@ -486,5 +487,74 @@ func TestV5RulesDeterministic(t *testing.T) {
 		if !reflect.DeepEqual(first, js) {
 			t.Fatalf("run %d differs:\n%s\n%s", i, first, js)
 		}
+	}
+}
+
+// Regression: the work bound applies to lines read and bytes parsed, not to
+// findings emitted. Calls sharing a line are served by one read; calls left
+// unexamined by a cap are reported in an INFO limitation, never dropped.
+func TestCredentialToExternalToolWorkBounds(t *testing.T) {
+	multi := `{"type":"assistant","sessionId":"s1","message":{"role":"assistant","content":[` +
+		`{"type":"tool_use","id":"m1","name":"mcp__paste__create","input":{"body":"` + testToken + `"}},` +
+		`{"type":"tool_use","id":"m2","name":"mcp__paste__create","input":{"body":"` + testToken + `"}},` +
+		`{"type":"tool_use","id":"m3","name":"mcp__paste__create","input":{"body":"` + testToken + `"}}]}}`
+	lines := []string{multi, toolUseLine("x1", "mcp__paste__create", `{"body":"`+testToken+`"}`)}
+	pkg, man, art, offs := credPkg(t, lines)
+	build := func(extra int) []schema.Event {
+		b := newEvb()
+		at := func(line int, id string) {
+			b.add(schema.Event{EventType: schema.EventToolCall, Tool: "mcp__paste__create", ToolCallID: id, MCPServer: "paste", MCPTool: "create", Action: "mcp_call",
+				SourceArtifact: art.ArtifactID, SourceOffset: offs[line], SourcePath: art.LogicalPath})
+			b.evs[len(b.evs)-1].SourceArtifact = art.ArtifactID
+		}
+		at(0, "m1")
+		at(0, "m2")
+		at(0, "m3")
+		at(1, "x1")
+		for i := 0; i < extra; i++ { // hostile: many calls pointing at the same line
+			at(0, fmt.Sprintf("ghost%d", i))
+		}
+		return b.evs
+	}
+	split := func(fs []schema.Finding) (crit, info []schema.Finding) {
+		for _, f := range rules(fs, "AGENT_CREDENTIAL_TO_EXTERNAL_TOOL") {
+			if f.Severity == "INFO" {
+				info = append(info, f)
+			} else {
+				crit = append(crit, f)
+			}
+		}
+		return
+	}
+	restore := func(lr, mb int) func() {
+		return func() { maxArgLineReads, maxArgBytes = lr, mb }
+	}
+	defer restore(maxArgLineReads, maxArgBytes)()
+
+	// Unbounded: four calls, four findings, no limitation; 5000 extra calls
+	// on the same line cost one read and add nothing.
+	crit, info := split(RunAgentRules(build(5000), pkg, man))
+	if len(crit) != 4 || len(info) != 0 {
+		t.Fatalf("unbounded: %d findings, %d limitations", len(crit), len(info))
+	}
+
+	// One line read: the three calls of line 0 come from that single read;
+	// the call on line 1 is reported as unexamined.
+	maxArgLineReads = 1
+	crit, info = split(RunAgentRules(build(0), pkg, man))
+	if len(crit) != 3 || len(info) != 1 || !strings.Contains(info[0].Description, "1 external tool call") ||
+		!strings.Contains(info[0].Description, "source lines") {
+		t.Fatalf("line cap: %d findings, limitations %+v", len(crit), info)
+	}
+
+	// Byte budget exhausted by the first line: the rest is a limitation.
+	maxArgLineReads, maxArgBytes = 20000, 1
+	crit, info = split(RunAgentRules(build(0), pkg, man))
+	if len(crit) != 3 || len(info) != 1 || !strings.Contains(info[0].Description, "bytes") {
+		t.Fatalf("byte cap: %d findings, limitations %+v", len(crit), info)
+	}
+	js, _ := json.Marshal(info)
+	if bytes.Contains(js, []byte(testToken)) {
+		t.Fatal("credential leaked into the limitation")
 	}
 }

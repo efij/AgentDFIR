@@ -735,12 +735,19 @@ func duringCall(call, res, c schema.Event) bool {
 // ---------------------------------------------------------------------------
 // AGENT_CREDENTIAL_TO_EXTERNAL_TOOL
 
-// Bounds on re-reading sealed transcript lines.
+// Bounds on re-reading sealed transcript lines. They bound the work done,
+// not only the output: every call the rule could not examine is counted and
+// reported in one INFO finding (see credLimitation), never dropped silently.
 const (
-	maxArgLine      = 4 << 20
-	maxArgLineReads = 20000
-	maxArgJSONNodes = 200000
+	maxArgLine      = 4 << 20 // one source line
+	maxArgJSONNodes = 200000  // nodes walked in one parsed line
 	maxCredFindings = 200
+)
+
+// Package variables so tests can lower them.
+var (
+	maxArgLineReads = 20000    // distinct source lines read
+	maxArgBytes     = 64 << 20 // bytes read, parsed and fingerprinted, rule-wide
 )
 
 // externalToolCall reports the calls whose arguments leave the host: MCP
@@ -753,9 +760,9 @@ func externalToolCall(e schema.Event) bool {
 	return isMCPCall(e) || e.Tool == "WebFetch" || e.Tool == "WebSearch" || e.Action == "web_search"
 }
 
-// sourceLine re-reads the sealed line an event was parsed from, bounded.
-func sourceLine(store *casepkg.Store, e schema.Event) []byte {
-	rc, err := store.OpenAt(e.SourceArtifact, e.SourceOffset)
+// sourceLine re-reads the sealed line at (art, off), bounded by maxArgLine.
+func sourceLine(store *casepkg.Store, art string, off int64) []byte {
+	rc, err := store.OpenAt(art, off)
 	if err != nil {
 		return nil
 	}
@@ -772,18 +779,28 @@ func sourceLine(store *casepkg.Store, e schema.Event) []byte {
 	return out
 }
 
-// callArgs finds the arguments of tool call id inside one source line: the
-// object whose id / call_id / tool_use_id is id and that carries input,
-// arguments or params. Anything else on the line (the model's text, other
-// calls) is not returned. nil when the line does not parse or the call is
-// not on it.
+// callArgs finds the arguments of tool call id inside one source line. See
+// callArgsAll.
 func callArgs(line []byte, id string) []byte {
-	if len(line) == 0 || id == "" {
+	if id == "" {
 		return nil
+	}
+	return callArgsAll(line, map[string]bool{id: true})[id]
+}
+
+// callArgsAll parses one source line once and returns the arguments of every
+// wanted tool call on it: the object whose id / call_id / tool_use_id is the
+// call id and that carries input, arguments or params. Anything else on the
+// line (the model's text, other calls) is not returned. A call id absent
+// from the result is not on the line, or the line does not parse.
+func callArgsAll(line []byte, want map[string]bool) map[string][]byte {
+	found := map[string][]byte{}
+	if len(line) == 0 || len(want) == 0 {
+		return found
 	}
 	var doc any
 	if json.Unmarshal(line, &doc) != nil {
-		return nil
+		return found
 	}
 	idOf := func(v any) string {
 		switch x := v.(type) {
@@ -795,18 +812,21 @@ func callArgs(line []byte, id string) []byte {
 		return ""
 	}
 	nodes := 0
-	var found []byte
 	var walk func(v any, depth int)
 	walk = func(v any, depth int) {
 		nodes++
-		if found != nil || depth > 16 || nodes > maxArgJSONNodes {
+		if len(found) == len(want) || depth > 16 || nodes > maxArgJSONNodes {
 			return
 		}
 		switch t := v.(type) {
 		case map[string]any:
 			for _, k := range []string{"id", "call_id", "tool_use_id", "callId"} {
-				if idOf(t[k]) != id {
+				id := idOf(t[k])
+				if !want[id] {
 					continue
+				}
+				if _, done := found[id]; done {
+					continue // first occurrence wins
 				}
 				for _, ak := range []string{"input", "arguments", "params", "args"} {
 					a, ok := t[ak]
@@ -814,9 +834,9 @@ func callArgs(line []byte, id string) []byte {
 						continue
 					}
 					if s, isStr := a.(string); isStr {
-						found = []byte(s)
+						found[id] = []byte(s)
 					} else if b, err := json.Marshal(a); err == nil {
-						found = b
+						found[id] = b
 					}
 					return
 				}
@@ -839,6 +859,23 @@ func callArgs(line []byte, id string) []byte {
 	return found
 }
 
+// credLimitation is the INFO finding that says the rule stopped before
+// examining every external tool call. Fewer findings than calls is then a
+// cap, not a clean result.
+func credLimitation(skipped int, why string, first schema.Event) schema.Finding {
+	return schema.Finding{
+		RuleID: "AGENT_CREDENTIAL_TO_EXTERNAL_TOOL", Severity: "INFO",
+		Title:       "Credential Check of External Tool Calls Incomplete",
+		Description: fmt.Sprintf("%d external tool call(s) were not (fully) checked for credentials in their arguments: %s. Absence of findings for them is missing evidence, not a clean result.", skipped, why),
+		SessionID:   first.SessionID, AgentID: first.AgentID,
+		EvidenceRefs: []string{ref(first)},
+		Status:       first.Corroboration, Endpoint: schema.StateUnknown,
+		Reasons:       []string{"a work bound of the rule was reached (limitation, not an indicator)"},
+		Timestamp:     first.Timestamp,
+		FalsePositive: "Informational: records an analysis limit on a large or hostile case.",
+	}
+}
+
 // AGENT_CREDENTIAL_TO_EXTERNAL_TOOL — a credential sits in the arguments of
 // an MCP or web tool call. The arguments are re-read from the sealed source
 // line, fingerprinted with the POTENTIAL_SECRET_EXPOSURE patterns and
@@ -847,14 +884,29 @@ func callArgs(line []byte, id string) []byte {
 // names where: that is the credential's way into the call.
 // CHAIN_SECRET_TO_EXFIL and CHAIN_CROSS_TOOL_EXFIL link a credential read to
 // a later upload by time; this rule sees the credential in the call itself.
+//
+// Calls are grouped by source line, so each line is read and parsed once
+// however many calls point at it. The number of lines, the bytes read and
+// parsed across the rule, and the findings are all capped; calls left
+// unexamined by any cap are reported by credLimitation.
 func credentialToExternalTool(ix *eventIndex, pkgDir string, man *casepkg.Manifest, store *casepkg.Store) []schema.Finding {
-	var targets []schema.Event
-	for _, e := range ix.events {
-		if externalToolCall(e) && e.SourceArtifact != "" && e.ToolCallID != "" && len(targets) < maxArgLineReads {
-			targets = append(targets, e)
-		}
+	type lineKey struct {
+		art string
+		off int64
 	}
-	if len(targets) == 0 {
+	var order []lineKey
+	groups := map[lineKey][]schema.Event{}
+	for _, e := range ix.events {
+		if !externalToolCall(e) || e.SourceArtifact == "" || e.ToolCallID == "" {
+			continue
+		}
+		k := lineKey{e.SourceArtifact, e.SourceOffset}
+		if _, ok := groups[k]; !ok {
+			order = append(order, k)
+		}
+		groups[k] = append(groups[k], e)
+	}
+	if len(order) == 0 {
 		return nil
 	}
 	type spot struct {
@@ -871,54 +923,100 @@ func credentialToExternalTool(ix *eventIndex, pkgDir string, man *casepkg.Manife
 		}
 	}
 	var out []schema.Finding
-	for _, e := range targets {
-		if len(out) >= maxCredFindings {
-			break
+	budget := maxArgBytes
+	skipped, why := 0, ""
+	var firstSkipped schema.Event
+	skip := func(e schema.Event) {
+		if skipped == 0 {
+			firstSkipped = e
 		}
-		line := sourceLine(store, e)
-		args := callArgs(line, e.ToolCallID)
-		if args == nil {
-			continue // the line is unreadable or does not hold this call: no evidence, no finding
+		skipped++
+	}
+	capWhy := fmt.Sprintf("the rule stopped at its cap of %d findings", maxCredFindings)
+	for gi, k := range order {
+		switch {
+		case len(out) >= maxCredFindings:
+			why = capWhy
+		case gi >= maxArgLineReads:
+			why = fmt.Sprintf("the rule stopped after re-reading %d source lines", maxArgLineReads)
+		case budget <= 0:
+			why = fmt.Sprintf("the rule stopped after reading and parsing %d bytes of arguments", maxArgBytes)
 		}
-		for _, fp := range SecretFingerprints(args) {
-			hexFP := strings.TrimPrefix(fp.Fingerprint, "sha256:")
-			var origin *spot
-			for k, sp := range seen[hexFP] {
-				inLine := sp.art.ArtifactID == e.SourceArtifact && sp.off >= e.SourceOffset && sp.off < e.SourceOffset+int64(len(line))
-				later := sp.art.ArtifactID == e.SourceArtifact && sp.off >= e.SourceOffset+int64(len(line))
-				if !inLine && !later {
-					origin = &seen[hexFP][k]
-					break
+		if why != "" {
+			for _, rest := range order[gi:] {
+				for _, e := range groups[rest] {
+					skip(e)
 				}
 			}
-			srv, tool := mcpName(e)
-			target := e.Tool + " call"
-			if srv != "" {
-				target = fmt.Sprintf("call to tool %q of MCP server %q", tool, srv)
-			}
-			conf := "MEDIUM"
-			where := "No earlier copy of it was found in the collected transcripts."
-			reasons := []string{"the value was fingerprinted from this call's own arguments in the sealed source line; the value itself is not stored"}
-			var related []string
-			if origin != nil {
-				conf = "HIGH"
-				where = fmt.Sprintf("The same credential appears earlier in the case at %s.", artRef(origin.art, origin.off))
-				reasons = append(reasons, "the same fingerprint was found earlier in the collected transcripts")
-				related = append(related, "earlier sighting: "+artRef(origin.art, origin.off))
-			}
-			out = append(out, schema.Finding{
-				RuleID: "AGENT_CREDENTIAL_TO_EXTERNAL_TOOL", Severity: "CRITICAL",
-				Title: "Credential Passed in an External Tool Call's Arguments",
-				Description: fmt.Sprintf("The arguments of a %s carry a %s with fingerprint %s…. %s The credential was handed to a tool that runs outside the agent. Value: [REDACTED]",
-					target, fp.Type, fp.Fingerprint, where),
-				SessionID: e.SessionID, AgentID: e.AgentID,
-				Related: related, EvidenceRefs: []string{ref(e)},
-				Status: e.Corroboration, Endpoint: schema.StateUnknown,
-				MitreATTACK: "T1567", MitreATLAS: "AML.T0086",
-				Confidence: conf, Reasons: reasons, Timestamp: e.Timestamp,
-				FalsePositive: "Giving a tool the credential it is meant to use (a deploy server called with its own API key) is intended use. A credential in the arguments is not proof it was exfiltrated: who operates the server, and whether the credential belongs to it, decides.",
-			})
+			break
 		}
+		line := sourceLine(store, k.art, k.off)
+		budget -= len(line)
+		evs := groups[k]
+		want := make(map[string]bool, len(evs))
+		for _, e := range evs {
+			want[e.ToolCallID] = true
+		}
+		all := callArgsAll(line, want)
+		for _, e := range evs {
+			if len(out) >= maxCredFindings {
+				why = capWhy
+				skip(e)
+				continue
+			}
+			args := all[e.ToolCallID]
+			if args == nil {
+				continue // the line is unreadable or does not hold this call: no evidence, no finding
+			}
+			budget -= len(args)
+			for _, fp := range SecretFingerprints(args) {
+				if len(out) >= maxCredFindings {
+					why = capWhy
+					skip(e) // fingerprints of this call left unreported
+					break
+				}
+				hexFP := strings.TrimPrefix(fp.Fingerprint, "sha256:")
+				var origin *spot
+				for si, sp := range seen[hexFP] {
+					inLine := sp.art.ArtifactID == e.SourceArtifact && sp.off >= e.SourceOffset && sp.off < e.SourceOffset+int64(len(line))
+					later := sp.art.ArtifactID == e.SourceArtifact && sp.off >= e.SourceOffset+int64(len(line))
+					if !inLine && !later {
+						origin = &seen[hexFP][si]
+						break
+					}
+				}
+				srv, tool := mcpName(e)
+				target := e.Tool + " call"
+				if srv != "" {
+					target = fmt.Sprintf("call to tool %q of MCP server %q", tool, srv)
+				}
+				conf := "MEDIUM"
+				where := "No earlier copy of it was found in the collected transcripts."
+				reasons := []string{"the value was fingerprinted from this call's own arguments in the sealed source line; the value itself is not stored"}
+				var related []string
+				if origin != nil {
+					conf = "HIGH"
+					where = fmt.Sprintf("The same credential appears earlier in the case at %s.", artRef(origin.art, origin.off))
+					reasons = append(reasons, "the same fingerprint was found earlier in the collected transcripts")
+					related = append(related, "earlier sighting: "+artRef(origin.art, origin.off))
+				}
+				out = append(out, schema.Finding{
+					RuleID: "AGENT_CREDENTIAL_TO_EXTERNAL_TOOL", Severity: "CRITICAL",
+					Title: "Credential Passed in an External Tool Call's Arguments",
+					Description: fmt.Sprintf("The arguments of a %s carry a %s with fingerprint %s…. %s The credential was handed to a tool that runs outside the agent. Value: [REDACTED]",
+						target, fp.Type, fp.Fingerprint, where),
+					SessionID: e.SessionID, AgentID: e.AgentID,
+					Related: related, EvidenceRefs: []string{ref(e)},
+					Status: e.Corroboration, Endpoint: schema.StateUnknown,
+					MitreATTACK: "T1567", MitreATLAS: "AML.T0086",
+					Confidence: conf, Reasons: reasons, Timestamp: e.Timestamp,
+					FalsePositive: "Giving a tool the credential it is meant to use (a deploy server called with its own API key) is intended use. A credential in the arguments is not proof it was exfiltrated: who operates the server, and whether the credential belongs to it, decides.",
+				})
+			}
+		}
+	}
+	if skipped > 0 {
+		out = append(out, credLimitation(skipped, why, firstSkipped))
 	}
 	return out
 }
