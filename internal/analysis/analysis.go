@@ -420,6 +420,12 @@ func Run(pkg string, o Options) (*Result, error) {
 			}
 		}
 	}
+	if o.GatewayLog != "" {
+		if n := annotateGateway(&o, allEvents()); n > 0 {
+			dirty = true
+			o.logf("MCP gateway: %d call(s) annotated with the gateway decision, server version or tool definition", n)
+		}
+	}
 	if dirty {
 		if err := overlay.WriteJSONLPlain(evPath, len(events), func(i int) any { return events[i] }); err != nil {
 			return nil, err

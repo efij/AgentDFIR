@@ -29,6 +29,9 @@ const (
 	EventAgentMessage  = "agent_message"
 	EventSessionMeta   = "session_meta"
 	EventTraceGap      = "trace_gap"
+	// EventPermissionChange marks the line where the recorded permission
+	// mode of a session changed (PermissionFrom → PermissionMode).
+	EventPermissionChange = "permission_change"
 )
 
 // Actor types.

@@ -188,6 +188,11 @@ func Rebase(ev *schema.Event, idFormat string, delta int) {
 	}
 	ev.Sequence += delta
 	ev.EventID = fmt.Sprintf(idFormat, ev.Sequence)
+	// ResultRef names the paired call or result, which parsers only pair
+	// inside one artifact, so it moves by the same delta.
+	if ev.ResultRef != "" {
+		ev.ResultRef = rebaseID(ev.ResultRef, idFormat, delta)
+	}
 }
 
 // RebaseRefs renumbers event ids embedded in derived data (a

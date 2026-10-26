@@ -26,6 +26,7 @@ import (
 	"github.com/efij/AgentDFIR/v4/internal/casepkg"
 	"github.com/efij/AgentDFIR/v4/internal/parsers/segment"
 	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/toolargs"
 	"github.com/efij/AgentDFIR/v4/internal/version"
 )
 
@@ -129,6 +130,7 @@ func parseWith(pkgDir string, sink func(schema.Event), cache segment.Cache) (*sc
 	store := casepkg.NewStore(pkgDir, man)
 	p := &parser{res: &schema.Normalized{}, sink: sink, caseID: man.CaseID, host: man.Host,
 		entities: map[string]schema.Entity{}}
+	p.pair = toolargs.NewPairer(p.deliver)
 	for _, a := range man.Current() {
 		if a.Status != casepkg.StatusOK || !sessionCategories[a.ArtifactType] {
 			continue
@@ -158,7 +160,9 @@ func parseWith(pkgDir string, sink func(schema.Event), cache segment.Cache) (*sc
 			}
 			p.rec = &segment.Recorder{}
 		}
-		if err := p.parseArtifact(store, a, cfg); err != nil {
+		err := p.parseArtifact(store, a, cfg)
+		p.pair.End() // calls and results pair inside one artifact only
+		if err != nil {
 			return nil, fmt.Errorf("%s: %w", a.LogicalPath, err)
 		}
 		if cache != nil {
@@ -191,6 +195,8 @@ type parser struct {
 	// rec, when set, captures this artifact's entity and relationship
 	// calls so the overlay can replay them without re-reading the file.
 	rec *segment.Recorder
+	// pair links tool calls and results inside one artifact.
+	pair *toolargs.Pairer
 }
 
 // parseArtifact dispatches on file shape.
@@ -397,6 +403,8 @@ type anthropicItem struct {
 	Name      string          `json:"name"`
 	Input     json.RawMessage `json:"input"`
 	ToolUseID string          `json:"tool_use_id"`
+	Content   json.RawMessage `json:"content"`
+	IsError   bool            `json:"is_error"`
 }
 
 // emitMessage normalizes one message object into events.
@@ -437,6 +445,7 @@ func (p *parser) emitMessage(raw json.RawMessage, art casepkg.ArtifactRecord, cf
 					ev.KeepFull(cmd)
 					ev.Action = "shell_execution"
 				}
+				toolargs.Apply(&ev, m.State.Input)
 			}
 			p.emit(ev, art, offset, line)
 			p.linkTool(ev)
@@ -478,6 +487,7 @@ func (p *parser) emitMessage(raw json.RawMessage, art casepkg.ArtifactRecord, cf
 				ev.KeepFull(cmd)
 				ev.Action = "shell_execution"
 			}
+			toolargs.Apply(&ev, pt.FunctionCall.Args)
 			p.emit(ev, art, offset, line)
 			p.linkTool(ev)
 			emitted = true
@@ -513,6 +523,7 @@ func (p *parser) emitMessage(raw json.RawMessage, art casepkg.ArtifactRecord, cf
 						ev.KeepFull(cmd)
 						ev.Action = "shell_execution"
 					}
+					toolargs.Apply(&ev, it.Input)
 					p.emit(ev, art, offset, line)
 					p.linkTool(ev)
 					emitted = true
@@ -522,6 +533,13 @@ func (p *parser) emitMessage(raw json.RawMessage, art casepkg.ArtifactRecord, cf
 					ev.ActorType = schema.ActorAgent
 					ev.ToolCallID = it.ToolUseID
 					ev.Corroboration = schema.StateObserved
+					ev.ResultDigest = toolargs.Digest(it.Content)
+					// Anthropic-style results flag failure with is_error;
+					// an unflagged result is the record of a normal return.
+					ev.ResultStatus = "ok"
+					if it.IsError {
+						ev.ResultStatus = "error"
+					}
 					p.emit(ev, art, offset, line)
 					emitted = true
 				default:
@@ -553,6 +571,7 @@ func (p *parser) emitMessage(raw json.RawMessage, art casepkg.ArtifactRecord, cf
 			ev.KeepFull(cmd)
 			ev.Action = "shell_execution"
 		}
+		toolargs.Apply(&ev, []byte(tc.Function.Arguments))
 		p.emit(ev, art, offset, line)
 		p.linkTool(ev)
 		emitted = true
@@ -634,6 +653,15 @@ func (p *parser) emit(ev schema.Event, art casepkg.ArtifactRecord, off int64, li
 		ev.Corroboration = schema.StateUnknown
 	}
 	p.seq++
+	if p.pair != nil {
+		p.pair.Push(ev)
+	} else {
+		p.deliver(ev)
+	}
+}
+
+// deliver hands one finished event to the sink or the result.
+func (p *parser) deliver(ev schema.Event) {
 	if p.sink != nil {
 		p.sink(ev)
 	} else {
