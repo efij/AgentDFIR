@@ -16,13 +16,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/detect"
-	"github.com/efij/AgentDFIR/v4/internal/parsers/claudejsonl"
-	"github.com/efij/AgentDFIR/v4/internal/parsers/codexjsonl"
-	"github.com/efij/AgentDFIR/v4/internal/parsers/genericchat"
-	"github.com/efij/AgentDFIR/v4/internal/products"
-	"github.com/efij/AgentDFIR/v4/internal/sanitize"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/detect"
+	"github.com/efij/AgentDFIR/v5/internal/parsers/claudejsonl"
+	"github.com/efij/AgentDFIR/v5/internal/parsers/codexjsonl"
+	"github.com/efij/AgentDFIR/v5/internal/parsers/genericchat"
+	"github.com/efij/AgentDFIR/v5/internal/products"
+	"github.com/efij/AgentDFIR/v5/internal/sanitize"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // Root binds a watched directory to the product whose transcripts it holds.

@@ -171,6 +171,8 @@ func (r *Report) writeSuites(p func(string, ...any)) {
 			p("| %s | %d | %d | %d | %d | %d | %s | %s | %s |", ps.Platform, ps.AttackCases, ps.BenignCases, ps.TP, ps.FP, ps.FN, pct(ps.Precision), pct(ps.Recall), mdEscape(strings.Join(ps.Rules, ", ")))
 		}
 		p("")
+		p("%s", IndependentNote)
+		p("")
 	}
 
 	if ei := r.IntegritySet; ei != nil {
@@ -191,5 +193,25 @@ func (r *Report) writeSuites(p func(string, ...any)) {
 			}
 		}
 		p("")
+	}
+	if v := r.V5; v != nil {
+		for _, sec := range []struct {
+			title, text string
+			checks      []Check
+		}{
+			{"v5 detections", "Each v5 rule and chain has an attack case in `internal/corpus/testdata` that names it and a benign twin that names the attack case back (`twin` in case.json). The transcripts go through the real parsers, so the structured tool-call fields the rules read are filled the way they are on collected evidence.", v.Detections},
+			{"Evidence fields", "A transcript whose tool calls carry credentials in their arguments (an MCP message, nested MCP arguments, a URL query, file content), collected and analyzed. Derived outputs are every file of the package outside the sealed source.", v.Evidence},
+			{"Cross-case graph", "Sealed, analyzed packages compared with `correlate-cases --graph`: a strong pair (a named session resumed over ssh on another machine, which then deletes a directory) and a weak-only pair (shared destination, similar prompt text, no shared identifier).", v.CrossCase},
+			{"MITRE catalogs", "Every ATLAS and ATT&CK ID of the built-in rules, the embedded packs, the built-in chains and the findings this run produced, against the pinned ATLAS and ATT&CK Enterprise catalogs; then the ATLAS relevance inventory gate.", v.MITRE},
+		} {
+			if len(sec.checks) == 0 {
+				continue
+			}
+			p("### %s", sec.title)
+			p("")
+			p("%s", sec.text)
+			p("")
+			checkTable(p, sec.checks)
+		}
 	}
 }

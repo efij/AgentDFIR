@@ -12,9 +12,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/casepkg"
-	"github.com/efij/AgentDFIR/v4/internal/integrity"
-	"github.com/efij/AgentDFIR/v4/internal/seal"
+	"github.com/efij/AgentDFIR/v5/internal/casepkg"
+	"github.com/efij/AgentDFIR/v5/internal/integrity"
+	"github.com/efij/AgentDFIR/v5/internal/seal"
 )
 
 // Integrity is the mutation-suite section: one sealed, signed, two-round

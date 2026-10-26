@@ -7,16 +7,19 @@ import (
 	"os"
 	"sort"
 
-	"github.com/efij/AgentDFIR/v4/internal/catalog"
-	"github.com/efij/AgentDFIR/v4/internal/chain"
-	"github.com/efij/AgentDFIR/v4/internal/export"
-	"github.com/efij/AgentDFIR/v4/internal/rulepack"
+	"github.com/efij/AgentDFIR/v5/internal/catalog"
+	"github.com/efij/AgentDFIR/v5/internal/chain"
+	"github.com/efij/AgentDFIR/v5/internal/export"
+	"github.com/efij/AgentDFIR/v5/internal/mitre"
+	"github.com/efij/AgentDFIR/v5/internal/mitre/coverage"
+	"github.com/efij/AgentDFIR/v5/internal/rulepack"
 )
 
 const rulesUsage = `usage:
   agentdfir rules list [--packs <dir>] [--json]  every detection (built-in + packs) with MITRE ATT&CK / ATLAS mapping
   agentdfir rules validate <dir>                 validate declarative rule packs and *.chains.json attack chains
   agentdfir rules export --sigma <dir> [--out d] convert rule packs to Sigma YAML (one file per rule)
+  agentdfir rules coverage [--json] [--format md] every MITRE ATLAS technique: observability class, priority, rules/chains, evidence, tests, OWASP
 `
 
 // listedRule is one row of `rules list`: built-in rules come from the
@@ -92,7 +95,7 @@ func cmdRules(args []string) int {
 		if *asJSON {
 			enc := json.NewEncoder(os.Stdout)
 			enc.SetIndent("", "  ")
-			if err := enc.Encode(map[string]any{"atlas_version": rulepack.ATLASVersion, "rules": rows}); err != nil {
+			if err := enc.Encode(map[string]any{"atlas_version": rulepack.ATLASVersion, "attack_version": mitre.ATTACKVersion, "rules": rows}); err != nil {
 				fmt.Fprintln(os.Stderr, "error:", err)
 				return 1
 			}
@@ -154,10 +157,56 @@ func cmdRules(args []string) int {
 		fmt.Printf("Wrote %d Sigma rule(s) to %s\n", len(written), *out)
 		fmt.Println("Note: command rules target process_creation/CommandLine (portable to EDR telemetry); summary/config/transcript rules need the AgentDFIR OCSF or OTel feed. Built-in stateful rules are not expressible in Sigma.")
 		return 0
+	case "coverage":
+		return cmdRulesCoverage(args[1:])
 	default:
 		fmt.Fprint(os.Stderr, rulesUsage)
 		return 2
 	}
+}
+
+// cmdRulesCoverage prints the ATLAS relevance inventory as a coverage
+// report. It exits non-zero when the inventory does not validate against
+// the shipped rules and chains, so a stale inventory cannot print a
+// confident table.
+func cmdRulesCoverage(args []string) int {
+	fs := flag.NewFlagSet("rules coverage", flag.ContinueOnError)
+	asJSON := fs.Bool("json", false, "machine-readable output")
+	format := fs.String("format", "text", "text | md (the docs/atlas-coverage.md page)")
+	if err := fs.Parse(args); err != nil || fs.NArg() != 0 || (*format != "text" && *format != "md") {
+		fmt.Fprint(os.Stderr, rulesUsage)
+		return 2
+	}
+	if err := mitre.Err(); err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		return 1
+	}
+	u, err := coverage.Load()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		return 1
+	}
+	if errs := coverage.Validate(u); len(errs) > 0 {
+		for _, e := range errs {
+			fmt.Fprintln(os.Stderr, "INVALID:", e)
+		}
+		return 1
+	}
+	r := coverage.Build()
+	switch {
+	case *asJSON:
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(r); err != nil {
+			fmt.Fprintln(os.Stderr, "error:", err)
+			return 1
+		}
+	case *format == "md":
+		fmt.Print(r.Markdown())
+	default:
+		fmt.Print(r.Text())
+	}
+	return 0
 }
 
 func dash(s string) string {

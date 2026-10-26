@@ -1,0 +1,7 @@
+{
+  "expect": [
+    "CHAIN_AGENT_RECON_TO_IMPACT"
+  ],
+  "note": "The agent lists an S3 bucket and half a minute later force-removes that same bucket. CHAIN_AGENT_RECON_TO_IMPACT joins discovery and destruction by the exact bucket URI; recon can be legitimate and sequence is not causation.",
+  "twin": "recon-then-cleanup-other-bucket"
+}

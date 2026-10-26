@@ -22,11 +22,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/casepkg"
-	"github.com/efij/AgentDFIR/v4/internal/parsers/linereader"
-	"github.com/efij/AgentDFIR/v4/internal/parsers/segment"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
-	"github.com/efij/AgentDFIR/v4/internal/version"
+	"github.com/efij/AgentDFIR/v5/internal/casepkg"
+	"github.com/efij/AgentDFIR/v5/internal/parsers/linereader"
+	"github.com/efij/AgentDFIR/v5/internal/parsers/segment"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/toolargs"
+	"github.com/efij/AgentDFIR/v5/internal/version"
 )
 
 // MaxLineBytes bounds one transcript line (archive-bomb defense).
@@ -155,6 +156,11 @@ type parser struct {
 	// rec, when set, captures this artifact's entity and relationship
 	// calls so the overlay can replay them without re-reading the file.
 	rec *segment.Recorder
+	// pair links calls and outputs inside one artifact; nil when tailing.
+	pair *toolargs.Pairer
+	// policy is the approval policy the last turn_context of this
+	// artifact recorded (Codex writes one per turn).
+	policy string
 }
 
 func (p *parser) parseTranscript(store *casepkg.Store, art casepkg.ArtifactRecord) error {
@@ -163,6 +169,11 @@ func (p *parser) parseTranscript(store *casepkg.Store, art casepkg.ArtifactRecor
 		return err
 	}
 	defer f.Close()
+	p.policy = ""
+	if p.pair == nil {
+		p.pair = toolargs.NewPairer(p.deliver)
+	}
+	defer p.pair.End()
 
 	// Default session identity: transcript filename stem.
 	base := filepath.Base(art.LogicalPath)
@@ -238,6 +249,7 @@ func (p *parser) handleLine(rl rolloutLine, art casepkg.ArtifactRecord, off int6
 			text := contentText(pl.Content)
 			ev := base
 			ev.Summary = trim(text, 200)
+			ev.InputModality = contentModality(pl.Content)
 			if pl.Role == "user" {
 				ev.EventType = schema.EventHumanPrompt
 				ev.ActorType = schema.ActorHuman
@@ -275,6 +287,12 @@ func (p *parser) handleLine(rl rolloutLine, art casepkg.ArtifactRecord, off int6
 					ev.KeepFull(pl.Input)
 				}
 			}
+			if pl.Type == "custom_tool_call" {
+				toolargs.Apply(&ev, []byte(pl.Input))
+			} else {
+				toolargs.Apply(&ev, []byte(pl.Arguments))
+			}
+			ev.ApprovalState = p.autoApproval()
 			p.emit(ev, art, off, line)
 			p.linkTool(ev)
 		case "local_shell_call":
@@ -287,6 +305,8 @@ func (p *parser) handleLine(rl rolloutLine, art casepkg.ArtifactRecord, off int6
 			ev.Command = trim(actionCommand(pl.Action), 300)
 			ev.KeepFull(actionCommand(pl.Action))
 			ev.Corroboration = schema.StateObserved
+			toolargs.Apply(&ev, pl.Action)
+			ev.ApprovalState = p.autoApproval()
 			p.emit(ev, art, off, line)
 			p.linkTool(ev)
 		case "function_call_output", "custom_tool_call_output":
@@ -301,6 +321,12 @@ func (p *parser) handleLine(rl rolloutLine, art casepkg.ArtifactRecord, off int6
 			ev.ToolCallID = pl.CallID
 			ev.Corroboration = schema.StateObserved
 			ev.Summary = trim(flatOutput(pl.Output), 200)
+			ev.ResultDigest = toolargs.Digest(pl.Output)
+			ev.ResultStatus = outputStatus(pl.Output)
+			if ev.ResultStatus == "denied" {
+				ev.ApprovalState = "denied"
+			}
+			ev.InputModality = contentModality(pl.Output)
 			p.emit(ev, art, off, line)
 		case "reasoning":
 			ev := base
@@ -330,6 +356,23 @@ func (p *parser) handleLine(rl rolloutLine, art casepkg.ArtifactRecord, off int6
 		ev.Model = pl.Model
 		ev.Summary = trim(policySummary(pl.ApprovalPolicy, pl.SandboxPolicy, pl.CWD, pl.Model), 200)
 		ev.Corroboration = schema.StateObserved
+		if pol := trim(pl.ApprovalPolicy, 40); pol != "" {
+			ev.PermissionMode = pol
+			if p.policy != "" && p.policy != pol {
+				// The approval policy changed between turns: the line
+				// where it did is its own event.
+				pc := base
+				pc.EventType = schema.EventPermissionChange
+				pc.ActorType = schema.ActorSystem
+				pc.Result = "permission_change"
+				pc.PermissionFrom, pc.PermissionMode = p.policy, pol
+				pc.TaskID = pl.TurnID
+				pc.Summary = "approval policy " + p.policy + " → " + pol
+				pc.Corroboration = schema.StateObserved
+				p.emit(pc, art, off, line)
+			}
+			p.policy = pol
+		}
 		p.emit(ev, art, off, line)
 		p.touchSession(base.SessionID, base.AgentID)
 	case "event_msg":
@@ -378,6 +421,15 @@ func (p *parser) emit(ev schema.Event, art casepkg.ArtifactRecord, off int64, li
 		ev.Corroboration = schema.StateUnknown
 	}
 	p.seq++
+	if p.pair != nil {
+		p.pair.Push(ev)
+	} else {
+		p.deliver(ev)
+	}
+}
+
+// deliver hands one finished event to the sink or the result.
+func (p *parser) deliver(ev schema.Event) {
 	if p.sink != nil {
 		p.sink(ev)
 	} else {
@@ -579,4 +631,76 @@ func (l *Live) Line(path string, raw []byte, off int64, line int) {
 		return
 	}
 	l.p.handleLine(rl, art, off, line)
+}
+
+// autoApproval is the approval the recorded turn policy grants a call:
+// approval_policy "never" runs every command without asking. Other
+// policies decide per call, and the rollout does not record those
+// decisions, so the state stays empty.
+func (p *parser) autoApproval() string {
+	if p.policy == "never" {
+		return "auto_approved"
+	}
+	return ""
+}
+
+// Texts Codex writes as the output of a call the user declined.
+var declinedOutputs = []string{"exec command rejected by user", "patch rejected by user"}
+
+// outputStatus is the outcome a function_call_output records: "denied"
+// for Codex's own rejected-by-user output, "ok" / "error" from the exit
+// code in the exec metadata ({"output":…,"metadata":{"exit_code":N}}).
+// Anything else records no outcome and yields "".
+func outputStatus(raw json.RawMessage) string {
+	var s string
+	if json.Unmarshal(raw, &s) != nil {
+		return ""
+	}
+	t := strings.TrimSpace(s)
+	for _, d := range declinedOutputs {
+		if strings.HasPrefix(t, d) {
+			return "denied"
+		}
+	}
+	if !strings.HasPrefix(t, "{") {
+		return ""
+	}
+	var o struct {
+		Metadata *struct {
+			ExitCode *int `json:"exit_code"`
+		} `json:"metadata"`
+	}
+	if json.Unmarshal([]byte(t), &o) != nil || o.Metadata == nil || o.Metadata.ExitCode == nil {
+		return ""
+	}
+	if *o.Metadata.ExitCode == 0 {
+		return "ok"
+	}
+	return "error"
+}
+
+// contentModality names the first non-text input in a content array
+// (input_image, input_file, input_audio).
+func contentModality(raw json.RawMessage) string {
+	b := strings.TrimSpace(string(raw))
+	if !strings.HasPrefix(b, "[") {
+		return ""
+	}
+	var items []struct {
+		Type string `json:"type"`
+	}
+	if json.Unmarshal(raw, &items) != nil {
+		return ""
+	}
+	for _, it := range items {
+		switch it.Type {
+		case "input_image", "image":
+			return "image"
+		case "input_file", "file", "document":
+			return "document"
+		case "input_audio", "audio":
+			return "audio"
+		}
+	}
+	return ""
 }

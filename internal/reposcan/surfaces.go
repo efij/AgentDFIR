@@ -12,12 +12,12 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/agentcli"
-	"github.com/efij/AgentDFIR/v4/internal/decode"
-	"github.com/efij/AgentDFIR/v4/internal/detect"
-	"github.com/efij/AgentDFIR/v4/internal/mcpaudit"
-	"github.com/efij/AgentDFIR/v4/internal/netdest"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/agentcli"
+	"github.com/efij/AgentDFIR/v5/internal/decode"
+	"github.com/efij/AgentDFIR/v5/internal/detect"
+	"github.com/efij/AgentDFIR/v5/internal/mcpaudit"
+	"github.com/efij/AgentDFIR/v5/internal/netdest"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 func stripJSONC(b []byte) []byte { return mcpaudit.StripJSONC(b) }
@@ -217,7 +217,7 @@ func (s *scanner) claudeSettings(rel string, b []byte) {
 func (s *scanner) weakening(rel, what, sev string) {
 	s.add(schema.Finding{RuleID: "REPO_AGENT_PERMISSION_WEAKENING", Severity: sev, Title: "Repository Turns Off the Agent's Safety Prompts",
 		Description:  fmt.Sprintf("%s: %s. Committed to the repository, it applies to everyone who opens it.", rel, what),
-		EvidenceRefs: []string{rel}, MitreATTACK: "T1562.001", MitreATLAS: "AML.T0081",
+		EvidenceRefs: []string{rel}, MitreATTACK: "T1685", MitreATLAS: "AML.T0081",
 		FalsePositive: "Personal settings belong in settings.local.json and outside version control; check whether this was committed on purpose."}, rel+what)
 }
 

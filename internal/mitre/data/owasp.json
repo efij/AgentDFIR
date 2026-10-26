@@ -1,0 +1,38 @@
+{
+  "lists": [
+    {
+      "name": "OWASP Top 10 for LLM Applications",
+      "version": "2025",
+      "source_url": "https://genai.owasp.org/llm-top-10/",
+      "items": [
+        {"id": "LLM01", "name": "Prompt Injection"},
+        {"id": "LLM02", "name": "Sensitive Information Disclosure"},
+        {"id": "LLM03", "name": "Supply Chain"},
+        {"id": "LLM04", "name": "Data and Model Poisoning"},
+        {"id": "LLM05", "name": "Improper Output Handling"},
+        {"id": "LLM06", "name": "Excessive Agency"},
+        {"id": "LLM07", "name": "System Prompt Leakage"},
+        {"id": "LLM08", "name": "Vector and Embedding Weaknesses"},
+        {"id": "LLM09", "name": "Misinformation"},
+        {"id": "LLM10", "name": "Unbounded Consumption"}
+      ]
+    },
+    {
+      "name": "OWASP Top 10 for Agentic Applications",
+      "version": "2026",
+      "source_url": "https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/",
+      "items": [
+        {"id": "ASI01", "name": "Agent Goal Hijack"},
+        {"id": "ASI02", "name": "Tool Misuse and Exploitation"},
+        {"id": "ASI03", "name": "Identity and Privilege Abuse"},
+        {"id": "ASI04", "name": "Agentic Supply Chain Vulnerabilities"},
+        {"id": "ASI05", "name": "Unexpected Code Execution"},
+        {"id": "ASI06", "name": "Memory and Context Poisoning"},
+        {"id": "ASI07", "name": "Insecure Inter-Agent Communication"},
+        {"id": "ASI08", "name": "Cascading Failures"},
+        {"id": "ASI09", "name": "Human-Agent Trust Exploitation"},
+        {"id": "ASI10", "name": "Rogue Agents"}
+      ]
+    }
+  ]
+}

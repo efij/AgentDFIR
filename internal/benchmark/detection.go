@@ -5,12 +5,13 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/analysis"
-	"github.com/efij/AgentDFIR/v4/internal/catalog"
-	"github.com/efij/AgentDFIR/v4/internal/corpus"
-	"github.com/efij/AgentDFIR/v4/internal/rulepack"
-	"github.com/efij/AgentDFIR/v4/internal/simulate"
+	"github.com/efij/AgentDFIR/v5/internal/analysis"
+	"github.com/efij/AgentDFIR/v5/internal/catalog"
+	"github.com/efij/AgentDFIR/v5/internal/corpus"
+	"github.com/efij/AgentDFIR/v5/internal/rulepack"
+	"github.com/efij/AgentDFIR/v5/internal/simulate"
 )
 
 // RuleStat is one rule's score over every labeled fixture.
@@ -48,6 +49,10 @@ type Detection struct {
 	RuleUniverse   int        `json:"rule_universe"`   // built-in rules + embedded pack rules
 	BuildingBlocks int        `json:"building_blocks"` // context rules, never scored as alerts
 	Uncovered      []string   `json:"uncovered"`       // alert rules no attack fixture expects
+	// Scope says what the precision and recall are measured on, and
+	// IndependentMetrics where metrics on an independent corpus are.
+	Scope              string `json:"scope"`
+	IndependentMetrics string `json:"independent_metrics"`
 	// Platforms breaks the score down by the OS a fixture's telemetry
 	// comes from (windows, macos, linux; "any" for transcript-only).
 	Platforms []PlatformStat `json:"platforms,omitempty"`
@@ -139,6 +144,8 @@ func runDetection(r *Report, o Options, work string, prov *provenanceChecker) er
 		return err
 	}
 	d := &r.Detection
+	d.Scope, d.IndependentMetrics = "synthetic corpus", IndependentNote
+	r.fixtures, r.fired, r.mitreSeen = all, map[string]map[string]int{}, map[string]string{}
 	// Coverage is a property of the labels, so it is computed over every
 	// fixture even when only a sample is run.
 	expected := map[string]bool{}
@@ -207,7 +214,11 @@ func runDetection(r *Report, o Options, work string, prov *provenanceChecker) er
 		got := map[string]int{}
 		for _, fd := range a.findings {
 			got[fd.RuleID]++
+			if m := strings.TrimSpace(fd.MitreATLAS + " " + fd.MitreATTACK); m != "" && len(r.mitreSeen) < 4096 {
+				r.mitreSeen[fd.RuleID+" "+m] = m
+			}
 		}
+		r.fired[f.name] = got
 		ps := pstat(f.os)
 		if f.attack {
 			d.AttackCases++

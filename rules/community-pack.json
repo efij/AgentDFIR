@@ -134,7 +134,7 @@
         "regex": "(ufw\\s+disable|iptables\\s+-F|pfctl\\s+-d|systemctl\\s+stop\\s+firewalld)"
       },
       "false_positive_notes": "Occasionally legitimate during network debugging.",
-      "mitre_attack": "T1562.004"
+      "mitre_attack": "T1686"
     },
     {
       "id": "PACKAGE_PUBLISH",
@@ -297,7 +297,7 @@
       "references": [
         "https://genai.owasp.org/resource/agentic-ai-threats-and-mitigations/"
       ],
-      "mitre_attack": "T1562.001"
+      "mitre_attack": "T1685"
     },
     {
       "id": "OS_LOG_TAMPER",
@@ -310,7 +310,7 @@
         "regex": "(?i)(auditctl\\s+-[De]\\b|journalctl\\s+--vacuum|truncate\\s+-s\\s*0\\s+/var/log|>\\s*/var/log/|rm\\s+-\\w*\\s*/var/log|wevtutil\\s+cl|Clear-EventLog)"
       },
       "false_positive_notes": "Log rotation and cleanup are routine on some hosts; correlate with other activity.",
-      "mitre_attack": "T1070.002"
+      "mitre_attack": "T1685.006"
     },
     {
       "id": "LD_PRELOAD_INJECT",
@@ -630,7 +630,7 @@
         "https://genai.owasp.org/resource/agentic-ai-threats-and-mitigations/"
       ],
       "mitre_atlas": "AML.T0081",
-      "mitre_attack": "T1562.001"
+      "mitre_attack": "T1685"
     },
     {
       "id": "CONFIG_HOOK_REMOTE_FETCH",
@@ -1078,9 +1078,9 @@
       },
       "false_positive_notes": "Adding a build directory as a Defender exclusion is a common performance tweak; disabling real-time protection is not.",
       "references": [
-        "https://attack.mitre.org/techniques/T1562/001/"
+        "https://attack.mitre.org/techniques/T1685/"
       ],
-      "mitre_attack": "T1562.001"
+      "mitre_attack": "T1685"
     },
     {
       "id": "LSASS_CREDENTIAL_DUMP",
@@ -1243,9 +1243,9 @@
       },
       "false_positive_notes": "Tearing down a test account is the only routine case; on production accounts this is a defense-evasion signal.",
       "references": [
-        "https://attack.mitre.org/techniques/T1562/008/"
+        "https://attack.mitre.org/techniques/T1685/002/"
       ],
-      "mitre_attack": "T1562.008"
+      "mitre_attack": "T1685.002"
     },
     {
       "id": "KUBE_PRIVILEGED_WORKLOAD",
@@ -1331,9 +1331,9 @@
       "false_positive_notes": "CI pipelines run agents unattended by design; inside an interactive session this removes the human from the loop.",
       "references": [
         "https://atlas.mitre.org/techniques/AML.T0103",
-        "https://attack.mitre.org/techniques/T1562/001/"
+        "https://attack.mitre.org/techniques/T1685/"
       ],
-      "mitre_attack": "T1562.001",
+      "mitre_attack": "T1685",
       "mitre_atlas": "AML.T0103"
     },
     {
@@ -1412,20 +1412,20 @@
     {
       "id": "AGENT_AUDIT_COVERAGE_LOSS",
       "title": "Agent Turned Off Logging or Telemetry",
-      "description": "Agent command stops or unloads a logging/telemetry agent (syslog, journald, osquery, EDR sensors, Sysmon, Windows Event Log), disables an event log or audit policy, silences macOS unified logging, or sets the agent's own transcript retention (cleanupPeriodDays) below a week. Missing telemetry on its own is never a finding; this is the act of removing it. Clearing logs is OS_LOG_TAMPER; auditd/SELinux/Defender are DISABLE_SECURITY_TOOL and WINDOWS_DEFENSE_DISABLE.",
+      "description": "Agent command stops or unloads a logging/telemetry agent (syslog, journald, osquery, EDR sensors, Sysmon, Windows Event Log), disables an event log or audit policy, silences macOS unified logging, sets the agent's own transcript retention (cleanupPeriodDays) below a week, or turns off the agent's own OpenTelemetry export (CLAUDE_CODE_ENABLE_TELEMETRY=0). Missing telemetry on its own is never a finding; this is the act of removing it. Clearing logs is OS_LOG_TAMPER; auditd/SELinux/Defender are DISABLE_SECURITY_TOOL and WINDOWS_DEFENSE_DISABLE.",
       "severity": "HIGH",
       "confidence": "high",
       "match": {
         "type": "command",
-        "regex": "(?i)(cleanupPeriodDays[\\\"']?\\s*[:=]\\s*[\\\"']?[0-6]\\b|\\bclaude\\s+config\\s+set\\s+(-g\\s+|--global\\s+)?cleanupPeriodDays\\s+[\\\"']?[0-6]\\b|\\blaunchctl\\s+(unload|bootout|disable|remove)\\b[^|;&\\n]*(auditd|osquery|falcon|crowdstrike|sentinel|santa|elastic|wazuh|sysmon|syslogd|com\\.apple\\.logd|endpoint)|\\bsystemctl\\s+(stop|disable|mask)\\s+[^|;&\\n]*\\b(rsyslog|syslog-ng|systemd-journald|osqueryd|falcon-sensor|wazuh-agent|sysmon|auditbeat|filebeat|elastic-agent|td-agent|fluent-bit|datadog-agent)\\b|\\b(Stop-Service|Set-Service|sc(\\.exe)?\\s+(stop|config))\\s+[^|;&\\n]*\\b(EventLog|Sysmon64|Sysmon|wazuh|osqueryd)\\b|\\bwevtutil(\\.exe)?\\s+(sl|set-log)\\s+[^|;&\\n]*/e:false|\\bauditpol(\\.exe)?\\s+/(clear|remove)\\b|\\blog\\s+config\\s+[^|;&\\n]*--mode\\s+[\\\"']?level:off)",
+        "regex": "(?i)(cleanupPeriodDays[\\\"']?\\s*[:=]\\s*[\\\"']?[0-6]\\b|\\bclaude\\s+config\\s+set\\s+(-g\\s+|--global\\s+)?cleanupPeriodDays\\s+[\\\"']?[0-6]\\b|CLAUDE_CODE_ENABLE_TELEMETRY[\\\"']?\\s*[:=]\\s*[\\\"']?(0|false)\\b|\\blaunchctl\\s+(unload|bootout|disable|remove)\\b[^|;&\\n]*(auditd|osquery|falcon|crowdstrike|sentinel|santa|elastic|wazuh|sysmon|syslogd|com\\.apple\\.logd|endpoint)|\\bsystemctl\\s+(stop|disable|mask)\\s+[^|;&\\n]*\\b(rsyslog|syslog-ng|systemd-journald|osqueryd|falcon-sensor|wazuh-agent|sysmon|auditbeat|filebeat|elastic-agent|td-agent|fluent-bit|datadog-agent)\\b|\\b(Stop-Service|Set-Service|sc(\\.exe)?\\s+(stop|config))\\s+[^|;&\\n]*\\b(EventLog|Sysmon64|Sysmon|wazuh|osqueryd)\\b|\\bwevtutil(\\.exe)?\\s+(sl|set-log)\\s+[^|;&\\n]*/e:false|\\bauditpol(\\.exe)?\\s+/(clear|remove)\\b|\\blog\\s+config\\s+[^|;&\\n]*--mode\\s+[\\\"']?level:off)",
         "exclude_regex": "^\\s*git\\s+(commit|log|show|tag)\\b"
       },
       "false_positive_notes": "Maintenance on a logging pipeline (restarting a forwarder, replacing one agent with another). A retention change the person asked for is a policy decision, not an attack, but it shortens what any later investigation can see.",
       "references": [
-        "https://attack.mitre.org/techniques/T1562/001/",
-        "https://attack.mitre.org/techniques/T1562/002/"
+        "https://attack.mitre.org/techniques/T1685/",
+        "https://attack.mitre.org/techniques/T1685/001/"
       ],
-      "mitre_attack": "T1562.001"
+      "mitre_attack": "T1685"
     }
   ]
 }

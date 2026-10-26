@@ -4,15 +4,15 @@ package detect
 
 import (
 	"fmt"
-	"github.com/efij/AgentDFIR/v4/internal/shellshape"
+	"github.com/efij/AgentDFIR/v5/internal/shellshape"
 	"regexp"
 	"sort"
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/casepkg"
-	"github.com/efij/AgentDFIR/v4/internal/netdest"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/casepkg"
+	"github.com/efij/AgentDFIR/v5/internal/netdest"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 const defaultSpawnThreshold = 10
@@ -251,7 +251,7 @@ func networkAndExfil(res *schema.Normalized, opts Options) []schema.Finding {
 						SessionID:   ev.SessionID, AgentID: ev.AgentID, EvidenceRefs: []string{ref(ev)},
 						Status: ev.Corroboration, Endpoint: schema.StateUnknown,
 						MitreATTACK:   "T1552.005", // Cloud Instance Metadata API
-						MitreATLAS:    "AML.T0075", // Cloud Service Discovery
+						MitreATLAS:    "AML.T0075", // Enterprise Resource Discovery
 						FalsePositive: "Cloud-native tooling queries metadata legitimately on cloud hosts.",
 					})
 					continue
@@ -452,7 +452,7 @@ func agentSelfModification(res *schema.Normalized) []schema.Finding {
 			Description: "Agent wrote to its own settings, hooks, instructions or MCP configuration. Self-modification can persist injected behavior across sessions.",
 			SessionID:   ev.SessionID, AgentID: ev.AgentID, EvidenceRefs: []string{ref(ev)},
 			Status: ev.Corroboration, Endpoint: schema.StateUnknown,
-			MitreATTACK:   "T1562.001",
+			MitreATTACK:   "T1685",
 			MitreATLAS:    "AML.T0081", // Modify AI Agent Configuration
 			FalsePositive: "Users ask agents to configure themselves (add MCP servers, hooks); check the preceding prompt and diff against baseline.",
 		})

@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/journal"
+	"github.com/efij/AgentDFIR/v5/internal/journal"
 )
 
 // Retention bounds what the recorder keeps on disk. Only capture files are

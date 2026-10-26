@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // attributeFile used to compare every collected instruction file against

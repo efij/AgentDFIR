@@ -14,7 +14,7 @@ package chain
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/efij/AgentDFIR/v4/internal/netdest"
+	"github.com/efij/AgentDFIR/v5/internal/netdest"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -23,8 +23,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/rulepack"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/redact"
+	"github.com/efij/AgentDFIR/v5/internal/rulepack"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // Step is one predicate in a chain. Every non-empty field must hold for an
@@ -44,7 +45,18 @@ type Step struct {
 	Outbound     bool     `json:"outbound,omitempty"`   // command opens a network connection (netdest.IsOutbound)
 	Upload       bool     `json:"upload,omitempty"`     // command sends data out (netdest.IsUpload)
 	FindingRules []string `json:"finding_rules,omitempty"`
-	Or           []Step   `json:"or,omitempty"` // alternatives: the step also matches if any of these does
+	// ResultStatus and ApprovalState match the outcome and the approval
+	// decision the evidence records (any-of, case-insensitive). An event
+	// that records neither never satisfies them: no outcome is inferred.
+	ResultStatus  []string `json:"result_status,omitempty"`
+	ApprovalState []string `json:"approval_state,omitempty"`
+	Or            []Step   `json:"or,omitempty"` // alternatives: the step also matches if any of these does
+
+	// Relations to the previous step's matched event. They belong to the
+	// step, not to an alternative, and step 1 has none.
+	Link            string `json:"link,omitempty"`             // overrides the chain's link for joining this step to the previous one
+	DifferentAgent  bool   `json:"different_agent,omitempty"`  // a different agent (session + agent ID) than the previous step
+	DifferentMethod bool   `json:"different_method,omitempty"` // a different tool, or shell program, than the previous step
 
 	cmdRe, fileRe, textRe, toolRe *regexp.Regexp
 }
@@ -55,12 +67,42 @@ type Chain struct {
 	Title         string `json:"title"`
 	Description   string `json:"description"`
 	Severity      string `json:"severity"`
-	Scope         string `json:"scope"`          // session | agent
+	Scope         string `json:"scope"`          // session | agent | case (case needs an artifact link)
 	WindowMinutes int    `json:"window_minutes"` // max span from first to last step; 0 = unlimited
 	Steps         []Step `json:"steps"`
 	MitreATLAS    string `json:"mitre_atlas,omitempty"`
 	MitreATTACK   string `json:"mitre_attack,omitempty"`
 	FalsePositive string `json:"false_positive_notes,omitempty"`
+	// Link is the join field consecutive steps must share (see link.go):
+	// file, network_destination, tool_call_id, mcp_tool, mcp_server,
+	// target, skill, session or agent. Empty keeps the v4 behaviour:
+	// scope and window only.
+	Link string `json:"link,omitempty"`
+}
+
+// linkFor is the join kind between step i and step i-1.
+func (c *Chain) linkFor(i int) string {
+	if i == 0 {
+		return ""
+	}
+	if c.Steps[i].Link != "" {
+		return c.Steps[i].Link
+	}
+	return c.Link
+}
+
+// relational reports whether any step constrains its relation to the
+// previous one. Chains without relations run exactly as in v4.
+func (c *Chain) relational() bool {
+	if c.Link != "" {
+		return true
+	}
+	for i := range c.Steps {
+		if s := &c.Steps[i]; s.Link != "" || s.DifferentAgent || s.DifferentMethod {
+			return true
+		}
+	}
+	return false
 }
 
 // Pack is a *.chains.json file.
@@ -80,11 +122,20 @@ func (c *Chain) Validate() error {
 	if !validSeverity[c.Severity] {
 		return fmt.Errorf("chain %s: bad severity %q", c.ID, c.Severity)
 	}
-	if c.Scope != "session" && c.Scope != "agent" {
-		return fmt.Errorf("chain %s: scope must be session or agent", c.ID)
+	if c.Scope != "session" && c.Scope != "agent" && c.Scope != "case" {
+		return fmt.Errorf("chain %s: scope must be session, agent or case", c.ID)
 	}
 	if len(c.Steps) < 2 {
 		return fmt.Errorf("chain %s: needs at least two steps", c.ID)
+	}
+	if err := checkLink(c.Link); err != nil {
+		return fmt.Errorf("chain %s: %w", c.ID, err)
+	}
+	// Across sessions and agents, order and a window are not enough to say
+	// two events belong together: a case-wide chain must name the shared
+	// artifact.
+	if c.Scope == "case" && !artifactLinks[c.Link] {
+		return fmt.Errorf("chain %s: case scope needs an artifact link (file, network_destination, tool_call_id, mcp_tool, mcp_server, target or skill)", c.ID)
 	}
 	if c.MitreATLAS != "" && !rulepack.ValidATLAS(c.MitreATLAS) {
 		return fmt.Errorf("chain %s: unknown ATLAS technique %s", c.ID, c.MitreATLAS)
@@ -110,13 +161,22 @@ func (c *Chain) Validate() error {
 		if s.toolRe, err = compile(s.ToolRegex); err != nil {
 			return fmt.Errorf("chain %s step %s: tool_regex: %w", c.ID, s.Name, err)
 		}
-		if len(s.EventTypes)+len(s.Tools)+len(s.FindingRules) == 0 && !s.MCP && !s.Network && !s.Outbound && !s.Upload && s.cmdRe == nil && s.fileRe == nil && s.textRe == nil && s.toolRe == nil {
+		if err := checkLink(s.Link); err != nil {
+			return fmt.Errorf("chain %s step %s: %w", c.ID, s.Name, err)
+		}
+		if i == 0 && (s.Link != "" || s.DifferentAgent || s.DifferentMethod) {
+			return fmt.Errorf("chain %s step %s: the first step has no previous step to relate to", c.ID, s.Name)
+		}
+		if len(s.EventTypes)+len(s.Tools)+len(s.FindingRules)+len(s.ResultStatus)+len(s.ApprovalState) == 0 && !s.MCP && !s.Network && !s.Outbound && !s.Upload && s.cmdRe == nil && s.fileRe == nil && s.textRe == nil && s.toolRe == nil {
 			return fmt.Errorf("chain %s step %s: no predicate", c.ID, s.Name)
 		}
 		for j := range s.Or {
 			alt := &s.Or[j]
 			if alt.Name == "" {
 				alt.Name = s.Name
+			}
+			if alt.Link != "" || alt.DifferentAgent || alt.DifferentMethod {
+				return fmt.Errorf("chain %s step %s alternative %d: link, different_agent and different_method belong to the step, not an alternative", c.ID, s.Name, j+1)
 			}
 			var err error
 			if alt.cmdRe, err = compile(alt.CommandRegex); err != nil {
@@ -134,6 +194,18 @@ func (c *Chain) Validate() error {
 		}
 	}
 	return nil
+}
+
+func checkLink(k string) error {
+	switch {
+	case k == "" || validLink(k):
+		return nil
+	case k == "secret_fingerprint":
+		// Credential fingerprints exist only inside the secret-reuse scan;
+		// no event or finding field carries one a chain could join on.
+		return fmt.Errorf("link secret_fingerprint is not supported: events carry no credential fingerprint")
+	}
+	return fmt.Errorf("unknown link %q", k)
 }
 
 func compile(re string) (*regexp.Regexp, error) {
@@ -209,10 +281,28 @@ func Run(events []schema.Event, findings []schema.Finding, chains []Chain) []sch
 		})
 	}
 
+	// Link reasons are shown to analysts; anything secret-shaped in a
+	// shared value is masked before it reaches a finding.
+	var red *redact.Redactor
+	for ci := range chains {
+		if chains[ci].relational() {
+			red, _ = redact.Parse("secrets")
+			break
+		}
+	}
+
+	var caseGroup []int
 	var out []schema.Finding
 	for ci := range chains {
 		c := &chains[ci]
 		if err := c.Validate(); err != nil {
+			continue
+		}
+		if c.Scope == "case" {
+			if caseGroup == nil {
+				caseGroup = caseOrder(events)
+			}
+			out = append(out, matchGroup(c, events, relevant(c, events, caseGroup, flagged), flagged, red)...)
 			continue
 		}
 		prefix := "session:"
@@ -227,19 +317,74 @@ func Run(events []schema.Event, findings []schema.Finding, chains []Chain) []sch
 		}
 		sort.Strings(keys)
 		for _, k := range keys {
-			out = append(out, matchGroup(c, events, groups[k], flagged)...)
+			out = append(out, matchGroup(c, events, groups[k], flagged, red)...)
 		}
 	}
 	return out
 }
 
+// caseOrder is every event with a usable timestamp, in time order. Across
+// sessions the per-session sequence number says nothing about order, so an
+// event without a timestamp cannot take part in a case-wide chain.
+func caseOrder(events []schema.Event) []int {
+	type ts struct {
+		i int
+		t time.Time
+	}
+	var v []ts
+	for i := range events {
+		if t, ok := parseTS(events[i].Timestamp); ok {
+			v = append(v, ts{i, t})
+		}
+	}
+	sort.SliceStable(v, func(a, b int) bool {
+		ea, eb := &events[v[a].i], &events[v[b].i]
+		switch {
+		case !v[a].t.Equal(v[b].t):
+			return v[a].t.Before(v[b].t)
+		case ea.SessionID != eb.SessionID:
+			return ea.SessionID < eb.SessionID
+		}
+		return ea.Sequence < eb.Sequence
+	})
+	out := make([]int, len(v))
+	for k := range v {
+		out[k] = v[k].i
+	}
+	return out
+}
+
+// relevant keeps the events that satisfy at least one step of the chain.
+// The others can never be matched, and dropping them keeps a case-wide
+// search proportional to the candidates rather than to the whole case.
+func relevant(c *Chain, events []schema.Event, idx []int, flagged map[string]map[string]bool) []int {
+	var out []int
+	for _, i := range idx {
+		for si := range c.Steps {
+			if stepMatches(&c.Steps[si], events[i], flagged) {
+				out = append(out, i)
+				break
+			}
+		}
+	}
+	return out
+}
+
+// maxRelationalEvals bounds the candidate checks one linked chain may spend
+// on one group, so hostile input cannot turn the search quadratic forever.
+const maxRelationalEvals = 4_000_000
+
 // matchGroup finds every non-overlapping instance of the chain in one group:
 // the earliest event satisfying step 1, then the first later event satisfying
 // step 2, and so on. After a complete match the search resumes after the last
-// matched event; incomplete attempts advance the start by one.
-func matchGroup(c *Chain, events []schema.Event, idx []int, flagged map[string]map[string]bool) []schema.Finding {
+// matched event; incomplete attempts advance the start by one. For a linked
+// chain a candidate must also share the link value with the previous step's
+// event (and satisfy different_agent / different_method).
+func matchGroup(c *Chain, events []schema.Event, idx []int, flagged map[string]map[string]bool, red *redact.Redactor) []schema.Finding {
 	var out []schema.Finding
 	window := time.Duration(c.WindowMinutes) * time.Minute
+	rel := c.relational()
+	evals := 0
 	start := 0
 	for start < len(idx) && len(out) < 20 {
 		if !stepMatches(&c.Steps[0], events[idx[start]], flagged) {
@@ -247,11 +392,18 @@ func matchGroup(c *Chain, events []schema.Event, idx []int, flagged map[string]m
 			continue
 		}
 		matched := []int{idx[start]}
+		var shared [][]string
+		if rel {
+			shared = make([][]string, 1, len(c.Steps))
+		}
+		var st joinState
 		t0, hasT0 := parseTS(events[idx[start]].Timestamp)
 		pos := start + 1
 		ok := true
 		for si := 1; si < len(c.Steps); si++ {
 			found := -1
+			kind := c.linkFor(si)
+			var sh []string
 			for ; pos < len(idx); pos++ {
 				e := events[idx[pos]]
 				if window > 0 && hasT0 {
@@ -259,23 +411,40 @@ func matchGroup(c *Chain, events []schema.Event, idx []int, flagged map[string]m
 						break
 					}
 				}
-				if stepMatches(&c.Steps[si], e, flagged) {
-					found = idx[pos]
-					pos++
-					break
+				if rel {
+					if evals++; evals > maxRelationalEvals {
+						return out
+					}
 				}
+				if !stepMatches(&c.Steps[si], e, flagged) {
+					continue
+				}
+				if rel {
+					v, ok := related(kind, &c.Steps[si], events[matched[len(matched)-1]], e, st)
+					if !ok {
+						continue
+					}
+					sh = v
+				}
+				found = idx[pos]
+				pos++
+				break
 			}
 			if found < 0 {
 				ok = false
 				break
 			}
 			matched = append(matched, found)
+			if rel {
+				shared = append(shared, sh)
+				st = joinState{kind: kind, shared: sh}
+			}
 		}
 		if !ok {
 			start++
 			continue
 		}
-		out = append(out, finding(c, events, matched))
+		out = append(out, finding(c, events, matched, shared, red))
 		start = pos
 	}
 	return out
@@ -324,6 +493,12 @@ func stepMatchesOne(s *Step, e schema.Event, flagged map[string]map[string]bool)
 	if s.textRe != nil && !s.textRe.MatchString(e.Command+"\n"+e.File+"\n"+e.Summary+"\n"+e.Result+"\n"+e.NetworkDest) {
 		return false
 	}
+	if len(s.ResultStatus) > 0 && !containsFold(s.ResultStatus, e.ResultStatus) {
+		return false
+	}
+	if len(s.ApprovalState) > 0 && !containsFold(s.ApprovalState, e.ApprovalState) {
+		return false
+	}
 	if len(s.FindingRules) > 0 {
 		rules := flagged[e.EventID]
 		hit := false
@@ -340,7 +515,7 @@ func stepMatchesOne(s *Step, e schema.Event, flagged map[string]map[string]bool)
 	return true
 }
 
-func finding(c *Chain, events []schema.Event, matched []int) schema.Finding {
+func finding(c *Chain, events []schema.Event, matched []int, shared [][]string, red *redact.Redactor) schema.Finding {
 	first, last := events[matched[0]], events[matched[len(matched)-1]]
 	f := schema.Finding{
 		RuleID: c.ID, Severity: c.Severity, Title: c.Title,
@@ -354,16 +529,23 @@ func finding(c *Chain, events []schema.Event, matched []int) schema.Finding {
 			span = fmt.Sprintf(" within %s", t1.Sub(t0).Round(time.Second))
 		}
 	}
-	var names []string
+	var names, reasons []string
 	worst := schema.StateObserved
 	for i, ei := range matched {
 		e := events[ei]
 		names = append(names, fmt.Sprintf("%d. %s", i+1, c.Steps[i].Name))
 		f.EvidenceRefs = append(f.EvidenceRefs, evidenceRef(e))
-		f.ChainSteps = append(f.ChainSteps, schema.ChainStep{
+		cs := schema.ChainStep{
 			Step: c.Steps[i].Name, EventID: e.EventID, Timestamp: e.Timestamp, AgentID: e.AgentID,
 			Summary: describe(e), Evidence: evidenceRef(e),
-		})
+		}
+		if i > 0 && i < len(shared) {
+			cs.Link = linkSentence(red, c.linkFor(i), i, i+1, shared[i], &c.Steps[i], events[matched[i-1]], e)
+			if cs.Link != "" {
+				reasons = append(reasons, cs.Link)
+			}
+		}
+		f.ChainSteps = append(f.ChainSteps, cs)
 		switch e.Corroboration {
 		case schema.StateCorroborated:
 			if worst == schema.StateObserved {
@@ -375,6 +557,11 @@ func finding(c *Chain, events []schema.Event, matched []int) schema.Finding {
 	}
 	f.Status = worst
 	f.Description = c.Description + " Matched: " + strings.Join(names, " → ") + span + "."
+	if len(reasons) > 0 {
+		r := strings.Join(reasons, "; ")
+		f.LinkReason = strings.ToUpper(r[:1]) + r[1:] + "."
+		f.Description += " Linked: " + r + "."
+	}
 	return f
 }
 

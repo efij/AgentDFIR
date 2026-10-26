@@ -1,0 +1,9 @@
+{
+  "expect": [
+    "MCP_TOOL_IDENTITY_DRIFT",
+    "CHAIN_MCP_RUG_PULL_TO_ACTION"
+  ],
+  "gateway": "gateway/mcp-gateway.jsonl",
+  "note": "The notes server changed its version and its search tool's definition mid-session (gateway log); the agent called the changed tool again and then read ~/.aws/credentials. CHAIN_MCP_RUG_PULL_TO_ACTION joins the three by the shared MCP tool and the agent. Sequence, not proven causation.",
+  "twin": "mcp-upgrade-then-routine-work"
+}

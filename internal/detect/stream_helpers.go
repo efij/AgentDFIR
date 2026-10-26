@@ -2,11 +2,11 @@ package detect
 
 import (
 	"fmt"
-	"github.com/efij/AgentDFIR/v4/internal/shellshape"
+	"github.com/efij/AgentDFIR/v5/internal/shellshape"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/netdest"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/netdest"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // oneToolCallRules evaluates the stateless-and-per-session tool-call rules
@@ -38,7 +38,7 @@ func oneToolCallRules(ev schema.Event, p *streamPass2) []schema.Finding {
 				RuleID: "AGENT_SELF_MODIFICATION", Severity: "HIGH", Title: "Agent Modified Its Own Configuration",
 				Description: "Agent wrote to its own settings, hooks, instructions or MCP configuration. Self-modification can persist injected behavior across sessions.",
 				SessionID:   ev.SessionID, AgentID: ev.AgentID, EvidenceRefs: []string{ref(ev)},
-				Status: ev.Corroboration, Endpoint: schema.StateUnknown, MitreATTACK: "T1562.001", MitreATLAS: "AML.T0081",
+				Status: ev.Corroboration, Endpoint: schema.StateUnknown, MitreATTACK: "T1685", MitreATLAS: "AML.T0081",
 				FalsePositive: "Users ask agents to configure themselves; check the prompt and diff against baseline.",
 			})
 		}

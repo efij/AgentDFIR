@@ -29,6 +29,9 @@ const (
 	EventAgentMessage  = "agent_message"
 	EventSessionMeta   = "session_meta"
 	EventTraceGap      = "trace_gap"
+	// EventPermissionChange marks the line where the recorded permission
+	// mode of a session changed (PermissionFrom → PermissionMode).
+	EventPermissionChange = "permission_change"
 )
 
 // Actor types.
@@ -93,6 +96,37 @@ type Event struct {
 	// this event, in a sentence an analyst can read. Empty when nothing
 	// outside the transcript was consulted.
 	WitnessNote string `json:"witness_note,omitempty"`
+
+	// Structured tool-call evidence (v5). Raw arguments and results stay in
+	// the sealed source artifact, located by SourceArtifact + SourceOffset /
+	// SourceJSONPath. These fields carry digests, references and allowlisted
+	// values only, so credentials, private prompts and personal data are not
+	// copied into searchable outputs.
+	ArgsDigest string `json:"args_digest,omitempty"` // sha256 of the canonical JSON arguments
+	ArgKeys    string `json:"arg_keys,omitempty"`    // sorted top-level argument names, comma-separated
+	// SafeArgs holds allowlisted argument values (paths, URL hosts, HTTP
+	// methods, resource IDs) after redaction, keyed by argument name.
+	SafeArgs     map[string]string `json:"safe_args,omitempty"`
+	ResultDigest string            `json:"result_digest,omitempty"` // sha256 of the raw tool result
+	ResultRef    string            `json:"result_ref,omitempty"`    // event_id of the paired result (or call) event
+	ResultStatus string            `json:"result_status,omitempty"` // ok | error | denied, as recorded; empty when not recorded
+	// ToolDefDigest fingerprints the tool definition (name, description,
+	// input schema, annotations) in force when the call was made, when the
+	// evidence records it.
+	ToolDefDigest    string `json:"tool_def_digest,omitempty"`
+	MCPServerVersion string `json:"mcp_server_version,omitempty"` // serverInfo name/version from the MCP initialize result
+	// ApprovalState is the approval decision the evidence records for this
+	// action: approved | denied | auto_approved | not_recorded. It is never
+	// inferred from the action having completed.
+	ApprovalState  string `json:"approval_state,omitempty"`
+	PermissionFrom string `json:"permission_from,omitempty"` // previous mode on a permission_change event; PermissionMode holds the new one
+	// ParentToolCallID is the tool call (Task / spawn_agent) that started
+	// the subagent this event belongs to.
+	ParentToolCallID string `json:"parent_tool_call_id,omitempty"`
+	Principal        string `json:"principal,omitempty"`      // cloud / SaaS principal (ARN, UPN, service account)
+	ResourceID       string `json:"resource_id,omitempty"`    // cloud / SaaS resource identifier
+	ExecEnv          string `json:"exec_env,omitempty"`       // execution environment: host, container ID or VM, when it differs from Host
+	InputModality    string `json:"input_modality,omitempty"` // image | audio | document when the turn carried non-text input
 }
 
 // MaxCommandFull caps Event.CommandFull.
@@ -170,6 +204,9 @@ type Finding struct {
 	Class         string      `json:"class,omitempty"`
 	FalsePositive string      `json:"false_positive_notes,omitempty"`
 	ChainSteps    []ChainStep `json:"chain_steps,omitempty"` // set only by attack-chain findings: the ordered steps that matched
+	// LinkReason is a sentence naming the value the chain's steps share
+	// (shortened and redacted, never a secret). Set only by linked chains.
+	LinkReason string `json:"link_reason,omitempty"`
 }
 
 // ChainStep is one matched step of an attack chain: which named step, which
@@ -181,6 +218,10 @@ type ChainStep struct {
 	AgentID   string `json:"agent_id,omitempty"`
 	Summary   string `json:"summary,omitempty"`
 	Evidence  string `json:"evidence"`
+	// Link names what joins this step to the previous one when the chain
+	// declares a link (a shared file, tool, destination or agent), with
+	// the value shortened and redacted. Empty for unlinked chains.
+	Link string `json:"link,omitempty"`
 }
 
 // Normalized is the merged output of all parsers for one package.

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v4/internal/casepkg"
+	"github.com/efij/AgentDFIR/v5/internal/casepkg"
 )
 
 // collectLinuxImage runs collect --image on a fixture and returns the

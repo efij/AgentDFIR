@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v4/internal/store"
+	"github.com/efij/AgentDFIR/v5/internal/store"
 )
 
 // TestMain points the AgentDFIR home at a throwaway directory. Sealing now

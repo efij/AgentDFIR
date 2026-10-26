@@ -58,7 +58,24 @@ type Case struct {
 	// case can exercise the endpoint correlation rules.
 	Endpoint []string `json:"endpoint,omitempty"`
 
+	// Gateway is an MCP gateway log in the case directory, analysed as
+	// --gateway-log, so a case can exercise the runtime MCP identity fields
+	// (server version, tool-definition digest) the gateway records.
+	Gateway string `json:"gateway,omitempty"`
+
+	// Twin names the case of the other kind this case pairs with: an
+	// attack case and the benign near-miss that must not raise its rules.
+	Twin string `json:"twin,omitempty"`
+
 	Dir string `json:"-"`
+}
+
+// GatewayLog returns the case's MCP gateway log as a path, or "".
+func (c Case) GatewayLog() string {
+	if c.Gateway == "" {
+		return ""
+	}
+	return filepath.Join(c.Dir, filepath.FromSlash(c.Gateway))
 }
 
 // EndpointLogs returns the case's endpoint telemetry files as paths.

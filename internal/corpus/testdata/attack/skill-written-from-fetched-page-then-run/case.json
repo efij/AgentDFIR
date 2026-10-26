@@ -1,0 +1,8 @@
+{
+  "expect": [
+    "INSTRUCTION_FROM_TOOL_RESULT",
+    "CHAIN_SKILL_POISON_TO_EXEC"
+  ],
+  "note": "A skill file is written right after a web page came back from WebFetch (INSTRUCTION_FROM_TOOL_RESULT cites the write); an hour later another session invokes that skill through the Skill tool and the same agent runs a command. CHAIN_SKILL_POISON_TO_EXEC joins them by the skill name. The order is recorded; that the skill caused the command is possible, not proven.",
+  "twin": "skill-written-at-request-then-run"
+}

@@ -1,0 +1,4 @@
+{
+  "note": "Twin of credential-in-mcp-message: the same Slack post with a commit id and no credential in its arguments. AGENT_CREDENTIAL_TO_EXTERNAL_TOOL must stay silent.",
+  "twin": "credential-in-mcp-message"
+}

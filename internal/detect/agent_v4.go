@@ -17,10 +17,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/accounts"
-	"github.com/efij/AgentDFIR/v4/internal/casepkg"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
-	"github.com/efij/AgentDFIR/v4/internal/shellshape"
+	"github.com/efij/AgentDFIR/v5/internal/accounts"
+	"github.com/efij/AgentDFIR/v5/internal/casepkg"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/shellshape"
 )
 
 // RunAgentRules evaluates the v4 agent-behaviour rules over the decoded
@@ -34,12 +34,14 @@ func RunAgentRules(events []schema.Event, pkgDir string, man *casepkg.Manifest) 
 	out = append(out, externalArtifactExecution(ix)...)
 	out = append(out, permissionModeEscalation(ix)...)
 	out = append(out, identitySwitch(ix)...)
+	out = append(out, agentRulesV5P1(ix, pkgDir, man)...)
 	if man != nil {
 		store := casepkg.NewStore(pkgDir, man)
 		out = append(out, permissionBoundaryCrossing(ix, loadDenyRules(store, man))...)
 		out = append(out, clockAnomaly(ix, man)...)
 		out = append(out, crossSessionSecretReuse(events, pkgDir, man, store)...)
 	}
+	out = append(out, runV5Rules(ix, pkgDir, man)...)
 	return sortBySeverity(out)
 }
 
@@ -588,7 +590,7 @@ func permissionModeEscalation(ix *eventIndex) []schema.Finding {
 						Related:      []string{"previous mode recorded at: " + ref(lastEv)},
 						EvidenceRefs: []string{ref(e)},
 						Status:       schema.StateObserved, Endpoint: schema.StateUnknown,
-						MitreATTACK: "T1562.001", MitreATLAS: "AML.T0081",
+						MitreATTACK: "T1685", MitreATLAS: "AML.T0081",
 						Confidence: "HIGH", Timestamp: e.Timestamp,
 						Reasons:       []string{"the mode is the client's own record on each transcript line"},
 						FalsePositive: "A person switching modes on purpose (Shift+Tab in a session launched with bypass allowed). Ask who was at the keyboard.",
@@ -619,7 +621,7 @@ func permissionModeEscalation(ix *eventIndex) []schema.Finding {
 				SessionID:   e.SessionID, AgentID: e.AgentID,
 				EvidenceRefs: []string{ref(e)},
 				Status:       e.Corroboration, Endpoint: schema.StateUnknown,
-				MitreATTACK: "T1562.001", MitreATLAS: "AML.T0081",
+				MitreATTACK: "T1685", MitreATLAS: "AML.T0081",
 				Confidence: "MEDIUM", Timestamp: e.Timestamp,
 				Reasons:       []string{"the grant is read from the command line; the configuration file as it was afterwards is not compared"},
 				FalsePositive: "A person asking the agent to allow a tool it keeps prompting for. Check the prompt before the command.",

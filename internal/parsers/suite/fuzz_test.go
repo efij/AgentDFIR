@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v4/internal/parsers/plaso"
+	"github.com/efij/AgentDFIR/v5/internal/parsers/plaso"
 )
 
 func plasoRead(r io.Reader, each func()) (plaso.Stats, error) {

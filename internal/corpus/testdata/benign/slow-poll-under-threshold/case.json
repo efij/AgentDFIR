@@ -1,0 +1,4 @@
+{
+  "note": "Twin of tool-call-loop-burst: the same poll fifteen times, 45 seconds apart. That stays under the loop threshold; AGENT_RESOURCE_EXHAUSTION must stay silent.",
+  "twin": "tool-call-loop-burst"
+}

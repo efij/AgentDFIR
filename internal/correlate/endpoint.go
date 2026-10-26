@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/endpoint"
-	"github.com/efij/AgentDFIR/v4/internal/netdest"
-	"github.com/efij/AgentDFIR/v4/internal/products"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/endpoint"
+	"github.com/efij/AgentDFIR/v5/internal/netdest"
+	"github.com/efij/AgentDFIR/v5/internal/products"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // Endpoint correlation: the transcript is witness #1, OS telemetry is
@@ -208,6 +208,7 @@ func endpointHost(events []schema.Event, records []endpoint.Record, opts Endpoin
 				ev.Corroboration = schema.StateCorroborated
 			}
 			ev.Summary = appendNote(ev.Summary, fmt.Sprintf("corroborated by %s %s (%s)", r.Source, r.Kind, r.Ref))
+			setExecEnv(ev, r)
 			addMatch(res, "endpoint", ev, r, bestScore, opts.Window, pids.relatedOf(records, best))
 			res.Corroborated++
 			res.decide(ev, needs, assess)

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/sanitize"
+	"github.com/efij/AgentDFIR/v5/internal/sanitize"
 )
 
 // WriteText prints the report for a terminal. Evidence text goes through

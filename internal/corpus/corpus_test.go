@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v4/internal/analysis"
-	"github.com/efij/AgentDFIR/v4/internal/catalog"
-	"github.com/efij/AgentDFIR/v4/internal/products"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/analysis"
+	"github.com/efij/AgentDFIR/v5/internal/catalog"
+	"github.com/efij/AgentDFIR/v5/internal/products"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // analyseCase collects one corpus directory into a real sealed package and
@@ -23,7 +23,7 @@ func analyseCase(t *testing.T, c Case) []schema.Finding {
 	if err := BuildPackage(c, pkg, "CORPUS-"+c.Name, "corpus"); err != nil {
 		t.Fatal(err)
 	}
-	res, err := analysis.Run(pkg, analysis.Options{EndpointLogs: c.EndpointLogs()})
+	res, err := analysis.Run(pkg, analysis.Options{EndpointLogs: c.EndpointLogs(), GatewayLog: c.GatewayLog()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,6 +128,14 @@ func TestEveryCaseExplainsItself(t *testing.T) {
 				t.Errorf("%s/%s: endpoint log %v", c.Kind, c.Name, err)
 			}
 		}
+		if p := c.GatewayLog(); p != "" {
+			if _, err := os.Stat(p); err != nil {
+				t.Errorf("%s/%s: gateway log %v", c.Kind, c.Name, err)
+			}
+		}
+		if c.Twin != "" && !hasTwin(cases, c) {
+			t.Errorf("%s/%s: twin %q is not a case of the other kind naming this one back", c.Kind, c.Name, c.Twin)
+		}
 		if c.Collect == CollectAIExport {
 			if _, err := os.Stat(filepath.Join(c.Dir, "export")); err != nil {
 				t.Errorf("%s/%s: no export to collect", c.Kind, c.Name)
@@ -136,6 +144,17 @@ func TestEveryCaseExplainsItself(t *testing.T) {
 			t.Errorf("%s/%s: no profile for %v to collect", c.Kind, c.Name, c.ProductIDs())
 		}
 	}
+}
+
+// hasTwin reports whether c's twin exists, is of the other kind, and
+// names c back.
+func hasTwin(cases []Case, c Case) bool {
+	for _, o := range cases {
+		if o.Name == c.Twin && o.Kind != c.Kind && o.Twin == c.Name {
+			return true
+		}
+	}
+	return false
 }
 
 // hasProfile reports whether a case directory holds a config directory of

@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v4/internal/export"
-	"github.com/efij/AgentDFIR/v4/internal/seal"
+	"github.com/efij/AgentDFIR/v5/internal/export"
+	"github.com/efij/AgentDFIR/v5/internal/seal"
 )
 
 func TestProductionSignatureVerifies(t *testing.T) {

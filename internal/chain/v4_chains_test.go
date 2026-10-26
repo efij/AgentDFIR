@@ -3,7 +3,7 @@ package chain
 import (
 	"testing"
 
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 func mcpCall(id, tool, ts string, line int) schema.Event {

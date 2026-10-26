@@ -29,7 +29,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/detect"
+	"github.com/efij/AgentDFIR/v5/internal/secretpat"
 )
 
 // Category names as they appear in markers and the log.
@@ -86,7 +86,7 @@ type logKey struct{ cat, kind, loc string }
 // Redactor masks values and keeps the log. Not safe for concurrent use.
 type Redactor struct {
 	spec    Spec
-	secrets []detect.SecretPattern
+	secrets []secretpat.Pattern
 	custom  []*regexp.Regexp
 	on      map[string]bool
 	log     map[logKey]int
@@ -139,7 +139,7 @@ func Parse(spec string) (*Redactor, error) {
 		}
 	}
 	if r.on[Secret] {
-		r.secrets = detect.SecretPatterns()
+		r.secrets = secretpat.Patterns
 	}
 	return r, nil
 }

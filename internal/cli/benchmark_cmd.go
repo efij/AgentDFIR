@@ -7,7 +7,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/efij/AgentDFIR/v4/internal/benchmark"
+	"github.com/efij/AgentDFIR/v5/internal/benchmark"
 )
 
 // cmdBenchmark runs the synthetic accuracy benchmark: offline, against

@@ -6,12 +6,13 @@ package detect
 import (
 	"bytes"
 	"fmt"
-	"github.com/efij/AgentDFIR/v4/internal/shellshape"
+	"github.com/efij/AgentDFIR/v5/internal/secretpat"
+	"github.com/efij/AgentDFIR/v5/internal/shellshape"
 	"regexp"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/casepkg"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/casepkg"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // Options tunes package-aware detection.
@@ -102,7 +103,7 @@ func permissionBypass(man *casepkg.Manifest, pkgDir string) []schema.Finding {
 			EvidenceRefs:  []string{artRef(a, off)},
 			Status:        schema.StateObserved,
 			Endpoint:      schema.StateUnknown,
-			MitreATTACK:   "T1562.001", // Impair Defenses: Disable or Modify Tools
+			MitreATTACK:   "T1685",     // Impair Defenses: Disable or Modify Tools
 			MitreATLAS:    "AML.T0081", // Modify AI Agent Configuration
 			FalsePositive: "Developers legitimately enable bypass modes on trusted machines; assess against org policy.",
 		})
@@ -133,7 +134,7 @@ func permissionEscalation(man *casepkg.Manifest, pkgDir string) []schema.Finding
 			EvidenceRefs:  []string{artRef(a, off)},
 			Status:        schema.StateObserved,
 			Endpoint:      schema.StateUnknown,
-			MitreATTACK:   "T1562.001",
+			MitreATTACK:   "T1685",
 			MitreATLAS:    "AML.T0081",
 			FalsePositive: "Intentional on sandboxed CI hosts; compare against the org baseline (agentdfir baseline check).",
 		})
@@ -155,19 +156,13 @@ type secretPattern struct {
 
 // secretPatterns match well-known credential formats. Values are NEVER
 // included in findings — category, artifact and offset only (plan §18).
-var secretPatterns = []secretPattern{
-	{"AWS_ACCESS_KEY", "AKIA", regexp.MustCompile(`\bAKIA[0-9A-Z]{16}\b`)},
-	{"GITHUB_TOKEN", "ghp_", regexp.MustCompile(`\bghp_[A-Za-z0-9]{36}\b`)},
-	{"GITHUB_FINE_GRAINED_TOKEN", "github_pat_", regexp.MustCompile(`\bgithub_pat_[A-Za-z0-9_]{22,}\b`)},
-	{"SLACK_TOKEN", "xox", regexp.MustCompile(`\bxox[bpars]-[A-Za-z0-9-]{10,}\b`)},
-	{"ANTHROPIC_API_KEY", "sk-ant-", regexp.MustCompile(`\bsk-ant-[A-Za-z0-9_-]{20,}\b`)},
-	{"OPENAI_API_KEY", "sk-", regexp.MustCompile(`\bsk-[A-Za-z0-9_-]{20,}\b`)},
-	{"GOOGLE_API_KEY", "AIza", regexp.MustCompile(`\bAIza[0-9A-Za-z_-]{35}\b`)},
-	{"ALIBABA_ACCESS_KEY", "LTAI", regexp.MustCompile(`\bLTAI[0-9A-Za-z]{12,20}\b`)},
-	{"TENCENT_SECRET_ID", "AKID", regexp.MustCompile(`\bAKID[0-9A-Za-z]{32}\b`)},
-	{"PRIVATE_KEY_BLOCK", "-----BEGIN ", regexp.MustCompile(`-----BEGIN [A-Z ]*PRIVATE KEY-----`)},
-	{"JWT", "eyJ", regexp.MustCompile(`\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b`)},
-}
+var secretPatterns = func() []secretPattern {
+	out := make([]secretPattern, len(secretpat.Patterns))
+	for i, p := range secretpat.Patterns {
+		out[i] = secretPattern{p.Name, p.Lit, p.Re}
+	}
+	return out
+}()
 
 // placeholderMarks are the substrings vendors and docs use for example
 // credentials. On a real machine 92 of 95 HIGH secret findings were the

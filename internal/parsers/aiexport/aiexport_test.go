@@ -8,14 +8,15 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/casepkg"
-	"github.com/efij/AgentDFIR/v4/internal/collector"
-	"github.com/efij/AgentDFIR/v4/internal/products"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/casepkg"
+	"github.com/efij/AgentDFIR/v5/internal/collector"
+	"github.com/efij/AgentDFIR/v5/internal/products"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // runtimeSecret builds a credential-shaped string at test time. Fixtures
@@ -475,7 +476,7 @@ func TestOverlayCacheReplay(t *testing.T) {
 		t.Fatalf("stream %d/%d events, %d/%d entities", len(streamed), len(full.Events), len(res.Entities), len(full.Entities))
 	}
 	for i := range streamed {
-		if streamed[i] != full.Events[i] {
+		if !reflect.DeepEqual(streamed[i], full.Events[i]) {
 			t.Fatalf("event %d differs", i)
 		}
 	}

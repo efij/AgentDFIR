@@ -5,7 +5,7 @@
 package netdest
 
 import (
-	"github.com/efij/AgentDFIR/v4/internal/shellshape"
+	"github.com/efij/AgentDFIR/v5/internal/shellshape"
 	"net"
 	"net/url"
 	"regexp"

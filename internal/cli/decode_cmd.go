@@ -5,8 +5,8 @@ import (
 	"io"
 	"os"
 
-	"github.com/efij/AgentDFIR/v4/internal/decode"
-	"github.com/efij/AgentDFIR/v4/internal/sanitize"
+	"github.com/efij/AgentDFIR/v5/internal/decode"
+	"github.com/efij/AgentDFIR/v5/internal/sanitize"
 )
 
 // cmdDecode unwraps encoded payloads offline: base64, base32, hex, gzip,

@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/detect"
+	"github.com/efij/AgentDFIR/v5/internal/detect"
 )
 
 // urlIdentity turns a URL from evidence (an MCP server endpoint, a package

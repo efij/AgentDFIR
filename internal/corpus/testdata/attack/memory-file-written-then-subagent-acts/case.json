@@ -1,0 +1,7 @@
+{
+  "expect": [
+    "CHAIN_SHARED_MEMORY_TO_SUBAGENT"
+  ],
+  "note": "The main agent edits the project CLAUDE.md; a subagent it starts reads that same file and then runs the command the new line names. CHAIN_SHARED_MEMORY_TO_SUBAGENT joins the write and the other agent's read by the file; influence is not proven.",
+  "twin": "memory-file-written-subagent-reads-other"
+}

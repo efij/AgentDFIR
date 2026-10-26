@@ -30,16 +30,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/accounts"
-	"github.com/efij/AgentDFIR/v4/internal/analysis"
-	"github.com/efij/AgentDFIR/v4/internal/casepkg"
-	"github.com/efij/AgentDFIR/v4/internal/detect"
-	"github.com/efij/AgentDFIR/v4/internal/ioc"
-	"github.com/efij/AgentDFIR/v4/internal/mcpaudit"
-	"github.com/efij/AgentDFIR/v4/internal/netdest"
-	"github.com/efij/AgentDFIR/v4/internal/overlay"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
-	"github.com/efij/AgentDFIR/v4/internal/seal"
+	"github.com/efij/AgentDFIR/v5/internal/accounts"
+	"github.com/efij/AgentDFIR/v5/internal/analysis"
+	"github.com/efij/AgentDFIR/v5/internal/casepkg"
+	"github.com/efij/AgentDFIR/v5/internal/detect"
+	"github.com/efij/AgentDFIR/v5/internal/ioc"
+	"github.com/efij/AgentDFIR/v5/internal/mcpaudit"
+	"github.com/efij/AgentDFIR/v5/internal/netdest"
+	"github.com/efij/AgentDFIR/v5/internal/overlay"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/seal"
 )
 
 // Schema identifies the document this package writes.
@@ -71,6 +71,10 @@ type Options struct {
 	// Verify checks one package; nil uses the full seal check (casepkg.Verify
 	// and the signature). Tests substitute a cheaper or failing one.
 	Verify func(pkg string) Integrity
+	// Graph also builds the typed cross-case activity graph and its
+	// findings (correlate-cases --graph); GraphOptions bound it.
+	Graph        bool
+	GraphOptions GraphOptions
 }
 
 // Report is the whole result.
@@ -84,6 +88,7 @@ type Report struct {
 	Omitted    map[string]int  `json:"omitted,omitempty"`
 	Notes      []string        `json:"notes"`
 	Limits     []string        `json:"limits"`
+	Graph      *Graph          `json:"graph,omitempty"` // set with --graph; docs/schema/crosscase-graph.schema.json
 }
 
 // Case is one input package.
@@ -219,6 +224,15 @@ func Run(pkgs []string, o Options) (*Report, error) {
 		rep.Notes = append(rep.Notes, cd.notes...)
 	}
 	compare(rep, loaded, o)
+	if o.Graph {
+		gcs := make([]GraphCase, 0, len(loaded))
+		for _, cd := range loaded {
+			gcs = append(gcs, *cd.graph)
+		}
+		gopt := o.GraphOptions
+		gopt.IncludeCommon = o.IncludeCommon
+		rep.Graph = BuildGraph(gcs, gopt)
+	}
 	rep.Limits = []string{
 		"Only exact identifiers link identities: an account email or account uuid read from collected login files. Hosts, OS users and profile names are never merged.",
 		"A shared host name or session id can be two copies of the same machine's evidence; the cases' paths, case ids and collection times tell which.",
@@ -279,6 +293,7 @@ type caseData struct {
 	info  Case
 	items map[string]map[string]*occ // kind → key → occurrence
 	notes []string
+	graph *GraphCase // kept only when the graph is asked for
 }
 
 func (cd *caseData) add(kind, key, display string, t time.Time, src, where, ref string) *occ {
@@ -351,6 +366,15 @@ func load(label, pkg string, integ Integrity, o Options) (*caseData, error) {
 	cd.loadMCP(pkg)
 	cd.loadInstructions(man)
 	cd.loadSecrets(store, man, findings, o)
+	if o.Graph {
+		gc := &GraphCase{Label: label, Path: pkg, CaseID: man.CaseID, Host: man.Host, Unverified: integ.Result != "VERIFIED", Events: events, Findings: findings}
+		for _, a := range man.Current() {
+			if a.Status == casepkg.StatusOK && a.ArtifactID != "" {
+				gc.Files = append(gc.Files, FileHash{SHA256: a.ArtifactID, Path: a.LogicalPath, Size: a.Size})
+			}
+		}
+		cd.graph = gc
+	}
 	return cd, nil
 }
 

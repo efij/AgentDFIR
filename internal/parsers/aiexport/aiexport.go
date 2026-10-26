@@ -36,14 +36,16 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"path"
 	"sort"
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/casepkg"
-	"github.com/efij/AgentDFIR/v4/internal/parsers/segment"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
-	"github.com/efij/AgentDFIR/v4/internal/version"
+	"github.com/efij/AgentDFIR/v5/internal/casepkg"
+	"github.com/efij/AgentDFIR/v5/internal/parsers/segment"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/toolargs"
+	"github.com/efij/AgentDFIR/v5/internal/version"
 )
 
 // Collector rules for export artifacts. The parser reads RuleConversations
@@ -125,6 +127,7 @@ func parseWith(pkgDir string, sink func(schema.Event), cache segment.Cache) (*sc
 	store := casepkg.NewStore(pkgDir, man)
 	p := &parser{res: &schema.Normalized{}, sink: sink, caseID: man.CaseID, host: man.Host,
 		entities: map[string]schema.Entity{}, relSeen: map[string]bool{}}
+	p.pair = toolargs.NewPairer(p.deliver)
 	for _, a := range man.Current() {
 		if !Parses(a) {
 			continue
@@ -147,7 +150,9 @@ func parseWith(pkgDir string, sink func(schema.Event), cache segment.Cache) (*sc
 			}
 			p.rec = &segment.Recorder{}
 		}
-		if err := p.parseArtifact(store, a); err != nil {
+		err := p.parseArtifact(store, a)
+		p.pair.End() // calls and results pair inside one artifact only
+		if err != nil {
 			return nil, fmt.Errorf("%s: %w", a.LogicalPath, err)
 		}
 		if cache != nil {
@@ -170,6 +175,7 @@ type parser struct {
 	entities map[string]schema.Entity
 	relSeen  map[string]bool
 	rec      *segment.Recorder
+	pair     *toolargs.Pairer
 
 	// per artifact
 	art casepkg.ArtifactRecord
@@ -264,15 +270,24 @@ func (p *parser) emit(ev schema.Event) {
 		p.touchSession(ev.SessionID)
 	}
 	p.seq++
-	if p.sink != nil {
-		p.sink(ev)
+	if p.pair != nil {
+		p.pair.Push(ev)
 	} else {
-		p.res.Events = append(p.res.Events, ev)
+		p.deliver(ev)
 	}
 	if ev.EventType == schema.EventToolCall && ev.Tool != "" {
 		p.addEntity(schema.Entity{EntityID: "tool:" + ev.Tool, Kind: "tool", Label: ev.Tool})
 		p.addRel(schema.Relationship{From: "agent:" + ev.AgentID, To: "tool:" + ev.Tool,
 			Type: "invoked", DerivedFrom: []string{ev.EventID}, Corroboration: ev.Corroboration})
+	}
+}
+
+// deliver hands one finished event to the sink or the result.
+func (p *parser) deliver(ev schema.Event) {
+	if p.sink != nil {
+		p.sink(ev)
+	} else {
+		p.res.Events = append(p.res.Events, ev)
 	}
 }
 
@@ -351,7 +366,37 @@ func (p *parser) attachment(ev schema.Event, name, id, kind string) {
 		s += " [" + kind + "]"
 	}
 	ev.Model = ""
+	ev.InputModality = attachmentModality(kind, name)
 	p.meta(ev, resultAttachment, s)
+}
+
+// attachmentModality classifies a message attachment by the MIME type or
+// kind the export records for it, or by its file extension when it
+// records none. An attachment is non-text input by definition; one that is
+// neither an image nor audio is a document. Project knowledge documents
+// are context, not a turn's input, and get none.
+func attachmentModality(kind, name string) string {
+	k := strings.ToLower(kind)
+	if k == "project document" {
+		return ""
+	}
+	if k == "" || k == "file" || k == "attached file" {
+		switch strings.ToLower(path.Ext(name)) {
+		case ".png", ".jpg", ".jpeg", ".gif", ".webp", ".heic", ".bmp":
+			k = "image"
+		case ".mp3", ".wav", ".m4a", ".ogg", ".flac", ".webm":
+			k = "audio"
+		}
+	}
+	switch {
+	case strings.HasPrefix(k, "image"):
+		return "image"
+	case strings.HasPrefix(k, "audio"):
+		return "audio"
+	case strings.HasPrefix(k, "video"):
+		return "" // no video value in the vocabulary
+	}
+	return "document"
 }
 
 // ---- graph ----

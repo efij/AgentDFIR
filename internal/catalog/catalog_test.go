@@ -8,7 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v4/internal/rulepack"
+	"github.com/efij/AgentDFIR/v5/internal/mitre"
+	"github.com/efij/AgentDFIR/v5/internal/rulepack"
 )
 
 // ruleIDRe matches every way the code base names a finding rule:
@@ -19,10 +20,10 @@ import (
 //
 // Rule IDs always contain an underscore, which keeps severity and state
 // constants ("HIGH", "OBSERVED") out of the match.
-var ruleIDRe = regexp.MustCompile(`(?m)(?:RuleID:\s*|\bfinding\(|\},\s*|^\s*ID:\s*)"([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)",?\s*$?`)
+var ruleIDRe = regexp.MustCompile(`(?m)(?:RuleID:\s*|\bfinding\(|\},\s*|^\s*ID:\s*|\bRule[A-Z][A-Za-z]+\s*=\s*)"([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)",?\s*$?`)
 
 // emittingPackages are the Go packages whose findings the catalog mirrors.
-var emittingPackages = []string{"detect", "mcpaudit", "provenance", "correlate", "chain", "rulepack", "ioc", "reposcan", "journal", "extinv", "supplychain"}
+var emittingPackages = []string{"detect", "mcpaudit", "provenance", "correlate", "chain", "rulepack", "ioc", "reposcan", "journal", "extinv", "supplychain", "crosscase"}
 
 // TestCatalogMatchesSource fails when a rule ID emitted by the code has no
 // catalog entry, or a catalog entry names a rule the code never emits.
@@ -76,10 +77,10 @@ func TestCatalogMatchesSource(t *testing.T) {
 	}
 }
 
-var attackIDRe = regexp.MustCompile(`^T\d{4}(\.\d{3})?$`)
-
 // TestCatalogMitreDiscipline: HIGH/CRITICAL built-ins carry a MITRE mapping
-// unless they are evidence-quality rules, and every ATLAS ID is real.
+// unless they are evidence-quality rules, every ATLAS ID is real, and every
+// ATT&CK ID is an active technique in the pinned ATT&CK Enterprise release
+// (revoked IDs are migrated, see internal/mitre/data/migrations.json).
 func TestCatalogMitreDiscipline(t *testing.T) {
 	// Rules about evidence integrity or agent topology, not adversary
 	// technique; they legitimately have no ATT&CK/ATLAS technique.
@@ -99,8 +100,8 @@ func TestCatalogMitreDiscipline(t *testing.T) {
 		if r.MitreATLAS != "" && !rulepack.ValidATLAS(r.MitreATLAS) {
 			t.Errorf("%s: mitre_atlas %q not in ATLAS %s", r.ID, r.MitreATLAS, rulepack.ATLASVersion)
 		}
-		if r.MitreATTACK != "" && !attackIDRe.MatchString(r.MitreATTACK) {
-			t.Errorf("%s: mitre_attack %q malformed", r.ID, r.MitreATTACK)
+		if r.MitreATTACK != "" && !mitre.ValidATTACK(r.MitreATTACK) {
+			t.Errorf("%s: mitre_attack %q is %s in ATT&CK Enterprise %s", r.ID, r.MitreATTACK, mitre.ATTACKStatus(r.MitreATTACK), mitre.ATTACKVersion)
 		}
 	}
 }

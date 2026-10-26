@@ -6,21 +6,21 @@ import (
 	"time"
 
 	"fmt"
-	"github.com/efij/AgentDFIR/v4/internal/analysis"
-	"github.com/efij/AgentDFIR/v4/internal/overlay"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/analysis"
+	"github.com/efij/AgentDFIR/v5/internal/overlay"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/casepkg"
-	"github.com/efij/AgentDFIR/v4/internal/encrypt"
-	"github.com/efij/AgentDFIR/v4/internal/export"
-	"github.com/efij/AgentDFIR/v4/internal/notes"
-	"github.com/efij/AgentDFIR/v4/internal/report"
-	"github.com/efij/AgentDFIR/v4/internal/sanitize"
-	"github.com/efij/AgentDFIR/v4/internal/seal"
-	"github.com/efij/AgentDFIR/v4/internal/supportpkg"
+	"github.com/efij/AgentDFIR/v5/internal/casepkg"
+	"github.com/efij/AgentDFIR/v5/internal/encrypt"
+	"github.com/efij/AgentDFIR/v5/internal/export"
+	"github.com/efij/AgentDFIR/v5/internal/notes"
+	"github.com/efij/AgentDFIR/v5/internal/report"
+	"github.com/efij/AgentDFIR/v5/internal/sanitize"
+	"github.com/efij/AgentDFIR/v5/internal/seal"
+	"github.com/efij/AgentDFIR/v5/internal/supportpkg"
 )
 
 // cmdReport renders HTML/JSON/CSV/STIX/OTel outputs for a package.

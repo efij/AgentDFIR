@@ -1,0 +1,4 @@
+{
+  "note": "Twin of permission-mode-widened-without-prompt: the mode moves to acceptEdits on a line the person typed, which records their decision. AGENT_PERMISSION_STATE_DRIFT must stay silent.",
+  "twin": "permission-mode-widened-without-prompt"
+}

@@ -8,8 +8,8 @@ import (
 	"unicode/utf16"
 	"unicode/utf8"
 
-	"github.com/efij/AgentDFIR/v4/internal/endpoint"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/endpoint"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 var h0 = time.Date(2026, 10, 22, 10, 0, 0, 0, time.UTC)
@@ -193,7 +193,7 @@ func TestLoggingDisrupted(t *testing.T) {
 	}
 	clear := endpoint.Record{Time: ht(30), Kind: "log-clear", User: `DESK\dev`, Source: "evtx", Ref: "1102"}
 	by, cov := hostRun(t, events, clear)
-	if f := by["AGENT_LOGGING_DISRUPTED"]; len(f) != 1 || f[0].Severity != "MEDIUM" || f[0].MitreATTACK != "T1070.001" || !cov["AGENT_LOGGING_DISRUPTED"].Evaluated {
+	if f := by["AGENT_LOGGING_DISRUPTED"]; len(f) != 1 || f[0].Severity != "MEDIUM" || f[0].MitreATTACK != "T1685.005" || !cov["AGENT_LOGGING_DISRUPTED"].Evaluated {
 		t.Fatalf("log clear: %+v", f)
 	}
 	clear.Time = ht(3 * 3600)
@@ -308,7 +308,9 @@ func TestHostRulesHostileInput(t *testing.T) {
 	}()
 	select {
 	case <-done:
-	case <-time.After(10 * time.Second):
+	// A liveness bound, not a speed target: shared CI runners under -race
+	// take several times longer than a workstation.
+	case <-time.After(60 * time.Second):
 		t.Fatal("HostRules did not finish on cyclic input")
 	}
 	if d := psDecode("!!!not base64"); d != "" {

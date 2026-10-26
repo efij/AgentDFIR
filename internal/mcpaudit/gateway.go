@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // MCP gateway adapter. Organizations that front all MCP traffic with a
@@ -150,23 +150,14 @@ func parseTime(v any) time.Time {
 // mcpCall is the agent-side view of one MCP tool call.
 type mcpCall struct {
 	ev   schema.Event
+	idx  int // index of ev in the caller's event slice
 	time time.Time
 	tool string
 }
 
-// CorrelateGateway matches gateway records against transcript MCP calls.
-// gatewayServers restricts which transcript servers are expected to be
-// visible to the gateway (nil = all MCP calls). Window is ±2 s when no
-// call id links the two sides.
-func CorrelateGateway(events []schema.Event, records []GatewayRecord, gatewayServers []string, errorThreshold int) (GatewaySummary, []schema.Finding) {
-	if errorThreshold <= 0 {
-		errorThreshold = 3
-	}
-	sum := GatewaySummary{Backends: map[string]int{}}
-	sum.Records = len(records)
-	var findings []schema.Finding
-
-	// Agent-side calls.
+// gatewayCalls lists the transcript MCP calls expected to be visible to
+// the gateway. gatewayServers restricts them by server (nil = all).
+func gatewayCalls(events []schema.Event, gatewayServers []string) []mcpCall {
 	var calls []mcpCall
 	viaGateway := func(server string) bool {
 		if len(gatewayServers) == 0 {
@@ -179,7 +170,7 @@ func CorrelateGateway(events []schema.Event, records []GatewayRecord, gatewaySer
 		}
 		return false
 	}
-	for _, ev := range events {
+	for i, ev := range events {
 		if ev.EventType != schema.EventToolCall {
 			continue
 		}
@@ -194,9 +185,17 @@ func CorrelateGateway(events []schema.Event, records []GatewayRecord, gatewaySer
 				tool = tool[i+2:]
 			}
 		}
-		calls = append(calls, mcpCall{ev: ev, time: parseTime(ev.Timestamp), tool: tool})
+		calls = append(calls, mcpCall{ev: ev, idx: i, time: parseTime(ev.Timestamp), tool: tool})
 	}
+	return calls
+}
 
+// matchGateway pairs each gateway record with a transcript call: by call
+// id when both sides carry it, otherwise the nearest unmatched call to the
+// same tool within ±2 s. The result holds, per record, the index of its
+// call or -1.
+func matchGateway(calls []mcpCall, records []GatewayRecord) []int {
+	out := make([]int, len(records))
 	matchedCall := make([]bool, len(calls))
 	byID := map[string]int{}
 	for i, c := range calls {
@@ -204,31 +203,7 @@ func CorrelateGateway(events []schema.Event, records []GatewayRecord, gatewaySer
 			byID[c.ev.ToolCallID] = i
 		}
 	}
-	var latencies []int
-	errorsByBackend := map[string]int{}
-	for _, r := range records {
-		if r.Backend != "" {
-			sum.Backends[r.Backend]++
-		}
-		if r.LatencyMS > 0 {
-			latencies = append(latencies, r.LatencyMS)
-		}
-		if r.Decision == "deny" || r.Decision == "denied" || r.Decision == "blocked" || r.Decision == "reject" || r.Decision == "rejected" {
-			sum.Denied++
-			findings = append(findings, schema.Finding{
-				RuleID: "MCP_GATEWAY_DENIED_CALL", Severity: "MEDIUM", Title: "MCP Call Denied by Gateway Policy",
-				Description:  fmt.Sprintf("Gateway refused tool %q (backend %q, actor %q) at %s. The agent attempted something policy forbids; check whether it retried or routed around.", r.Tool, r.Backend, r.Actor, r.Time.Format(time.RFC3339)),
-				EvidenceRefs: []string{fmt.Sprintf("gateway-log:%d", r.Line)},
-				Status:       schema.StateObserved, Endpoint: schema.StateObserved, MitreATTACK: "T1548",
-				FalsePositive: "Policy tuning produces denials of benign calls; frequency and target matter.",
-			})
-		}
-		isErr := r.Error != "" || strings.HasPrefix(r.Status, "5") || strings.EqualFold(r.Status, "error") || strings.EqualFold(r.Status, "timeout")
-		if isErr {
-			sum.Errors++
-			errorsByBackend[r.Backend]++
-		}
-		// Match to transcript.
+	for ri, r := range records {
 		idx := -1
 		if r.CallID != "" {
 			if i, ok := byID[r.CallID]; ok {
@@ -253,6 +228,55 @@ func CorrelateGateway(events []schema.Event, records []GatewayRecord, gatewaySer
 			idx = best
 		}
 		if idx >= 0 {
+			matchedCall[idx] = true
+		}
+		out[ri] = idx
+	}
+	return out
+}
+
+// CorrelateGateway matches gateway records against transcript MCP calls.
+// gatewayServers restricts which transcript servers are expected to be
+// visible to the gateway (nil = all MCP calls). Window is ±2 s when no
+// call id links the two sides.
+func CorrelateGateway(events []schema.Event, records []GatewayRecord, gatewayServers []string, errorThreshold int) (GatewaySummary, []schema.Finding) {
+	if errorThreshold <= 0 {
+		errorThreshold = 3
+	}
+	sum := GatewaySummary{Backends: map[string]int{}}
+	sum.Records = len(records)
+	var findings []schema.Finding
+
+	// Agent-side calls.
+	calls := gatewayCalls(events, gatewayServers)
+	match := matchGateway(calls, records)
+	matchedCall := make([]bool, len(calls))
+	var latencies []int
+	errorsByBackend := map[string]int{}
+	for ri, r := range records {
+		if r.Backend != "" {
+			sum.Backends[r.Backend]++
+		}
+		if r.LatencyMS > 0 {
+			latencies = append(latencies, r.LatencyMS)
+		}
+		if r.Decision == "deny" || r.Decision == "denied" || r.Decision == "blocked" || r.Decision == "reject" || r.Decision == "rejected" {
+			sum.Denied++
+			findings = append(findings, schema.Finding{
+				RuleID: "MCP_GATEWAY_DENIED_CALL", Severity: "MEDIUM", Title: "MCP Call Denied by Gateway Policy",
+				Description:  fmt.Sprintf("Gateway refused tool %q (backend %q, actor %q) at %s. The agent attempted something policy forbids; check whether it retried or routed around.", r.Tool, r.Backend, r.Actor, r.Time.Format(time.RFC3339)),
+				EvidenceRefs: []string{fmt.Sprintf("gateway-log:%d", r.Line)},
+				Status:       schema.StateObserved, Endpoint: schema.StateObserved, MitreATTACK: "T1548",
+				FalsePositive: "Policy tuning produces denials of benign calls; frequency and target matter.",
+			})
+		}
+		isErr := r.Error != "" || strings.HasPrefix(r.Status, "5") || strings.EqualFold(r.Status, "error") || strings.EqualFold(r.Status, "timeout")
+		if isErr {
+			sum.Errors++
+			errorsByBackend[r.Backend]++
+		}
+		// Match to transcript.
+		if idx := match[ri]; idx >= 0 {
 			matchedCall[idx] = true
 			sum.Matched++
 			continue
@@ -281,7 +305,7 @@ func CorrelateGateway(events []schema.Event, records []GatewayRecord, gatewaySer
 			Description: fmt.Sprintf("Transcript records a call to tool %q via server %q at %s, but the gateway log has no corresponding request. The agent may have bypassed the gateway (direct server, local stdio copy) or the transcript entry is fabricated.", c.tool, c.ev.MCPServer, c.ev.Timestamp),
 			SessionID:   c.ev.SessionID, AgentID: c.ev.AgentID,
 			EvidenceRefs: []string{fmt.Sprintf("%s:%d (artifact %s, offset %d)", c.ev.SourcePath, c.ev.SourceLine, short(c.ev.SourceArtifact), c.ev.SourceOffset)},
-			Status:       schema.StateContradicted, Endpoint: schema.StateContradicted, MitreATTACK: "T1562",
+			Status:       schema.StateContradicted, Endpoint: schema.StateContradicted, MitreATTACK: "T1685",
 			FalsePositive: "Gateway log window shorter than the session, or a server legitimately not routed through the gateway (use --gateway-server).",
 		})
 	}

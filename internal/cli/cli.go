@@ -6,23 +6,23 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
-	"github.com/efij/AgentDFIR/v4/internal/export"
+	"github.com/efij/AgentDFIR/v5/internal/export"
 	"os"
 	"os/user"
 	"path/filepath"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/casepkg"
-	"github.com/efij/AgentDFIR/v4/internal/collector"
-	"github.com/efij/AgentDFIR/v4/internal/hostpersist"
-	"github.com/efij/AgentDFIR/v4/internal/integrity"
-	"github.com/efij/AgentDFIR/v4/internal/live"
-	"github.com/efij/AgentDFIR/v4/internal/macoshost"
-	"github.com/efij/AgentDFIR/v4/internal/products"
-	"github.com/efij/AgentDFIR/v4/internal/sanitize"
-	"github.com/efij/AgentDFIR/v4/internal/seal"
-	"github.com/efij/AgentDFIR/v4/internal/selfcheck"
-	"github.com/efij/AgentDFIR/v4/internal/version"
+	"github.com/efij/AgentDFIR/v5/internal/casepkg"
+	"github.com/efij/AgentDFIR/v5/internal/collector"
+	"github.com/efij/AgentDFIR/v5/internal/hostpersist"
+	"github.com/efij/AgentDFIR/v5/internal/integrity"
+	"github.com/efij/AgentDFIR/v5/internal/live"
+	"github.com/efij/AgentDFIR/v5/internal/macoshost"
+	"github.com/efij/AgentDFIR/v5/internal/products"
+	"github.com/efij/AgentDFIR/v5/internal/sanitize"
+	"github.com/efij/AgentDFIR/v5/internal/seal"
+	"github.com/efij/AgentDFIR/v5/internal/selfcheck"
+	"github.com/efij/AgentDFIR/v5/internal/version"
 )
 
 const usage = `agentdfir — open-source DFIR for AI agents. Evidence in, verdicts out. Nothing leaves your machine.
@@ -75,7 +75,7 @@ LOOK — same results, different views
   agentdfir explain <pkg>                 plain-language case digest (no AI, nothing sent anywhere)
   agentdfir gaps <pkg> [--json]           what the evidence does not show, and what to collect next
   agentdfir lineage <pkg> [--finding id|--session id] [--format text|json|mermaid|dot]   human → agent → tool → process → destination
-  agentdfir correlate-cases <a> <b> [...] [--json]   what several cases share (destinations, IOCs, key fingerprints, accounts)
+  agentdfir correlate-cases <a> <b> [...] [--graph] [--json]   what several cases share; --graph: typed cross-case activity graph
   agentdfir reconstruct <pkg|case> [...] [--json|--mermaid|--dot] [--out f]   one incident across hosts: timeline, delegation, hand-offs, stages, missing evidence
   agentdfir supply-chain <pkg> [--json] [--out f] [--since T]   skills, plugins, hooks, MCP servers: origin, hash history, drift, invocations
 

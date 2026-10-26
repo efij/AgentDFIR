@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/endpoint"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/endpoint"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // Cloud audit correlation. An agent's az, aws or gcloud command is
@@ -80,6 +80,7 @@ func cloudPass(events []schema.Event, records []endpoint.Record, res *EndpointRe
 		if ev.Corroboration == schema.StateObserved || ev.Corroboration == schema.StateReported || ev.Corroboration == schema.StateUnknown {
 			ev.Corroboration = schema.StateCorroborated
 		}
+		setCloudIdentity(ev, r)
 		note := fmt.Sprintf("corroborated by %s: %s by %s (%s)", r.Source, r.Operation, orUnknown(r.User), r.Ref)
 		if r.Failed != "" {
 			note += "; the cloud refused it: " + r.Failed

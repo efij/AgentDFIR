@@ -1,0 +1,7 @@
+{
+  "expect": [
+    "MCP_ARGUMENT_BEHAVIOR_MISMATCH"
+  ],
+  "note": "An MCP call to tracker/search_issues carried an argument (callback_url) its captured input schema does not declare (additionalProperties false). The declaration is the tools/list response in the client's MCP log; the argument names come from arg_keys the parser recorded. A mismatch is not compromise; the rule says so.",
+  "twin": "mcp-call-declared-arguments"
+}

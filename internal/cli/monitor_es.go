@@ -9,10 +9,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/endpoint"
-	"github.com/efij/AgentDFIR/v4/internal/journal"
-	"github.com/efij/AgentDFIR/v4/internal/recorder"
-	"github.com/efij/AgentDFIR/v4/internal/sanitize"
+	"github.com/efij/AgentDFIR/v5/internal/endpoint"
+	"github.com/efij/AgentDFIR/v5/internal/journal"
+	"github.com/efij/AgentDFIR/v5/internal/recorder"
+	"github.com/efij/AgentDFIR/v5/internal/sanitize"
 )
 
 // esHandle stops a running `monitor --es` capture. Safe to call before

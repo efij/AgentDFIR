@@ -32,7 +32,7 @@ jobs:
       - name: build
         run: go build -trimpath ./...
       - name: test
-        run: go test -race ./...
+        run: go test -race -timeout 30m ./...
       # The synthetic benchmark's hard checks (detection, evidence states,
       # provenance, tamper detection, compatibility, robustness). go test
       # already ran the quick subset and, where python3 exists, the
@@ -109,7 +109,7 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           New-Item -ItemType Directory dist | Out-Null
-          $ld = "-s -w -X github.com/efij/AgentDFIR/v4/internal/version.Version=v0.0.0-ci"
+          $ld = "-s -w -X github.com/efij/AgentDFIR/v5/internal/version.Version=v0.0.0-ci"
           foreach ($a in @('amd64', 'arm64')) {
             $env:GOOS = 'windows'; $env:GOARCH = $a; $env:CGO_ENABLED = '0'
             go build -trimpath -ldflags $ld -o "dist/agentdfir-v0.0.0-ci-windows-$a.exe" ./cmd/agentdfir

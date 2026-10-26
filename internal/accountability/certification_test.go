@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v4/internal/accountability"
+	"github.com/efij/AgentDFIR/v5/internal/accountability"
 )
 
 func TestCertificationPrefillsFactsKeepsPlaceholders(t *testing.T) {

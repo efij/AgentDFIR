@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/products"
+	"github.com/efij/AgentDFIR/v5/internal/products"
 )
 
 // Profile is a user profile root found inside a triage tree, with the

@@ -19,28 +19,28 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/casepkg"
-	"github.com/efij/AgentDFIR/v4/internal/chain"
-	"github.com/efij/AgentDFIR/v4/internal/correlate"
-	"github.com/efij/AgentDFIR/v4/internal/detect"
-	"github.com/efij/AgentDFIR/v4/internal/endpoint"
-	"github.com/efij/AgentDFIR/v4/internal/extinv"
-	"github.com/efij/AgentDFIR/v4/internal/fingerprint"
-	"github.com/efij/AgentDFIR/v4/internal/index"
-	"github.com/efij/AgentDFIR/v4/internal/ioc"
-	"github.com/efij/AgentDFIR/v4/internal/journal"
-	"github.com/efij/AgentDFIR/v4/internal/macoshost"
-	"github.com/efij/AgentDFIR/v4/internal/mcpaudit"
-	"github.com/efij/AgentDFIR/v4/internal/normalize"
-	"github.com/efij/AgentDFIR/v4/internal/overlay"
-	"github.com/efij/AgentDFIR/v4/internal/provenance"
-	"github.com/efij/AgentDFIR/v4/internal/repro"
-	"github.com/efij/AgentDFIR/v4/internal/rulepack"
-	"github.com/efij/AgentDFIR/v4/internal/sanitize"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
-	"github.com/efij/AgentDFIR/v4/internal/verify"
-	"github.com/efij/AgentDFIR/v4/internal/version"
-	"github.com/efij/AgentDFIR/v4/internal/witness"
+	"github.com/efij/AgentDFIR/v5/internal/casepkg"
+	"github.com/efij/AgentDFIR/v5/internal/chain"
+	"github.com/efij/AgentDFIR/v5/internal/correlate"
+	"github.com/efij/AgentDFIR/v5/internal/detect"
+	"github.com/efij/AgentDFIR/v5/internal/endpoint"
+	"github.com/efij/AgentDFIR/v5/internal/extinv"
+	"github.com/efij/AgentDFIR/v5/internal/fingerprint"
+	"github.com/efij/AgentDFIR/v5/internal/index"
+	"github.com/efij/AgentDFIR/v5/internal/ioc"
+	"github.com/efij/AgentDFIR/v5/internal/journal"
+	"github.com/efij/AgentDFIR/v5/internal/macoshost"
+	"github.com/efij/AgentDFIR/v5/internal/mcpaudit"
+	"github.com/efij/AgentDFIR/v5/internal/normalize"
+	"github.com/efij/AgentDFIR/v5/internal/overlay"
+	"github.com/efij/AgentDFIR/v5/internal/provenance"
+	"github.com/efij/AgentDFIR/v5/internal/repro"
+	"github.com/efij/AgentDFIR/v5/internal/rulepack"
+	"github.com/efij/AgentDFIR/v5/internal/sanitize"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/verify"
+	"github.com/efij/AgentDFIR/v5/internal/version"
+	"github.com/efij/AgentDFIR/v5/internal/witness"
 )
 
 // Options are the optional inputs an analyst may add.
@@ -418,6 +418,12 @@ func Run(pkg string, o Options) (*Result, error) {
 				o.logf("DNS/proxy/auth-log correlation: %d record(s) — %d CORROBORATED, %d PARTLY CONFIRMED",
 					cres.WitnessRecords, cres.WitnessCorroborated, cres.WitnessPartial)
 			}
+		}
+	}
+	if o.GatewayLog != "" {
+		if n := annotateGateway(&o, allEvents()); n > 0 {
+			dirty = true
+			o.logf("MCP gateway: %d call(s) annotated with the gateway decision, server version or tool definition", n)
 		}
 	}
 	if dirty {

@@ -1,0 +1,5 @@
+{
+  "gateway": "gateway/mcp-gateway.jsonl",
+  "note": "Twin of mcp-server-version-drift-midsession: the gateway logged a reconnect mid-session, but the server reported the same version and the same tool definition both times. MCP_TOOL_IDENTITY_DRIFT must stay silent.",
+  "twin": "mcp-server-version-drift-midsession"
+}

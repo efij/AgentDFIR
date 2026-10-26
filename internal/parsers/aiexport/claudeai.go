@@ -7,7 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/toolargs"
 )
 
 // Claude.ai exports a flat, already-linearized message list per
@@ -138,8 +139,14 @@ func (p *parser) claudeConversation(el element) {
 			case "thinking":
 				p.reply(be, "[reasoning] "+b.Thinking)
 			case "tool_use":
+				toolargs.Apply(&be, b.Input)
 				p.toolCall(be, b.Name, b.ID, compactJSON(b.Input))
 			case "tool_result":
+				be.ResultDigest = toolargs.Digest(b.Content)
+				be.ResultStatus = "ok"
+				if b.IsError {
+					be.ResultStatus = "error"
+				}
 				p.toolResult(be, b.Name, b.ToolUseID, blockText(b.Content))
 			default:
 				p.meta(be, resultActive, "content block "+trim(b.Type, 40))

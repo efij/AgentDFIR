@@ -7,7 +7,7 @@ that come next:
 |---|---|---|
 | `agentdfir gaps <case> [--json]` | What does this case **not** show, and what should be collected next? | `normalized/coverage.json(.gz)` |
 | `agentdfir lineage <case> [--finding id \| --session id] [--format text\|json\|mermaid\|dot]` | Who did what, through whom? | `normalized/lineage.json(.gz)` (whole case, bounded) |
-| `agentdfir correlate-cases <a> <b> [...] [--json] [--allow-unverified] [--include-common]` | What do several cases have in common? | nothing (computed on demand) |
+| `agentdfir correlate-cases <a> <b> [...] [--graph] [--json] [--allow-unverified] [--include-common]` | What do several cases have in common? With `--graph`: how does their agent activity connect, and how sure is each link? | nothing (computed on demand) |
 
 All three read the analysis that is already in the case. None of them changes
 an event, a finding, an evidence state or the sealed evidence. Output order is
@@ -252,6 +252,80 @@ the table) then key; occurrences by case; the timeline by time, case, kind,
 key (at most 2,000 entries). Exit status: 0 compared, 1 a package was refused,
 2 usage.
 
+### Cross-case activity graph — `correlate-cases --graph`
+
+`--graph` adds a `graph` member to the JSON (and an `ACTIVITY GRAPH` section to
+the text output). Without the flag the report is byte-for-byte what it was.
+Schema: [`docs/schema/crosscase-graph.schema.json`](schema/crosscase-graph.schema.json)
+(`agentdfir.crosscase-graph/1`). The same integrity rules apply: a package
+whose seal fails is refused unless `--allow-unverified`, and then its case,
+nodes, edges and findings are marked and the findings' confidence is `LOW`.
+
+**Nodes** belong to exactly one case: `case`, `host`, `exec_env`,
+`agent_session`, `agent`, `mcp_tool`, `cloud_principal`, `cloud_resource`,
+`git_commit`, `file` (`sha256:<hex>` for content, `name:<basename>` for a
+name only) and `destination`. A session id recorded in C1 and in C2 is two
+nodes; the edge between them says why they are joined. Only entities that
+take part in a cross-case join are drawn, with the context edges that place
+them in their case (case → host → execution environment → session → agent /
+tool / principal / commit / destination).
+
+**Join edges** carry `join_key`, `join_value` (masked), `confidence`
+(`strong` / `moderate` / `weak`) with `confidence_reason`, `time_relation`
+(`before` / `after` / `overlap` / `unknown`, with the first recorded time on
+each side) and `evidence` — one sealed source reference per side (case label,
+artifact, path, line, offset, event id).
+
+| Grade | Join key | What joins |
+|---|---|---|
+| strong | `session_id` | the same session id recorded in two cases (resume / continue elsewhere) |
+| strong | `agent_id` | the same (non-main) agent id |
+| strong | `delegation_ref` | a `parent_tool_call_id` naming a tool call or task recorded in another case, or a `parent_agent_id` naming an agent or task recorded there |
+| strong | `tool_call_id` | the same tool call id (MCP request ids where the parser records them as the call id) |
+| strong | `session_id_in_command` | a remote agent launch (`ssh`, `gcloud compute ssh`, `aws ssm`, `az vm run-command`, `kubectl`/`docker`/`podman exec`, `gcloud run jobs execute`, `aws ecs run-task` … followed by `claude`, `codex`, `gemini`, `cursor-agent`, `copilot`, `opencode`, `aider`) naming a session id (`--resume`, `--session-id`) recorded in the other case |
+| strong | `git_commit` | a commit id of ≥ 12 hex digits named in a git command or in git commit's own output in both cases |
+| strong | `file_sha256` | a collected file with the same content hash (≥ 64 bytes) |
+| strong | `principal_resource` | the same cloud principal acting on the same resource id |
+| moderate | `principal` | the same cloud principal, no common resource |
+| moderate | `exec_env` | the same execution environment identifier |
+| weak | `destination` | the same destination or IP named (allowlisted ones only with `--include-common`) |
+| weak | `filename` | the same file name, not the same content |
+| weak | `prompt_similarity` | ≥ 0.8 word overlap between two prompts; only the score is written, never the text |
+| weak | `git_commit_abbreviated` | a commit id shorter than 12 hex digits (collides) |
+| weak | `launch_timing` | a remote agent launch with no identifier, then a session starting in the other case within the window (order in time only) |
+
+Downgrades: a strong join whose timestamps contradict its direction (a
+launch naming a session whose every record on the far side ends before the
+launch; a child recorded entirely before its parent) is kept, marked with
+its time relation and downgraded to `moderate`; two recordings of the same
+session or agent id that overlap in time are downgraded too (they may be
+copies of one machine's evidence). Ids shorter than 8 characters (sessions,
+agents, delegation refs), tool call ids shorter than 12 or all digits, and
+identifiers longer than 256 bytes or holding control characters are not
+joined.
+
+**Findings.** Only strong joins count; weak joins never make two actions the
+same agent and never raise a finding.
+
+| Rule | Severity | ATLAS / ATT&CK | Fires when | Limits |
+|---|---|---|---|---|
+| `AGENT_CROSS_HOST_ACTIVITY` | MEDIUM; HIGH when a HIGH/CRITICAL alert (building blocks excluded) is recorded on the far side — the case whose joined activity starts later — for a joined session or agent | AML.T0112.000 | agent sessions / agents tied by strong `session_id`, `agent_id`, `delegation_ref`, `tool_call_id` or `session_id_in_command` joins span ≥ 2 places (a place is the recorded execution environment, else the case's host name; two cases with the same host name and no environment are one place) | cross-host activity is not compromise; a session id on two hosts can be a copied transcript |
+| `CHAIN_CROSS_HOST_AGENT_PROPAGATION` | HIGH | AML.T0112.000 / T1021 | (1) a remote agent launch, or a delegation reference, in case A; (2) the session tied to it by an identifier has a record in case B within `[launch − 2 min, launch + 60 min]`; (3) the first consequential action (shell, file write/edit/patch, MCP call, spawn, cloud action on a resource; denied actions excluded) in that session inside the window; A and B are different places | sequence is not causation; the join does not say who operated either machine; clock skew beyond 2 min is not corrected |
+
+Each finding lists the joins that justify it (`joins`), the evidence on each
+side (`evidence_refs`, prefixed with the case label), the corroboration
+state of the cited events (`status`), and `limits`. The propagation chain
+also carries `chain_steps` (launch, linked session active, consequential
+action). These two ids are emitted by `correlate-cases --graph` only; they
+are not per-case rules and do not appear in `findings.json`.
+
+Bounds: 20,000 nodes, 50,000 edges, 2,000 edges per join key per case pair,
+50,000 identifiers of one kind per case, 300 prompts per case, 500 remote
+launches per case. `truncated` and `omitted` say when one was hit; no edge
+points at a dropped node. Order: nodes by kind then id; join edges before
+context edges, strong before moderate before weak, then from, to, kind, key,
+value; findings by rule, cases, time.
+
 ---
 
 ## Honest limits
@@ -264,6 +338,7 @@ key (at most 2,000 entries). Exit status: 0 compared, 1 a package was refused,
 | Clock | timestamps the evidence carries; no clock is assumed correct | the host's real time at the moment of the action |
 | Lineage processes | processes paired by the correlate package and records sharing their pid/ppid within 10 minutes | process trees from telemetry that was not imported; pid reuse beyond that window is not followed |
 | Cross-case | each case's stored analysis and sealed evidence | indicators not collected in a case; equivalence of hosts or users without a shared exact identifier |
+| Cross-case graph | identifiers the parsers recorded (session, agent, task, tool call, parent tool call, principal, resource, exec env), git commands and output, collected file hashes | joins by fields a parser did not record; who operated a host; host clocks beyond a 2-minute tolerance; prompt text (compared in memory, never written) |
 | Secrets | the 11 credential formats `POTENTIAL_SECRET_EXPOSURE` knows | other secret shapes; fingerprints are 64-bit truncated SHA-256 of the value |
 | Lineage labels | credential formats masked before any cut | a secret that matches none of the known formats (e.g. an opaque token in a URL path) is not recognised as one |
 

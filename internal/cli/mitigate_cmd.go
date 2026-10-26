@@ -11,13 +11,13 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/analysis"
-	"github.com/efij/AgentDFIR/v4/internal/mitigate"
-	"github.com/efij/AgentDFIR/v4/internal/notes"
-	"github.com/efij/AgentDFIR/v4/internal/report"
-	"github.com/efij/AgentDFIR/v4/internal/sanitize"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
-	"github.com/efij/AgentDFIR/v4/internal/store"
+	"github.com/efij/AgentDFIR/v5/internal/analysis"
+	"github.com/efij/AgentDFIR/v5/internal/mitigate"
+	"github.com/efij/AgentDFIR/v5/internal/notes"
+	"github.com/efij/AgentDFIR/v5/internal/report"
+	"github.com/efij/AgentDFIR/v5/internal/sanitize"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/store"
 )
 
 const mitigateUsage = `usage: agentdfir mitigate [flags]

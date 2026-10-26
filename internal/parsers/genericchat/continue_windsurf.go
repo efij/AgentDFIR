@@ -37,8 +37,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/casepkg"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/casepkg"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/toolargs"
 )
 
 // Collector rules with dedicated handling here.
@@ -307,6 +308,12 @@ func (p *parser) continueItem(it continueItem, art casepkg.ArtifactRecord, cfg *
 			res.EventType, res.ActorType = schema.EventToolResult, schema.ActorAgent
 			res.Corroboration = schema.StateObserved
 			res.Tool, res.ToolCallID, res.Result = call.Tool, call.ToolCallID, st.Status
+			switch st.Status {
+			case "done":
+				res.ResultStatus = "ok"
+			case "errored":
+				res.ResultStatus = "error"
+			}
 			if len(st.Output) > 0 {
 				res.Summary = trim(fmt.Sprintf("%d output item(s): %s", len(st.Output), st.Output[0].Name), 200)
 			}
@@ -332,6 +339,7 @@ func (p *parser) continueToolCall(ev *schema.Event, tc continueToolCall) {
 	ev.Corroboration = schema.StateObserved
 	ev.Tool = tc.Function.Name
 	ev.ToolCallID = tc.ID
+	toolargs.Apply(ev, toolargs.Unwrap(tc.Function.Arguments))
 	args := argsObject(tc.Function.Arguments)
 	str := func(keys ...string) string {
 		for _, k := range keys {

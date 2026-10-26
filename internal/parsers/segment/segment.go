@@ -36,8 +36,8 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/efij/AgentDFIR/v4/internal/casepkg"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/casepkg"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // Replay is one artifact's cached contribution to a parse. Events have
@@ -188,6 +188,11 @@ func Rebase(ev *schema.Event, idFormat string, delta int) {
 	}
 	ev.Sequence += delta
 	ev.EventID = fmt.Sprintf(idFormat, ev.Sequence)
+	// ResultRef names the paired call or result, which parsers only pair
+	// inside one artifact, so it moves by the same delta.
+	if ev.ResultRef != "" {
+		ev.ResultRef = rebaseID(ev.ResultRef, idFormat, delta)
+	}
 }
 
 // RebaseRefs renumbers event ids embedded in derived data (a

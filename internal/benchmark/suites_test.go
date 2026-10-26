@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v4/internal/corpus"
+	"github.com/efij/AgentDFIR/v5/internal/corpus"
 )
 
 func newReport() *Report { return &Report{Label: Label, Failures: []string{}, Warnings: []string{}} }
@@ -328,12 +328,12 @@ func TestPythonVerifierNeedsOptIn(t *testing.T) {
 // TestDeclaresModuleCRLF: a Windows checkout converts go.mod to CRLF; the
 // checkout must still be recognised.
 func TestDeclaresModuleCRLF(t *testing.T) {
-	for _, b := range []string{"module github.com/efij/AgentDFIR/v4\n\ngo 1.27\n", "module github.com/efij/AgentDFIR/v4\r\n\r\ngo 1.27\r\n", "module github.com/efij/AgentDFIR/v4"} {
+	for _, b := range []string{"module github.com/efij/AgentDFIR/v5\n\ngo 1.27\n", "module github.com/efij/AgentDFIR/v5\r\n\r\ngo 1.27\r\n", "module github.com/efij/AgentDFIR/v5"} {
 		if !declaresModule([]byte(b)) {
 			t.Errorf("%q not recognised", b)
 		}
 	}
-	for _, b := range []string{"module github.com/efij/AgentDFIR/v4x\n", "// module github.com/efij/AgentDFIR/v4\n", ""} {
+	for _, b := range []string{"module github.com/efij/AgentDFIR/v5x\n", "// module github.com/efij/AgentDFIR/v5\n", ""} {
 		if declaresModule([]byte(b)) {
 			t.Errorf("%q accepted", b)
 		}

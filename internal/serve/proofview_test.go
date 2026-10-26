@@ -8,12 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/correlate"
-	"github.com/efij/AgentDFIR/v4/internal/endpoint"
-	"github.com/efij/AgentDFIR/v4/internal/overlay"
-	"github.com/efij/AgentDFIR/v4/internal/proof"
-	"github.com/efij/AgentDFIR/v4/internal/reconstruct"
-	"github.com/efij/AgentDFIR/v4/internal/supplychain"
+	"github.com/efij/AgentDFIR/v5/internal/correlate"
+	"github.com/efij/AgentDFIR/v5/internal/endpoint"
+	"github.com/efij/AgentDFIR/v5/internal/overlay"
+	"github.com/efij/AgentDFIR/v5/internal/proof"
+	"github.com/efij/AgentDFIR/v5/internal/reconstruct"
+	"github.com/efij/AgentDFIR/v5/internal/supplychain"
 )
 
 // hostile is evidence text built to break a page or a terminal: markup, an

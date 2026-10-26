@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	w "github.com/efij/AgentDFIR/v4/internal/endpoint/evtx/evtxtest"
+	w "github.com/efij/AgentDFIR/v5/internal/endpoint/evtx/evtxtest"
 )
 
 func auditExec(serial int, sec int64, pid int, cmd string) string {

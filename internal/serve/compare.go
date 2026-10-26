@@ -5,8 +5,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/efij/AgentDFIR/v4/internal/crosscase"
-	"github.com/efij/AgentDFIR/v4/internal/sanitize"
+	"github.com/efij/AgentDFIR/v5/internal/crosscase"
+	"github.com/efij/AgentDFIR/v5/internal/sanitize"
 )
 
 // Case compare: `agentdfir serve A --compare B` runs the same comparison as

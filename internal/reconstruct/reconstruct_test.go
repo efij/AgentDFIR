@@ -10,14 +10,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/analysis"
-	"github.com/efij/AgentDFIR/v4/internal/casepkg"
-	"github.com/efij/AgentDFIR/v4/internal/collector"
-	"github.com/efij/AgentDFIR/v4/internal/corpus"
-	"github.com/efij/AgentDFIR/v4/internal/crosscase"
-	"github.com/efij/AgentDFIR/v4/internal/products"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
-	"github.com/efij/AgentDFIR/v4/internal/simulate"
+	"github.com/efij/AgentDFIR/v5/internal/analysis"
+	"github.com/efij/AgentDFIR/v5/internal/casepkg"
+	"github.com/efij/AgentDFIR/v5/internal/collector"
+	"github.com/efij/AgentDFIR/v5/internal/corpus"
+	"github.com/efij/AgentDFIR/v5/internal/crosscase"
+	"github.com/efij/AgentDFIR/v5/internal/products"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/simulate"
 )
 
 // The two-host fixture. Host A is the simulate package's own scenarios
@@ -554,7 +554,7 @@ func TestStageClassification(t *testing.T) {
 			t.Errorf("StepStage(%q) = %q, want %q", step, got, want)
 		}
 	}
-	for tech, want := range map[string]string{"T1048": StageExfiltration, "T1562.001": StageAntiForensics, "t1059": StageExecution, "T0000": "", "": ""} {
+	for tech, want := range map[string]string{"T1048": StageExfiltration, "T1685": StageAntiForensics, "t1059": StageExecution, "T0000": "", "": ""} {
 		if got := TechniqueStage(tech); got != want {
 			t.Errorf("TechniqueStage(%q) = %q, want %q", tech, got, want)
 		}
