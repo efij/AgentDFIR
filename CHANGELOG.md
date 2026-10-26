@@ -7,6 +7,187 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [5.0.0] — 2026-10-26
+
+MITRE coverage you can check, detections that read what a tool call
+actually carried, and joins across cases that say how strong they are.
+The MITRE catalogs are now pinned releases: ATLAS 2026.09 and ATT&CK
+Enterprise v20.0, both checked by SHA-256 when they are regenerated.
+Every one of the 208 ATLAS techniques is classified for what an offline
+endpoint and agent forensic tool can observe, and the classification is
+checked in CI against the shipped rules (`agentdfir rules coverage`).
+Strict validation found six ATT&CK IDs our rules cited that ATT&CK had
+revoked; they are migrated, with a recorded migration. Normalized tool
+calls now carry argument and result digests, argument names,
+allowlisted redacted values, recorded outcomes and recorded approval
+decisions, never the raw arguments; ten new rules and seven new linked
+attack chains read them. `correlate-cases --graph` turns cross-case
+correlation into a typed graph whose every join has a grade, a time
+relation and evidence on both sides.
+
+Nothing here decides intent. A schema mismatch is not a compromise, a
+missing approval record is not an unauthorized action, autonomous
+reconnaissance can be legitimate, and a sequence is not causation; every
+new rule says which of these applies. Everything stays pure Go with no
+third-party dependency.
+
+236 rules (151 built-in: 129 rules, 20 attack chains and 2 cross-case
+findings; 85 in two shipped packs); 170 are HIGH/CRITICAL, 168 of them
+MITRE-mapped (221 of 236 rules carry a mapping), across 37 ATLAS and 82
+ATT&CK techniques as primary mappings. Counting secondary mappings in the
+relevance inventory, 91 ATLAS techniques are covered by a rule or chain,
+87 of them with a named test.
+
+### Added
+- **Pinned MITRE catalogs** (`internal/mitre`). ATLAS 2026.09
+  (`ATLAS-2026.09.yaml`, format 6.0.0: 120 techniques and 88
+  sub-techniques) and ATT&CK Enterprise v20.0 (706 active, 149 revoked
+  with their revoked-by target, 12 deprecated) are embedded as tables
+  generated from sha256-verified release assets (`go generate
+  ./internal/mitre`; `scripts/gen-atlas-ids.sh` wraps it and never reads
+  a floating "latest"). Every rule, chain and pack `mitre_attack` value
+  must now be an active v20.0 technique, not merely well-formed, and a
+  repository scan rejects revoked or removed IDs outside release history.
+- **ATLAS relevance inventory** (`internal/mitre/data/atlas-relevance.json`):
+  all 208 ATLAS 2026.09 techniques classified, with a rationale, the
+  evidence sources, rules, chains, tests and OWASP references for each.
+  63 direct, 41 supporting, 14 unobservable, 90 out of scope; 31 P0, 31
+  P1, 56 P2. All 31 P0 observable techniques are covered except one,
+  `AML.T0077` LLM Response Rendering, which carries a documented
+  exception: the transcript holds the response but not whether the
+  client rendered and fetched an embedded reference, so a rule would
+  claim more than the evidence shows. CI fails on an unclassified or
+  duplicate technique, an invalid or revoked ID, a P0 observable
+  technique with neither a tested detection nor an exception, and a
+  "validated" claim without a named test. Generated page:
+  `docs/atlas-coverage.md`.
+- **OWASP mappings**: OWASP Top 10 for LLM Applications 2025 (LLM01–LLM10)
+  and OWASP Top 10 for Agentic Applications 2026 (ASI01–ASI10), embedded
+  and mapped per ATLAS technique in the inventory.
+- **`agentdfir rules coverage [--json] [--format md]`** — every ATLAS
+  technique with its class, priority, rules and chains, evidence sources,
+  tests, OWASP references and limitation or exception. A subcommand of
+  the existing `rules`; no new top-level command.
+- **Structured tool-call evidence** on normalized events (all optional,
+  `omitempty`): `args_digest` and `result_digest` (SHA-256 of canonical
+  JSON), `arg_keys` (sorted argument names), `safe_args` (at most 16
+  allowlisted identifier-shaped values — paths, URL scheme and host,
+  ARNs, resource ids, repository and branch, tool and server names —
+  passed through secret redaction and bounded), `result_status` and
+  `result_ref` (call/result pairing), `tool_def_digest` and
+  `mcp_server_version` (from gateway-logged `tools/list` and
+  `initialize` results), `approval_state`, `permission_from`,
+  `parent_tool_call_id`, `principal`, `resource_id`, `exec_env` and
+  `input_modality`. Raw arguments, results, prompts and secrets are never
+  copied into events or findings; they stay in the sealed source line the
+  event points at. Filled by the Claude Code / Cowork, Codex, generic
+  chat and account-export parsers, MCP gateway logs, cloud audit
+  corroboration and container-attributed endpoint records. See
+  `docs/mcp-forensics.md`.
+- **Recorded approvals and `permission_change` events.** `approval_state`
+  comes from an explicit record only: a client's own rejection text, a
+  gateway deny/allow decision, or a permission mode or approval policy
+  that grants the call automatically (`auto_approved`). It is never
+  inferred from a call completing. A line that records a permission mode
+  different from the last one for the same session and agent emits a
+  `permission_change` event with `permission_from` and `permission_mode`.
+- **Ten new rules** on that evidence, each checked against every existing
+  rule first (verdicts in `docs/detection-v5.md`):
+  `AGENT_CREDENTIAL_TO_EXTERNAL_TOOL` (CRITICAL, AML.T0086 / T1567),
+  `MCP_ARGUMENT_BEHAVIOR_MISMATCH` (HIGH, AML.T0110.001 / T1195.002),
+  `MCP_TOOL_IDENTITY_DRIFT` (HIGH, AML.T0109 / T1195.002),
+  `AGENT_UNAUTHORIZED_RESOURCE_CHANGE` (HIGH, AML.T0053 / T1548),
+  `AGENT_PERMISSION_STATE_DRIFT` (MEDIUM, AML.T0081 / T1548),
+  `AGENT_AUTONOMOUS_RECON_SEQUENCE` (HIGH only when corroborated, AML.T0116 / T1082),
+  `AGENT_ADAPTIVE_ATTACK_SEQUENCE` (HIGH, AML.T0117 / T1548),
+  `AGENT_DELEGATION_SCOPE_EXPANSION` (HIGH, AML.T0053 / T1548),
+  `AGENT_RESOURCE_EXHAUSTION` (MEDIUM, AML.T0034.002 / T1496) and
+  `AGENT_MULTIMODAL_TRIGGER_CHAIN` (MEDIUM, AML.T0129 / T1027). Of the 16
+  proposed detections, three were already answered by existing rules
+  (`AGENT_AUDIT_COVERAGE_LOSS` was extended to cover an agent turning off
+  its own telemetry export), two became chains and one is cross-case.
+  Each rule has positive, benign-twin, missing-evidence and hostile-input
+  fixtures, an evidence-state assertion and a determinism test.
+- **Seven new attack chains** (20 built in): `CHAIN_SKILL_POISON_TO_EXEC`,
+  `CHAIN_MCP_RUG_PULL_TO_ACTION`, `CHAIN_TOOL_RESPONSE_TO_SECRET_EXFIL`
+  (CRITICAL), `CHAIN_SHARED_MEMORY_TO_SUBAGENT`,
+  `CHAIN_BROWSER_TOKEN_TO_ACCOUNT_ACTION`, `CHAIN_AGENT_RECON_TO_IMPACT`
+  and `CHAIN_ADAPTIVE_RETRY_TO_BYPASS`. `CHAIN_PERMISSION_ESCALATION_TO_IMPACT`
+  is extended with cloud IAM grants and cloud CLI mutations under the
+  same ID. Negative tests cover reordered steps, a missing step, the
+  wrong identity, an expired window and an unrelated session.
+- **Chain link conditions.** A chain (or one step) can name a `link`:
+  `file`, `network_destination`, `tool_call_id`, `mcp_tool`,
+  `mcp_server`, `target`, `skill`, `session` or `agent`. Consecutive
+  steps must then share that value, and the match carries a `link_reason`
+  ("Steps 1→2 share the target …") and each step's link. Scope `case`
+  joins steps across sessions and agents when they share an artifact.
+  Step predicates gain `result_status`, `approval_state`,
+  `different_agent` and `different_method`. Existing chains keep their
+  behaviour. See `docs/attack-chains.md`.
+- **`agentdfir correlate-cases --graph`** — a typed cross-case activity
+  graph (`agentdfir.crosscase-graph/1`, schema in
+  `docs/schema/crosscase-graph.schema.json`). Every join edge has a key,
+  a masked value, a grade with its reason, a time relation and one sealed
+  evidence reference per side. Strong joins: session id, agent id,
+  delegation reference, tool call id, a remote agent launch naming a
+  session id, full git commit id, file SHA-256, cloud principal plus
+  resource. Moderate: principal alone, execution environment. Weak, and
+  never sufficient alone: destination, file name, prompt similarity
+  (only the score is written), abbreviated commit id, launch timing.
+  Strong joins whose timestamps contradict their direction are kept and
+  downgraded. Two cross-case findings use strong joins only:
+  `AGENT_CROSS_HOST_ACTIVITY` (MEDIUM, HIGH with an alert on the far
+  side; AML.T0112.000) and `CHAIN_CROSS_HOST_AGENT_PROPAGATION` (HIGH;
+  AML.T0112.000 / T1021). Without `--graph` the report is byte-for-byte
+  unchanged. See `docs/investigation-graph.md`.
+
+### Changed
+- **Six revoked ATT&CK IDs migrated** in rules, chains, packs (`rules/`
+  and the embedded copy) and docs, recorded in
+  `internal/mitre/data/migrations.json`: T1562 → T1685, T1562.001 →
+  T1685, T1562.004 → T1686, T1562.008 → T1685.002, T1070.001 →
+  T1685.005, T1070.002 → T1685.006 (and a T1562.002 reference URL →
+  T1685.001). `reconstruct` stages T1685/T1686 as anti-forensics and
+  still reads T1562 in findings stored by earlier releases. Three ATLAS
+  IDs removed in 2026.09 (AML.T0019, AML.T0058, AML.T0104) have recorded
+  successors; no rule cited them.
+- `docs/detection-coverage.md` is generated against ATLAS 2026.09 and
+  ATT&CK Enterprise v20.0 (previously ATLAS 5.6).
+- Credential formats moved to a leaf package shared by detection and
+  redaction, unchanged, so parsers can mask values.
+- **Go module path is now `github.com/efij/AgentDFIR/v5`** (all packages
+  are `internal/`, so no importer breaks; `go install
+  github.com/efij/AgentDFIR/v5/cmd/agentdfir@latest`). Commands, flags,
+  exit codes, report formats and `.adfir` 0.2 packages are unchanged, and
+  packages written by earlier versions verify and analyze as before.
+
+### Fixed
+- `AGENT_PERMISSION_STATE_DRIFT` reports a widening only above the widest
+  mode the session already held; a session that started wide and stepped
+  down, then back up, no longer fires, a denied change does not raise
+  that ceiling, and it resets per session.
+
+### Security
+- **Bounded work on hostile input.** `AGENT_CREDENTIAL_TO_EXTERNAL_TOOL`
+  capped emitted findings, not work: many target calls could read and
+  parse source lines without bound. Each sealed line is now read and
+  parsed once, with caps on distinct lines and on bytes read (64 MiB
+  across the rule), and an INFO finding names the bound and counts the
+  calls left unchecked. Abbreviated commit matching in
+  `correlate-cases --graph` was quadratic in the commits of the other
+  case; ids are indexed by prefix once.
+- **No hidden joins.** Planting many commit ids with one 7-digit prefix
+  could push the real id out of a capped index bucket; every id is
+  indexed, and an ambiguous abbreviated id is reported, not joined.
+- **No secrets in link reasons.** `link_reason` redacts the full shared
+  value before shortening it, never splits a redaction marker, skips
+  every leading `VAR=value` token of a command, and the whole sentence
+  passes through the redactor before it is stored.
+- `safe_args` keeps allowlisted identifier-shaped values only, drops free
+  text and control characters, bounds every value and passes it through
+  secret redaction; parsers of the new fields have hostile-input tests.
+
 ## [4.5.0] — 2026-10-26
 
 From "the agent says" to "here is the proof, and here is how complete it
