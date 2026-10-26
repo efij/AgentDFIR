@@ -208,6 +208,7 @@ func endpointHost(events []schema.Event, records []endpoint.Record, opts Endpoin
 				ev.Corroboration = schema.StateCorroborated
 			}
 			ev.Summary = appendNote(ev.Summary, fmt.Sprintf("corroborated by %s %s (%s)", r.Source, r.Kind, r.Ref))
+			setExecEnv(ev, r)
 			addMatch(res, "endpoint", ev, r, bestScore, opts.Window, pids.relatedOf(records, best))
 			res.Corroborated++
 			res.decide(ev, needs, assess)
