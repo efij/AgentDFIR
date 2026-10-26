@@ -219,6 +219,27 @@ func recordedApproval(ix *eventIndex, e schema.Event) bool {
 	return planExitApproved(ix, e)
 }
 
+// promptOnSameLine reports whether a change event e shares its source
+// line with a prompt the person typed: the parser emits the
+// permission_change event of a line before the line's own events, so the
+// prompt that records the person's decision follows it in order. next is
+// the agent's events after e.
+func promptOnSameLine(ix *eventIndex, next []int, e schema.Event) bool {
+	if e.EventType != schema.EventPermissionChange || e.SourceArtifact == "" {
+		return false
+	}
+	for n, i := range next {
+		x := ix.events[i]
+		if n >= 8 || x.SourceArtifact != e.SourceArtifact || x.SourceLine != e.SourceLine {
+			return false
+		}
+		if x.EventType == schema.EventHumanPrompt && isInstruction(x) {
+			return true
+		}
+	}
+	return false
+}
+
 // AGENT_PERMISSION_STATE_DRIFT — the recorded permission mode widened in the
 // middle of a session (plan → default, default → acceptEdits/auto, …) and
 // nothing in the evidence records a person approving it: the line carrying
@@ -237,13 +258,14 @@ func permissionStateDrift(ix *eventIndex) []schema.Finding {
 		// to it (bypass → default → acceptEdits) widens nothing the
 		// session had not been given before.
 		ceiling, session := -1, ""
-		for _, i := range ix.byAgent[a] {
+		list := ix.byAgent[a]
+		for k, i := range list {
 			e := ix.events[i]
 			if e.SessionID != session {
 				// A new session starts from its own launch mode.
 				session, ceiling = e.SessionID, -1
 			}
-			own := recordedApproval(ix, e)
+			own := recordedApproval(ix, e) || promptOnSameLine(ix, list[k+1:], e)
 			to := e.PermissionMode
 			if to == "" {
 				acc = acc || own
