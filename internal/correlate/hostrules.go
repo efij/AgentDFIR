@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 	"unicode/utf16"
+	"unicode/utf8"
 
 	"github.com/efij/AgentDFIR/v4/internal/endpoint"
 	"github.com/efij/AgentDFIR/v4/internal/schema"
@@ -56,7 +57,24 @@ const (
 	hostAncestorHops = 32
 	logClearPad      = 2 * time.Minute
 	psDecodeMax      = 4096
+	// hostScanMax bounds the command line / script text the rules scan.
+	// Windows caps a command line at 32,767 UTF-16 units and splits 4104
+	// script blocks near 32 KB, so no genuine record is cut; a hostile
+	// multi-megabyte field cannot stretch the regular expressions.
+	hostScanMax = 64 << 10
 )
+
+// capScan cuts s to hostScanMax bytes on a UTF-8 boundary and says so.
+func capScan(s string) string {
+	if len(s) <= hostScanMax {
+		return s
+	}
+	n := hostScanMax
+	for n > 0 && !utf8.RuneStart(s[n]) {
+		n--
+	}
+	return s[:n] + fmt.Sprintf(" …[truncated: %d bytes not scanned]", len(s)-n)
+}
 
 // hostView is the record set the host rules share: every record that
 // carries process identity, the process index and the agent lineage.
@@ -84,6 +102,7 @@ func newHostView(events []schema.Event, records []endpoint.Record, opts Endpoint
 		default:
 			continue
 		}
+		r.Cmdline = capScan(r.Cmdline)
 		v.recs = append(v.recs, r)
 	}
 	sort.SliceStable(v.recs, func(i, j int) bool { return v.recs[i].Time.Before(v.recs[j].Time) })
