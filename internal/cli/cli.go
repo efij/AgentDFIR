@@ -75,7 +75,7 @@ LOOK — same results, different views
   agentdfir explain <pkg>                 plain-language case digest (no AI, nothing sent anywhere)
   agentdfir gaps <pkg> [--json]           what the evidence does not show, and what to collect next
   agentdfir lineage <pkg> [--finding id|--session id] [--format text|json|mermaid|dot]   human → agent → tool → process → destination
-  agentdfir correlate-cases <a> <b> [...] [--json]   what several cases share (destinations, IOCs, key fingerprints, accounts)
+  agentdfir correlate-cases <a> <b> [...] [--graph] [--json]   what several cases share; --graph: typed cross-case activity graph
   agentdfir reconstruct <pkg|case> [...] [--json|--mermaid|--dot] [--out f]   one incident across hosts: timeline, delegation, hand-offs, stages, missing evidence
   agentdfir supply-chain <pkg> [--json] [--out f] [--since T]   skills, plugins, hooks, MCP servers: origin, hash history, drift, invocations
 
