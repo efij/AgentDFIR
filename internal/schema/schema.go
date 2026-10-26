@@ -93,6 +93,37 @@ type Event struct {
 	// this event, in a sentence an analyst can read. Empty when nothing
 	// outside the transcript was consulted.
 	WitnessNote string `json:"witness_note,omitempty"`
+
+	// Structured tool-call evidence (v5). Raw arguments and results stay in
+	// the sealed source artifact, located by SourceArtifact + SourceOffset /
+	// SourceJSONPath. These fields carry digests, references and allowlisted
+	// values only, so credentials, private prompts and personal data are not
+	// copied into searchable outputs.
+	ArgsDigest string `json:"args_digest,omitempty"` // sha256 of the canonical JSON arguments
+	ArgKeys    string `json:"arg_keys,omitempty"`    // sorted top-level argument names, comma-separated
+	// SafeArgs holds allowlisted argument values (paths, URL hosts, HTTP
+	// methods, resource IDs) after redaction, keyed by argument name.
+	SafeArgs     map[string]string `json:"safe_args,omitempty"`
+	ResultDigest string            `json:"result_digest,omitempty"` // sha256 of the raw tool result
+	ResultRef    string            `json:"result_ref,omitempty"`    // event_id of the paired result (or call) event
+	ResultStatus string            `json:"result_status,omitempty"` // ok | error | denied, as recorded; empty when not recorded
+	// ToolDefDigest fingerprints the tool definition (name, description,
+	// input schema, annotations) in force when the call was made, when the
+	// evidence records it.
+	ToolDefDigest    string `json:"tool_def_digest,omitempty"`
+	MCPServerVersion string `json:"mcp_server_version,omitempty"` // serverInfo name/version from the MCP initialize result
+	// ApprovalState is the approval decision the evidence records for this
+	// action: approved | denied | auto_approved | not_recorded. It is never
+	// inferred from the action having completed.
+	ApprovalState  string `json:"approval_state,omitempty"`
+	PermissionFrom string `json:"permission_from,omitempty"` // previous mode on a permission_change event; PermissionMode holds the new one
+	// ParentToolCallID is the tool call (Task / spawn_agent) that started
+	// the subagent this event belongs to.
+	ParentToolCallID string `json:"parent_tool_call_id,omitempty"`
+	Principal        string `json:"principal,omitempty"`      // cloud / SaaS principal (ARN, UPN, service account)
+	ResourceID       string `json:"resource_id,omitempty"`    // cloud / SaaS resource identifier
+	ExecEnv          string `json:"exec_env,omitempty"`       // execution environment: host, container ID or VM, when it differs from Host
+	InputModality    string `json:"input_modality,omitempty"` // image | audio | document when the turn carried non-text input
 }
 
 // MaxCommandFull caps Event.CommandFull.
