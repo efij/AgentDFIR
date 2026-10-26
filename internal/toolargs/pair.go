@@ -20,7 +20,9 @@ import "github.com/efij/AgentDFIR/v5/internal/schema"
 //
 // When a result is recorded as denied and its call is still held, the
 // call's ApprovalState becomes "denied": the denial is the explicit record
-// for that call, and it outranks an auto-approval read from the mode.
+// for that call, and it outranks an auto-approval read from the mode. A
+// held call also takes its result's ResultStatus, so the call itself says
+// whether it was refused, failed or completed.
 type Pairer struct {
 	sink  func(schema.Event)
 	held  []schema.Event
@@ -67,6 +69,12 @@ func (p *Pairer) Push(ev schema.Event) {
 				c := &p.held[i]
 				if c.ResultRef == "" {
 					c.ResultRef = ev.EventID
+				}
+				// The outcome belongs to the call too: rules and chains
+				// that ask "was this call refused / did it succeed" read
+				// it there. A status the call already carries is kept.
+				if c.ResultStatus == "" {
+					c.ResultStatus = ev.ResultStatus
 				}
 				if ev.ResultStatus == "denied" {
 					c.ApprovalState = "denied"

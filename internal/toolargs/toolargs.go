@@ -196,15 +196,18 @@ var allowed = map[string]string{
 	"repo": kindIdent, "repository": kindIdent, "owner": kindIdent,
 	"branch": kindIdent, "ref": kindIdent,
 	"tool": kindIdent, "toolname": kindIdent, "server": kindIdent, "servername": kindIdent,
-	"subagenttype": kindIdent,
+	"subagenttype": kindIdent, "skill": kindIdent,
 }
+
+// keyNorm normalizes an argument name for the allowlist; built once, it is
+// safe for concurrent use.
+var keyNorm = strings.NewReplacer("_", "", "-", "")
 
 func allowKind(key string) string {
 	if len(key) > MaxKeyLen {
 		return ""
 	}
-	n := strings.NewReplacer("_", "", "-", "").Replace(strings.ToLower(key))
-	return allowed[n]
+	return allowed[keyNorm.Replace(strings.ToLower(key))]
 }
 
 var httpMethods = map[string]bool{"GET": true, "HEAD": true, "POST": true, "PUT": true,

@@ -1,0 +1,7 @@
+{
+  "expect": [
+    "AGENT_AUTONOMOUS_RECON_SEQUENCE"
+  ],
+  "note": "After one vague prompt the agent runs eight discovery commands across system, network and cloud resource kinds in three minutes, with no further instruction. AGENT_AUTONOMOUS_RECON_SEQUENCE reports the burst; autonomous recon can be legitimate and the rule says so.",
+  "twin": "person-directed-diagnostics"
+}

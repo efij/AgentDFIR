@@ -244,8 +244,8 @@ func TestPairer(t *testing.T) {
 	if out[1].ResultRef != "e4" || out[3].ResultRef != "e2" {
 		t.Fatalf("refs: call→%q result→%q", out[1].ResultRef, out[3].ResultRef)
 	}
-	if out[1].ApprovalState != "denied" {
-		t.Fatalf("denied result left the call %q", out[1].ApprovalState)
+	if out[1].ApprovalState != "denied" || out[1].ResultStatus != "denied" {
+		t.Fatalf("denied result left the call %q / status %q", out[1].ApprovalState, out[1].ResultStatus)
 	}
 	if out[2].EventID != "e3" {
 		t.Fatal("order changed")

@@ -1,0 +1,7 @@
+{
+  "expect": [
+    "AGENT_MULTIMODAL_TRIGGER_CHAIN"
+  ],
+  "note": "An image comes back as a tool result (a screenshot the agent opened), and the agent's next call, with no text instruction from the person in between, is a shell POST to a status API. AGENT_MULTIMODAL_TRIGGER_CHAIN reads input_modality set by the parser; the image content is not inspected and sequence is not causation.",
+  "twin": "prompt-with-image-then-fix"
+}

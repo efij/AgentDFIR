@@ -708,9 +708,18 @@ func loopKey(e schema.Event) string {
 func resourceExhaustion(ix *eventIndex) []schema.Finding {
 	var out []schema.Finding
 	for _, agent := range ix.agents {
+		// Windows keep event indices, not copies: one agent's loop can
+		// span thousands of calls.
 		type win struct {
 			ts  []time.Time
-			evs []schema.Event
+			idx []int
+		}
+		evsOf := func(w *win) []schema.Event {
+			out := make([]schema.Event, len(w.idx))
+			for n, j := range w.idx {
+				out[n] = ix.events[j]
+			}
+			return out
 		}
 		loops := map[string]*win{}
 		loopHit := false
@@ -726,13 +735,13 @@ func resourceExhaustion(ix *eventIndex) []schema.Finding {
 				continue
 			}
 			if !rateHit {
-				rate.ts, rate.evs = append(rate.ts, t), append(rate.evs, e)
+				rate.ts, rate.idx = append(rate.ts, t), append(rate.idx, i)
 				for len(rate.ts) > 0 && t.Sub(rate.ts[0]) > rateWindow {
-					rate.ts, rate.evs = rate.ts[1:], rate.evs[1:]
+					rate.ts, rate.idx = rate.ts[1:], rate.idx[1:]
 				}
 				if len(rate.ts) > rateMaxCalls {
 					rateHit = true
-					first := rate.evs[0]
+					first := ix.events[rate.idx[0]]
 					out = append(out, schema.Finding{
 						RuleID: "AGENT_RESOURCE_EXHAUSTION", Severity: "MEDIUM",
 						Title:       "Agent Tool-Call Rate Far Above Interactive Use",
@@ -740,7 +749,7 @@ func resourceExhaustion(ix *eventIndex) []schema.Finding {
 						SessionID:   e.SessionID, AgentID: e.AgentID,
 						Related:      []string{"first call in the window: " + ref(first)},
 						EvidenceRefs: []string{ref(first), ref(e)},
-						Status:       strongestState(rate.evs), Endpoint: schema.StateUnknown,
+						Status:       strongestState(evsOf(&rate)), Endpoint: schema.StateUnknown,
 						MitreATTACK: "T1496", MitreATLAS: "AML.T0034.002",
 						Confidence: "MEDIUM", Timestamp: first.Timestamp,
 						Reasons:       []string{"counted from the transcript's own timestamps on each tool call"},
@@ -763,15 +772,15 @@ func resourceExhaustion(ix *eventIndex) []schema.Finding {
 				w = &win{}
 				loops[k] = w
 			}
-			w.ts, w.evs = append(w.ts, t), append(w.evs, e)
+			w.ts, w.idx = append(w.ts, t), append(w.idx, i)
 			for len(w.ts) > 0 && t.Sub(w.ts[0]) > loopWindow {
-				w.ts, w.evs = w.ts[1:], w.evs[1:]
+				w.ts, w.idx = w.ts[1:], w.idx[1:]
 			}
 			if len(w.ts) < loopMinRepeats {
 				continue
 			}
 			loopHit = true
-			first := w.evs[0]
+			first := ix.events[w.idx[0]]
 			basis := "the same argument digest"
 			if e.ArgsDigest == "" {
 				basis = "the same command line"
@@ -784,7 +793,7 @@ func resourceExhaustion(ix *eventIndex) []schema.Finding {
 				SessionID: e.SessionID, AgentID: e.AgentID,
 				Related:      []string{"first call of the loop: " + ref(first)},
 				EvidenceRefs: []string{ref(first), ref(e)},
-				Status:       strongestState(w.evs), Endpoint: schema.StateUnknown,
+				Status:       strongestState(evsOf(w)), Endpoint: schema.StateUnknown,
 				MitreATTACK: "T1496", MitreATLAS: "AML.T0034.002",
 				Confidence: "MEDIUM", Timestamp: first.Timestamp,
 				Reasons:       []string{"calls are equal by " + basis + "; timestamps are the transcript's own"},

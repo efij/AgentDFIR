@@ -1,0 +1,4 @@
+{
+  "note": "Twin of mcp-call-undeclared-argument: the same captured declaration and the same call with only the declared arguments (query, limit). MCP_ARGUMENT_BEHAVIOR_MISMATCH must stay silent.",
+  "twin": "mcp-call-undeclared-argument"
+}

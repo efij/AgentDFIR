@@ -578,3 +578,29 @@ func TestPermissionStateDriftCeilingIsEarned(t *testing.T) {
 		t.Fatalf("a new session must start from its own launch mode, got %+v", got)
 	}
 }
+
+// TestPermissionStateDriftPromptLineOrder: the parser emits a line's
+// permission_change event before the line's own events, so when the mode
+// change is recorded on a prompt the person typed, the change comes first
+// and the prompt second, on the same source line. That prompt records the
+// person's decision. The same change followed by a prompt on a later line
+// is still reported.
+func TestPermissionStateDriftPromptLineOrder(t *testing.T) {
+	sameLine := func(b *evb) *evb {
+		n := len(b.evs)
+		b.evs[n-1].SourceLine = b.evs[n-2].SourceLine
+		return b
+	}
+	b := newEvb().modeLine(schema.EventHumanPrompt, "default").
+		add(schema.Event{EventType: schema.EventPermissionChange, PermissionFrom: "default", PermissionMode: "acceptEdits"}).
+		modeLine(schema.EventHumanPrompt, "acceptEdits")
+	if got := rules(RunAgentRules(sameLine(b).evs, "", nil), "AGENT_PERMISSION_STATE_DRIFT"); len(got) != 0 {
+		t.Fatalf("mode change recorded on the person's prompt line: unexpected %+v", got)
+	}
+	b = newEvb().modeLine(schema.EventHumanPrompt, "default").
+		add(schema.Event{EventType: schema.EventPermissionChange, PermissionFrom: "default", PermissionMode: "acceptEdits"}).
+		modeLine(schema.EventHumanPrompt, "acceptEdits")
+	if got := rules(RunAgentRules(b.evs, "", nil), "AGENT_PERMISSION_STATE_DRIFT"); len(got) != 1 {
+		t.Fatalf("prompt on a later line approves nothing before it: want one finding, got %+v", got)
+	}
+}

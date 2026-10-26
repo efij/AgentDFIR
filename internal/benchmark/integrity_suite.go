@@ -200,6 +200,7 @@ func runSuites(r *Report, o Options, work string, prov *provenanceChecker) {
 	logf("forensic interop: UFDR, AXIOM, Plaso, Autopsy")
 	runInterop(r, o, filepath.Join(work, "suites", "interop"))
 	detectionSuite(r, o)
+	runV5Suites(r, o, work, prov)
 	logf("evidence integrity: mutations, historical packages, Python verifier")
 	runEvidenceIntegrity(r, o, filepath.Join(work, "suites", "integrity"))
 }
@@ -235,6 +236,6 @@ func detectionSuite(r *Report, o Options) {
 			checks = append(checks, c)
 		}
 	}
-	sum := fmt.Sprintf("precision %s, recall %s (%d TP, %d FP, %d FN); %s", pct(d.Precision), pct(d.Recall), d.TP, d.FP, d.FN, strings.Join(parts, "; "))
+	sum := fmt.Sprintf("precision %s, recall %s on the synthetic corpus (%d TP, %d FP, %d FN); %s", pct(d.Precision), pct(d.Recall), d.TP, d.FP, d.FN, strings.Join(parts, "; "))
 	r.Suites = append(r.Suites, verdict("detection quality", sum, checks, failed))
 }
