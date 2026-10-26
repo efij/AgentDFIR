@@ -7,12 +7,12 @@ import (
 	"os"
 	"sort"
 
-	"github.com/efij/AgentDFIR/v4/internal/catalog"
-	"github.com/efij/AgentDFIR/v4/internal/chain"
-	"github.com/efij/AgentDFIR/v4/internal/export"
-	"github.com/efij/AgentDFIR/v4/internal/mitre"
-	"github.com/efij/AgentDFIR/v4/internal/mitre/coverage"
-	"github.com/efij/AgentDFIR/v4/internal/rulepack"
+	"github.com/efij/AgentDFIR/v5/internal/catalog"
+	"github.com/efij/AgentDFIR/v5/internal/chain"
+	"github.com/efij/AgentDFIR/v5/internal/export"
+	"github.com/efij/AgentDFIR/v5/internal/mitre"
+	"github.com/efij/AgentDFIR/v5/internal/mitre/coverage"
+	"github.com/efij/AgentDFIR/v5/internal/rulepack"
 )
 
 const rulesUsage = `usage:

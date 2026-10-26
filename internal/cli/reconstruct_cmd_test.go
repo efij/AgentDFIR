@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v4/internal/overlay"
-	"github.com/efij/AgentDFIR/v4/internal/reconstruct"
+	"github.com/efij/AgentDFIR/v5/internal/overlay"
+	"github.com/efij/AgentDFIR/v5/internal/reconstruct"
 )
 
 func TestReconstructCommand(t *testing.T) {

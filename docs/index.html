@@ -912,7 +912,7 @@ Result:             <span class="bad">FAILED — 2 problem(s):</span>
       <div><span>Chocolatey</span><code>choco install agentdfir</code></div>
       <div><span>Scoop</span><code>scoop bucket add agentdfir https://github.com/efij/scoop-agentdfir; scoop install agentdfir</code></div>
       <div><span>Windows (cmd or PowerShell)</span><code>powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex"</code></div>
-      <div><span>Go</span><code>go install github.com/efij/AgentDFIR/v4/cmd/agentdfir@latest</code></div>
+      <div><span>Go</span><code>go install github.com/efij/AgentDFIR/v5/cmd/agentdfir@latest</code></div>
       <div><span>Verify a release</span><span>Every asset ships a Sigstore bundle; <code>cosign verify-blob --offline</code> works air-gapped. <a class="more" style="margin:0" href="https://github.com/efij/AgentDFIR/blob/main/docs/install.md">Exact command</a></span></div>
     </div>
   </div>
@@ -1021,7 +1021,7 @@ Result:             <span class="bad">FAILED — 2 problem(s):</span>
     win:['>','powershell -NoProfile -ExecutionPolicy Bypass -Command "[Environment]::SetEnvironmentVariable(\'AGENTDFIR_RUN\',\'1\'); irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex"'],
     brew:['$','brew install efij/agentdfir/agentdfir && agentdfir run'],
     choco:['>','choco install agentdfir -y\nagentdfir run'],
-    go:['$','go install github.com/efij/AgentDFIR/v4/cmd/agentdfir@latest && agentdfir run']};
+    go:['$','go install github.com/efij/AgentDFIR/v5/cmd/agentdfir@latest && agentdfir run']};
   var os=/Win/.test(navigator.platform||navigator.userAgent)?'win':'unix';
   var body=document.getElementById('cmd-body'),p=document.getElementById('cmd-p'),tabs=document.querySelectorAll('.term-top button'),btn=document.getElementById('copy');
   function pick(k){os=k;p.textContent=C[k][0];body.textContent=C[k][1];tabs.forEach(function(t){t.setAttribute('aria-selected',String(t.dataset.os===k))})}

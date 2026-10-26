@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // Result summarises one enrichment pass.

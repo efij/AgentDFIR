@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/efij/AgentDFIR/v4/internal/sanitize"
-	"github.com/efij/AgentDFIR/v4/internal/unpack"
+	"github.com/efij/AgentDFIR/v5/internal/sanitize"
+	"github.com/efij/AgentDFIR/v5/internal/unpack"
 )
 
 // collectDocker snapshots a container filesystem (or a saved `docker

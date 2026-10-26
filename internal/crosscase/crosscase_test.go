@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/analysis"
-	"github.com/efij/AgentDFIR/v4/internal/casepkg"
-	"github.com/efij/AgentDFIR/v4/internal/collector"
-	"github.com/efij/AgentDFIR/v4/internal/products"
+	"github.com/efij/AgentDFIR/v5/internal/analysis"
+	"github.com/efij/AgentDFIR/v5/internal/casepkg"
+	"github.com/efij/AgentDFIR/v5/internal/collector"
+	"github.com/efij/AgentDFIR/v5/internal/products"
 )
 
 // Synthetic values only. The token is assembled at run time so the source

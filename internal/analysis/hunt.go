@@ -5,10 +5,10 @@ import (
 	"path"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/casepkg"
-	"github.com/efij/AgentDFIR/v4/internal/extinv"
-	"github.com/efij/AgentDFIR/v4/internal/ioc"
-	"github.com/efij/AgentDFIR/v4/internal/mcpaudit"
+	"github.com/efij/AgentDFIR/v5/internal/casepkg"
+	"github.com/efij/AgentDFIR/v5/internal/extinv"
+	"github.com/efij/AgentDFIR/v5/internal/ioc"
+	"github.com/efij/AgentDFIR/v5/internal/mcpaudit"
 )
 
 // SimulatedMarker is the file `agentdfir simulate` writes at a synthetic

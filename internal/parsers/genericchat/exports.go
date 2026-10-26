@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/casepkg"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/casepkg"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // parseExportConversations handles vendor account data exports

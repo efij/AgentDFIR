@@ -2,7 +2,7 @@
 package version
 
 // Version is the collector version. Overridable at build time via
-// -ldflags "-X github.com/efij/AgentDFIR/v4/internal/version.Version=vX.Y.Z".
+// -ldflags "-X github.com/efij/AgentDFIR/v5/internal/version.Version=vX.Y.Z".
 var Version = "5.0.0"
 
 // ADFIRVersion is the evidence package format version this binary writes.

@@ -4,7 +4,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 func TestOpenCodeStorage(t *testing.T) {

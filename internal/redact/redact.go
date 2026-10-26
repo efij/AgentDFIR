@@ -29,7 +29,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/secretpat"
+	"github.com/efij/AgentDFIR/v5/internal/secretpat"
 )
 
 // Category names as they appear in markers and the log.

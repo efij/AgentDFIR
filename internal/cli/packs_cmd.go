@@ -7,9 +7,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/productpack"
-	"github.com/efij/AgentDFIR/v4/internal/sanitize"
-	"github.com/efij/AgentDFIR/v4/internal/seal"
+	"github.com/efij/AgentDFIR/v5/internal/productpack"
+	"github.com/efij/AgentDFIR/v5/internal/sanitize"
+	"github.com/efij/AgentDFIR/v5/internal/seal"
 )
 
 const packsUsage = `usage:

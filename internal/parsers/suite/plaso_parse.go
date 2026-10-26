@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/parsers/plaso"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/parsers/plaso"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // maxTimelineEvents bounds the events one timeline (Plaso, Autopsy) yields.

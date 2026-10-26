@@ -22,12 +22,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/casepkg"
-	"github.com/efij/AgentDFIR/v4/internal/parsers/linereader"
-	"github.com/efij/AgentDFIR/v4/internal/parsers/segment"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
-	"github.com/efij/AgentDFIR/v4/internal/toolargs"
-	"github.com/efij/AgentDFIR/v4/internal/version"
+	"github.com/efij/AgentDFIR/v5/internal/casepkg"
+	"github.com/efij/AgentDFIR/v5/internal/parsers/linereader"
+	"github.com/efij/AgentDFIR/v5/internal/parsers/segment"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/toolargs"
+	"github.com/efij/AgentDFIR/v5/internal/version"
 )
 
 // MaxLineBytes bounds one transcript line (archive-bomb defense).

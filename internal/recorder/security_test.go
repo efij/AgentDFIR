@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/journal"
+	"github.com/efij/AgentDFIR/v5/internal/journal"
 )
 
 // A symlink planted in the state dir must never be written through.

@@ -11,7 +11,7 @@ import (
 	"time"
 	"unicode/utf16"
 
-	w "github.com/efij/AgentDFIR/v4/internal/endpoint/evtx/evtxtest"
+	w "github.com/efij/AgentDFIR/v5/internal/endpoint/evtx/evtxtest"
 )
 
 // TestGenerateV45RuleFixtures writes the synthetic corpus cases for the

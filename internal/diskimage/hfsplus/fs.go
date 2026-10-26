@@ -13,7 +13,7 @@ import (
 	"time"
 	"unicode/utf16"
 
-	"github.com/efij/AgentDFIR/v4/internal/diskimage/apfs"
+	"github.com/efij/AgentDFIR/v5/internal/diskimage/apfs"
 )
 
 // ---- extended attributes ----

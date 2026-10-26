@@ -8,10 +8,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/analysis"
-	"github.com/efij/AgentDFIR/v4/internal/extinv"
-	"github.com/efij/AgentDFIR/v4/internal/ioc"
-	"github.com/efij/AgentDFIR/v4/internal/sanitize"
+	"github.com/efij/AgentDFIR/v5/internal/analysis"
+	"github.com/efij/AgentDFIR/v5/internal/extinv"
+	"github.com/efij/AgentDFIR/v5/internal/ioc"
+	"github.com/efij/AgentDFIR/v5/internal/sanitize"
 )
 
 // cmdHunt answers "was this machine hit by X?" for the embedded incident

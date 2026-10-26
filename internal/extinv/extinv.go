@@ -33,7 +33,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/casepkg"
+	"github.com/efij/AgentDFIR/v5/internal/casepkg"
 )
 
 // Bounds for hostile input.

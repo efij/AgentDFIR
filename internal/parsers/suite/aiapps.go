@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/parsers/browser"
+	"github.com/efij/AgentDFIR/v5/internal/parsers/browser"
 )
 
 // AIApp is one AI assistant application a forensic suite may name as the

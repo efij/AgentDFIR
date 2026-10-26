@@ -3,7 +3,7 @@ package detect
 import (
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/shellshape"
+	"github.com/efij/AgentDFIR/v5/internal/shellshape"
 )
 
 // Shell-shape helpers shared by the precision-sensitive rules.

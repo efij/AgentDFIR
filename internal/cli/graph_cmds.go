@@ -10,12 +10,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/analysis"
-	"github.com/efij/AgentDFIR/v4/internal/crosscase"
-	"github.com/efij/AgentDFIR/v4/internal/gaps"
-	"github.com/efij/AgentDFIR/v4/internal/lineage"
-	"github.com/efij/AgentDFIR/v4/internal/overlay"
-	"github.com/efij/AgentDFIR/v4/internal/sanitize"
+	"github.com/efij/AgentDFIR/v5/internal/analysis"
+	"github.com/efij/AgentDFIR/v5/internal/crosscase"
+	"github.com/efij/AgentDFIR/v5/internal/gaps"
+	"github.com/efij/AgentDFIR/v5/internal/lineage"
+	"github.com/efij/AgentDFIR/v5/internal/overlay"
+	"github.com/efij/AgentDFIR/v5/internal/sanitize"
 )
 
 // The investigation layer: what the case does not show (gaps), who did

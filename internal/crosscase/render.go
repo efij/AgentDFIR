@@ -5,7 +5,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/sanitize"
+	"github.com/efij/AgentDFIR/v5/internal/sanitize"
 )
 
 // WriteText prints the comparison for a terminal.

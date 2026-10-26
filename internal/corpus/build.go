@@ -8,10 +8,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/efij/AgentDFIR/v4/internal/casepkg"
-	"github.com/efij/AgentDFIR/v4/internal/collector"
-	"github.com/efij/AgentDFIR/v4/internal/parsers/aiexport"
-	"github.com/efij/AgentDFIR/v4/internal/products"
+	"github.com/efij/AgentDFIR/v5/internal/casepkg"
+	"github.com/efij/AgentDFIR/v5/internal/collector"
+	"github.com/efij/AgentDFIR/v5/internal/parsers/aiexport"
+	"github.com/efij/AgentDFIR/v5/internal/products"
 )
 
 // BuildPackage collects one corpus case into a sealed package at pkg, the

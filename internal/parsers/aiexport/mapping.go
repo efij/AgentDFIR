@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/schema"
-	"github.com/efij/AgentDFIR/v4/internal/toolargs"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/toolargs"
 )
 
 // ChatGPT and DeepSeek store a conversation as a message tree:

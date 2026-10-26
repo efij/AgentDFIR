@@ -103,7 +103,7 @@ func TestOfflineFailsWhenSubjectDialsOut(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		bin += ".exe"
 	}
-	build := exec.Command("go", "build", "-tags", "selfcheck_dialout", "-o", bin, "github.com/efij/AgentDFIR/v4/cmd/agentdfir")
+	build := exec.Command("go", "build", "-tags", "selfcheck_dialout", "-o", bin, "github.com/efij/AgentDFIR/v5/cmd/agentdfir")
 	build.Env = os.Environ()
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Skipf("could not build tagged binary: %v: %s", err, out)

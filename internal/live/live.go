@@ -18,7 +18,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/casepkg"
+	"github.com/efij/AgentDFIR/v5/internal/casepkg"
 )
 
 // step is one volatile acquisition: a named artifact and the command

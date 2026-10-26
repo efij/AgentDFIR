@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/mcpaudit"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/mcpaudit"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 func TestSafeURLDropsCredentials(t *testing.T) {

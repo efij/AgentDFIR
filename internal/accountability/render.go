@@ -8,8 +8,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/report"
-	"github.com/efij/AgentDFIR/v4/internal/sanitize"
+	"github.com/efij/AgentDFIR/v5/internal/report"
+	"github.com/efij/AgentDFIR/v5/internal/sanitize"
 )
 
 // WriteJSON writes the report as one JSON document (docs/schema/accountability.schema.json).

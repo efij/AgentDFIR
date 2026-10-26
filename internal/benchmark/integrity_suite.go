@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/compat"
+	"github.com/efij/AgentDFIR/v5/internal/compat"
 )
 
 // EvidenceIntegrity is the evidence-integrity suite: the mutation suite

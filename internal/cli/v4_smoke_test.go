@@ -15,13 +15,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v4/internal/analysis"
-	"github.com/efij/AgentDFIR/v4/internal/casepkg"
-	"github.com/efij/AgentDFIR/v4/internal/collector"
-	"github.com/efij/AgentDFIR/v4/internal/gaps"
-	"github.com/efij/AgentDFIR/v4/internal/products"
-	"github.com/efij/AgentDFIR/v4/internal/report"
-	"github.com/efij/AgentDFIR/v4/internal/simulate"
+	"github.com/efij/AgentDFIR/v5/internal/analysis"
+	"github.com/efij/AgentDFIR/v5/internal/casepkg"
+	"github.com/efij/AgentDFIR/v5/internal/collector"
+	"github.com/efij/AgentDFIR/v5/internal/gaps"
+	"github.com/efij/AgentDFIR/v5/internal/products"
+	"github.com/efij/AgentDFIR/v5/internal/report"
+	"github.com/efij/AgentDFIR/v5/internal/simulate"
 )
 
 // Cross-feature smoke tests: features built separately, run end to end.

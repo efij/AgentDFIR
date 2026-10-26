@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/netdest"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
-	"github.com/efij/AgentDFIR/v4/internal/version"
+	"github.com/efij/AgentDFIR/v5/internal/netdest"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/version"
 )
 
 // --- OCSF 1.3 (Open Cybersecurity Schema Framework) ---

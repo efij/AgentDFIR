@@ -12,8 +12,8 @@ import (
 	"testing/fstest"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/diskimage/internal/fixture"
-	"github.com/efij/AgentDFIR/v4/internal/diskimage/internal/rofs"
+	"github.com/efij/AgentDFIR/v5/internal/diskimage/internal/fixture"
+	"github.com/efij/AgentDFIR/v5/internal/diskimage/internal/rofs"
 )
 
 func init() { rofs.RethrowPanics = true }

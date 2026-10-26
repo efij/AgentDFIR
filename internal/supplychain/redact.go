@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/detect"
+	"github.com/efij/AgentDFIR/v5/internal/detect"
 )
 
 // scpUserinfoRe matches the credential part of an scp-style or schemeless

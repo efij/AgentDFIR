@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v4/internal/mitre"
+	"github.com/efij/AgentDFIR/v5/internal/mitre"
 )
 
 // attackURLRe finds ATT&CK technique links in rule references.

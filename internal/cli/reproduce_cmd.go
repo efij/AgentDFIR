@@ -10,13 +10,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/analysis"
-	"github.com/efij/AgentDFIR/v4/internal/endpoint"
-	"github.com/efij/AgentDFIR/v4/internal/export"
-	"github.com/efij/AgentDFIR/v4/internal/overlay"
-	"github.com/efij/AgentDFIR/v4/internal/repro"
-	"github.com/efij/AgentDFIR/v4/internal/sanitize"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/analysis"
+	"github.com/efij/AgentDFIR/v5/internal/endpoint"
+	"github.com/efij/AgentDFIR/v5/internal/export"
+	"github.com/efij/AgentDFIR/v5/internal/overlay"
+	"github.com/efij/AgentDFIR/v5/internal/repro"
+	"github.com/efij/AgentDFIR/v5/internal/sanitize"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // sealedFiles are copied into a reproduction's work directory; raw/ is

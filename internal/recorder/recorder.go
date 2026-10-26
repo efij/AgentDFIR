@@ -32,8 +32,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/endpoint"
-	"github.com/efij/AgentDFIR/v4/internal/journal"
+	"github.com/efij/AgentDFIR/v5/internal/endpoint"
+	"github.com/efij/AgentDFIR/v5/internal/journal"
 )
 
 // Journal is what the recorder needs from internal/journal.

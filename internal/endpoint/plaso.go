@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/parsers/plaso"
+	"github.com/efij/AgentDFIR/v5/internal/parsers/plaso"
 )
 
 // FormatPlaso is a Plaso timeline written by psort (-o json_line or

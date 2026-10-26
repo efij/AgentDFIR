@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v4/internal/compat"
-	"github.com/efij/AgentDFIR/v4/internal/integrity"
-	"github.com/efij/AgentDFIR/v4/internal/repro"
+	"github.com/efij/AgentDFIR/v5/internal/compat"
+	"github.com/efij/AgentDFIR/v5/internal/integrity"
+	"github.com/efij/AgentDFIR/v5/internal/repro"
 )
 
 // Conformance fixtures for the .adfir format live at the repository root,

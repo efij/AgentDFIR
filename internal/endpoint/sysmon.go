@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/endpoint/evtx"
+	"github.com/efij/AgentDFIR/v5/internal/endpoint/evtx"
 )
 
 // Sysmon operational log exported as XML (wevtutil qe

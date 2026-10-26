@@ -12,7 +12,7 @@ package correlate
 import (
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // Observation is one independent endpoint fact from an external source.

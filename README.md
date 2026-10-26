@@ -83,7 +83,7 @@ brew install efij/agentdfir/agentdfir
 scoop bucket add agentdfir https://github.com/efij/scoop-agentdfir; scoop install agentdfir
 
 # Go toolchain
-go install github.com/efij/AgentDFIR/v4/cmd/agentdfir@latest
+go install github.com/efij/AgentDFIR/v5/cmd/agentdfir@latest
 
 # From source
 go build -trimpath -o agentdfir ./cmd/agentdfir

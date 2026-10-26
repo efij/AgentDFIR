@@ -12,13 +12,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/analysis"
-	"github.com/efij/AgentDFIR/v4/internal/corpus"
-	"github.com/efij/AgentDFIR/v4/internal/correlate"
-	"github.com/efij/AgentDFIR/v4/internal/crosscase"
-	"github.com/efij/AgentDFIR/v4/internal/endpoint"
-	"github.com/efij/AgentDFIR/v4/internal/lineage"
-	"github.com/efij/AgentDFIR/v4/internal/overlay"
+	"github.com/efij/AgentDFIR/v5/internal/analysis"
+	"github.com/efij/AgentDFIR/v5/internal/corpus"
+	"github.com/efij/AgentDFIR/v5/internal/correlate"
+	"github.com/efij/AgentDFIR/v5/internal/crosscase"
+	"github.com/efij/AgentDFIR/v5/internal/endpoint"
+	"github.com/efij/AgentDFIR/v5/internal/lineage"
+	"github.com/efij/AgentDFIR/v5/internal/overlay"
 )
 
 func loadSrv(t *testing.T, pkg string) (*Server, *httptest.Server) {

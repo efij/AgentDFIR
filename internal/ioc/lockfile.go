@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // Lockfiles are the answer to "did we install a bad version?" — the first

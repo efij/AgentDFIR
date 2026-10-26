@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // A credential-shaped value assembled at run time so the source file does

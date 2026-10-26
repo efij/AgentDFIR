@@ -10,14 +10,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/analysis"
-	"github.com/efij/AgentDFIR/v4/internal/casepkg"
-	"github.com/efij/AgentDFIR/v4/internal/collector"
-	"github.com/efij/AgentDFIR/v4/internal/corpus"
-	"github.com/efij/AgentDFIR/v4/internal/crosscase"
-	"github.com/efij/AgentDFIR/v4/internal/products"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
-	"github.com/efij/AgentDFIR/v4/internal/simulate"
+	"github.com/efij/AgentDFIR/v5/internal/analysis"
+	"github.com/efij/AgentDFIR/v5/internal/casepkg"
+	"github.com/efij/AgentDFIR/v5/internal/collector"
+	"github.com/efij/AgentDFIR/v5/internal/corpus"
+	"github.com/efij/AgentDFIR/v5/internal/crosscase"
+	"github.com/efij/AgentDFIR/v5/internal/products"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/simulate"
 )
 
 // The two-host fixture. Host A is the simulate package's own scenarios

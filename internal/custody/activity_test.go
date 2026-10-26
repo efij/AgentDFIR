@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v4/internal/casepkg"
+	"github.com/efij/AgentDFIR/v5/internal/casepkg"
 )
 
 // sealedCase makes a minimal sealed package so Append has a case.json and a

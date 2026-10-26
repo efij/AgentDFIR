@@ -8,11 +8,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v4/internal/casepkg"
-	"github.com/efij/AgentDFIR/v4/internal/collector"
-	"github.com/efij/AgentDFIR/v4/internal/normalize"
-	"github.com/efij/AgentDFIR/v4/internal/products"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/casepkg"
+	"github.com/efij/AgentDFIR/v5/internal/collector"
+	"github.com/efij/AgentDFIR/v5/internal/normalize"
+	"github.com/efij/AgentDFIR/v5/internal/products"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // bigPackage builds a package whose transcript is large enough to be

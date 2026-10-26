@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/endpoint"
+	"github.com/efij/AgentDFIR/v5/internal/endpoint"
 )
 
 // Per-kind, per-host coverage.

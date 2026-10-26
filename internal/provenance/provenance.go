@@ -20,9 +20,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/efij/AgentDFIR/v4/internal/casepkg"
-	"github.com/efij/AgentDFIR/v4/internal/detect"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/casepkg"
+	"github.com/efij/AgentDFIR/v5/internal/detect"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // MaxFileBytes bounds an instruction file we attribute line by line.

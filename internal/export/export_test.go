@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v4/internal/repro"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/repro"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 func TestSTIXBundleValidShape(t *testing.T) {

@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/diskimage/lvm"
+	"github.com/efij/AgentDFIR/v5/internal/diskimage/lvm"
 )
 
 // LVM2 as a volume source. After the partition table is read, every volume

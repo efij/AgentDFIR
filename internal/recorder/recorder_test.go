@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/hashchain"
-	"github.com/efij/AgentDFIR/v4/internal/journal"
+	"github.com/efij/AgentDFIR/v5/internal/hashchain"
+	"github.com/efij/AgentDFIR/v5/internal/journal"
 )
 
 // auditLines returns n auditd SYSCALL+EXECVE event pairs starting at serial.

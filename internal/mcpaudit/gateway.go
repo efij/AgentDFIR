@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // MCP gateway adapter. Organizations that front all MCP traffic with a

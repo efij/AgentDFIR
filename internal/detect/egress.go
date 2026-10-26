@@ -5,10 +5,10 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/decode"
-	"github.com/efij/AgentDFIR/v4/internal/netdest"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
-	"github.com/efij/AgentDFIR/v4/internal/shellshape"
+	"github.com/efij/AgentDFIR/v5/internal/decode"
+	"github.com/efij/AgentDFIR/v5/internal/netdest"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/shellshape"
 )
 
 // githubRepoCreateRe: creating a repository or gist from the command line.

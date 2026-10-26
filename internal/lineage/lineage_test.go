@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/accounts"
-	"github.com/efij/AgentDFIR/v4/internal/correlate"
-	"github.com/efij/AgentDFIR/v4/internal/endpoint"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/accounts"
+	"github.com/efij/AgentDFIR/v5/internal/correlate"
+	"github.com/efij/AgentDFIR/v5/internal/endpoint"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 var t0 = time.Date(2026, 10, 2, 13, 0, 0, 0, time.UTC)

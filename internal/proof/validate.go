@@ -5,10 +5,10 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/correlate"
-	"github.com/efij/AgentDFIR/v4/internal/endpoint"
-	"github.com/efij/AgentDFIR/v4/internal/lineage"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/correlate"
+	"github.com/efij/AgentDFIR/v5/internal/endpoint"
+	"github.com/efij/AgentDFIR/v5/internal/lineage"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // The overlay the report reads is regenerable analysis output, not sealed

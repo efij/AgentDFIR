@@ -12,12 +12,12 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/agentcli"
-	"github.com/efij/AgentDFIR/v4/internal/decode"
-	"github.com/efij/AgentDFIR/v4/internal/detect"
-	"github.com/efij/AgentDFIR/v4/internal/mcpaudit"
-	"github.com/efij/AgentDFIR/v4/internal/netdest"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/agentcli"
+	"github.com/efij/AgentDFIR/v5/internal/decode"
+	"github.com/efij/AgentDFIR/v5/internal/detect"
+	"github.com/efij/AgentDFIR/v5/internal/mcpaudit"
+	"github.com/efij/AgentDFIR/v5/internal/netdest"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 func stripJSONC(b []byte) []byte { return mcpaudit.StripJSONC(b) }

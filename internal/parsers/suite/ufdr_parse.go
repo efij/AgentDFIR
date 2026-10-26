@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // normalizedMeta maps report metadata item names (case-insensitive

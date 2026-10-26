@@ -12,9 +12,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/netdest"
-	"github.com/efij/AgentDFIR/v4/internal/redact"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/netdest"
+	"github.com/efij/AgentDFIR/v5/internal/redact"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // Link kinds. The artifact kinds join on something the steps touched; the

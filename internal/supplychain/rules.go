@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/chain"
-	"github.com/efij/AgentDFIR/v4/internal/notes"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/chain"
+	"github.com/efij/AgentDFIR/v5/internal/notes"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // maliciousRules are the findings that mark a component as carrying
