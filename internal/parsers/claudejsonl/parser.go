@@ -23,6 +23,7 @@ import (
 	"github.com/efij/AgentDFIR/v4/internal/parsers/linereader"
 	"github.com/efij/AgentDFIR/v4/internal/parsers/segment"
 	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/toolargs"
 	"github.com/efij/AgentDFIR/v4/internal/version"
 )
 
@@ -179,6 +180,7 @@ func parseWith(pkgDir string, sink func(schema.Event), cache segment.Cache) (*Re
 	res := &Result{}
 	p := &parser{res: res, sink: sink, caseID: man.CaseID, host: man.Host,
 		entities: map[string]schema.Entity{}, spawned: map[string]string{}}
+	p.startArtifact()
 	for _, a := range man.Current() {
 		if a.Status != casepkg.StatusOK {
 			continue
@@ -189,7 +191,11 @@ func parseWith(pkgDir string, sink func(schema.Event), cache segment.Cache) (*Re
 			// Cowork session metadata: not a transcript, one JSON document.
 			// Small, and its events depend only on itself, so it goes
 			// through the same cache protocol as a transcript.
-			if err := p.cached(cache, a, func() error { return p.parseSidecar(store, a, stem) }); err != nil {
+			if err := p.cached(cache, a, func() error {
+				p.startArtifact()
+				defer p.endArtifact()
+				return p.parseSidecar(store, a, stem)
+			}); err != nil {
 				return nil, fmt.Errorf("%s: %w", a.LogicalPath, err)
 			}
 			continue
@@ -244,12 +250,41 @@ type parser struct {
 	// rec, when set, captures the entity and relationship calls made while
 	// reading the current artifact so the overlay can replay them later.
 	rec *segment.Recorder
+	// live is set when tailing a running session (no pairing hold-back).
+	live bool
 	// product is the product id stamped on events from the current
 	// artifact: claude-code for CLI transcripts, claude-cowork for the
 	// desktop app's sessions. Same format, different evidence source.
 	product string
 	// audit counters for the current audit.jsonl artifact.
 	auditLines, auditSigned int
+	// pair links tool calls and results inside one artifact (nil when
+	// tailing live, where events must not be held back).
+	pair *toolargs.Pairer
+	// modes is the last permission mode recorded per session in the
+	// current artifact; spawnCalls maps a subagent id to the Agent/Task
+	// tool call that launched it, as recorded in the current artifact.
+	// Both are per artifact so a cached replay and a fresh parse agree.
+	modes      map[string]string
+	spawnCalls map[string]string
+}
+
+// maxTracked bounds the per-artifact session and subagent maps.
+const maxTracked = 4096
+
+// startArtifact resets the per-artifact pairing and mode state.
+func (p *parser) startArtifact() {
+	p.modes, p.spawnCalls = map[string]string{}, map[string]string{}
+	if p.pair == nil && !p.live {
+		p.pair = toolargs.NewPairer(p.deliver)
+	}
+}
+
+// endArtifact releases every event still held for pairing.
+func (p *parser) endArtifact() {
+	if p.pair != nil {
+		p.pair.End()
+	}
 }
 
 // transcriptRules are the collector rules whose .jsonl artifacts are
@@ -316,6 +351,8 @@ func (p *parser) parseTranscript(store *casepkg.Store, art casepkg.ArtifactRecor
 		return err
 	}
 	defer f.Close()
+	p.startArtifact()
+	defer p.endArtifact()
 
 	p.auditLines, p.auditSigned = 0, 0
 	// Cowork's audit log opens under the Cowork session id (the first user
@@ -429,6 +466,15 @@ func (p *parser) handleLine(tl transcriptLine, art casepkg.ArtifactRecord, off i
 		SessionID: tl.SessionID, AgentID: agentID,
 		ProductVersion: tl.Version, PermissionMode: trim(tl.PermissionMode, 40),
 	}
+	// Delegation: the audit dialect names the launching call on every
+	// subagent line; the CLI transcript only flags the line as a sidechain,
+	// and the launching call is known when this artifact recorded the
+	// spawn of this agent id.
+	base.ParentToolCallID = trim(tl.ParentToolUseID, 128)
+	if base.ParentToolCallID == "" && tl.IsSidechain && tl.AgentID != "" {
+		base.ParentToolCallID = p.spawnCalls[tl.AgentID]
+	}
+	mode := p.trackMode(base, art, off, line)
 
 	var msg messageBody
 	if len(tl.Message) > 0 {
@@ -452,6 +498,12 @@ func (p *parser) handleLine(tl transcriptLine, art casepkg.ArtifactRecord, off i
 					// Rules that ask "did the action complete" read this.
 					ev.Result = "error"
 				}
+				ev.ResultDigest = toolargs.Digest(it.Content)
+				ev.ResultStatus = resultStatus(it, tl.ToolUseResult)
+				if ev.ResultStatus == "denied" {
+					ev.ApprovalState = "denied"
+				}
+				ev.InputModality = blockModality(it.Content)
 				p.emit(ev, art, off, line)
 				emittedToolResult = true
 				// The child id of an Agent/Task launch arrives on the RESULT
@@ -477,6 +529,7 @@ func (p *parser) handleLine(tl transcriptLine, art casepkg.ArtifactRecord, off i
 						sp.Summary += " (" + status + ")"
 					}
 					p.spawned[child] = fmt.Sprintf("evt-%06d", p.seq)
+					p.noteSpawn(child, it.ToolUseID)
 					p.emit(sp, art, off, line)
 				}
 			}
@@ -493,6 +546,7 @@ func (p *parser) handleLine(tl transcriptLine, art casepkg.ArtifactRecord, off i
 			}
 			ev.Corroboration = schema.StateObserved
 			ev.Summary = trim(text, 200)
+			ev.InputModality = itemsModality(items)
 			p.emit(ev, art, off, line)
 		}
 	case "assistant":
@@ -519,6 +573,8 @@ func (p *parser) handleLine(tl transcriptLine, art casepkg.ArtifactRecord, off i
 			ev.ToolCallID = it.ID
 			ev.Corroboration = schema.StateObserved
 			p.decorateToolCall(&ev, it)
+			toolargs.Apply(&ev, it.Input)
+			ev.ApprovalState = autoApproval(mode, it.Name)
 			p.emit(ev, art, off, line)
 
 			if isSpawnTool(it.Name) {
@@ -541,6 +597,7 @@ func (p *parser) handleLine(tl transcriptLine, art casepkg.ArtifactRecord, off i
 				if child != "" {
 					sp.TaskID = child
 					p.spawned[child] = fmt.Sprintf("evt-%06d", p.seq)
+					p.noteSpawn(child, it.ID)
 				}
 				p.emit(sp, art, off, line)
 			}
@@ -652,10 +709,10 @@ func (p *parser) emit(ev schema.Event, art casepkg.ArtifactRecord, off int64, li
 		ev.Corroboration = schema.StateUnknown
 	}
 	p.seq++
-	if p.sink != nil {
-		p.sink(ev)
+	if p.pair != nil {
+		p.pair.Push(ev)
 	} else {
-		p.res.Events = append(p.res.Events, ev)
+		p.deliver(ev)
 	}
 
 	// Evidence-backed relationships for notable events.
@@ -673,6 +730,15 @@ func (p *parser) emit(ev schema.Event, art casepkg.ArtifactRecord, off int64, li
 				DerivedFrom: []string{ev.EventID}, Corroboration: ev.Corroboration,
 			})
 		}
+	}
+}
+
+// deliver hands one finished event to the sink or the result.
+func (p *parser) deliver(ev schema.Event) {
+	if p.sink != nil {
+		p.sink(ev)
+	} else {
+		p.res.Events = append(p.res.Events, ev)
 	}
 }
 
@@ -821,8 +887,10 @@ func NewLive(host string, sink func(schema.Event)) *Live {
 // NewLiveProduct is NewLive for another product that writes the same
 // transcript format (Cowork).
 func NewLiveProduct(product, host string, sink func(schema.Event)) *Live {
-	return &Live{p: &parser{res: &Result{}, sink: sink, caseID: "live", host: host, product: product,
-		entities: map[string]schema.Entity{}, spawned: map[string]string{}}}
+	lp := &parser{res: &Result{}, sink: sink, caseID: "live", host: host, product: product, live: true,
+		entities: map[string]schema.Entity{}, spawned: map[string]string{}}
+	lp.startArtifact()
+	return &Live{p: lp}
 }
 
 // Line feeds one raw JSONL line; malformed lines become trace_gap events.
@@ -892,4 +960,139 @@ func danglingByDesign(recType string) bool {
 		return true
 	}
 	return false
+}
+
+// trackMode records the permission mode in force for the line's agent in
+// this session and returns it: the line's own mode, or the last one this
+// artifact recorded for that agent when the line carries none (Claude Code
+// writes permissionMode on user lines, not on the assistant lines that
+// carry tool calls). When a line records a mode different from the last
+// one, a permission_change event is emitted at that line first.
+func (p *parser) trackMode(base schema.Event, art casepkg.ArtifactRecord, off int64, line int) string {
+	key := base.SessionID + "\x00" + base.AgentID
+	prev, seen := p.modes[key]
+	m := base.PermissionMode
+	if m == "" {
+		return prev
+	}
+	if prev != "" && prev != m {
+		ev := base
+		ev.EventType = schema.EventPermissionChange
+		ev.ActorType = schema.ActorSystem
+		ev.PermissionFrom = prev
+		ev.Result = "permission_change"
+		ev.Summary = "permission mode " + prev + " → " + m
+		ev.Corroboration = schema.StateObserved
+		p.emit(ev, art, off, line)
+	}
+	if seen || len(p.modes) < maxTracked {
+		p.modes[key] = m
+	}
+	return m
+}
+
+// noteSpawn remembers which tool call launched a subagent.
+func (p *parser) noteSpawn(child, callID string) {
+	if child == "" || callID == "" {
+		return
+	}
+	if _, ok := p.spawnCalls[child]; ok || len(p.spawnCalls) < maxTracked {
+		p.spawnCalls[child] = trim(callID, 128)
+	}
+}
+
+// editTools are the tools acceptEdits approves without asking.
+var editTools = map[string]bool{"Write": true, "Edit": true, "MultiEdit": true, "NotebookEdit": true}
+
+// autoApproval is the approval the recorded permission mode grants a tool
+// call without a prompt: every call under bypassPermissions, file edits
+// under acceptEdits. Any other mode records no decision on the call line,
+// so the state stays empty. A denial recorded on the result overrides it
+// (see toolargs.Pairer).
+func autoApproval(mode, tool string) string {
+	switch {
+	case mode == "bypassPermissions":
+		return "auto_approved"
+	case mode == "acceptEdits" && editTools[tool]:
+		return "auto_approved"
+	}
+	return ""
+}
+
+// Refusal texts Claude Code writes into a tool_result it flags is_error
+// when a person rejected the call or the permission system refused it.
+var (
+	denialPrefixes = []string{
+		"The user doesn't want to proceed with this tool use",
+		"The user doesn't want to take this action right now",
+		"User rejected tool use",
+		"Permission to use ",
+	}
+)
+
+// resultStatus is the outcome the transcript records for a tool result:
+// "denied" when the client flagged it is_error with one of its rejection
+// texts, "error" when flagged is_error otherwise, "ok" when not flagged.
+// The text alone never makes a denial: a file that happens to contain the
+// sentence is read without is_error.
+func resultStatus(it contentItem, toolUseResult json.RawMessage) string {
+	if !it.IsError {
+		return "ok"
+	}
+	texts := []string{flatText(it.Content)}
+	var s string
+	if json.Unmarshal(toolUseResult, &s) == nil {
+		texts = append(texts, s)
+	}
+	for _, t := range texts {
+		t = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(t), "Error:"))
+		for _, pre := range denialPrefixes {
+			if !strings.HasPrefix(t, pre) {
+				continue
+			}
+			if pre == "Permission to use " && !strings.Contains(firstLine(t), " has been denied") {
+				continue
+			}
+			return "denied"
+		}
+		if strings.Contains(t, "requested permissions to use") && strings.Contains(t, "haven't granted it yet") {
+			return "denied"
+		}
+	}
+	return "error"
+}
+
+func firstLine(s string) string {
+	if i := strings.IndexByte(s, '\n'); i >= 0 {
+		return s[:i]
+	}
+	return s
+}
+
+// itemsModality names the first non-text input block of a message.
+func itemsModality(items []contentItem) string {
+	for _, it := range items {
+		switch it.Type {
+		case "image":
+			return "image"
+		case "document":
+			return "document"
+		case "audio", "input_audio":
+			return "audio"
+		}
+	}
+	return ""
+}
+
+// blockModality is itemsModality over a tool_result's content array.
+func blockModality(raw json.RawMessage) string {
+	b := bytes.TrimSpace(raw)
+	if len(b) == 0 || b[0] != '[' {
+		return ""
+	}
+	var items []contentItem
+	if json.Unmarshal(b, &items) != nil {
+		return ""
+	}
+	return itemsModality(items)
 }

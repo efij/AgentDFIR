@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v4/internal/toolargs"
 )
 
 // ChatGPT and DeepSeek store a conversation as a message tree:
@@ -238,6 +239,7 @@ func (p *parser) treeMessage(sid, defaultModel string, loc *located, result stri
 		}
 		switch {
 		case recipient != "" && recipient != "all":
+			toolargs.Apply(&ev, []byte(text))
 			p.toolCall(ev, recipient, m.ID, text)
 		case text != "":
 			if kind == "thoughts" || kind == "reasoning_recap" {
@@ -249,6 +251,7 @@ func (p *parser) treeMessage(sid, defaultModel string, loc *located, result stri
 		}
 	case "tool":
 		ev.Model = ""
+		ev.ResultDigest = toolargs.DigestString(text)
 		p.toolResult(ev, author.Name, "", text)
 	case "system":
 		s := "system message"
