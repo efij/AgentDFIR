@@ -33,8 +33,11 @@ var stageRank = func() map[string]int {
 
 // techniqueStage maps the ATT&CK technique ids the rule packs use to the
 // stage they belong to. A technique ATT&CK files under several tactics is
-// placed where AgentDFIR's rules use it (T1562 impair defenses and T1070
-// indicator removal are both what an analyst calls anti-forensics). A
+// placed where AgentDFIR's rules use it (T1685 disable or modify tools,
+// T1686 disable or modify system firewall and T1070 indicator removal are
+// all what an analyst calls anti-forensics). T1562 is revoked in ATT&CK
+// v20.0 (internal/mitre/data/migrations.json) and stays mapped only so
+// findings stored by earlier releases still stage. A
 // technique missing here leaves its finding unstaged, and the report says
 // how many were.
 var techniqueStage = map[string]string{
@@ -64,11 +67,12 @@ var techniqueStage = map[string]string{
 	"T1485": StageImpact, "T1486": StageImpact, "T1490": StageImpact,
 	"T1561": StageImpact, "T1496": StageImpact,
 	// anti-forensics
-	"T1070": StageAntiForensics, "T1562": StageAntiForensics, "T1564": StageAntiForensics,
+	"T1070": StageAntiForensics, "T1685": StageAntiForensics, "T1686": StageAntiForensics,
+	"T1564": StageAntiForensics, "T1562": StageAntiForensics,
 }
 
 // TechniqueStage returns the stage of an ATT&CK technique id ("T1048",
-// "T1562.001"), or "" when it is not mapped.
+// "T1685.002"), or "" when it is not mapped.
 func TechniqueStage(t string) string {
 	t = strings.ToUpper(strings.TrimSpace(t))
 	if i := strings.IndexByte(t, '.'); i > 0 {

@@ -10,12 +10,13 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$HERE/docs/detection-coverage.md"
-TMP="$(mktemp)"
+TMP="$(mktemp "${TMPDIR:-/tmp}/coverage.XXXXXX")"
 trap 'rm -f "$TMP"' EXIT
 
 (cd "$HERE" && go run ./cmd/agentdfir rules list --packs rules --json) > "$TMP"
 
 ATLAS_VER="$(jq -r .atlas_version "$TMP")"
+ATTACK_VER="$(jq -r .attack_version "$TMP")"
 TOTAL="$(jq '.rules|length' "$TMP")"
 BUILTIN="$(jq '[.rules[]|select(.source=="builtin")]|length' "$TMP")"
 PACK="$(jq '[.rules[]|select(.source!="builtin")]|length' "$TMP")"
@@ -35,10 +36,12 @@ cat <<EOF
 | Rules (built-in + shipped packs) | **$TOTAL** ($BUILTIN built-in, $PACK in \`rules/\`) |
 | HIGH / CRITICAL rules | $HIGHCRIT, of which **$HIGHCRIT_MAPPED** carry a MITRE mapping |
 | Distinct MITRE ATLAS techniques covered | **$ATLAS_TECH** (ATLAS $ATLAS_VER) |
-| Distinct MITRE ATT&CK techniques covered | **$ATTACK_TECH** |
+| Distinct MITRE ATT&CK techniques covered | **$ATTACK_TECH** (ATT&CK Enterprise v$ATTACK_VER) |
 
 Every HIGH/CRITICAL rule must map to at least one MITRE technique; every
-\`mitre_atlas\` value must exist in the embedded ATLAS release. Both are
+\`mitre_atlas\` value must exist in the embedded ATLAS release, and every
+\`mitre_attack\` value must be an active (not revoked, not deprecated)
+technique in the pinned ATT&CK Enterprise release. All three are
 enforced by tests (\`internal/rulepack/mitre_test.go\`, \`internal/catalog\`).
 The HIGH built-ins without a mapping (\`ORPHAN_AGENT\`, \`CROSS_SESSION_MESSAGE\`)
 describe agent topology and evidence quality, not an adversary technique, and
@@ -50,6 +53,10 @@ Reproduce this table locally:
 agentdfir rules list --packs rules          # human-readable
 agentdfir rules list --packs rules --json   # machine-readable
 \`\`\`
+
+Which ATLAS techniques an endpoint and agent forensic tool can observe at
+all, and which of those these rules answer, is in
+[atlas-coverage.md](atlas-coverage.md) (\`agentdfir rules coverage\`).
 
 ## MITRE ATLAS techniques → rules
 

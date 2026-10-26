@@ -74,7 +74,7 @@ pid. Auth.log / journal process lines are never lineage input.
 
 ### AGENT_LOGGING_DISRUPTED
 - **Logic:** each invocation of an agent-descended process is judged on its argv (wrappers such as `sudo`, `env`, `nohup`, `timeout` are unwrapped; `bash -c` scripts are parsed): `systemctl stop|disable|mask|kill` / `service … stop` of a logging unit, `auditctl -D` / `-e 0`, `pkill|killall|taskkill` of a logger, `launchctl unload|bootout|disable|remove` of auditd/logd/syslogd/EDR labels, `log config --mode level:off`, `journalctl --vacuum-*`, `wevtutil cl` / `sl … /e:false`, `auditpol /clear|/remove`, `sysmon -u`, `fltmc unload SysmonDrv`, `sc stop|delete|config` of Sysmon/EventLog, PowerShell `Clear-EventLog` / `Stop-Service EventLog`; an eslogger signal from the agent's tree to a logging process; an EVTX 1102/104 inside an agent session (±2 min). `systemctl status`, `grep auditd`, `launchctl print`, `kill <pid>` (target unknown) do not match.
-- **Severity:** HIGH (T1562.001) when any act is attributed to the agent's tree; MEDIUM (T1070.001) when only a log clear overlaps a session in time.
+- **Severity:** HIGH (T1685) when any act is attributed to the agent's tree; MEDIUM (T1685.005) when only a log clear overlaps a session in time.
 - **False positives:** logging-pipeline maintenance asked of the agent; an administrator clearing a log during a session.
 
 ### AGENT_EVIDENCE_SOURCE_DELETED

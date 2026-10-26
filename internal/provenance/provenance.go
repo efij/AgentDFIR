@@ -423,7 +423,7 @@ func evaluate(rep *Report, writes []Write) []schema.Finding {
 					RuleID: "INSTRUCTION_WRITTEN_BY_SUBAGENT", Severity: "MEDIUM", Title: "Subagent Modified a Persistent Instruction File",
 					Description: fmt.Sprintf("Subagent %s wrote line %d of %s. Delegated agents changing the parent's standing instructions widens blast radius and is rarely intended.", la.AgentID, la.Line, fr.LogicalPath),
 					SessionID:   la.SessionID, AgentID: la.AgentID, EvidenceRefs: []string{la.Evidence},
-					Status: schema.StateObserved, Endpoint: schema.StateUnknown, MitreATTACK: "T1562.001",
+					Status: schema.StateObserved, Endpoint: schema.StateUnknown, MitreATTACK: "T1685",
 					FalsePositive: "Orchestrations that intentionally let subagents maintain memory.",
 				})
 			}

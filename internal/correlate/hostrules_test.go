@@ -193,7 +193,7 @@ func TestLoggingDisrupted(t *testing.T) {
 	}
 	clear := endpoint.Record{Time: ht(30), Kind: "log-clear", User: `DESK\dev`, Source: "evtx", Ref: "1102"}
 	by, cov := hostRun(t, events, clear)
-	if f := by["AGENT_LOGGING_DISRUPTED"]; len(f) != 1 || f[0].Severity != "MEDIUM" || f[0].MitreATTACK != "T1070.001" || !cov["AGENT_LOGGING_DISRUPTED"].Evaluated {
+	if f := by["AGENT_LOGGING_DISRUPTED"]; len(f) != 1 || f[0].Severity != "MEDIUM" || f[0].MitreATTACK != "T1685.005" || !cov["AGENT_LOGGING_DISRUPTED"].Evaluated {
 		t.Fatalf("log clear: %+v", f)
 	}
 	clear.Time = ht(3 * 3600)
