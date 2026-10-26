@@ -1,0 +1,14 @@
+{
+  "migrations": [
+    {"old": "T1562", "new": "T1685", "catalog": "ATT&CK Enterprise", "version": "20.0", "reason": "T1562 Impair Defenses is revoked; ATT&CK v20.0 revoked-by points to T1685 Disable or Modify Tools."},
+    {"old": "T1562.001", "new": "T1685", "catalog": "ATT&CK Enterprise", "version": "20.0", "reason": "T1562.001 Disable or Modify Tools is revoked and promoted to the top-level technique T1685."},
+    {"old": "T1562.002", "new": "T1685.001", "catalog": "ATT&CK Enterprise", "version": "20.0", "reason": "T1562.002 Disable Windows Event Logging is revoked by T1685.001 Disable or Modify Windows Event Log (cited only as a rule reference URL)."},
+    {"old": "T1562.004", "new": "T1686", "catalog": "ATT&CK Enterprise", "version": "20.0", "reason": "T1562.004 Disable or Modify System Firewall is revoked and promoted to the top-level technique T1686."},
+    {"old": "T1562.008", "new": "T1685.002", "catalog": "ATT&CK Enterprise", "version": "20.0", "reason": "T1562.008 Disable or Modify Cloud Logs is revoked by T1685.002 Disable or Modify Cloud Log."},
+    {"old": "T1070.001", "new": "T1685.005", "catalog": "ATT&CK Enterprise", "version": "20.0", "reason": "T1070.001 Clear Windows Event Logs is revoked and moved under T1685 as T1685.005."},
+    {"old": "T1070.002", "new": "T1685.006", "catalog": "ATT&CK Enterprise", "version": "20.0", "reason": "T1070.002 Clear Linux or Mac System Logs is revoked and moved under T1685 as T1685.006."},
+    {"old": "AML.T0019", "new": "AML.T0115.000", "catalog": "ATLAS", "version": "2026.09", "reason": "Publish Poisoned Datasets is removed in 2026.09; the same scope is now Publish Poisoned AI Artifacts: Datasets. No rule cited it."},
+    {"old": "AML.T0058", "new": "AML.T0115.001", "catalog": "ATLAS", "version": "2026.09", "reason": "Publish Poisoned Models is removed in 2026.09; the same scope is now Publish Poisoned AI Artifacts: Models. No rule cited it."},
+    {"old": "AML.T0104", "new": "AML.T0115.002", "catalog": "ATLAS", "version": "2026.09", "reason": "Publish Poisoned AI Agent Tool is removed in 2026.09; the same scope is now Publish Poisoned AI Artifacts: AI Agent Tools. No rule cited it."}
+  ]
+}
