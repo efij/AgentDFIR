@@ -233,6 +233,10 @@ func permissionStateDrift(ix *eventIndex) []schema.Finding {
 		last, lastEv := "", schema.Event{}
 		acc := false // a recorded approval since the last line in the old mode
 		n := 0
+		// ceiling is the widest mode the session already held. Returning
+		// to it (bypass → default → acceptEdits) widens nothing the
+		// session had not been given before.
+		ceiling := -1
 		for _, i := range ix.byAgent[a] {
 			e := ix.events[i]
 			own := recordedApproval(ix, e)
@@ -247,7 +251,7 @@ func permissionStateDrift(ix *eventIndex) []schema.Finding {
 			}
 			r, ranked := permissionRank[to]
 			fr, franked := permissionRank[from]
-			if from != to && ranked && franked && r > fr && to != "bypassPermissions" &&
+			if from != to && ranked && franked && r > fr && r > ceiling && to != "bypassPermissions" &&
 				e.ApprovalState != "denied" && !(acc || own) && n < 5 {
 				n++
 				conf := "LOW"
@@ -277,6 +281,9 @@ func permissionStateDrift(ix *eventIndex) []schema.Finding {
 			// A prompt typed in the old mode came before the change and
 			// approves nothing; an approved plan exit recorded on the last
 			// old-mode line is what the change follows from.
+			if r, ok := permissionRank[to]; ok && r > ceiling {
+				ceiling = r
+			}
 			last, lastEv = to, e
 			acc = e.ApprovalState == "approved" || planExitApproved(ix, e)
 		}

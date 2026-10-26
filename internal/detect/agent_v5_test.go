@@ -140,6 +140,9 @@ func TestPermissionStateDriftBenign(t *testing.T) {
 		"bypass": newEvb().modeLine(schema.EventHumanPrompt, "default").modeLine(schema.EventToolResult, "bypassPermissions"),
 		// Unranked modes never count.
 		"unranked": newEvb().modeLine(schema.EventHumanPrompt, "default").modeLine(schema.EventToolResult, "yolo"),
+		// Back up to a mode the session already held is not a widening.
+		"below ceiling": newEvb().modeLine(schema.EventHumanPrompt, "bypassPermissions").modeLine(schema.EventToolResult, "default").
+			add(schema.Event{EventType: schema.EventSessionMeta, Action: "permission_change", PermissionFrom: "default", PermissionMode: "acceptEdits"}),
 		// Missing evidence: no modes recorded.
 		"missing": newEvb().bash("t1", "make").result("t1", "", false),
 		// A plan exit that completed without the approval text is not approval.
