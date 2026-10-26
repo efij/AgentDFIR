@@ -3,20 +3,31 @@ package rulepack
 import (
 	"regexp"
 	"testing"
+
+	"github.com/efij/AgentDFIR/v4/internal/mitre"
 )
 
-var attackIDRe = regexp.MustCompile(`^T\d{4}(\.\d{3})?$`)
+// attackURLRe finds ATT&CK technique links in rule references.
+var attackURLRe = regexp.MustCompile(`attack\.mitre\.org/techniques/(T\d{4})(?:/(\d{3}))?`)
 
 // TestShippedPacksMitreCoverage enforces the mapping contract for the packs
-// shipped in rules/:
+// shipped in rules/ and their embedded copy in packs/:
 //   - every HIGH/CRITICAL rule carries at least one MITRE reference
 //   - every mitre_atlas value is a real technique in the embedded ATLAS release
-//   - every mitre_attack value has ATT&CK technique syntax
+//   - every mitre_attack value, and every ATT&CK technique link in
+//     references, is an active technique in ATT&CK Enterprise v20.0 (not
+//     revoked, not deprecated; internal/mitre/data/migrations.json records
+//     the IDs that had to move)
 func TestShippedPacksMitreCoverage(t *testing.T) {
 	packs, err := LoadDir("../../rules")
 	if err != nil {
 		t.Fatal(err)
 	}
+	embedded, err := LoadDir("packs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	packs = append(packs, embedded...)
 	for _, p := range packs {
 		for _, r := range p.Rules {
 			if (r.Severity == "HIGH" || r.Severity == "CRITICAL") && r.MitreATTACK == "" && r.MitreATLAS == "" {
@@ -25,9 +36,38 @@ func TestShippedPacksMitreCoverage(t *testing.T) {
 			if r.MitreATLAS != "" && !ValidATLAS(r.MitreATLAS) {
 				t.Errorf("%s/%s: mitre_atlas %q is not in ATLAS %s", p.Pack, r.ID, r.MitreATLAS, ATLASVersion)
 			}
-			if r.MitreATTACK != "" && !attackIDRe.MatchString(r.MitreATTACK) {
-				t.Errorf("%s/%s: mitre_attack %q is not a technique ID", p.Pack, r.ID, r.MitreATTACK)
+			if r.MitreATTACK != "" && !mitre.ValidATTACK(r.MitreATTACK) {
+				t.Errorf("%s/%s: mitre_attack %q is %s in ATT&CK Enterprise %s", p.Pack, r.ID, r.MitreATTACK, mitre.ATTACKStatus(r.MitreATTACK), mitre.ATTACKVersion)
 			}
+			for _, ref := range r.References {
+				for _, m := range attackURLRe.FindAllStringSubmatch(ref, -1) {
+					id := m[1]
+					if m[2] != "" {
+						id += "." + m[2]
+					}
+					if !mitre.ValidATTACK(id) {
+						t.Errorf("%s/%s: reference %s cites %s technique %s", p.Pack, r.ID, ref, mitre.ATTACKStatus(id), id)
+					}
+				}
+			}
+		}
+	}
+}
+
+// TestATLASTableMatchesCatalog keeps the analysis-path ATLAS table
+// (atlas_ids.go) identical to the pinned catalog in internal/mitre; both
+// are written by the same generator.
+func TestATLASTableMatchesCatalog(t *testing.T) {
+	if ATLASVersion != mitre.ATLASVersion {
+		t.Fatalf("rulepack ATLAS %s, internal/mitre ATLAS %s: regenerate with scripts/gen-atlas-ids.sh", ATLASVersion, mitre.ATLASVersion)
+	}
+	techs := mitre.ATLAS().Techniques
+	if len(techs) != len(atlasTechniques) {
+		t.Fatalf("rulepack has %d ATLAS techniques, catalog %d", len(atlasTechniques), len(techs))
+	}
+	for _, tc := range techs {
+		if atlasTechniques[tc.ID] != tc.Name {
+			t.Errorf("%s: rulepack %q, catalog %q", tc.ID, atlasTechniques[tc.ID], tc.Name)
 		}
 	}
 }
@@ -43,8 +83,8 @@ func TestCommunityPackAgenticTechniques(t *testing.T) {
 	want := []string{
 		"AML.T0050",     // Command and Scripting Interpreter
 		"AML.T0055",     // Unsecured Credentials
-		"AML.T0072",     // Reverse Shell
-		"AML.T0075",     // Cloud Service Discovery
+		"AML.T0072",     // Cyber Communication Channel
+		"AML.T0075",     // Enterprise Resource Discovery
 		"AML.T0080.000", // AI Agent Context Poisoning: Memory
 		"AML.T0081",     // Modify AI Agent Configuration
 		"AML.T0083",     // Credentials from AI Agent Configuration

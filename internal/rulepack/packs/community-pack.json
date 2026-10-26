@@ -134,7 +134,7 @@
         "regex": "(ufw\\s+disable|iptables\\s+-F|pfctl\\s+-d|systemctl\\s+stop\\s+firewalld)"
       },
       "false_positive_notes": "Occasionally legitimate during network debugging.",
-      "mitre_attack": "T1562.004"
+      "mitre_attack": "T1686"
     },
     {
       "id": "PACKAGE_PUBLISH",
@@ -297,7 +297,7 @@
       "references": [
         "https://genai.owasp.org/resource/agentic-ai-threats-and-mitigations/"
       ],
-      "mitre_attack": "T1562.001"
+      "mitre_attack": "T1685"
     },
     {
       "id": "OS_LOG_TAMPER",
@@ -310,7 +310,7 @@
         "regex": "(?i)(auditctl\\s+-[De]\\b|journalctl\\s+--vacuum|truncate\\s+-s\\s*0\\s+/var/log|>\\s*/var/log/|rm\\s+-\\w*\\s*/var/log|wevtutil\\s+cl|Clear-EventLog)"
       },
       "false_positive_notes": "Log rotation and cleanup are routine on some hosts; correlate with other activity.",
-      "mitre_attack": "T1070.002"
+      "mitre_attack": "T1685.006"
     },
     {
       "id": "LD_PRELOAD_INJECT",
@@ -630,7 +630,7 @@
         "https://genai.owasp.org/resource/agentic-ai-threats-and-mitigations/"
       ],
       "mitre_atlas": "AML.T0081",
-      "mitre_attack": "T1562.001"
+      "mitre_attack": "T1685"
     },
     {
       "id": "CONFIG_HOOK_REMOTE_FETCH",
@@ -1078,9 +1078,9 @@
       },
       "false_positive_notes": "Adding a build directory as a Defender exclusion is a common performance tweak; disabling real-time protection is not.",
       "references": [
-        "https://attack.mitre.org/techniques/T1562/001/"
+        "https://attack.mitre.org/techniques/T1685/"
       ],
-      "mitre_attack": "T1562.001"
+      "mitre_attack": "T1685"
     },
     {
       "id": "LSASS_CREDENTIAL_DUMP",
@@ -1243,9 +1243,9 @@
       },
       "false_positive_notes": "Tearing down a test account is the only routine case; on production accounts this is a defense-evasion signal.",
       "references": [
-        "https://attack.mitre.org/techniques/T1562/008/"
+        "https://attack.mitre.org/techniques/T1685/002/"
       ],
-      "mitre_attack": "T1562.008"
+      "mitre_attack": "T1685.002"
     },
     {
       "id": "KUBE_PRIVILEGED_WORKLOAD",
@@ -1331,9 +1331,9 @@
       "false_positive_notes": "CI pipelines run agents unattended by design; inside an interactive session this removes the human from the loop.",
       "references": [
         "https://atlas.mitre.org/techniques/AML.T0103",
-        "https://attack.mitre.org/techniques/T1562/001/"
+        "https://attack.mitre.org/techniques/T1685/"
       ],
-      "mitre_attack": "T1562.001",
+      "mitre_attack": "T1685",
       "mitre_atlas": "AML.T0103"
     },
     {
@@ -1422,10 +1422,10 @@
       },
       "false_positive_notes": "Maintenance on a logging pipeline (restarting a forwarder, replacing one agent with another). A retention change the person asked for is a policy decision, not an attack, but it shortens what any later investigation can see.",
       "references": [
-        "https://attack.mitre.org/techniques/T1562/001/",
-        "https://attack.mitre.org/techniques/T1562/002/"
+        "https://attack.mitre.org/techniques/T1685/",
+        "https://attack.mitre.org/techniques/T1685/001/"
       ],
-      "mitre_attack": "T1562.001"
+      "mitre_attack": "T1685"
     }
   ]
 }

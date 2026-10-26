@@ -103,8 +103,9 @@ How an item gets its stage:
   appears on the timeline and is counted in `summary.high_findings_unstaged`.
   Nothing is dropped silently.
 
-T1562 (impair defenses) and T1070 (indicator removal) both count as
-anti-forensics.
+T1685 (disable or modify tools), T1686 (disable or modify system firewall)
+and T1070 (indicator removal) count as anti-forensics. T1562, revoked in
+ATT&CK v20.0, is still placed there for findings stored by earlier releases.
 
 ## Hand-offs
 

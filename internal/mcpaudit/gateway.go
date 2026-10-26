@@ -281,7 +281,7 @@ func CorrelateGateway(events []schema.Event, records []GatewayRecord, gatewaySer
 			Description: fmt.Sprintf("Transcript records a call to tool %q via server %q at %s, but the gateway log has no corresponding request. The agent may have bypassed the gateway (direct server, local stdio copy) or the transcript entry is fabricated.", c.tool, c.ev.MCPServer, c.ev.Timestamp),
 			SessionID:   c.ev.SessionID, AgentID: c.ev.AgentID,
 			EvidenceRefs: []string{fmt.Sprintf("%s:%d (artifact %s, offset %d)", c.ev.SourcePath, c.ev.SourceLine, short(c.ev.SourceArtifact), c.ev.SourceOffset)},
-			Status:       schema.StateContradicted, Endpoint: schema.StateContradicted, MitreATTACK: "T1562",
+			Status:       schema.StateContradicted, Endpoint: schema.StateContradicted, MitreATTACK: "T1685",
 			FalsePositive: "Gateway log window shorter than the session, or a server legitimately not routed through the gateway (use --gateway-server).",
 		})
 	}

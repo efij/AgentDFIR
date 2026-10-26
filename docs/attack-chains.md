@@ -18,7 +18,7 @@ Chains run last in `agentdfir analyze`, after detections, rule packs, MCP audit 
 |---|---|---|---|---|
 | `CHAIN_CONTEXT_POISON_TO_EXEC` | injection in tool result → agent wrote its own instructions/config → shell command | session · 120 min | CRITICAL | ATLAS AML.T0080.000 · ATT&CK T1059 |
 | `CHAIN_SECRET_TO_EXFIL` | secret/credential file accessed → upload or outbound connection | session · 60 min | CRITICAL | ATLAS AML.T0086 · ATT&CK T1048 |
-| `CHAIN_ORPHAN_PERSISTENCE` | orphan agent → writes config/instructions → executes a tool | agent · unlimited | CRITICAL | ATLAS AML.T0081 · ATT&CK T1562.001 |
+| `CHAIN_ORPHAN_PERSISTENCE` | orphan agent → writes config/instructions → executes a tool | agent · unlimited | CRITICAL | ATLAS AML.T0081 · ATT&CK T1685 |
 | `CHAIN_MCP_RESULT_TO_DESTRUCTIVE` | poisoned MCP tool result → destructive command | session · 60 min | CRITICAL | ATLAS AML.T0099 · ATT&CK T1485 |
 | `CHAIN_ACTION_THEN_LOG_TAMPER` | destructive or exfil action → agent logs deleted | session · unlimited | CRITICAL | ATLAS AML.T0101 · ATT&CK T1070.004 |
 | `CHAIN_INJECTION_TO_PUSH` | injection in tool result → commit → push | session · 180 min | HIGH | ATLAS AML.T0010 · ATT&CK T1195.002 |
@@ -26,7 +26,7 @@ Chains run last in `agentdfir analyze`, after detections, rule packs, MCP audit 
 | `CHAIN_DOWNLOAD_AND_EXECUTE` | curl/wget → execute | session · 30 min | MEDIUM | ATT&CK T1105 |
 | `CHAIN_CROSS_TOOL_EXFIL` | credential store / private key / staged secret / secrets MCP tool → MCP tool that sends, posts or publishes | session · 60 min | HIGH | ATLAS AML.T0086 · ATT&CK T1567 |
 | `CHAIN_MCP_RESULT_TO_PRIVILEGED` | instructions in an MCP tool result → credential read, permission grant or upload | session · 60 min | HIGH | ATLAS AML.T0099 · ATT&CK T1552 |
-| `CHAIN_PERMISSION_ESCALATION_TO_IMPACT` | permissions widened (bypass mode, self-granted tools, nested bypass, denied tool ran) → destructive command, logging shutdown or upload | session · 120 min | HIGH | ATLAS AML.T0081 · ATT&CK T1562.001 |
+| `CHAIN_PERMISSION_ESCALATION_TO_IMPACT` | permissions widened (bypass mode, self-granted tools, nested bypass, denied tool ran) → destructive command, logging shutdown or upload | session · 120 min | HIGH | ATLAS AML.T0081 · ATT&CK T1685 |
 | `CHAIN_STAGED_DATA_TO_TRANSFER` | credential archive / encoded credential file / database dump / working tree or home archived into a temp dir → object-storage copy, scp/rsync to a host, curl file upload, paste or webhook destination, push to a URL remote | session · 60 min | HIGH | ATLAS AML.T0086 · ATT&CK T1567 |
 | `CHAIN_SECRET_TO_NEW_REMOTE_PUSH` | credential or sensitive read → `git remote add|set-url` or `gh repo|gist create` → `git push` | session · 120 min | HIGH | ATLAS AML.T0086 · ATT&CK T1567.001 |
 

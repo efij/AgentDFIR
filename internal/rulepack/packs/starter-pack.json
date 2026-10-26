@@ -68,7 +68,7 @@
         "https://efij.github.io/AgentDFIR/"
       ],
       "mitre_atlas": "AML.T0081",
-      "mitre_attack": "T1562.001"
+      "mitre_attack": "T1685"
     }
   ]
 }

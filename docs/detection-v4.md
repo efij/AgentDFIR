@@ -68,7 +68,7 @@ No rule here claims a confirmed exfiltration.
 
 ### AGENT_TOOL_PERMISSION_ESCALATION
 - **Logic:** (a) within one session the recorded `permission_mode` moves from a ranked narrower mode to `bypassPermissions`; (b) a shell command writes content that grants permissions (`bypassPermissions`, `"allow":`, `permissions.allow`, `allowedTools`, `alwaysAllow`, `autoApprove`, `enableAllProjectMcpServers`, Codex `approval_policy = never` / `danger-full-access`) to the agent's own configuration, or runs `claude config set|add allowedTools…`.
-- **Severity:** (a) MEDIUM, confidence HIGH; (b) HIGH, confidence MEDIUM. **MITRE:** T1562.001, ATLAS AML.T0081.
+- **Severity:** (a) MEDIUM, confidence HIGH; (b) HIGH, confidence MEDIUM. **MITRE:** T1685, ATLAS AML.T0081.
 - **False positives:** a person pressing Shift+Tab on purpose; a person asking the agent to stop prompting for a tool. Writes through the Write/Edit tools are `AGENT_SELF_MODIFICATION`'s; their content is not in the events.
 
 ### AGENT_UNVERIFIED_SUCCESS_CLAIM
@@ -102,7 +102,7 @@ No rule here claims a confirmed exfiltration.
 
 ### AGENT_AUDIT_COVERAGE_LOSS (rule pack)
 - **Logic:** `cleanupPeriodDays` set to 0–6 (in a command, or `claude config set`), `launchctl unload|bootout|disable|remove` of auditd/osquery/EDR/syslog daemons, `systemctl stop|disable|mask` of syslog, journald, osquery and EDR/log-shipper units, `Stop-Service`/`sc stop` of EventLog/Sysmon, `wevtutil sl … /e:false`, `auditpol /clear|/remove`, `log config --mode level:off`. Lines that are `git commit/log/show/tag` are excluded (prose about the commands).
-- **Severity:** HIGH. **MITRE:** T1562.001. **Sigma:** exported (the exclusion is not part of the Sigma rule). A settings file that already *holds* a low `cleanupPeriodDays` is not reported: that is configuration, not the act.
+- **Severity:** HIGH. **MITRE:** T1685. **Sigma:** exported (the exclusion is not part of the Sigma rule). A settings file that already *holds* a low `cleanupPeriodDays` is not reported: that is configuration, not the act.
 
 ### Chains
 See [attack-chains.md](attack-chains.md): `CHAIN_CROSS_TOOL_EXFIL`, `CHAIN_MCP_RESULT_TO_PRIVILEGED`, `CHAIN_PERMISSION_ESCALATION_TO_IMPACT`. Chain steps gained one optional predicate, `tool_regex`, matched against the tool name (MCP tools are named `mcp__<server>__<tool>`).

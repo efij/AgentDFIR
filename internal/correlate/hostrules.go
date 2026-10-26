@@ -761,11 +761,11 @@ func (v *hostView) logging() ([]schema.Finding, HostRuleCoverage) {
 	if h.n == 0 {
 		return nil, c
 	}
-	sev, attack := "HIGH", "T1562.001"
+	sev, attack := "HIGH", "T1685"
 	desc := fmt.Sprintf("The operating system recorded %d act(s) that stop, kill, silence or clear a logging source, by a process in the agent's process tree or during an agent session (first at %s). Telemetry lost this way also blinds every later check: what follows is under-recorded, never proven absent.",
 		h.n, h.first.UTC().Format(time.RFC3339))
 	if attributedN == 0 {
-		sev, attack = "MEDIUM", "T1070.001"
+		sev, attack = "MEDIUM", "T1685.005"
 		desc += " Only time overlap ties these clears to the agent."
 	}
 	return []schema.Finding{{

@@ -554,7 +554,7 @@ func TestStageClassification(t *testing.T) {
 			t.Errorf("StepStage(%q) = %q, want %q", step, got, want)
 		}
 	}
-	for tech, want := range map[string]string{"T1048": StageExfiltration, "T1562.001": StageAntiForensics, "t1059": StageExecution, "T0000": "", "": ""} {
+	for tech, want := range map[string]string{"T1048": StageExfiltration, "T1685": StageAntiForensics, "t1059": StageExecution, "T0000": "", "": ""} {
 		if got := TechniqueStage(tech); got != want {
 			t.Errorf("TechniqueStage(%q) = %q, want %q", tech, got, want)
 		}
