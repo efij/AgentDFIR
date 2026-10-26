@@ -90,8 +90,10 @@ func TestESLauncherStreams(t *testing.T) {
 	if len(got) == 0 || len(got) != len(res.Records) || res.Unsupported["mmap"] != 2 {
 		t.Fatalf("streamed %d records, result %d, unsupported %v", len(got), len(res.Records), res.Unsupported)
 	}
+	// A Windows checkout gives the fixture CRLF endings; the launcher
+	// records eslogger's lines LF-terminated (eslogger itself emits LF).
 	data, _ := os.ReadFile(esFixture)
-	if raw.String() != string(data) {
+	if raw.String() != strings.ReplaceAll(string(data), "\r\n", "\n") {
 		t.Fatal("raw capture differs from eslogger output")
 	}
 }

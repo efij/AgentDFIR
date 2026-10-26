@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -77,7 +78,10 @@ func TestBuildInventory(t *testing.T) {
 			sawLink = true
 		}
 	}
-	if !sawLink {
+	// Creating a symlink needs a privilege on Windows; when tree() could
+	// not make one there is nothing to record.
+	_, lerr := os.Lstat(filepath.Join(sys, "etc/systemd/system/multi-user.target.wants/backdoor.service"))
+	if !sawLink && lerr == nil {
 		t.Fatal("wants/ symlink must be recorded (and not followed)")
 	}
 	if c := by["crontab@cron"]; len(c.Detail) != 2 || !strings.Contains(c.Detail[1], "203.0.113.9") {
@@ -97,7 +101,7 @@ func TestBuildInventory(t *testing.T) {
 		k[1].Fingerprint != pubFP || !strings.HasPrefix(k[1].Options, `command="/usr/bin/rsync --server"`) || k[2].Fingerprint != "unparseable key data" {
 		t.Fatalf("keys: %+v", k)
 	}
-	if os.Geteuid() != 0 {
+	if os.Geteuid() != 0 && runtime.GOOS != "windows" { // chmod 000 denies nothing on Windows
 		var sawDenied bool
 		for _, s := range inv.Skipped {
 			if s.Path == denied && strings.Contains(s.Reason, "permission denied") {

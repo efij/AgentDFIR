@@ -3,6 +3,7 @@ package macoshost
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -115,6 +116,9 @@ func TestReadHostState(t *testing.T) {
 func TestPermissionDeniedIsARecordedSkip(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("root reads everything")
+	}
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod 0 does not deny reads on Windows")
 	}
 	root := t.TempDir()
 	put(t, root, "Library/Application Support/com.apple.TCC/TCC.db", "TCC.db", nil)
