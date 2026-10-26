@@ -236,9 +236,13 @@ func permissionStateDrift(ix *eventIndex) []schema.Finding {
 		// ceiling is the widest mode the session already held. Returning
 		// to it (bypass → default → acceptEdits) widens nothing the
 		// session had not been given before.
-		ceiling := -1
+		ceiling, session := -1, ""
 		for _, i := range ix.byAgent[a] {
 			e := ix.events[i]
+			if e.SessionID != session {
+				// A new session starts from its own launch mode.
+				session, ceiling = e.SessionID, -1
+			}
 			own := recordedApproval(ix, e)
 			to := e.PermissionMode
 			if to == "" {
@@ -281,7 +285,8 @@ func permissionStateDrift(ix *eventIndex) []schema.Finding {
 			// A prompt typed in the old mode came before the change and
 			// approves nothing; an approved plan exit recorded on the last
 			// old-mode line is what the change follows from.
-			if r, ok := permissionRank[to]; ok && r > ceiling {
+			// A denied change never took effect, so it raises nothing.
+			if r, ok := permissionRank[to]; ok && r > ceiling && e.ApprovalState != "denied" {
 				ceiling = r
 			}
 			last, lastEv = to, e
@@ -958,6 +963,9 @@ func credentialToExternalTool(ix *eventIndex, pkgDir string, man *casepkg.Manife
 			want[e.ToolCallID] = true
 		}
 		all := callArgsAll(line, want)
+		// Fingerprint each call id once per line, however many events
+		// point at it, and charge the budget once.
+		fps := make(map[string][]SecretFingerprint, len(all))
 		for _, e := range evs {
 			if len(out) >= maxCredFindings {
 				why = capWhy
@@ -968,8 +976,18 @@ func credentialToExternalTool(ix *eventIndex, pkgDir string, man *casepkg.Manife
 			if args == nil {
 				continue // the line is unreadable or does not hold this call: no evidence, no finding
 			}
-			budget -= len(args)
-			for _, fp := range SecretFingerprints(args) {
+			got, done := fps[e.ToolCallID]
+			if !done {
+				if budget <= 0 {
+					why = fmt.Sprintf("the rule stopped after reading and parsing %d bytes of arguments", maxArgBytes)
+					skip(e)
+					continue
+				}
+				budget -= len(args)
+				got = SecretFingerprints(args)
+				fps[e.ToolCallID] = got
+			}
+			for _, fp := range got {
 				if len(out) >= maxCredFindings {
 					why = capWhy
 					skip(e) // fingerprints of this call left unreported

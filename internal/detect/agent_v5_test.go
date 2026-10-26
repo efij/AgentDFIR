@@ -547,14 +547,34 @@ func TestCredentialToExternalToolWorkBounds(t *testing.T) {
 		t.Fatalf("line cap: %d findings, limitations %+v", len(crit), info)
 	}
 
-	// Byte budget exhausted by the first line: the rest is a limitation.
+	// Byte budget exhausted by reading the first line: no argument is
+	// parsed after that, and all four calls are a limitation.
 	maxArgLineReads, maxArgBytes = 20000, 1
 	crit, info = split(RunAgentRules(build(0), pkg, man))
-	if len(crit) != 3 || len(info) != 1 || !strings.Contains(info[0].Description, "bytes") {
+	if len(crit) != 0 || len(info) != 1 || !strings.Contains(info[0].Description, "4 external tool call") ||
+		!strings.Contains(info[0].Description, "bytes") {
 		t.Fatalf("byte cap: %d findings, limitations %+v", len(crit), info)
 	}
 	js, _ := json.Marshal(info)
 	if bytes.Contains(js, []byte(testToken)) {
 		t.Fatal("credential leaked into the limitation")
+	}
+}
+
+// The ceiling only counts modes the session was given: a denied change
+// raises nothing, and a new session of the same agent starts over.
+func TestPermissionStateDriftCeilingIsEarned(t *testing.T) {
+	denied := newEvb().modeLine(schema.EventHumanPrompt, "default").
+		add(schema.Event{EventType: schema.EventSessionMeta, Action: "permission_change", PermissionFrom: "default", PermissionMode: "auto", ApprovalState: "denied"}).
+		add(schema.Event{EventType: schema.EventSessionMeta, Action: "permission_change", PermissionFrom: "default", PermissionMode: "acceptEdits"})
+	if got := rules(RunAgentRules(denied.evs, "", nil), "AGENT_PERMISSION_STATE_DRIFT"); len(got) != 1 {
+		t.Fatalf("denied change must not raise the ceiling, got %+v", got)
+	}
+	resumed := newEvb().
+		add(schema.Event{EventType: schema.EventHumanPrompt, ActorType: schema.ActorHuman, Summary: "go on", PermissionMode: "bypassPermissions", SessionID: "s1", AgentID: "a"}).
+		add(schema.Event{EventType: schema.EventHumanPrompt, ActorType: schema.ActorHuman, Summary: "go on", PermissionMode: "default", SessionID: "s2", AgentID: "a"}).
+		add(schema.Event{EventType: schema.EventToolResult, PermissionMode: "acceptEdits", SessionID: "s2", AgentID: "a"})
+	if got := rules(RunAgentRules(resumed.evs, "", nil), "AGENT_PERMISSION_STATE_DRIFT"); len(got) != 1 {
+		t.Fatalf("a new session must start from its own launch mode, got %+v", got)
 	}
 }
