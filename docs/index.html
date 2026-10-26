@@ -72,7 +72,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:16
 a{color:inherit;text-decoration:none}
 a:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--amber);outline-offset:3px;border-radius:6px}
 code,pre,.mono{font-family:var(--mono)}
-code{font-size:.9em;color:#d6dbe3}
+code{font-size:.9em;color:#d6dbe3;overflow-wrap:anywhere}
+.pair>*,.split>*,.hero-grid>*,.faq>*,.docs>*{min-width:0}
 .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
 h1,h2,h3{font-weight:600;letter-spacing:-.03em;color:#f3f5f8}
 h1{font-size:clamp(44px,6vw,76px);line-height:1;letter-spacing:-.045em}
@@ -255,7 +256,7 @@ section{padding:120px 0}
 
 footer{border-top:1px solid var(--line);padding:28px 0 40px;font-size:13.5px;color:var(--dim)}
 footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
-footer nav{display:flex;gap:22px}
+footer nav{display:flex;flex-wrap:wrap;gap:10px 22px}
 footer a:hover{color:var(--text)}
 
 
@@ -391,7 +392,8 @@ footer a:hover{color:var(--text)}
   .integ,.steps{grid-template-columns:1fr 1fr}
   .integ div:nth-child(3),.steps li:nth-child(3){border-left:0}
   .integ div:nth-child(n+3),.steps li:nth-child(n+3){border-top:1px solid var(--line)}
-  .pair,.faq{grid-template-columns:1fr}
+  .pair,.faq{grid-template-columns:minmax(0,1fr)}
+  .nav-links{display:none}
   .docs{grid-template-columns:1fr 1fr}
 }
 @media (max-width:760px){
