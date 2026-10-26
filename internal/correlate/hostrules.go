@@ -58,22 +58,29 @@ const (
 	logClearPad      = 2 * time.Minute
 	psDecodeMax      = 4096
 	// hostScanMax bounds the command line / script text the rules scan.
-	// Windows caps a command line at 32,767 UTF-16 units and splits 4104
-	// script blocks near 32 KB, so no genuine record is cut; a hostile
-	// multi-megabyte field cannot stretch the regular expressions.
-	hostScanMax = 64 << 10
+	// Windows caps a command line at 32,767 UTF-16 units (under 96 KiB of
+	// UTF-8) and splits 4104 script blocks near 32 KB, so no genuine
+	// record is cut; a hostile multi-megabyte field cannot stretch the
+	// regular expressions. Longer text is scanned at its head and its
+	// tail, and the rules' coverage says so: padding is not a hiding place.
+	hostScanMax = 256 << 10
 )
 
-// capScan cuts s to hostScanMax bytes on a UTF-8 boundary and says so.
-func capScan(s string) string {
+// capScan keeps the first and last hostScanMax/2 bytes of s (on UTF-8
+// boundaries) with a marker between them, and reports whether it cut.
+func capScan(s string) (string, bool) {
 	if len(s) <= hostScanMax {
-		return s
+		return s, false
 	}
-	n := hostScanMax
-	for n > 0 && !utf8.RuneStart(s[n]) {
-		n--
+	h := hostScanMax / 2
+	for h > 0 && !utf8.RuneStart(s[h]) {
+		h--
 	}
-	return s[:n] + fmt.Sprintf(" …[truncated: %d bytes not scanned]", len(s)-n)
+	t := len(s) - hostScanMax/2
+	for t < len(s) && !utf8.RuneStart(s[t]) {
+		t++
+	}
+	return s[:h] + fmt.Sprintf(" …[%d bytes not scanned]… ", t-h) + s[t:], true
 }
 
 // hostView is the record set the host rules share: every record that
@@ -88,6 +95,9 @@ type hostView struct {
 	winProc  bool // Windows process records
 	hasFile  bool
 	sessions []sessionWindow
+	// oversized counts command lines longer than hostScanMax, scanned at
+	// head and tail only.
+	oversized int
 }
 
 func newHostView(events []schema.Event, records []endpoint.Record, opts EndpointOptions) *hostView {
@@ -102,7 +112,10 @@ func newHostView(events []schema.Event, records []endpoint.Record, opts Endpoint
 		default:
 			continue
 		}
-		r.Cmdline = capScan(r.Cmdline)
+		var cut bool
+		if r.Cmdline, cut = capScan(r.Cmdline); cut {
+			v.oversized++
+		}
 		v.recs = append(v.recs, r)
 	}
 	sort.SliceStable(v.recs, func(i, j int) bool { return v.recs[i].Time.Before(v.recs[j].Time) })
@@ -279,6 +292,13 @@ func HostRules(events []schema.Event, records []endpoint.Record, opts EndpointOp
 		(*hostView).powershell, (*hostView).privilege, (*hostView).logging, (*hostView).evidenceDeletion, (*hostView).packageScripts,
 	} {
 		f, c := rule(v)
+		if v.oversized > 0 && c.Evaluated {
+			note := fmt.Sprintf("%d command line(s) over %d KiB scanned at head and tail only", v.oversized, hostScanMax>>10)
+			if c.Partial != "" {
+				note = c.Partial + "; " + note
+			}
+			c.Partial = note
+		}
 		out = append(out, f...)
 		cov = append(cov, c)
 	}

