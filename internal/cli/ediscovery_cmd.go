@@ -17,6 +17,7 @@ import (
 	"github.com/efij/AgentDFIR/v4/internal/redact"
 	"github.com/efij/AgentDFIR/v4/internal/report"
 	"github.com/efij/AgentDFIR/v4/internal/sanitize"
+	"github.com/efij/AgentDFIR/v4/internal/store"
 )
 
 const reportRSMFUsage = `usage: agentdfir report <package-dir> --format rsmf [--out dir] [--session ID ...] [--redact secrets,emails,paths,ips[,custom:<file>]]
@@ -29,7 +30,7 @@ only; not tested against a review platform; no admissibility claim.
 
 const exportProductionUsage = `usage: agentdfir export <package-dir> --production [--out dir] [--examiner name]
                         [--session ID ...] [--redact secrets,emails,paths,ips[,custom:<file>]]
-                        [--produced-at RFC3339]
+                        [--produced-at RFC3339] [--sign <key> | --no-sign]
 
 Produces an eDiscovery production set beside the case (default
 <package>.production): RSMF per session, report.html, report.pdf,
@@ -39,6 +40,9 @@ version and binary SHA-256, processing history, seal digest, redaction log,
 missing records and limitations). --redact applies to these derivative
 files only, never to the sealed case. --produced-at (or SOURCE_DATE_EPOCH)
 fixes the one time-dependent field so a re-run is byte-identical.
+production-manifest.json is signed (production-manifest.json.sig, ed25519)
+with this machine's key, or --sign <key>; agentdfir verify <production-dir>
+[--pubkey hex] checks the signature and every file.
 `
 
 // isRSMFReport reports whether report args ask for --format rsmf.
@@ -191,6 +195,8 @@ func cmdExportProduction(args []string) int {
 	examinerName := fs.String("examiner", "", "examiner producing the set (default: the case operator)")
 	redactSpec := fs.String("redact", "", "secrets,emails,paths,ips[,custom:<file>] — derivative output only")
 	at := fs.String("produced-at", "", "fixed production time (RFC 3339); default SOURCE_DATE_EPOCH, then the clock")
+	signKey := fs.String("sign", "", "sign the production manifest with this ed25519 private key (default: this machine's key)")
+	noSign := fs.Bool("no-sign", false, "do not sign the production manifest")
 	var sessions multiFlag
 	fs.Var(&sessions, "session", "limit to this session id (repeatable, or comma-separated)")
 	pkg, rest := splitPositional(args)
@@ -240,6 +246,22 @@ func cmdExportProduction(args []string) int {
 		return 1
 	}
 	m := res.Manifest
+	sigNote := "unsigned (--no-sign)"
+	if !*noSign {
+		key := *signKey
+		if key == "" {
+			if key, err = store.MachineKey(); err != nil {
+				fmt.Fprintln(os.Stderr, "error: signing key:", err)
+				return 1
+			}
+		}
+		pub, err := export.SignProduction(dst, key)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "error: signing the production manifest:", err)
+			return 1
+		}
+		sigNote = "signed (ed25519, key " + pub + ")"
+	}
 	if _, err := custody.Append(pkg, custody.EventProductionGenerated, map[string]any{
 		"out": dst, "files": len(m.Files), "manifest_sha256": res.ManifestSHA256,
 		"produced_at": m.ProducedAt, "examiner": m.Examiner.Name,
@@ -248,7 +270,7 @@ func cmdExportProduction(args []string) int {
 		fmt.Fprintln(os.Stderr, "warning: custody activity not recorded:", err)
 	}
 	fmt.Printf("Production set for case %s written to %s (%d file(s)).\n", sanitize.Terminal(m.Case.CaseID), sanitize.Terminal(dst), len(m.Files)+2)
-	fmt.Printf("  %s  sha256 %s\n", export.ProductionManifestJSON, res.ManifestSHA256)
+	fmt.Printf("  %s  sha256 %s  %s\n", export.ProductionManifestJSON, res.ManifestSHA256, sigNote)
 	fmt.Printf("  traceability: %d row(s); %d event(s) in RSMF, %d not representable (listed under limitations)\n",
 		m.Traceability.Rows, m.Traceability.EventsProduced, m.Traceability.EventsOmitted)
 	fmt.Printf("  seal digest %s · integrity %s · produced_at %s (%s)\n", m.Case.SealDigest, m.Case.Integrity, m.ProducedAt, whenSrc)

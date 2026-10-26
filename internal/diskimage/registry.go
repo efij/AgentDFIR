@@ -6,9 +6,13 @@ import (
 	"io"
 	"io/fs"
 
+	"github.com/efij/AgentDFIR/v4/internal/diskimage/apfs"
+	"github.com/efij/AgentDFIR/v4/internal/diskimage/btrfs"
 	"github.com/efij/AgentDFIR/v4/internal/diskimage/ext4"
 	"github.com/efij/AgentDFIR/v4/internal/diskimage/fat"
+	"github.com/efij/AgentDFIR/v4/internal/diskimage/hfsplus"
 	"github.com/efij/AgentDFIR/v4/internal/diskimage/ntfs"
+	"github.com/efij/AgentDFIR/v4/internal/diskimage/xfs"
 )
 
 // Filesystem is one registered read-only filesystem reader.
@@ -24,6 +28,10 @@ var filesystems = []Filesystem{
 	{"ntfs", ntfs.Probe, ntfs.Open},
 	{"ext4", ext4.Probe, ext4.Open},
 	{"fat", fat.Probe, fat.Open},
+	{"xfs", xfs.Probe, xfs.Open},
+	{"btrfs", btrfs.Probe, btrfs.Open},
+	{"apfs", apfs.Probe, apfs.Open},
+	{"hfsplus", hfsplus.Probe, hfsplus.Open},
 }
 
 // Register adds a reader at the end of the registry (for readers that
@@ -48,8 +56,10 @@ var signatures = []signature{
 	{"hfs+", func(h []byte) bool { return at(h, 1024, "H+") || at(h, 1024, "HX") }, "HFS+ volume; " + mountWorkaround},
 	{"hfs", func(h []byte) bool { return at(h, 1024, "BD") }, "classic HFS volume; " + mountWorkaround},
 	{"refs", func(h []byte) bool { return at(h, 3, "ReFS\x00\x00\x00\x00") }, "ReFS volume; attach the image read-only on Windows Server / Windows 11 Pro, then " + mountWorkaround},
-	{"xfs", func(h []byte) bool { return at(h, 0, "XFSB") }, "XFS volume; mount -o ro,norecovery, then " + mountWorkaround},
-	{"btrfs", func(h []byte) bool { return at(h, 0x10040, "_BHRfS_M") }, "Btrfs volume; mount -o ro,rescue=nologreplay, then " + mountWorkaround},
+	// XFS and Btrfs have readers above; these entries catch the volumes
+	// whose superblock those readers could not parse.
+	{"xfs", func(h []byte) bool { return at(h, 0, "XFSB") }, "XFS volume the built-in reader could not open; mount -o ro,norecovery, then " + mountWorkaround},
+	{"btrfs", func(h []byte) bool { return at(h, 0x10040, "_BHRfS_M") }, "Btrfs volume the built-in reader could not open; mount -o ro,rescue=nologreplay, then " + mountWorkaround},
 	{"lvm2", func(h []byte) bool { return at(h, 0x218, "LVM2 001") || at(h, 0x018, "LVM2 001") }, "LVM2 physical volume; activate it read-only (vgchange -ay --readonly) and image or mount the logical volume, then " + mountWorkaround},
 	{"zfs", func(h []byte) bool {
 		return len(h) > 0x20000 && bytes.Contains(h[0x20000:], []byte{0x0c, 0xb1, 0xba, 0x00, 0x00, 0x00, 0x00, 0x00})
@@ -83,7 +93,7 @@ func OpenFS(r io.ReaderAt, size int64) FSResult {
 		fsys, err := f.Open(r, size)
 		if err != nil {
 			kind := ErrCorrupt
-			if errors.Is(err, ntfs.ErrUnsupported) || errors.Is(err, ErrUnsupported) {
+			if errors.Is(err, ntfs.ErrUnsupported) || errors.Is(err, ErrUnsupported) || errors.Is(err, errors.ErrUnsupported) {
 				kind = ErrUnsupported
 			}
 			return FSResult{Type: f.Name, Reason: err.Error(), Err: &Error{Kind: kind, Format: f.Name, Reason: err.Error()}}

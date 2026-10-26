@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "docs": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "docs-mcp@1.0.0"
+      ],
+      "tools": [
+        {
+          "name": "search",
+          "description": "docs tool search",
+          "inputSchema": {
+            "type": "object"
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "note": "The agent registered a logon task with schtasks /create. The command-text rule sees the transcript; Task Scheduler 106 seconds later, after a schtasks process descended from the agent, is the host's own record that the task now exists (WIN_AGENT_SCHEDULED_TASK).",
+  "endpoint": [
+    "endpoint/windows-events.xml"
+  ],
+  "expect": [
+    "WIN_AGENT_SCHEDULED_TASK"
+  ]
+}

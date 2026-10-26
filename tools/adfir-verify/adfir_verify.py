@@ -20,7 +20,19 @@ and, from the "Rounds" section, that each archived seal is the one the
 next round recorded as prev_seal_sha256, that its archived signature
 verifies, and that no blob an earlier round sealed has changed.
 
-Usage: adfir_verify.py [--json] [--pubkey HEX] PACKAGE_DIR
+From spec 0.2.2 it also checks the optional analysis files when a package
+holds them (they are derived data, outside the seal, but a reader relies
+on them): detections/analysis-manifest.json (shape, and its
+findings_fingerprint recomputed from detections/findings.json),
+normalized/lineage.json (the action graph: every edge joins nodes the
+graph holds and cites a source; a correlated edge cites its telemetry
+witness; from 0.2.2 a CORROBORATED edge cites one or says why not), and
+reports/findings.stix.json (STIX 2.1 required properties, ids,
+timestamps, references). Given a production set (production-manifest.json
+and no SHA256SUMS) it checks every listed file and the manifest's ed25519
+signature.
+
+Usage: adfir_verify.py [--json] [--pubkey HEX] [--stix FILE] PACKAGE_OR_PRODUCTION_DIR
 Exit status: 0 verified, 1 problems found, 2 usage or unreadable package.
 """
 
@@ -28,11 +40,12 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import sys
 import zlib
 
-__version__ = "1.0.0"
-SPEC_VERSION = "0.2"
+__version__ = "1.1.0"
+SPEC_VERSION = "0.2.2"
 
 ZERO = "0" * 64
 MAX_SMALL_FILE = 256 << 20  # SHA256SUMS, case.json, a manifest, a chain
@@ -221,6 +234,8 @@ class Result:
         self.counts = {"files_checked": 0, "artifacts_verified": 0, "collection_records": 0,
                        "custody_records": 0, "rounds": 0, "archived_seals": 0}
         self.signature = "none"
+        self.analysis_problems = []
+        self.analysis_checked = []
 
 
 def check_chain(pkg, name, res):
@@ -482,25 +497,476 @@ def verify(pkg, pubkey=""):
     return res
 
 
+# --------------------------------------------------------------- 0.2.2: analysis files
+
+MAX_OVERLAY = 1 << 30  # decompressed bound for an overlay file
+STATES = {"", "REQUESTED", "REPORTED", "OBSERVED", "PARTIALLY_CORROBORATED", "CORROBORATED", "CONTRADICTED", "UNKNOWN"}
+FINDINGS_ALGORITHM = "adfir-findings-sha256/1"
+MANIFEST_SCHEMA = "agentdfir.analysis-manifest/1"
+
+
+def read_overlay(pkg, rel):
+    """An overlay file in either form (<name>.gz preferred), or None."""
+    path = os.path.join(pkg, *rel.split("/"))
+    if os.path.exists(path + ".gz"):
+        stored = read_small(path + ".gz")
+        d = zlib.decompressobj(16 + zlib.MAX_WBITS)
+        out = d.decompress(stored, MAX_OVERLAY + 1)
+        if len(out) > MAX_OVERLAY or not d.eof:
+            raise ValueError("%s.gz: over the decompression bound or truncated" % rel)
+        return out
+    if os.path.exists(path):
+        return read_small(path)
+    return None
+
+
+def _ns(b):
+    return str(len(b)).encode() + b":" + b + b","
+
+
+def findings_fingerprint(findings):
+    """adfir-findings-sha256/1 (spec 0.2.2): per finding, a netstring of
+    rule_id, severity, status, endpoint_corroboration, session_id and
+    agent_id, then of the number of evidence_refs, then of each reference
+    sorted bytewise; entries sorted bytewise, each hashed as a netstring."""
+    entries = []
+    for f in findings:
+        if not isinstance(f, dict):
+            raise ValueError("a finding is not an object")
+        e = b"".join(_ns(str(f.get(k) or "").encode("utf-8")) for k in
+                     ("rule_id", "severity", "status", "endpoint_corroboration", "session_id", "agent_id"))
+        refs = sorted((r.encode("utf-8") for r in (f.get("evidence_refs") or [])))
+        e += _ns(str(len(refs)).encode()) + b"".join(_ns(r) for r in refs)
+        entries.append(e)
+    h = hashlib.sha256()
+    for e in sorted(entries):
+        h.update(_ns(e))
+    return "sha256:" + h.hexdigest()
+
+
+def check_analysis_manifest(man_bytes, findings_bytes, seal_sha, problems, notes):
+    P = lambda m: problems.append("analysis-manifest.json: " + m)
+    try:
+        m = json.loads(man_bytes)
+    except ValueError as e:
+        P("not JSON: %s" % e)
+        return
+    if not isinstance(m, dict):
+        P("not an object")
+        return
+    if m.get("schema") != MANIFEST_SCHEMA:
+        P("schema %r, want %r" % (m.get("schema"), MANIFEST_SCHEMA))
+    for k in ("adfir_spec", "analyzed_utc", "findings_fingerprint"):
+        if not isinstance(m.get(k), str):
+            P("missing string %s" % k)
+    tool = m.get("tool")
+    if not isinstance(tool, dict):
+        P("missing object tool")
+    else:
+        for k in ("name", "version", "analysis_fingerprint"):
+            if not tool.get(k):
+                P("tool.%s missing" % k)
+    rs = m.get("rule_set")
+    if not isinstance(rs, dict):
+        P("missing object rule_set")
+    else:
+        if not rs.get("builtin_fingerprint"):
+            P("rule_set.builtin_fingerprint missing")
+        if not isinstance(rs.get("packs"), list):
+            P("rule_set.packs is not an array")
+        else:
+            for i, p in enumerate(rs["packs"]):
+                if not isinstance(p, dict):
+                    P("rule_set.packs[%d] is not an object" % i)
+                elif p.get("sha256") and not is_hex64(p["sha256"]):
+                    P("rule_set.packs[%d].sha256 is not a SHA-256" % i)
+    inp = m.get("input")
+    if not isinstance(inp, dict):
+        P("missing object input")
+    if not isinstance(m.get("options"), dict):
+        P("missing object options")
+    fs = m.get("findings")
+    if not isinstance(fs, dict):
+        P("missing object findings")
+        return
+    fp = m.get("findings_fingerprint") or ""
+    if not re.match(r"^sha256:[0-9a-f]{64}$", fp):
+        P("findings_fingerprint %r is not sha256:<64 hex>" % fp)
+    if fs.get("algorithm") != FINDINGS_ALGORITHM:
+        P("findings.algorithm %r is not one this verifier implements" % fs.get("algorithm"))
+        return
+    if findings_bytes is None:
+        P("detections/findings.json is missing, so the fingerprint cannot be checked")
+        return
+    try:
+        findings = json.loads(findings_bytes)
+        if findings is None:
+            findings = []
+        if not isinstance(findings, list):
+            raise ValueError("not an array")
+        got = findings_fingerprint(findings)
+    except ValueError as e:
+        P("detections/findings.json is not an array of findings: %s" % e)
+        return
+    if fs.get("count") != len(findings):
+        P("findings.count %r, but findings.json holds %d" % (fs.get("count"), len(findings)))
+    if got != fp:
+        P("findings_fingerprint %s does not match detections/findings.json (recomputed %s)" % (fp, got))
+    if seal_sha and isinstance(inp, dict) and inp.get("seal_sha256") != seal_sha:
+        notes.append("analysis-manifest.json: made on a different seal than the package carries now (a later round)")
+
+
+def _spec_at_least(have, want):
+    def parts(v):
+        out = []
+        for x in v.split("."):
+            try:
+                out.append(int(x))
+            except ValueError:
+                out.append(0)
+        return out
+    h, w = parts(have), parts(want)
+    h += [0] * (len(w) - len(h))
+    return h[:len(w)] >= w
+
+
+def check_action_graph(data, problems, notes):
+    P = lambda m: problems.append("lineage.json: " + m)
+    try:
+        g = json.loads(data)
+    except ValueError as e:
+        P("not JSON: %s" % e)
+        return
+    if not isinstance(g, dict):
+        P("not an object")
+        return
+    if not str(g.get("schema", "")).startswith("agentdfir.lineage/"):
+        P("schema %r is not agentdfir.lineage/*" % g.get("schema"))
+    strict = isinstance(g.get("adfir_spec"), str) and _spec_at_least(g["adfir_spec"], "0.2.2")
+    nodes, edges = g.get("nodes"), g.get("edges")
+    if not isinstance(nodes, list) or not isinstance(edges, list):
+        P("nodes or edges is not an array")
+        return
+    ids = set()
+    for i, n in enumerate(nodes):
+        if not isinstance(n, dict) or not isinstance(n.get("id"), str) or not n["id"]:
+            P("nodes[%d] has no id" % i)
+            continue
+        if n["id"] in ids:
+            P("node %r is listed twice" % n["id"])
+        ids.add(n["id"])
+        if not n.get("kind"):
+            P("node %r has no kind" % n["id"])
+        if n.get("evidence_state", "") not in STATES:
+            P("node %r has evidence_state %r" % (n["id"], n.get("evidence_state")))
+    bad_edges = 0
+    for i, e in enumerate(edges):
+        if bad_edges >= 50:
+            P("more problems in edges not listed")
+            break
+        before = len(problems)
+        if not isinstance(e, dict):
+            P("edges[%d] is not an object" % i)
+            bad_edges += 1
+            continue
+        label = "edge %d (%s -> %s)" % (i, e.get("from"), e.get("to"))
+        for end in ("from", "to"):
+            if e.get(end) not in ids:
+                P("%s: %s-node %r is not in the graph" % (label, end, e.get(end)))
+        if not e.get("relation"):
+            P("%s: no relation" % label)
+        if not isinstance(e.get("basis"), str):
+            P("%s: no basis" % label)
+        state = e.get("evidence_state", "")
+        if state not in STATES:
+            P("%s: evidence_state %r" % (label, state))
+        refs = e.get("source_refs")
+        if not isinstance(refs, list) or not refs:
+            P("%s: no source reference" % label)
+            refs = []
+        telemetry = record = False
+        for j, r in enumerate(refs):
+            if not isinstance(r, dict):
+                P("%s: source_refs[%d] is not an object" % (label, j))
+                continue
+            if not (r.get("telemetry_ref") or r.get("artifact_id") or r.get("event_id")):
+                P("%s: source_refs[%d] names no artifact, event or telemetry record" % (label, j))
+            telemetry = telemetry or bool(r.get("telemetry_ref"))
+            record = record or bool(r.get("artifact_id") or r.get("event_id"))
+        lim = e.get("limitations")
+        if lim is not None and (not isinstance(lim, list) or not all(isinstance(x, str) for x in lim)):
+            P("%s: limitations is not an array of strings" % label)
+        if "confidence" in e and not (telemetry and record):
+            P("%s: a correlated edge must cite both the agent record and the telemetry record" % label)
+        if strict and state == "CORROBORATED" and not telemetry and not lim:
+            P("%s: CORROBORATED with no telemetry reference and no limitation saying why" % label)
+        if len(problems) > before:
+            bad_edges += 1
+    if not strict:
+        notes.append("lineage.json does not declare adfir_spec 0.2.2; the per-edge CORROBORATED rule was not applied")
+
+
+STIX_ID = re.compile(r"^([a-z0-9][a-z0-9-]*[a-z0-9])--[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
+STIX_TS = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$")
+STIX_SDO = {"identity": ["name"], "indicator": ["pattern", "pattern_type", "valid_from"], "note": ["content", "object_refs"],
+            "report": ["name", "published", "object_refs"],
+            "observed-data": ["first_observed", "last_observed", "number_observed", "object_refs"],
+            "relationship": ["relationship_type", "source_ref", "target_ref"], "sighting": ["sighting_of_ref"],
+            "attack-pattern": ["name"]}
+STIX_SCO = {"domain-name": ["value"], "ipv4-addr": ["value"], "ipv6-addr": ["value"], "url": ["value"], "file": []}
+# uuid5(uuid5(NAMESPACE_URL, "https://efij.github.io/AgentDFIR/stix"), "identity|agentdfir")
+STIX_TOOL_IDENTITY_NAME = "identity|agentdfir"
+STIX_NAMESPACE_URL = "https://efij.github.io/AgentDFIR/stix"
+
+
+def stix_tool_identity():
+    import uuid
+    return "identity--" + str(uuid.uuid5(uuid.uuid5(uuid.NAMESPACE_URL, STIX_NAMESPACE_URL), STIX_TOOL_IDENTITY_NAME))
+
+
+def _ts_key(s):
+    # Comparable form of a STIX timestamp: seconds, then the fraction.
+    main, _, frac = s[:-1].partition(".")
+    return main, frac.ljust(9, "0")
+
+
+def check_stix(data, problems, notes):
+    P = lambda m: problems.append("STIX: " + m)
+    try:
+        b = json.loads(data)
+    except ValueError as e:
+        P("not JSON: %s" % e)
+        return
+    if not isinstance(b, dict):
+        P("not an object")
+        return
+    if b.get("type") != "bundle":
+        P("type %r, want bundle" % b.get("type"))
+    if not (isinstance(b.get("id"), str) and STIX_ID.match(b["id"]) and b["id"].startswith("bundle--")):
+        P("bundle id %r is not bundle--<uuid>" % b.get("id"))
+    objs = b.get("objects")
+    if not isinstance(objs, list):
+        P("objects is not an array")
+        return
+    ids, refs, unknown = set(), [], {}
+    for i, o in enumerate(objs):
+        if not isinstance(o, dict):
+            P("objects[%d] is not an object" % i)
+            continue
+        typ, oid = o.get("type"), o.get("id")
+        label = "objects[%d] (%s)" % (i, oid)
+        if not isinstance(typ, str) or not re.match(r"^[a-z0-9][a-z0-9-]{1,248}[a-z0-9]$", typ):
+            P("%s: type %r is not a STIX type name" % (label, typ))
+            continue
+        m = STIX_ID.match(oid) if isinstance(oid, str) else None
+        if not m or m.group(1) != typ:
+            P("%s: id is not %s--<uuid>" % (label, typ))
+        if oid in ids:
+            P("%s: id used twice" % label)
+        ids.add(oid)
+        if o.get("spec_version") != "2.1":
+            P("%s: spec_version %r, want 2.1" % (label, o.get("spec_version")))
+        if typ in STIX_SDO:
+            c, mo = o.get("created"), o.get("modified")
+            for k, v in (("created", c), ("modified", mo)):
+                if not (isinstance(v, str) and STIX_TS.match(v)):
+                    P("%s: %s %r is not a STIX timestamp" % (label, k, v))
+            if isinstance(c, str) and isinstance(mo, str) and STIX_TS.match(c) and STIX_TS.match(mo) and _ts_key(mo) < _ts_key(c):
+                P("%s: modified is before created" % label)
+            for k in STIX_SDO[typ]:
+                if k not in o:
+                    P("%s: missing required property %s" % (label, k))
+        elif typ in STIX_SCO:
+            for k in STIX_SCO[typ]:
+                if not o.get(k):
+                    P("%s: missing required property %s" % (label, k))
+            if typ == "file" and not o.get("hashes") and not o.get("name"):
+                P("%s: a file needs hashes or name" % label)
+        else:
+            unknown[typ] = unknown.get(typ, 0) + 1
+        for k in ("created", "modified", "valid_from", "valid_until", "published", "first_observed", "last_observed"):
+            if k in o and not (isinstance(o[k], str) and STIX_TS.match(o[k])):
+                P("%s: %s %r is not a STIX timestamp" % (label, k, o[k]))
+        if typ == "observed-data":
+            n = o.get("number_observed")
+            if not isinstance(n, int) or isinstance(n, bool) or not 1 <= n <= 999999999:
+                P("%s: number_observed %r is not in 1..999999999" % (label, n))
+            fo, lo = o.get("first_observed"), o.get("last_observed")
+            if isinstance(fo, str) and isinstance(lo, str) and STIX_TS.match(fo) and STIX_TS.match(lo) and _ts_key(lo) < _ts_key(fo):
+                P("%s: last_observed is before first_observed" % label)
+        if typ == "indicator" and o.get("pattern_type") == "stix":
+            pat = o.get("pattern") or ""
+            if not (pat.startswith("[") and pat.endswith("]")):
+                P("%s: a stix pattern must be [ ... ]" % label)
+        if "external_references" in o:
+            er = o["external_references"]
+            if not isinstance(er, list):
+                P("%s: external_references is not an array" % label)
+            else:
+                for j, x in enumerate(er):
+                    if not isinstance(x, dict) or not x.get("source_name"):
+                        P("%s: external_references[%d] has no source_name" % (label, j))
+        for k in sorted(o):
+            if k.endswith("_ref"):
+                refs.append((oid, k, o[k]))
+            elif k.endswith("_refs"):
+                if not isinstance(o[k], list):
+                    P("%s: %s is not an array" % (label, k))
+                    continue
+                if k == "object_refs" and not o[k]:
+                    P("%s: object_refs is empty" % label)
+                for x in o[k]:
+                    refs.append((oid, k, x))
+    for src, prop, to in refs:
+        if not (isinstance(to, str) and STIX_ID.match(to)):
+            P("%s: %s %r is not a STIX id" % (src, prop, to))
+        elif to not in ids:
+            P("%s: %s %s does not resolve inside the bundle" % (src, prop, to))
+    for t in sorted(unknown):
+        notes.append("STIX: %d object(s) of type %s not checked beyond id and spec_version" % (unknown[t], t))
+
+
+def check_overlay(pkg, res, stix_file=None):
+    """The 0.2.2 analysis files, when present. Problems go to
+    res.analysis_problems; what was checked to res.analysis_checked."""
+    seal = ""
+    try:
+        seal = sha256_file(os.path.join(pkg, "SHA256SUMS"))
+    except OSError:
+        pass
+    try:
+        man = read_overlay(pkg, "detections/analysis-manifest.json")
+        if man is not None:
+            res.analysis_checked.append("detections/analysis-manifest.json")
+            check_analysis_manifest(man, read_overlay(pkg, "detections/findings.json"), seal, res.analysis_problems, res.notes)
+    except (OSError, ValueError) as e:
+        res.analysis_problems.append("analysis-manifest.json: unreadable: %s" % e)
+    try:
+        g = read_overlay(pkg, "normalized/lineage.json")
+        if g is not None:
+            res.analysis_checked.append("normalized/lineage.json")
+            check_action_graph(g, res.analysis_problems, res.notes)
+    except (OSError, ValueError) as e:
+        res.analysis_problems.append("lineage.json: unreadable: %s" % e)
+    try:
+        if stix_file:
+            res.analysis_checked.append(stix_file)
+            check_stix(read_small(stix_file), res.analysis_problems, res.notes)
+        else:
+            s = read_overlay(pkg, "reports/findings.stix.json")
+            if s is not None:
+                if stix_tool_identity().encode() not in s:
+                    res.notes.append("reports/findings.stix.json predates 0.2.2 (no AgentDFIR tool identity); not checked (use --stix to force)")
+                else:
+                    res.analysis_checked.append("reports/findings.stix.json")
+                    check_stix(s, res.analysis_problems, res.notes)
+    except (OSError, ValueError) as e:
+        res.analysis_problems.append("STIX: unreadable: %s" % e)
+
+
+# --------------------------------------------------------------- production sets
+
+def verify_production(d, pubkey=""):
+    """A production set: every file production-manifest.json lists hashes
+    to its SHA-256 and size, nothing else is present, and
+    production-manifest.json.sig (when present) is an ed25519 signature
+    over the manifest's SHA-256."""
+    res = Result()
+    res.counts = {"files_checked": 0}
+    mp = os.path.join(d, "production-manifest.json")
+    try:
+        m = json.loads(read_small(mp))
+    except (OSError, ValueError) as e:
+        raise SystemExit("cannot read production-manifest.json: %s" % e)
+    if m.get("schema") != "agentdfir.production/1":
+        res.problems.append("production-manifest.json: schema %r" % m.get("schema"))
+    listed = {"production-manifest.json", "production-manifest.csv", "production-manifest.json.sig"}
+    for f in m.get("files") or []:
+        rel = f.get("path", "") if isinstance(f, dict) else ""
+        if not safe_rel(rel):
+            res.problems.append("%r: path outside the production" % rel)
+            continue
+        if rel in listed:
+            res.problems.append("%s: listed twice" % rel)
+        listed.add(rel)
+        path = os.path.join(d, *rel.split("/"))
+        try:
+            got, size = sha256_file(path), os.path.getsize(path)
+        except OSError:
+            res.problems.append("%s: listed but unreadable or missing" % rel)
+            continue
+        res.counts["files_checked"] += 1
+        if got != f.get("sha256") or size != f.get("size"):
+            res.problems.append("%s: does not match the manifest" % rel)
+    for root, _, files in os.walk(d):
+        for name in sorted(files):
+            rel = os.path.relpath(os.path.join(root, name), d).replace(os.sep, "/")
+            if rel not in listed:
+                res.problems.append("%s: present but not listed in the manifest" % rel)
+    sp = mp + ".sig"
+    if os.path.exists(sp):
+        f = parse_sig(read_small(sp))
+        try:
+            sig, pub = bytes.fromhex(f.get("signature", "")), bytes.fromhex(f.get("public_key", ""))
+        except ValueError:
+            sig, pub = b"", b""
+        digest = hashlib.sha256(read_small(mp)).digest()
+        if f.get("algorithm", "ed25519") != "ed25519" or len(sig) != 64 or len(pub) != 32:
+            res.signature = "INVALID"
+            res.problems.append("production-manifest.json.sig: malformed")
+        elif pubkey and pubkey.lower() != pub.hex():
+            res.signature = "INVALID"
+            res.problems.append("production-manifest.json.sig: not by the pinned key")
+        elif f.get("file_sha256") and f["file_sha256"] != digest.hex():
+            res.signature = "INVALID"
+            res.problems.append("production-manifest.json.sig: file_sha256 does not match the manifest")
+        elif not ed25519_verify(pub, digest, sig):
+            res.signature = "INVALID"
+            res.problems.append("production-manifest.json.sig: signature does not match the manifest")
+        else:
+            res.signature = "valid (ed25519, key %s)" % pub.hex()[:16]
+    elif pubkey:
+        res.problems.append("production-manifest.json.sig: missing, but a signer key was pinned")
+    else:
+        res.notes.append("the production is unsigned")
+    return res
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Independent verifier for .adfir evidence packages (spec %s)." % SPEC_VERSION)
     ap.add_argument("package", help="package directory")
     ap.add_argument("--json", action="store_true", help="print a JSON result")
-    ap.add_argument("--pubkey", default="", help="require SEAL.sig to be signed by this hex ed25519 public key")
+    ap.add_argument("--pubkey", default="", help="require SEAL.sig (or a production's signature) to be by this hex ed25519 public key")
+    ap.add_argument("--stix", default="", help="also check this STIX 2.1 bundle (spec 0.2.2 shape)")
     ap.add_argument("--version", action="version", version="adfir-verify %s (spec %s)" % (__version__, SPEC_VERSION))
     args = ap.parse_args(argv)
     if not os.path.isdir(args.package):
         print("not a package directory: %s" % args.package, file=sys.stderr)
         return 2
+    production = os.path.exists(os.path.join(args.package, "production-manifest.json")) and \
+        not os.path.exists(os.path.join(args.package, "SHA256SUMS"))
     try:
-        res = verify(args.package, args.pubkey)
+        if production:
+            res = verify_production(args.package, args.pubkey)
+            if args.stix:
+                res.analysis_checked.append(args.stix)
+                check_stix(read_small(args.stix), res.analysis_problems, res.notes)
+        else:
+            res = verify(args.package, args.pubkey)
+            check_overlay(args.package, res, args.stix or None)
     except SystemExit as e:
         print(str(e), file=sys.stderr)
         return 2
-    verdict = "FAILED" if res.problems else "VERIFIED"
+    integrity = "FAILED" if res.problems else "VERIFIED"
+    analysis = "FAILED" if res.analysis_problems else ("VERIFIED" if res.analysis_checked else "NOT_PRESENT")
+    all_problems = res.problems + res.analysis_problems
+    verdict = "FAILED" if all_problems else "VERIFIED"
     if args.json:
         json.dump({"verifier": "adfir-verify %s" % __version__, "spec": SPEC_VERSION, "verdict": verdict,
-                   "signature": res.signature, "counts": res.counts, "problems": res.problems, "notes": res.notes},
+                   "kind": "production" if production else "package",
+                   "integrity_verdict": integrity, "analysis_verdict": analysis, "analysis_checked": res.analysis_checked,
+                   "analysis_problems": res.analysis_problems,
+                   "signature": res.signature, "counts": res.counts, "problems": all_problems, "notes": res.notes},
                   sys.stdout, indent=2, sort_keys=True)
         sys.stdout.write("\n")
     else:
@@ -508,15 +974,17 @@ def main(argv=None):
         for k in sorted(res.counts):
             print("  %-20s %d" % (k, res.counts[k]))
         print("  %-20s %s" % ("signature", res.signature))
+        if res.analysis_checked:
+            print("  %-20s %s (%s)" % ("analysis files", analysis, ", ".join(res.analysis_checked)))
         for n in res.notes:
             print("  note: %s" % n)
-        if res.problems:
-            print("FAILED -- %d problem(s):" % len(res.problems))
-            for p in res.problems:
+        if all_problems:
+            print("FAILED -- %d problem(s):" % len(all_problems))
+            for p in all_problems:
                 print("  - %s" % p)
         else:
             print("VERIFIED -- no modifications detected")
-    return 1 if res.problems else 0
+    return 1 if all_problems else 0
 
 
 if __name__ == "__main__":

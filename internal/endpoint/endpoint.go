@@ -26,7 +26,7 @@ import (
 // Record is one endpoint observation.
 type Record struct {
 	Time      time.Time `json:"time"`
-	Kind      string    `json:"kind"` // process | network | file | cloud | dns | auth | process-image | script | service | log-clear (evtx)
+	Kind      string    `json:"kind"` // process | network | file | cloud | dns | auth | process-image | script | service | log-clear | process-exit | registry | scheduled-task | wmi (evtx) | syscall | container (linux) | process-fork | persistence | tcc | av | ipc | signal | log (macOS)
 	PID       int       `json:"pid,omitempty"`
 	PPID      int       `json:"ppid,omitempty"`
 	Exe       string    `json:"exe,omitempty"`
@@ -47,8 +47,73 @@ type Record struct {
 	Resource  string `json:"resource,omitempty"`  // resource ids and names the record names
 	SourceIP  string `json:"source_ip,omitempty"`
 	Failed    string `json:"failed,omitempty"` // error code when the cloud refused the call
-	Source    string `json:"source"`           // adapter name
-	Ref       string `json:"ref"`              // file:line or event id
+	// Windows event log context records (kinds registry, scheduled-task,
+	// wmi, auth from the Security log); see evtxkinds.go.
+	ValueName   string `json:"value_name,omitempty"`   // registry value name
+	Details     string `json:"details,omitempty"`      // registry data, task action, WMI query or consumer text (bounded)
+	SubjectUser string `json:"subject_user,omitempty"` // account that acted (User is the target account)
+	LogonType   string `json:"logon_type,omitempty"`
+	// Container and namespace attribution (Linux), when the source
+	// records it: Tetragon, Falco, container-runtime events, and auditd
+	// where the kernel emitted a container id or a cgroup path. Namespace
+	// values are the namespace inode numbers (/proc/<pid>/ns/* targets).
+	ContainerID    string `json:"container_id,omitempty"`
+	ContainerName  string `json:"container_name,omitempty"`
+	ContainerImage string `json:"container_image,omitempty"`
+	Pod            string `json:"pod,omitempty"`
+	K8sNamespace   string `json:"k8s_namespace,omitempty"`
+	PIDNS          uint64 `json:"pid_ns,omitempty"`
+	MntNS          uint64 `json:"mnt_ns,omitempty"`
+	NetNS          uint64 `json:"net_ns,omitempty"`
+	// Process identity that survives pid reuse (Tetragon exec_id /
+	// parent_exec_id), the working directory and effective capabilities.
+	ExecID       string `json:"exec_id,omitempty"`
+	ParentExecID string `json:"parent_exec_id,omitempty"`
+	Cwd          string `json:"cwd,omitempty"`
+	Caps         string `json:"caps,omitempty"` // space-separated CAP_* names
+	TTY          string `json:"tty,omitempty"`
+	// Privilege change (kind auth: sudo, su, pkexec, PAM): the identity
+	// before and after. User stays the acting user.
+	PrivFrom string `json:"priv_from,omitempty"`
+	PrivTo   string `json:"priv_to,omitempty"`
+	// Detection carries a third-party detector's verdict attached to the
+	// record (a Falco rule name and priority), labelled with its origin.
+	// It is context from another tool, never an AgentDFIR finding.
+	Detection string `json:"detection,omitempty"`
+	Source    string `json:"source"` // adapter name
+	Ref       string `json:"ref"`    // file:line or event id
+
+	// Process identity beyond pid/ppid, for sources that record it (macOS
+	// Endpoint Security via eslogger fills all of them; other adapters may
+	// fill some). UID/EUID are strings so that root (0) is not dropped.
+	OrigPPID       int    `json:"orig_ppid,omitempty"` // parent at process start, before any reparenting
+	RespPID        int    `json:"resp_pid,omitempty"`  // macOS responsible process
+	AuditToken     string `json:"audit_token,omitempty"`
+	SigningID      string `json:"signing_id,omitempty"`
+	TeamID         string `json:"team_id,omitempty"`
+	CDHash         string `json:"cdhash,omitempty"`
+	PlatformBinary bool   `json:"platform_binary,omitempty"`
+	UID            string `json:"uid,omitempty"`
+	EUID           string `json:"euid,omitempty"`
+	ProcSession    int    `json:"proc_session,omitempty"` // POSIX session id of the process
+	// Collection health: a source-assigned sequence number. Seq is
+	// contiguous within SeqDomain (eslogger seq_num per event type, an EVTX
+	// channel's EventRecordID, an audit serial); GlobalSeq is a stream-wide
+	// counter (eslogger global_seq_num). A jump means the source dropped
+	// events. Zero means the source has no sequence numbers.
+	Seq       uint64 `json:"seq,omitempty"`
+	SeqDomain string `json:"seq_domain,omitempty"`
+	GlobalSeq uint64 `json:"global_seq,omitempty"`
+	// Message is the raw text of a log record kept for the timeline
+	// (kind log, macOS unified log), bounded.
+	Message string `json:"message,omitempty"`
+	// Host is the machine the source says recorded the event (EVTX
+	// Computer, Tetragon node_name, Falco hostname, journald _HOSTNAME).
+	// Empty when the source does not name it.
+	Host string `json:"host,omitempty"`
+	// Origin is the file the record was loaded from. In memory only:
+	// coverage and collection health are computed per source file.
+	Origin string `json:"-"`
 }
 
 // Format names an adapter.
@@ -76,6 +141,26 @@ type LoadResult struct {
 	// but that are not process/network/file telemetry (an event log
 	// cleared, a service installed). Shown to the operator; no rule.
 	Notices []string
+
+	// ContextDropped counts, per kind, Windows context records past the
+	// per-file bound: coverage of that kind is incomplete.
+	ContextDropped map[string]int
+
+	ctxKept      map[string]int // Windows context records kept per kind (evtxkinds.go)
+	ctxNoted     map[string]bool
+	noticeCounts map[string]int
+	// Unsupported counts input records of a type the adapter recognized
+	// as well-formed but does not map (an eslogger event type it has no
+	// mapping for), keyed by that type. Counted and reported, never
+	// silently dropped.
+	Unsupported map[string]int
+
+	// Health is the collection-health report for the file (health.go).
+	Health *SourceHealth
+
+	seqs         *seqTracker
+	drops        []DropSignal
+	dropsOmitted int
 }
 
 // Load reads one endpoint log with the given (or sniffed) format.
@@ -110,7 +195,9 @@ func Load(path string, f Format) (*LoadResult, error) {
 	default:
 		var ok bool
 		if res, ok, err = loadTelemetry(path, f); !ok {
-			return nil, fmt.Errorf("unknown endpoint format %q", f)
+			if res, ok, err = loadMacOS(path, f); !ok {
+				return nil, fmt.Errorf("unknown endpoint format %q", f)
+			}
 		}
 	}
 	if err != nil {
@@ -118,6 +205,13 @@ func Load(path string, f Format) (*LoadResult, error) {
 	}
 	res.Format = f
 	sort.SliceStable(res.Records, func(i, j int) bool { return res.Records[i].Time.Before(res.Records[j].Time) })
+	for i := range res.Records {
+		res.Records[i].Origin = path
+	}
+	res.Health = res.health(path)
+	if sum, err := FileSHA256(path); err == nil {
+		res.Health.SHA256 = sum
+	}
 	return res, nil
 }
 
@@ -137,6 +231,9 @@ func Sniff(path string) (Format, error) {
 	if tf := sniffTelemetry(head); tf != "" {
 		return tf, nil
 	}
+	if mf := sniffMacOS(head); mf != "" {
+		return mf, nil
+	}
 	switch {
 	case bytes.HasPrefix(head, []byte("type=")) || bytes.Contains(head[:min(len(head), 4096)], []byte("\ntype=")):
 		return FormatAuditd, nil
@@ -154,7 +251,7 @@ func Sniff(path string) (Format, error) {
 	if bytes.Count(first, []byte(",")) >= 2 {
 		return FormatCSV, nil
 	}
-	return "", errors.New("cannot determine endpoint log format; pass --format auditd|sysmon-xml|evtx|jsonl|csv|cloud-audit|" + telemetryFormatList)
+	return "", errors.New("cannot determine endpoint log format; pass --format auditd|sysmon-xml|evtx|jsonl|csv|cloud-audit|" + telemetryFormatList + "|" + macOSFormatList)
 }
 
 func min(a, b int) int {
@@ -197,6 +294,32 @@ func (r *LoadResult) note(msg string) {
 }
 
 // notice records a notable recognized event; see LoadResult.Notices.
+// Notice categories, each with its own bound so one flood (task or WMI
+// churn) cannot crowd out another (a cleared log, a service install).
+const (
+	noticeLogClear = "log-clear"
+	noticeService  = "service"
+	noticeTask     = "scheduled-task"
+	noticeWMI      = "wmi"
+)
+
+var noticeLimits = map[string]int{noticeLogClear: 1000, noticeService: 1000, noticeTask: 50, noticeWMI: 50}
+
+// noticeOf records a notice under its category's own bound; the first
+// notice past the bound says how the rest are handled.
+func (r *LoadResult) noticeOf(cat, msg string) {
+	if r.noticeCounts == nil {
+		r.noticeCounts = map[string]int{}
+	}
+	r.noticeCounts[cat]++
+	switch n := r.noticeCounts[cat]; {
+	case n <= noticeLimits[cat]:
+		r.Notices = append(r.Notices, msg)
+	case n == noticeLimits[cat]+1:
+		r.Notices = append(r.Notices, fmt.Sprintf("more %s notices not shown (the records are kept)", cat))
+	}
+}
+
 func (r *LoadResult) notice(msg string) {
 	if len(r.Notices) < 50 {
 		r.Notices = append(r.Notices, msg)

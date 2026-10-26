@@ -24,6 +24,7 @@ Second witness: match the agent transcript against OS telemetry.
   sysmon-xml  wevtutil qe Microsoft-Windows-Sysmon/Operational /f:xml   (events 1, 3, 11, 23)
   evtx        raw .evtx files: Sysmon, Security 4688, PowerShell 4104, service installs, log clears
   jsonl/csv   Velociraptor, osquery, evtx_dump JSON, macOS eslogger — field names auto-mapped
+  eslogger    macOS Endpoint Security (eslogger --format json); unifiedlog  log show --style ndjson|json
   zeek, dns-log, squid    Zeek dns/http/ssl, BIND/dnsmasq/Pi-hole/Unbound/Windows DNS, Squid
   authlog, journald       /var/log/auth.log or /var/log/secure, journalctl -o json
   k8s-audit, git-audit, storage-access   Kubernetes audit, GitHub/GitLab audit export, S3/GCS/Azure Storage logs
@@ -105,8 +106,19 @@ func runEndpointCorrelation(pkg string, logs []string, f endpoint.Format, opts c
 			fmt.Printf("  notice: %s\n", sanitize.Terminal(n))
 		}
 		records = append(records, lr.Records...)
+		opts.Health = append(opts.Health, lr.Health)
+		if h := lr.Health; h != nil && h.Verdict == endpoint.HealthPartial {
+			fmt.Printf("  collection health: PARTIAL (%d sequence gap(s), %d drop signal(s)); absence in the affected intervals is not evaluated\n", h.Gaps, len(h.Drops)+h.DropsOmitted)
+		}
 	}
 	res, findings := correlate.Endpoint(events, records, opts)
+	hf, hcov := correlate.HostRules(events, records, opts)
+	findings = append(findings, hf...)
+	for _, c := range hcov {
+		if !c.Evaluated {
+			fmt.Printf("  host rule %s not evaluated: %s\n", c.Rule, sanitize.Terminal(c.Missing))
+		}
+	}
 	if err := overlay.WriteJSONL(filepath.Join(dir, "events.jsonl"), len(events), func(i int) any { return events[i] }); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return nil, nil, 1

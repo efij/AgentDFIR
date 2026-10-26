@@ -1,0 +1,7 @@
+{
+  "verdict": "FAILED",
+  "description": "empty an edge's source_refs",
+  "mutation": "graph-edge-no-source",
+  "spec": "0.2.2",
+  "kind": "analysis"
+}

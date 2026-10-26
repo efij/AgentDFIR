@@ -201,6 +201,23 @@ dl.kv{display:grid;grid-template-columns:150px 1fr;gap:6px 14px;margin:12px 0 0;
 dl.kv dt{color:var(--muted)} dl.kv dd{margin:0;font-family:var(--mono);font-size:12.5px;word-break:break-all}
 
 
+/* ---- v4.5: collection-health badge, proof chain, supply chain, reconstruct */
+.hbadge{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 11px;border-radius:999px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink-2);font-size:13px;font-weight:650;white-space:nowrap}
+.hbadge .dot{width:8px;height:8px;border-radius:50%;background:currentColor}
+.hbadge.ok{background:var(--ok-bg);color:var(--ok)} .hbadge.serious{background:var(--serious-bg);color:var(--serious)} .hbadge.look{background:var(--look-bg);color:var(--look)}
+.hbadge:hover{border-color:var(--line-2)}
+details.pact{border-top:1px solid var(--line);padding:8px 0}
+details.pact>summary{cursor:pointer;overflow-wrap:anywhere;line-height:1.9}
+.pf{padding:6px 0 4px 6px}
+.pf h4{margin:12px 0 6px;font-size:14px}
+.pchain{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.pchain li{display:flex;gap:10px;align-items:flex-start}
+.pchain .role{flex:0 0 76px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);padding-top:3px}
+.pchain .pc{flex:1;min-width:0;padding:6px 10px;border-left:3px solid var(--line-2);background:var(--surface-2);border-radius:var(--r-sm);overflow-wrap:anywhere}
+.pchain .lim{font-size:12.5px;color:var(--serious);margin-top:3px}
+.pchain .refs{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.rel-v{border-left:4px solid var(--ok)} .rel-i{border-left:4px dashed var(--look)}
+@media (max-width:760px){.hbadge span:last-child{display:none}}
 /* ---- command palette (Cmd/Ctrl+K) */
 .pal-scrim{position:fixed;inset:0;background:var(--scrim);opacity:0;pointer-events:none;transition:opacity .12s ease;z-index:80}
 .pal-scrim.on{opacity:1;pointer-events:auto}
@@ -482,6 +499,7 @@ pre.raw{margin:0;padding:12px 14px;border-radius:var(--r-sm);background:var(--su
       <button role="tab" data-view="more" aria-selected="false">More</button>
     </nav>
     <div class="right">
+      <button class="hbadge" id="healthb" type="button" hidden aria-label="Collection health">Collection health</button>
       <label class="gsearch"><svg class="i sm"><use href="#i-search"/></svg><span class="sr">Search the whole case</span><input id="gq" type="search" placeholder="Search or jump to…" aria-keyshortcuts="Meta+K Control+K" aria-haspopup="dialog" readonly><kbd id="gqk">⌘K</kbd></label>
       <button class="iconbtn" id="palbtn" aria-label="Search and jump (Cmd or Ctrl+K)" aria-keyshortcuts="Meta+K Control+K"><svg class="i"><use href="#i-search"/></svg></button>
       <button class="iconbtn" id="theme" aria-label="Switch light or dark theme"><svg class="i"><use href="#i-moon"/></svg></button>
@@ -533,6 +551,9 @@ pre.raw{margin:0;padding:12px 14px;border-radius:var(--r-sm);background:var(--su
         <button data-m="crosscheck" aria-pressed="false">Cross-check</button>
         <button data-m="map" aria-pressed="false">Agent map</button>
         <button data-m="lineage" aria-pressed="false">Who did what</button>
+        <button data-m="proof" aria-pressed="false">Proof</button>
+        <button data-m="supplychain" aria-pressed="false">Supply chain</button>
+        <button data-m="reconstruct" aria-pressed="false">Reconstruct</button>
         <button data-m="bookmarks" aria-pressed="false">Bookmarks</button>
         <button data-m="compare" aria-pressed="false">Compare cases</button>
         <button data-m="evidence" aria-pressed="false">About the evidence</button>
@@ -765,6 +786,10 @@ const P={
   ENDPOINT_CONTRADICTED_COMMAND:['integrity','The computer never saw a command the log says ran','The operating system’s own records do not contain a command the agent’s log claims it ran.'],
   UNLOGGED_AGENT_ACTIVITY:['integrity','The computer saw agent activity the log does not mention',''],
   UNLOGGED_AGENT_NETWORK:['integrity','The agent connected somewhere the log does not mention',''],
+  WIN_AGENT_SCHEDULED_TASK:['persist','A program the agent started created a scheduled task','Windows recorded a new scheduled task right after a program started by the agent ran schtasks or Register-ScheduledTask.'],
+  WIN_AGENT_WMI_PERSISTENCE:['persist','A hidden WMI trigger was created while the agent was working','Windows recorded a permanent WMI event consumer during the agent session. It can start a program on its own later.'],
+  WIN_AGENT_REGISTRY_PERSISTENCE:['persist','A program the agent started set something to run at every logon','Windows recorded a program started by the agent writing a Run key or a service definition.'],
+  WIN_AGENT_EXPLICIT_CREDENTIALS:['secrets','A program the agent started logged on with another password','Windows recorded a program started by the agent logging on with credentials it supplied itself.'],
   MCP_GATEWAY_CONTRADICTED_CALL:['integrity','A plugin call in the log never reached the gateway',''],
   MCP_GATEWAY_UNLOGGED_CALL:['integrity','The gateway saw a plugin call the log does not contain',''],
   MCP_GATEWAY_DENIED_CALL:['config','A plugin call was blocked by policy',''],
@@ -790,6 +815,14 @@ const P={
   CHAIN_CROSS_TOOL_EXFIL:['leak','A secret was collected, then a plugin sent something out','The agent gathered credential material and then used a plugin (MCP) tool that sends, posts or publishes. Shell-only checks never see that second step.','Do you know what the plugin sent, and to whom?','Open the plugin call in the story to see what it carried; if it carried the secret, replace the secret now.'],
   CHAIN_MCP_RESULT_TO_PRIVILEGED:['inject','A plugin’s answer was followed by a password read or an upload','A plugin (MCP) tool returned text that tells the agent what to do, and the agent then touched credentials, widened its permissions, or uploaded something.','Did the agent do that because you asked, or because the plugin told it to?','If the plugin told it to: stop using that plugin, replace any credential that was read, and send the note below to whoever looks after your IT.'],
   CHAIN_PERMISSION_ESCALATION_TO_IMPACT:['destroy','Safety checks were loosened, then something risky ran','First the agent’s permissions were widened; afterwards something was deleted, logging was switched off, or data was uploaded — without anyone approving that step.','Was loosening the safety checks and the risky step both part of the task?','If not: restore what was removed, put the permissions back, and tell whoever looks after your IT.'],
+  // v4.5 host-witness rules and chains (docs/detection-v45.md)
+  WIN_AGENT_SUSPICIOUS_POWERSHELL:['code','A program the agent started ran hidden or encoded PowerShell','Windows recorded PowerShell, started under the agent, running an encoded command, a hidden window, or a download handed straight to the interpreter.'],
+  AGENT_PRIVILEGE_ELEVATION:['config','A program the agent started became another user (sudo)','The operating system recorded a switch to another account, usually the administrator, by a program the agent started.','Did you ask the agent to do something that needs admin rights?'],
+  AGENT_LOGGING_DISRUPTED:['destroy','Logging was stopped or cleared while the agent worked','The operating system recorded a logging or monitoring service being stopped, killed or cleared by a program the agent started, or an event log cleared during the agent session.'],
+  AGENT_EVIDENCE_SOURCE_DELETED:['destroy','A program the agent started deleted logs or history','The operating system recorded agent conversation logs, shell history or system logs being deleted by a program the agent started.'],
+  PACKAGE_SCRIPT_TOUCHED_AGENT:['code','An installed package started an AI agent or changed its settings','A script that ran while a package was being installed launched an AI agent, or wrote the agent’s settings, or read its login.','Did you expect this package to touch your AI tools?'],
+  CHAIN_STAGED_DATA_TO_TRANSFER:['leak','Data was packed up, then copied off the computer','The agent put data into an archive or a temporary file, then copied something to cloud storage, another computer or a sharing service.','Do you know where it went?'],
+  CHAIN_SECRET_TO_NEW_REMOTE_PUSH:['leak','A secret was read, then code was pushed to a new place','The agent read sensitive material, set up a new code repository or remote, and pushed to it.','Is the new repository yours?'],
 };
 function guessKind(id){ id=id||''; if(/SECRET|CRED|KEY|PASSWORD|TOKEN|SHADOW/.test(id)) return 'secrets'; if(/EXFIL|UPLOAD|DEST|PUSH|NETWORK/.test(id)) return 'leak'; if(/INJECT|INSTRUCTION|POISON|PROMPT|UNICODE/.test(id)) return 'inject'; if(/PERSIST|CRON|SERVICE|RUN_KEY|HOOK/.test(id)) return 'persist'; if(/DESTRUCT|DELET|WIPE|TAMPER|DISABLE/.test(id)) return 'destroy'; if(/EXEC|SHELL|DOWNLOAD/.test(id)) return 'code'; if(/MCP|CONFIG|PERMISSION/.test(id)) return 'config'; if(/AGENT|TASK|SPAWN/.test(id)) return 'agents'; return 'other'; }
 function plain(f){
@@ -1374,6 +1407,9 @@ function renderMore(){
   if(moreTab==='extensions') return renderExtensions(box);
   if(moreTab==='bookmarks') return renderBookmarks(box);
   if(moreTab==='compare') return renderCompare(box);
+  if(moreTab==='proof') return renderProof(box);
+  if(moreTab==='supplychain') return renderSupplyChain(box);
+  if(moreTab==='reconstruct') return renderReconstruct(box);
   if(moreTab==='lineage'){ box.append(h('div',{class:'panel'},h('h2',null,'Who did what, through whom'),h('p',null,'The whole case: the AI account that asked, the agents and helper agents, the actions they took, the programs the computer ran for them, and the addresses, files and cloud resources those reached. Every line is backed by a record; click one for its source. Open a finding or a conversation for just its part.')),lineagePanel('/api/lineage')); return; }
 }
 function renderSearch(box,q0){
@@ -1541,6 +1577,7 @@ function renderCoverage(){
       acts.forEach(a=>t.append(h('tr',null,h('td',null,ACTW[a.action]||a.action),h('td',null,String(a.total||0)),h('td',null,String(a.verified||0)),h('td',null,a.disproved?h('b',{style:'color:var(--act)'},String(a.disproved)):'0'),h('td',null,String(a.unverified||0)),
         h('td',null,Object.entries(a.unverified_reasons||{}).map(([k,n])=>n+' — '+(WHYW[k]||k)).join('; ')||'—'))));
       box.append(h('div',{class:'panel',style:'overflow:auto'},h('h2',null,'What kind of action was checked'),t)); }
+    if((sw.kind_coverage||[]).length||(sw.collection_health||[]).length) box.append(healthSection(sw.collection_health,sw.kind_coverage,null,'cov-health'));
     if(wl&&wl.available&&(wl.items||[]).length){ const pn=h('div',{class:'panel'},h('h2',null,'Actions with a second witness'),h('p',null,'Open one to see the agent’s record next to the independent record that confirmed it.'+(wl.truncated?' The first '+wl.items.length+' of '+wl.total+' are listed.':'')));
       wl.items.forEach(x=>pn.append(h('button',{class:'hit',onclick:()=>showWitness(x.id)},h('div',{class:'p'},when(x.ts)+' · '+(CONFW[x.confidence]||x.confidence||'')+' · '+x.basis),h('div',{class:'x'},clip(x.what||'',240)))));
       box.append(pn); }
@@ -1741,6 +1778,161 @@ function renderExtensions(box){
   }).catch(err=>box.replaceChildren(h('div',{class:'empty'},'Could not load: '+err.message)));
 }
 
+// ---- v4.5: Proof, collection health, Supply chain, Reconstruct
+// Every string below came from the evidence (through the server's
+// sanitizer) and reaches the page through h() as text, never as markup.
+const HEALTHW={HEALTHY:['ok','Healthy','Sequence numbers present and contiguous, no drop signal'],PARTIAL:['serious','Partial','A sequence gap or a drop the source reported: some events were missed'],UNKNOWN:['look','Unknown','No sequence numbers: completeness cannot be established either way'],none:['plain','No telemetry','No independent telemetry was imported']};
+const healthChip=v=>{ const x=HEALTHW[v]||HEALTHW.UNKNOWN; return h('span',{class:'chip '+x[0],title:x[2]},v==='none'?x[1]:M(v||'UNKNOWN')); };
+const ASSURW={verified:['ok','Verified'],corroborated:['look','Corroborated'],inferred:['plain','Inferred']};
+const assurChip=v=>{ const x=ASSURW[v]||['plain',v||'—']; return h('span',{class:'chip '+x[0]},x[1]); };
+const LINKW={verified:['ok','Verified'],inferred:['look','Inferred'],unresolved:['plain','Unresolved']};
+const linkChip=v=>{ const x=LINKW[v]||['plain',v||'—']; return h('span',{class:'chip '+x[0]},x[1]); };
+// The proof chain, in the order it is read: Human → Agent → Tool → Process → File/Network → Outcome.
+const PROLE={human:'Human',agent:'Agent',subagent:'Agent',tool_call:'Tool',process:'Process',file:'File',network:'Network',cloud_resource:'Cloud',mcp_server:'Plugin',outcome:'Outcome'};
+// A table of plain values or nodes, bounded.
+function vtbl(cols,rows,max){ max=max||500; const t=h('table',{class:'t'},h('tr',null,cols.map(c=>h('th',null,c))));
+  rows.slice(0,max).forEach(r=>t.append(h('tr',null,r.map(v=>h('td',null,v==null||v===''?'—':typeof v==='string'?mask(v):v))))); return rows.length>max?h('div',null,t,h('p',{class:'muted'},'First '+max+' of '+rows.length+' shown.')):t; }
+// Evidence text outside a table: secrets masked like everywhere else on the page.
+const M=x=>mask(x==null?'':String(x));
+// A proof source reference as a button (the event, else the sealed line), or its telemetry reference as text.
+function proofRef(r,label){ if(!r) return null;
+  const b=refBtn(r.event_id?{event_id:r.event_id}:r.artifact_id?{artifact:r.artifact_id,offset:r.offset||0,path:r.logical_path||'',line:r.line||0}:null,label);
+  if(b) return b; return r.telemetry_ref?h('span',{class:'tag mono',title:'Imported telemetry'},clip(r.telemetry_ref,80)):null; }
+const span2=(a,b)=>a&&!/^0001-/.test(a)?when(a)+(b&&!/^0001-/.test(b)?' – '+when(b):''):'—';
+// The telemetry coverage & health section, shared by the Proof and Coverage views.
+function healthSection(sources,coverage,note,id){
+  sources=sources||[]; coverage=coverage||[];
+  const pn=h('div',{class:'panel',id:id||null,style:'overflow:auto'},h('h2',null,'Telemetry coverage & health'),
+    h('p',null,'Each imported telemetry file is checked for signs it missed events: source sequence numbers that skip, and drops the source wrote about itself. Absence of a record only means something where the source was recording completely.'),
+    note?h('p',{class:'muted'},note):null);
+  if(!sources.length&&!coverage.length){ pn.append(h('p',{class:'muted'},'No independent telemetry was imported, so no agent action can be confirmed or disproved by the operating system. Import operating-system, DNS, proxy or cloud logs with: agentdfir analyze <case> --endpoint <log>.')); return pn; }
+  if(sources.length){ pn.append(h('h3',null,'Per source'),vtbl(['Health','File','Format','Records','Time covered','Hosts','Sequence gaps','Drops','Note'],sources.map(s=>[healthChip(s.verdict),h('span',{class:'mono'},clip(s.file||'',120)),s.format,String(s.records||0),span2(s.first,s.last),(s.hosts||[]).join(', '),
+    s.gaps?h('b',{style:'color:var(--serious)'},String(s.gaps)+((s.sequence_domains||[]).reduce((n,d)=>n+(d.missing||0),0)?' ('+(s.sequence_domains||[]).reduce((n,d)=>n+(d.missing||0),0)+' missing)':'')):'0',
+    (s.drops||[]).length?h('ul',{class:'steps-l'},(s.drops||[]).slice(0,10).map(d=>h('li',null,M(d.signal||'drop')+': '+clip(d.detail||'',200)+(d.count?' ('+d.count+')':'')))):(s.drops_omitted?String(s.drops_omitted):'none'),
+    s.note?clip(s.note,300):'']),200)); }
+  if(coverage.length){ pn.append(h('h3',null,'Per host and kind'),vtbl(['Host','Kind','Counts as coverage','Records','Time covered','Health','Partial intervals','Note'],coverage.map(c=>[c.host||'any host',c.kind,c.counts_as_coverage?'Yes':'No — corroborates only',String(c.records||0),span2(c.start,c.end),healthChip(c.health),
+    (c.partial||[]).length?String((c.partial||[]).length+(c.partial_omitted||0)):'0',c.note?clip(c.note,300):'']),500)); }
+  return pn;
+}
+// The header badge: worst collection health across sources; opens the Proof view's health section.
+let proofFocus='';
+function openProofHealth(){ proofFocus='health'; openMore('proof'); }
+function loadHealthBadge(){
+  api('/api/health').then(d=>{ const v=d.verdict||'none', x=HEALTHW[v]||HEALTHW.UNKNOWN, b=$('#healthb');
+    const cnt=Object.entries(d.counts||{}).map(([k,n])=>n+' '+k).join(', ');
+    b.className='hbadge '+x[0]; b.replaceChildren(h('span',{class:'dot','aria-hidden':'true'}),h('span',null,'Collection: '+(v==='none'?'no telemetry':v)));
+    b.setAttribute('title',(d.reason||x[2])+(cnt?' ('+cnt+')':'')); b.setAttribute('aria-label','Collection health: '+(v==='none'?'no telemetry imported':v)+(cnt?', '+cnt:'')+'. Open the proof view');
+    b.hidden=false; }).catch(()=>{});
+}
+$('#healthb').addEventListener('click',openProofHealth);
+// ---- Proof: per action, the claim, its evidence chain and how far it is proved
+function renderProof(box){
+  box.append(h('div',{class:'loading'},'Building the proof report…'));
+  api('/api/proof').then(d=>{
+    box.replaceChildren();
+    if(!d.available){ notInCase(box,'No proof report',d); return; }
+    const r=d.report||{}, tel=r.telemetry||{}, acts=r.actions||[], sc=r.scope||{};
+    box.append(h('div',{class:'panel'},h('h2',null,'Proof of each agent action'),
+      h('p',null,'For every tool call: what the agent’s record claims, the chain of evidence behind it from the person to the outcome, how strongly each link is established, and what the evidence cannot show. Verified links rest on an independent record; corroborated ones are consistent with one; inferred ones rest on the agent’s own log alone.'),
+      h('p',{class:'muted',style:'font-size:13.5px'},plural(sc.tool_calls||0,'tool call')+(r.actions_omitted?' — the first '+acts.length+' are listed; '+r.actions_omitted+' more with the command below':'')+'. Same report on the command line:'),
+      h('div',{class:'cmdbox'},h('code',null,M(d.cli||'')),h('button',{class:'btn sm',onclick:()=>copyText(d.cli||'').then(()=>toast('Copied'))},'Copy')),
+      Object.keys((r.summary||{}).states||{}).length?h('div',{style:'display:flex;gap:8px;flex-wrap:wrap'},Object.entries(r.summary.states).map(([k,n])=>h('span',{class:'tag'},M(k)+': '+n))):null));
+    const hs=healthSection(tel.sources,tel.coverage,tel.note,'proof-health'); box.append(hs);
+    if(proofFocus==='health'){ proofFocus=''; setTimeout(()=>{ hs.scrollIntoView({block:'start'}); hs.setAttribute('tabindex','-1'); hs.focus({preventScroll:true}); },0); }
+    const ap=h('div',{class:'panel'},h('h2',null,'Actions'));
+    if(!acts.length){ ap.append(h('p',{class:'muted'},'This case has no agent tool calls to prove.')); box.append(ap); }
+    else {
+      const sel=h('select',{'aria-label':'Show actions by assurance'},[['','Every assurance'],['verified','Verified'],['corroborated','Corroborated'],['inferred','Inferred']].map(([v,t])=>h('option',{value:v},t)));
+      const q=h('input',{type:'search',placeholder:'Filter by tool, claim or host','aria-label':'Filter actions'});
+      const list=h('div'); let shown=100;
+      const draw=()=>{ const f=sel.value, w=q.value.toLowerCase(); const L=acts.filter(a=>(!f||a.confidence===f)&&(!w||[a.tool,a.claim,a.host,a.session_id].join(' ').toLowerCase().includes(w)));
+        list.replaceChildren(h('p',{class:'muted',style:'font-size:13.5px'},plural(L.length,'action')+(L.length>shown?', first '+shown+' shown':'')));
+        L.slice(0,shown).forEach(a=>list.append(proofAction(a)));
+        if(L.length>shown) list.append(h('button',{class:'btn sm',onclick:()=>{shown+=200; draw();}},'Show more')); };
+      sel.addEventListener('change',()=>{shown=100; draw();}); q.addEventListener('input',debounce(()=>{shown=100; draw();},150));
+      ap.append(h('div',{style:'display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px'},h('label',{class:'field',style:'flex:1;min-width:220px'},icon('i-search','sm'),q),sel),list); draw(); box.append(ap); }
+    if((r.notes||[]).length) box.append(h('details',{class:'tech'},h('summary',null,'Notes ('+r.notes.length+')'),h('ul',{class:'steps-l'},r.notes.map(n=>h('li',null,M(n))))));
+    const vf=r.verification||{}; if(Object.keys(vf).length) box.append(h('details',{class:'tech'},h('summary',null,'How to verify this report'),h('ul',{class:'steps-l'},Object.entries(vf).map(([k,v])=>h('li',null,h('b',null,M(k).replace(/_/g,' ')+': '),M(v))))));
+  }).catch(err=>box.replaceChildren(h('div',{class:'empty'},h('b',null,'The proof report could not be loaded'),err.message)));
+}
+function proofAction(a){
+  const head=h('summary',null,assurChip(a.confidence),' ',h('span',{class:'tag'},M(a.evidence_label||a.evidence_state||'—')),' ',h('b',null,M(a.tool||'tool')),' ',clip(a.claim||'',180),h('span',{class:'muted',style:'font-size:12.5px;margin-left:8px'},when(a.timestamp)+(a.host?' · '+M(a.host):'')));
+  const body=h('div',{class:'pf'});
+  const ch=a.chain||[];
+  body.append(h('h4',null,'Evidence chain'));
+  if(!ch.length) body.append(h('p',{class:'muted'},'No chain: the action is not in the action graph.'));
+  else body.append(h('ol',{class:'pchain'},ch.map(s=>h('li',null,h('span',{class:'role'},PROLE[s.role]||M(s.role||'?')),
+    h('div',{class:'pc'},h('div',null,s.relation?h('span',{class:'muted'},(LREL[s.relation]||M(s.relation))+' → '):null,h('b',null,clip(s.label||s.node||'',200)),' ',s.assurance?assurChip(s.assurance):null,' ',s.evidence_state?h('span',{class:'tag'},SSHORT[s.evidence_state]||M(s.evidence_state)):null,s.correlation_confidence?h('span',{class:'tag'},'match '+(CONFW[s.correlation_confidence]||M(s.correlation_confidence))):null),
+      s.basis?h('div',{class:'muted',style:'font-size:13px'},clip(s.basis,300)):null,
+      (s.limitations||[]).length?h('div',{class:'lim'},s.limitations.map(l=>h('div',null,'Limitation: '+M(l)))):null,
+      (s.source_refs||[]).length?h('div',{class:'refs'},(s.source_refs||[]).slice(0,4).map((x,i)=>proofRef(x,'Source '+(i+1)))):null)))));
+  if(a.chain_truncated) body.append(h('p',{class:'muted'},'The chain was cut at its bound.'));
+  const cov=a.coverage||[];
+  if(cov.length) body.append(h('h4',null,'Telemetry coverage for this claim'),vtbl(['Kind','Needed for the claim','Coverage','Why','Sources'],cov.map(f=>[f.kind,f.needed?'Yes':'No',f.coverage,clip(f.reason||'',300),(f.sources||[]).join(', ')]),20));
+  body.append(h('h4',null,'Limitations'),(a.limitations||[]).length?h('ul',{class:'steps-l'},a.limitations.map(l=>h('li',null,M(l)))):h('p',{class:'muted'},'None recorded.'));
+  const src=proofRef(a.source_ref,'The agent’s record'); if(src) body.append(h('div',{style:'margin-top:8px'},src));
+  return h('details',{class:'pact'},head,body);
+}
+// ---- Supply chain: what the agents load, where it came from, what changed
+function renderSupplyChain(box){
+  box.append(h('div',{class:'loading'},'Loading…'));
+  api('/api/supplychain').then(d=>{
+    box.replaceChildren();
+    if(!d.available){ notInCase(box,'No supply-chain report',d); return; }
+    const r=d.report||{}, comps=r.components||[], rel=r.relations||{}, name={};
+    comps.forEach(c=>name[c.id]=c.name||c.id);
+    const nm=id=>clip(name[id]||id||'',80);
+    box.append(h('div',{class:'panel'},h('h2',null,'Agent environment supply chain'),h('p',null,'Every skill, plugin, slash command, sub-agent, hook, MCP server, extension and instruction file the agents load: where it came from, when it was first and last seen (and which clock says so), how it changed, and how it links to what the agents did. Verified relationships rest on an explicit record; inferred ones on order in time within '+M(r.inference_window||'the window')+' and shared attributes, and are kept apart below.'),
+      h('div',{style:'display:flex;gap:8px;flex-wrap:wrap'},h('span',{class:'tag'},plural(comps.length,'component')),h('span',{class:'tag'},plural((r.drift||[]).length,'change')),h('span',{class:'tag'},plural((rel.verified||[]).length,'verified relationship')),h('span',{class:'tag'},plural((rel.inferred||[]).length,'inferred relationship')))));
+    const sec=(title,note,content)=>box.append(h('div',{class:'panel',style:'overflow:auto'},h('h2',null,title),note?h('p',null,note):null,content));
+    sec('Component inventory',null,comps.length?vtbl(['Kind','Name','Agent','Origin','Trust','Hash','First seen','Last seen','Used','Flagged by'],comps.map(c=>{ const o=c.origin||{};
+      return [c.kind,h('span',null,h('b',null,clip(c.name||c.id,100)),c.parent?h('div',{class:'muted',style:'font-size:12px'},'in '+nm(c.parent)):null),prettyHost(c.host||''),h('span',null,M(o.type||'—'),o.package||o.location||o.git_remote||o.local_path?h('div',{class:'muted mono',style:'font-size:12px'},clip(o.package||o.location||o.git_remote||o.local_path,100)+(o.version?' @'+o.version:'')):null),
+        o.trust,c.sha256?h('span',{class:'mono',title:c.sha256},c.sha256.slice(0,12)+'…'):'—',c.first_seen?when(c.first_seen.time)+' ('+c.first_seen.source+')':'—',c.last_seen?when(c.last_seen.time)+' ('+c.last_seen.source+')':'—',c.observed_only?'seen in logs only':String(c.invocations||0),(c.flagged_by||[]).length?h('b',{style:'color:var(--act)'},M(c.flagged_by.join(', '))):''];}),1000):h('p',{class:'muted'},'No component was found.'));
+    const tl=r.timeline||[];
+    sec('Timeline','Dated steps in order. The clock behind each time is named: an install manifest, a file time, a log record or the collection.',tl.length?vtbl(['Time','Clock','What','Component','Class','Detail'],tl.map(e=>[when(e.time),e.time_source,e.kind,nm(e.component),e.class?linkChip(e.class):'',clip(e.text||'',300)]),1000):h('p',{class:'muted'},'Nothing dated.'));
+    const dr=r.drift||[];
+    sec('Drift','How a component changed between rounds, baselines and snapshots. Permission expansion is called out.',dr.length?vtbl(['Change','Component','From','To','Added','Removed','Permission expansion','Class','Basis'],dr.map(x=>[x.kind,nm(x.component)+(x.subject?' · '+clip(x.subject,80):''),(x.from||{}).label+((x.from||{}).time?' ('+when(x.from.time)+')':''),(x.to||{}).label+((x.to||{}).time?' ('+when(x.to.time)+')':''),(x.added||[]).join(', '),(x.removed||[]).join(', '),(x.permission_expansion||[]).length?h('b',{style:'color:var(--act)'},M(x.permission_expansion.join(', '))):'',linkChip(x.class),clip(x.basis||'',200)]),500):h('p',{class:'muted'},'No drift found.'));
+    const relRows=L=>L.map(x=>[when(x.time),nm(x.from),(x.type||'').replace(/_/g,' '),nm(x.to)+(x.label?' — '+clip(x.label,120):''),x.confidence?CONFW[x.confidence]||x.confidence:'',clip(x.basis||'',240),(x.source_refs||[]).length?h('span',null,(x.source_refs||[]).slice(0,3).map((s,i)=>proofRef({event_id:s.event_id,artifact_id:s.artifact_id,offset:s.offset,logical_path:s.logical_path,line:s.line,telemetry_ref:s.telemetry_ref},'Source '+(i+1)))):'']);
+    const rc=['Time','From','Relationship','To','Match','Basis','Evidence'];
+    box.append(h('div',{class:'panel rel-v',style:'overflow:auto'},h('h2',null,linkChip('verified'),' Verified relationships'),h('p',null,'Each rests on an explicit record: an install manifest, a hook log naming the tool call, an invocation in the transcript.'),(rel.verified||[]).length?vtbl(rc,relRows(rel.verified),1000):h('p',{class:'muted'},'None.')));
+    box.append(h('div',{class:'panel rel-i',style:'overflow:auto'},h('h2',null,linkChip('inferred'),' Inferred relationships'),h('p',null,'Each rests on order in time and shared attributes only. Treat them as leads to check, not as facts.'),(rel.inferred||[]).length?vtbl(rc,relRows(rel.inferred),1000):h('p',{class:'muted'},'None.')));
+    const om=Object.entries(r.omitted||{}).filter(([,n])=>n>0);
+    const extra=[].concat((r.unsupported||[]).map(x=>'UNSUPPORTED: '+x),r.notes||[],r.limits||[],om.map(([k,n])=>n+' '+k+' left out at the bound'));
+    if(extra.length) box.append(h('details',{class:'tech'},h('summary',null,'Unsupported, notes and limits ('+extra.length+')'),h('ul',{class:'steps-l'},extra.slice(0,300).map(x=>h('li',null,M(x))))));
+  }).catch(err=>box.replaceChildren(h('div',{class:'empty'},'Could not load: '+err.message)));
+}
+// ---- Reconstruct: one incident across cases
+function renderReconstruct(box){
+  box.append(h('div',{class:'loading'},'Loading…'));
+  api('/api/reconstruct').then(d=>{
+    box.replaceChildren();
+    if(!d.available){ box.append(h('div',{class:'panel'},h('h2',null,'No reconstruction in this case'),h('p',null,d.reason||''),h('p',{class:'muted',style:'font-size:13.5px'},'Run this (add the paths of related cases after this one to join them), then reopen this view. The evidence is not changed:'),
+      d.regenerate?h('div',{class:'cmdbox'},h('code',null,d.regenerate),h('button',{class:'btn sm',onclick:()=>copyText(d.regenerate).then(()=>toast('Copied'))},'Copy')):null)); return; }
+    const r=d.report||{}, sm=r.summary||{};
+    box.append(h('div',{class:'panel'},h('h2',null,'Incident reconstruction'),h('p',null,'One incident across '+plural(sm.cases||0,'case')+' and '+plural(sm.hosts||0,'host')+': a merged timeline, which agent started which, sessions handed from one place to another, attack stages in order, and the evidence that would confirm or refute each part. Verified links rest on explicit evidence; inferred ones on order in time and shared attributes. Nothing here was written by a model.'),
+      r.includes_unverified_cases?h('p',null,h('b',{style:'color:var(--act)'},'Includes a case whose seal did not verify: every result from it is marked.')):null,
+      h('div',{style:'display:flex;gap:8px;flex-wrap:wrap'},[['timeline_entries','timeline entry','timeline entries'],['delegations','delegation'],['handoffs','hand-off'],['stage_items','staged finding'],['missing_evidence','missing evidence item']].map(([k,o,m])=>h('span',{class:'tag'},plural(sm[k]||0,o,m))))));
+    const sec=(title,note,content)=>box.append(h('div',{class:'panel',style:'overflow:auto'},h('h2',null,title),note?h('p',null,note):null,content));
+    const cs=r.cases||[];
+    if(cs.length) sec('Cases',null,vtbl(['Case','Host','Integrity','Events','Findings','Telemetry'],cs.map(c=>[c.label,c.host,c.integrity==='VERIFIED'?h('span',{class:'chip ok'},'Verified'):h('span',{class:'chip act'},M(c.integrity||'unknown')),String(c.events||0),String(c.findings||0),(c.telemetry||[]).join(', ')||'none'])));
+    const tl=r.timeline||[];
+    sec('Timeline','Every case’s records in one order. Times come from the clock named; untimed records are kept at the end.',tl.length?vtbl(['Time','Case','Host','Agent','What','State',''],tl.map(e=>[e.time?when(e.time):'no time',e.case,e.host,clip(e.agent_id||'',30),h('span',null,e.severity?sevChip(e.severity):null,e.severity?' ':null,h('span',{class:'tag'},M(e.kind)),' ',clip(e.summary||'',220)),e.evidence_state?SSHORT[e.evidence_state]||e.evidence_state:'',e.event_id&&e.package_id&&e.package_id===((S.caseinfo||{}).manifest||{}).case_id?h('button',{class:'btn sm',onclick:()=>showProof(e.event_id)},'Show proof'):'']),1000):h('p',{class:'muted'},'No timeline entries.'));
+    const dl=r.delegations||[];
+    sec('Delegation','A parent agent starting another agent (a helper agent, or an agent command line run from a shell).',dl.length?vtbl(['Time','Case','Kind','Parent','Child','Link','Basis'],dl.map(x=>[when(x.time),x.case,x.kind,clip(x.parent_agent_id||'',40),clip(x.child_agent_id||'not in the evidence',40),linkChip(x.link),clip(x.basis||'',240)]),500):h('p',{class:'muted'},'No delegation found.'));
+    const ho=r.handoffs||[];
+    sec('Hand-offs','A session or work item passing from one place to another: resumed in another file, continued on another host, a branch pushed here and pulled there.',ho.length?vtbl(['Kind','Key','From','To','When','Link','Basis'],ho.map(x=>[(x.kind||'').replace(/_/g,' '),clip(x.key||'',60),x.from_case+' · '+clip(x.from_segment||'',40),x.to_case+' · '+clip(x.to_segment||'',40),span2(x.from_time,x.to_time),linkChip(x.link),clip(x.basis||'',240)]),500):h('p',{class:'muted'},'No hand-off found.'));
+    const st=r.stages||[], items={}; (r.stage_items||[]).forEach(i=>items[i.id]=i);
+    sec('Attack stages','Findings placed in kill-chain order. Edges between stages are labelled verified or inferred and never merged.',st.length?h('div',null,st.map(s=>h('div',{style:'margin:8px 0'},h('b',null,M(s.stage)),h('span',{class:'muted'},' · '+plural((s.items||[]).length,'item')+' · '+M((s.cases||[]).join(', '))),
+      h('ul',{class:'steps-l'},(s.items||[]).slice(0,50).map(id=>{ const it=items[id]||{}; return h('li',null,it.severity?sevChip(it.severity):null,' ',clip(it.title||id,200),h('span',{class:'muted'},' — '+M(it.case||'')+' '+M(it.host||'')+(it.time?', '+when(it.time):''))); })))),
+      (r.stage_edges||[]).length?h('div',{style:'margin-top:10px'},h('h3',null,'Order between stages'),vtbl(['From','To','Link','Between','Basis'],(r.stage_edges||[]).map(e=>[e.from_stage+' · '+clip((items[e.from]||{}).title||e.from,80),e.to_stage+' · '+clip((items[e.to]||{}).title||e.to,80),linkChip(e.link),dur(Math.abs(e.seconds_between||0))+(e.cross_host?' · across hosts':''),clip(e.basis||'',200)]),500)):null):h('p',{class:'muted'},'No finding was placed in a stage.'));
+    const ms=r.missing_evidence||[];
+    sec('Missing evidence','What telemetry would confirm or refute each part. A gap means nothing was recorded — never that something was hidden.',ms.length?vtbl(['Status','Scope','Target','Host','What is missing','Collect'],ms.map(x=>[x.status==='verify_next'?'Collect next':'Unknown',x.scope,clip(x.target||'',60),x.host,clip(x.text||'',300),clip(x.collect||'',200)]),500):h('p',{class:'muted'},'Nothing listed.'));
+    const om=Object.entries(r.omitted||{}).filter(([,n])=>n>0);
+    const extra=[].concat(r.notes||[],r.limits||[],om.map(([k,n])=>n+' '+k+' left out at the bound'));
+    if(extra.length) box.append(h('details',{class:'tech'},h('summary',null,'Notes and limits ('+extra.length+')'),h('ul',{class:'steps-l'},extra.slice(0,300).map(x=>h('li',null,M(x))))));
+  }).catch(err=>box.replaceChildren(h('div',{class:'empty'},'Could not load: '+err.message)));
+}
+
 // ---- Bookmarks (in the case file) and saved filters (this browser only)
 const isBookmarked=key=>(S.notes.pins||[]).some(p=>p.target===key);
 function toggleBookmark(key,after){ const on=!isBookmarked(key); post('pin',key,on?'on':'off','').then(()=>{ toast(on?'Bookmarked — saved in the case file':'Bookmark removed'); if(after) after(); }).catch(e=>toast('Could not save: '+e.message)); }
@@ -1855,7 +2047,7 @@ function fuzzy(q,text){
 function palHL(text,idx){ const d=h('span'); if(!idx||!idx.length){ d.textContent=text; return d; } const set=new Set(idx); let buf='', inM=false;
   const flush=m=>{ if(!buf) return; d.append(m?h('mark',null,buf):buf); buf=''; };
   [...text].forEach((c,i)=>{ const m=set.has(i); if(m!==inM){ flush(inM); inM=m; } buf+=c; }); flush(inM); return d; }
-const MORE_TABS=[['search','Search everything','Every action, finding and original file'],['conversations','AI conversations','Chats from AI-service exports and browser history'],['extensions','Extensions & agent plugins','Editor extensions, agent plugins and skills'],['lineage','Who did what','People, agents, actions and what they reached'],['bookmarks','Bookmarks','Bookmarked findings, key evidence and saved filters'],['compare','Compare cases','What this case shares with another'],['mcp','Plugin (MCP) activity','Every plugin call and what came back'],['plugins','Plugins installed','MCP servers in the settings files'],['memory','Memory files','What the agents keep between conversations'],['crosscheck','Cross-check','What independent evidence confirms'],['map','Agent map','Which agent started which'],['evidence','About the evidence','Integrity, seal and verification']];
+const MORE_TABS=[['search','Search everything','Every action, finding and original file'],['conversations','AI conversations','Chats from AI-service exports and browser history'],['extensions','Extensions & agent plugins','Editor extensions, agent plugins and skills'],['lineage','Who did what','People, agents, actions and what they reached'],['proof','Proof','Each action’s claim, evidence chain, assurance and limitations'],['supplychain','Supply chain','Skills, plugins, hooks and MCP servers: origin, drift, relationships'],['reconstruct','Reconstruct','One incident across cases: timeline, delegation, hand-offs, stages'],['bookmarks','Bookmarks','Bookmarked findings, key evidence and saved filters'],['compare','Compare cases','What this case shares with another'],['mcp','Plugin (MCP) activity','Every plugin call and what came back'],['plugins','Plugins installed','MCP servers in the settings files'],['memory','Memory files','What the agents keep between conversations'],['crosscheck','Cross-check','What independent evidence confirms'],['map','Agent map','Which agent started which'],['evidence','About the evidence','Integrity, seal and verification']];
 function openMore(tab){ moreTab=tab; go('more'); $$('#moreseg button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.m===tab))); }
 function fullSearch(q){ palRecent.add(q); moreTab='search'; go('more',true); $$('#moreseg button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.m==='search'))); const box=$('#more'); box.replaceChildren(); renderSearch(box,q); }
 function palStatic(){
@@ -1865,6 +2057,7 @@ function palStatic(){
   MORE_TABS.forEach(([k,t,d])=>out.push({group:'Go to',title:t,sub:d,glyph:'→',keys:'more '+k,run:()=>openMore(k)}));
   out.push({group:'Actions',title:curTheme()==='dark'?'Switch to light theme':'Switch to dark theme',sub:'Theme',glyph:'◐',keys:'theme dark light mode',run:()=>$('#theme').click()});
   out.push({group:'Actions',title:'Verify every file in the case',sub:'Re-hash the whole evidence package',glyph:'✓',keys:'verify integrity hash seal',run:()=>openMore('evidence')});
+  out.push({group:'Actions',title:'Collection health',sub:'Telemetry coverage and health of every imported source',glyph:'♥',keys:'collection health telemetry coverage gaps drops proof',run:()=>openProofHealth()});
   out.push({group:'Actions',title:'Apply guardrails',sub:'Preview and apply agentdfir mitigate from the Protect tab',glyph:'⛨',keys:'mitigate guardrails protect apply',run:()=>go('protect')});
   savedFilters.get().forEach(f=>out.push({group:'Saved filters',title:f.name,sub:(f.view==='findings'?'Findings':'Activity')+' filter saved in this browser',glyph:'☆',keys:'saved filter '+f.name,run:()=>applyFilter(f)}));
   (S.groups||[]).forEach(g=>{ const n=g.items.length; out.push({group:'Findings',title:g.p.title,sub:plural(n,'time')+' · '+g.rule,sev:g.sev,keys:g.rule+' '+(g.items[0]&&g.items[0].title||''),run:()=>openGroup(g.key)}); });
@@ -1979,6 +2172,7 @@ function route(){
   go(VIEWS.includes(v)?v:'overview');
 }
 route();
+loadHealthBadge();
 })();
 </script>
 </body>

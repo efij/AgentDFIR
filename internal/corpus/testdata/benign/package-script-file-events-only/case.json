@@ -1,0 +1,6 @@
+{
+  "endpoint": [
+    "tetragon.jsonl"
+  ],
+  "note": "Incomplete telemetry (synthetic Tetragon exported with only PROCESS_KPROBE events): the postinstall's write to ~/.claude/settings.json is recorded, but no process_exec events show the npm install above it. PACKAGE_SCRIPT_TOUCHED_AGENT must report itself not evaluated and fire nothing."
+}

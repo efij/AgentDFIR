@@ -1,0 +1,7 @@
+{
+  "verdict": "FAILED",
+  "description": "remove the required pattern from a STIX indicator",
+  "mutation": "stix-indicator-no-pattern",
+  "spec": "0.2.2",
+  "kind": "analysis"
+}

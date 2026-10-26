@@ -1,0 +1,207 @@
+{
+  "id": "bundle--bfa36304-16c2-5831-a098-4e70a1c7e43c",
+  "objects": [
+    {
+      "created": "2026-09-20T10:00:00.000Z",
+      "description": "AgentDFIR 4.0.0, offline AI-agent forensics; the producer of this bundle",
+      "id": "identity--a29f1ea4-4b82-512f-acec-a401f1188fd0",
+      "identity_class": "system",
+      "modified": "2026-09-20T10:00:00.000Z",
+      "name": "AgentDFIR",
+      "spec_version": "2.1",
+      "type": "identity"
+    },
+    {
+      "created": "2026-09-20T10:00:00.000Z",
+      "created_by_ref": "identity--a29f1ea4-4b82-512f-acec-a401f1188fd0",
+      "description": "Indicator of Conformance incident (CONF-1), present in this case's evidence.",
+      "id": "indicator--c4250769-1ad4-5b82-b096-19b08913c7a7",
+      "indicator_types": [
+        "malicious-activity"
+      ],
+      "modified": "2026-09-20T10:00:00.000Z",
+      "name": "Known-incident indicator: domain:c2.conformance.example",
+      "pattern": "[domain-name:value = 'c2.conformance.example']",
+      "pattern_type": "stix",
+      "spec_version": "2.1",
+      "type": "indicator",
+      "valid_from": "2026-09-20T10:00:00.000Z"
+    },
+    {
+      "id": "domain-name--7df05929-8be8-5376-8db8-6106176d78ee",
+      "spec_version": "2.1",
+      "type": "domain-name",
+      "value": "c2.conformance.example"
+    },
+    {
+      "created": "2026-09-20T10:00:00.000Z",
+      "created_by_ref": "identity--a29f1ea4-4b82-512f-acec-a401f1188fd0",
+      "first_observed": "2026-09-20T10:00:02.000Z",
+      "id": "observed-data--bc34b1e0-eed1-56a4-8218-9b52e1c9b1c7",
+      "labels": [
+        "where:OBSERVED",
+        "surface:command"
+      ],
+      "last_observed": "2026-09-20T10:00:02.000Z",
+      "modified": "2026-09-20T10:00:00.000Z",
+      "number_observed": 1,
+      "object_refs": [
+        "domain-name--7df05929-8be8-5376-8db8-6106176d78ee"
+      ],
+      "spec_version": "2.1",
+      "type": "observed-data"
+    },
+    {
+      "created": "2026-09-20T10:00:00.000Z",
+      "created_by_ref": "identity--a29f1ea4-4b82-512f-acec-a401f1188fd0",
+      "id": "relationship--2c584f1e-fbb6-5bda-a3f3-a78a3090bba1",
+      "modified": "2026-09-20T10:00:00.000Z",
+      "relationship_type": "based-on",
+      "source_ref": "indicator--c4250769-1ad4-5b82-b096-19b08913c7a7",
+      "spec_version": "2.1",
+      "target_ref": "observed-data--bc34b1e0-eed1-56a4-8218-9b52e1c9b1c7",
+      "type": "relationship"
+    },
+    {
+      "abstract": "Indicator of a Known Incident: Conformance incident",
+      "confidence": 90,
+      "content": "domain:c2.conformance.example observed in a command the agent ran (1 time(s)). First seen 2026-09-20T10:00:02Z (transcript time). Synthetic incident for the conformance fixtures.\n\nRule: KNOWN_INCIDENT_IOC. Severity: CRITICAL. Evidence state: CORROBORATED. Second witness: UNKNOWN. Confidence: MEDIUM.\nEvidence: .claude/projects/-home-dev-app/session.jsonl:2 (artifact ca2fc4a985c4)",
+      "created": "2026-09-20T10:00:00.000Z",
+      "created_by_ref": "identity--a29f1ea4-4b82-512f-acec-a401f1188fd0",
+      "external_references": [
+        {
+          "external_id": "T1071.001",
+          "source_name": "mitre-attack",
+          "url": "https://attack.mitre.org/techniques/T1071/001/"
+        },
+        {
+          "external_id": "AML.T0010",
+          "source_name": "mitre-atlas",
+          "url": "https://atlas.mitre.org/techniques/AML.T0010"
+        }
+      ],
+      "id": "note--cfad0323-6fa2-5e89-a029-1fa5b936c378",
+      "labels": [
+        "KNOWN_INCIDENT_IOC",
+        "severity:CRITICAL"
+      ],
+      "modified": "2026-09-20T10:00:00.000Z",
+      "object_refs": [
+        "report--12398690-d15f-57bc-8b2b-339c668c4887",
+        "indicator--c4250769-1ad4-5b82-b096-19b08913c7a7"
+      ],
+      "spec_version": "2.1",
+      "type": "note"
+    },
+    {
+      "abstract": "Potentially Destructive Command",
+      "confidence": 90,
+      "content": "Agent-invoked shell command matches a destructive pattern: rm -rf \n\nRule: DESTRUCTIVE_COMMAND. Severity: MEDIUM. Evidence state: CORROBORATED. Second witness: CORROBORATED. Confidence: MEDIUM.\nEvidence: .claude/projects/-home-dev-app/session.jsonl:4 (artifact ca2fc4a985c4, offset 942)",
+      "created": "2026-09-20T10:00:00.000Z",
+      "created_by_ref": "identity--a29f1ea4-4b82-512f-acec-a401f1188fd0",
+      "external_references": [
+        {
+          "external_id": "T1485",
+          "source_name": "mitre-attack",
+          "url": "https://attack.mitre.org/techniques/T1485/"
+        },
+        {
+          "external_id": "AML.T0101",
+          "source_name": "mitre-atlas",
+          "url": "https://atlas.mitre.org/techniques/AML.T0101"
+        }
+      ],
+      "id": "note--0c4223dd-2854-5f40-8a31-84dae7c9f05c",
+      "labels": [
+        "DESTRUCTIVE_COMMAND",
+        "severity:MEDIUM"
+      ],
+      "modified": "2026-09-20T10:00:00.000Z",
+      "object_refs": [
+        "report--12398690-d15f-57bc-8b2b-339c668c4887"
+      ],
+      "spec_version": "2.1",
+      "type": "note"
+    },
+    {
+      "abstract": "Network Destination Outside Allowlist",
+      "confidence": 90,
+      "content": "Agent command contacts c2.conformance.example, not in the default development allowlist or org baseline.\n\nRule: UNEXPECTED_NETWORK_DESTINATION. Severity: LOW. Evidence state: CORROBORATED. Second witness: CORROBORATED. Confidence: MEDIUM.\nEvidence: .claude/projects/-home-dev-app/session.jsonl:2 (artifact ca2fc4a985c4, offset 256)",
+      "created": "2026-09-20T10:00:00.000Z",
+      "created_by_ref": "identity--a29f1ea4-4b82-512f-acec-a401f1188fd0",
+      "external_references": [
+        {
+          "external_id": "T1071",
+          "source_name": "mitre-attack",
+          "url": "https://attack.mitre.org/techniques/T1071/"
+        }
+      ],
+      "id": "note--8d1d6786-4de6-5ab4-85b9-14a28db7a611",
+      "labels": [
+        "UNEXPECTED_NETWORK_DESTINATION",
+        "severity:LOW"
+      ],
+      "modified": "2026-09-20T10:00:00.000Z",
+      "object_refs": [
+        "report--12398690-d15f-57bc-8b2b-339c668c4887"
+      ],
+      "spec_version": "2.1",
+      "type": "note"
+    },
+    {
+      "abstract": "Shell Execution Present",
+      "confidence": 70,
+      "content": "2 shell command(s) invoked via a shell tool across the collected sessions.\n\nRule: SHELL_EXECUTION. Severity: INFO. Evidence state: OBSERVED. Second witness: UNKNOWN. Confidence: LOW.\nEvidence: .claude/projects/-home-dev-app/session.jsonl:2 (artifact ca2fc4a985c4, offset 256)",
+      "created": "2026-09-20T10:00:00.000Z",
+      "created_by_ref": "identity--a29f1ea4-4b82-512f-acec-a401f1188fd0",
+      "external_references": [
+        {
+          "external_id": "T1059",
+          "source_name": "mitre-attack",
+          "url": "https://attack.mitre.org/techniques/T1059/"
+        },
+        {
+          "external_id": "AML.T0050",
+          "source_name": "mitre-atlas",
+          "url": "https://atlas.mitre.org/techniques/AML.T0050"
+        }
+      ],
+      "id": "note--ffed8e21-518c-5fc3-a45d-01f432873157",
+      "labels": [
+        "SHELL_EXECUTION",
+        "severity:INFO"
+      ],
+      "modified": "2026-09-20T10:00:00.000Z",
+      "object_refs": [
+        "report--12398690-d15f-57bc-8b2b-339c668c4887"
+      ],
+      "spec_version": "2.1",
+      "type": "note"
+    },
+    {
+      "created": "2026-09-20T10:00:00.000Z",
+      "created_by_ref": "identity--a29f1ea4-4b82-512f-acec-a401f1188fd0",
+      "description": "Findings of AgentDFIR case CONFORMANCE-ANALYSIS: 4 finding note(s). Observables are known-incident indicators the evidence holds; evidence states are the case's own and are never upgraded.",
+      "id": "report--12398690-d15f-57bc-8b2b-339c668c4887",
+      "modified": "2026-09-20T10:00:00.000Z",
+      "name": "AgentDFIR findings: CONFORMANCE-ANALYSIS",
+      "object_refs": [
+        "domain-name--7df05929-8be8-5376-8db8-6106176d78ee",
+        "indicator--c4250769-1ad4-5b82-b096-19b08913c7a7",
+        "note--0c4223dd-2854-5f40-8a31-84dae7c9f05c",
+        "note--8d1d6786-4de6-5ab4-85b9-14a28db7a611",
+        "note--cfad0323-6fa2-5e89-a029-1fa5b936c378",
+        "note--ffed8e21-518c-5fc3-a45d-01f432873157",
+        "observed-data--bc34b1e0-eed1-56a4-8218-9b52e1c9b1c7",
+        "relationship--2c584f1e-fbb6-5bda-a3f3-a78a3090bba1"
+      ],
+      "published": "2026-09-20T10:00:00.000Z",
+      "report_types": [
+        "threat-report"
+      ],
+      "spec_version": "2.1",
+      "type": "report"
+    }
+  ],
+  "type": "bundle"
+}

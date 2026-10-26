@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const (
@@ -261,4 +262,47 @@ func Digest(pkgDir string) (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(d), nil
+}
+
+// VerifyFileSigKey verifies a detached signature written by SignFile
+// using the public key the signature file carries, and, when pinnedHex is
+// set, requires that key. It returns the signer's hex public key. A valid
+// signature without a pinned key proves only that the file was not
+// changed since the holder of that key signed it.
+func VerifyFileSigKey(dataPath, sigPath, pinnedHex string) (string, error) {
+	sigData, err := os.ReadFile(sigPath)
+	if err != nil {
+		return "", err
+	}
+	if len(sigData) > 64<<10 {
+		return "", errors.New("signature file too large")
+	}
+	fields := parseFields(string(sigData))
+	if a := fields["algorithm"]; a != "" && a != "ed25519" {
+		return "", fmt.Errorf("unsupported algorithm %q", a)
+	}
+	pub, err := hex.DecodeString(fields["public_key"])
+	if err != nil || len(pub) != ed25519.PublicKeySize {
+		return "", errors.New("malformed public key")
+	}
+	sig, err := hex.DecodeString(fields["signature"])
+	if err != nil || len(sig) != ed25519.SignatureSize {
+		return "", errors.New("malformed signature")
+	}
+	pubHex := hex.EncodeToString(pub)
+	if pinnedHex != "" && !strings.EqualFold(pinnedHex, pubHex) {
+		return pubHex, errors.New("signed by key " + pubHex + ", not the pinned key")
+	}
+	data, err := os.ReadFile(dataPath)
+	if err != nil {
+		return pubHex, err
+	}
+	digest := sha256.Sum256(data)
+	if fd := fields["file_sha256"]; fd != "" && fd != hex.EncodeToString(digest[:]) {
+		return pubHex, errors.New("file_sha256 does not match the file")
+	}
+	if !ed25519.Verify(ed25519.PublicKey(pub), digest[:], sig) {
+		return pubHex, errors.New("signature does not match file content")
+	}
+	return pubHex, nil
 }

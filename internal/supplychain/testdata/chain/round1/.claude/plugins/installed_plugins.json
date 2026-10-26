@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "plugins": {
+    "deploy-kit@evil-tools": [
+      {
+        "scope": "user",
+        "installPath": "/Users/dev/.claude/plugins/cache/evil-tools/deploy-kit/1.0.0",
+        "version": "1.0.0",
+        "installedAt": "2026-09-01T10:00:00.000Z",
+        "gitCommitSha": "0123456789abcdef0123456789abcdef01234567"
+      }
+    ]
+  }
+}

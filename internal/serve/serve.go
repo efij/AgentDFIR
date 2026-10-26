@@ -98,6 +98,10 @@ type Server struct {
 	lcache map[string]*lineage.Graph
 	conv   convCache
 	cmp    *compareState
+
+	// The proof report, built on request and kept per session scope.
+	pmu    sync.Mutex
+	pcache map[string]map[string]any
 }
 
 // Load reads (normalizing if needed) everything the UI serves.
@@ -229,6 +233,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/conversation", s.apiConversation)
 	mux.HandleFunc("/api/extensions", s.apiExtensions)
 	mux.HandleFunc("/api/compare", s.apiCompare)
+	mux.HandleFunc("/api/proof", s.apiProof)
+	mux.HandleFunc("/api/health", s.apiHealth)
+	mux.HandleFunc("/api/supplychain", s.apiSupplyChain)
+	mux.HandleFunc("/api/reconstruct", s.apiReconstruct)
 	return guard(mux)
 }
 

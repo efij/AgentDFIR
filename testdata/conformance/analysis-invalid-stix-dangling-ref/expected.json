@@ -1,0 +1,7 @@
+{
+  "verdict": "FAILED",
+  "description": "a STIX relationship whose target is not in the bundle",
+  "mutation": "stix-dangling-ref",
+  "spec": "0.2.2",
+  "kind": "analysis"
+}

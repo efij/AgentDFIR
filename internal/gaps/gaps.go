@@ -31,6 +31,7 @@ import (
 
 	"github.com/efij/AgentDFIR/v4/internal/casepkg"
 	"github.com/efij/AgentDFIR/v4/internal/correlate"
+	"github.com/efij/AgentDFIR/v4/internal/endpoint"
 	"github.com/efij/AgentDFIR/v4/internal/schema"
 	"github.com/efij/AgentDFIR/v4/internal/witness"
 )
@@ -229,6 +230,13 @@ type WitnessCoverage struct {
 	ActivityOmitted int              `json:"activity_omitted,omitempty"`
 	Actions         []ActionCoverage `json:"actions"`
 	NarrativeClaims int              `json:"narrative_claims"`
+	// KindCoverage is endpoint coverage per host and kind of telemetry,
+	// with the intervals collection health marks as incomplete; only
+	// kinds that count as coverage can disprove a claim, and only where
+	// they are HEALTHY or UNKNOWN (see correlate/coverage.go).
+	KindCoverage []correlate.KindCoverage `json:"kind_coverage,omitempty"`
+	// CollectionHealth is the health report per telemetry file.
+	CollectionHealth []endpoint.SourceHealth `json:"collection_health,omitempty"`
 }
 
 // WitnessSource is one independent source the case was checked against.
@@ -276,6 +284,8 @@ const (
 	ReasonNoTimestamp    = "no_timestamp"
 	ReasonNotCheckable   = "nothing_a_witness_can_check"
 	ReasonWitnessNoMatch = "host_witness_inconclusive"
+	ReasonPartial        = "telemetry_partial"
+	ReasonNoKind         = "no_telemetry_of_that_kind"
 )
 
 // Clock is where timestamps from different sources disagree.
@@ -383,6 +393,8 @@ type builder struct {
 	artByID  map[string]casepkg.ArtifactRecord
 	matchBy  map[string]correlate.Match
 	verified map[string]string // event id → independent source that confirmed it
+	// decisions: event id → the correlation's coverage decision for it
+	decisions map[string]string
 }
 
 func (b *builder) add(it Item) {
@@ -809,7 +821,7 @@ func (b *builder) witness() {
 			}
 		}
 		w.Sources = append(w.Sources, WitnessSource{Name: "endpoint telemetry", Start: rfc(epStart), End: rfc(epEnd),
-			Records: c.Records - c.CloudRecords - c.WitnessRecords, Verified: verifiedBy["endpoint telemetry"],
+			Records: c.Records - c.CloudRecords - c.WitnessRecords - c.ContextRecords, Verified: verifiedBy["endpoint telemetry"],
 			Note: "process, file and network records imported with --endpoint; inside this range a command with no matching process is DISPROVED"})
 	}
 	if c != nil && c.CloudRecords > 0 {
@@ -820,6 +832,14 @@ func (b *builder) witness() {
 	if c != nil && (c.WitnessRecords > 0 || verifiedBy[srcSightings] > 0) {
 		w.Sources = append(w.Sources, WitnessSource{Name: srcSightings, Records: c.WitnessRecords, Verified: verifiedBy[srcSightings],
 			Note: "partial-coverage logs: they corroborate, never contradict and never widen coverage; a DNS lookup or ssh login only PARTLY CONFIRMS"})
+	}
+	if c != nil && c.ContextRecords > 0 {
+		kinds := make([]string, 0, len(c.ContextKinds))
+		for _, k := range sortedKeys(c.ContextKinds) {
+			kinds = append(kinds, fmt.Sprintf("%s %d", k, c.ContextKinds[k]))
+		}
+		w.Sources = append(w.Sources, WitnessSource{Name: "Windows event log context", Records: c.ContextRecords,
+			Note: "telemetry present: " + strings.Join(kinds, ", ") + "; read by the Windows persistence and credential rules, never used to confirm or disprove a tool call"})
 	}
 	if n := verifiedBy[srcEventLog]; n > 0 {
 		w.Sources = append(w.Sources, WitnessSource{Name: srcEventLog, Verified: n,
@@ -837,6 +857,23 @@ func (b *builder) witness() {
 	}
 	if w.Sources == nil {
 		w.Sources = []WitnessSource{}
+	}
+	if c != nil {
+		w.KindCoverage, w.CollectionHealth = c.KindCoverage, c.Health
+		b.decisions = map[string]string{}
+		for _, d := range c.Decisions {
+			b.decisions[d.EventID] = d.Coverage
+		}
+		for _, h := range c.Health {
+			switch h.Verdict {
+			case endpoint.HealthPartial:
+				b.add(Item{Status: Unknown, Category: CatWitness, Count: h.Gaps + len(h.Drops) + h.DropsOmitted,
+					Text: fmt.Sprintf("Telemetry %s is PARTIAL: %d sequence gap(s) and %d drop signal(s). Inside the affected intervals a missing record proves nothing, so no tool call there is DISPROVED.", h.File, h.Gaps, len(h.Drops)+h.DropsOmitted)})
+			case endpoint.HealthUnknown:
+				b.add(Item{Status: Unknown, Category: CatWitness,
+					Text: fmt.Sprintf("Telemetry %s carries no sequence numbers: its completeness is unverified (absence is still evaluated inside its coverage, as before).", h.File)})
+			}
+		}
 	}
 	inEP := func(t time.Time) bool {
 		return !epStart.IsZero() && !t.Before(epStart.Add(-window)) && !t.After(epEnd.Add(window))
@@ -1016,6 +1053,12 @@ func (b *builder) reason(i int, act string, inEP func(time.Time) bool) string {
 	if ev.WitnessNote != "" && act == "file_write" {
 		return ReasonWitnessNoMatch
 	}
+	switch b.decisions[ev.EventID] {
+	case correlate.CoverPartial:
+		return ReasonPartial
+	case correlate.CoverNoKind:
+		return ReasonNoKind
+	}
 	if inEP(b.ts[i]) {
 		return ReasonNoMatch
 	}
@@ -1028,6 +1071,8 @@ var reasonText = map[string]string{
 	ReasonNoTimestamp:    "no timestamp to match on",
 	ReasonNotCheckable:   "no command, file or destination for a witness to check",
 	ReasonWitnessNoMatch: "the host witness could not confirm the content",
+	ReasonPartial:        "the telemetry for their time is incomplete (sequence gap or drop)",
+	ReasonNoKind:         "no telemetry of the kind they need on that host",
 }
 
 func reasonList(m map[string]int) string {

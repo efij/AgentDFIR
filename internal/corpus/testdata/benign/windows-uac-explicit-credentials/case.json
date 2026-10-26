@@ -1,0 +1,6 @@
+{
+  "note": "A UAC credential prompt (consent.exe under svchost) logs an explicit-credential logon while the agent runs git status. 4648 is real, but the process has no agent ancestry, so WIN_AGENT_EXPLICIT_CREDENTIALS must not fire.",
+  "endpoint": [
+    "endpoint/windows-events.xml"
+  ]
+}

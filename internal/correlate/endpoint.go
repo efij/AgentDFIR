@@ -25,6 +25,10 @@ type EndpointOptions struct {
 	Window        time.Duration // match window around a tool call (default 3s)
 	KnownDests    []string      // extra allowlisted network destinations
 	AgentBinaries []string      // extra agent process names for lineage
+	// Health holds the collection-health report Load computed for each
+	// source file (LoadResult.Health). Sources without one get a report
+	// derived from their records' own sequence fields.
+	Health []*endpoint.SourceHealth
 }
 
 // EndpointResult summarizes the pass.
@@ -55,6 +59,13 @@ type EndpointResult struct {
 	WitnessCorroborated int `json:"witness_corroborated,omitempty"` // proxy host(+path), sudo/journal command line
 	WitnessPartial      int `json:"witness_partial,omitempty"`      // DNS lookup or ssh login only
 
+	// Windows event log context records (registry, scheduled-task, wmi,
+	// process-exit, Security-log auth): present and counted per kind, read
+	// by the Windows persistence and credential rules, never correlated.
+	ContextRecords int            `json:"context_records,omitempty"`
+	ContextKinds   map[string]int `json:"context_kinds,omitempty"`
+	ContextOmitted int            `json:"context_findings_omitted,omitempty"` // Windows rule findings past the per-rule bound
+
 	// The time range the imported cloud audit records span (RFC 3339).
 	CloudCoverageStart string `json:"cloud_coverage_start,omitempty"`
 	CloudCoverageEnd   string `json:"cloud_coverage_end,omitempty"`
@@ -63,6 +74,16 @@ type EndpointResult struct {
 	// at most MaxMatches; MatchesOmitted counts the ones past the bound.
 	Matches        []Match `json:"matches,omitempty"`
 	MatchesOmitted int     `json:"matches_omitted,omitempty"`
+
+	// Per-kind, per-host coverage and the collection health behind it
+	// (coverage.go). CoverageStart/End stay the union for compatibility.
+	KindCoverage     []KindCoverage          `json:"kind_coverage,omitempty"`
+	Health           []endpoint.SourceHealth `json:"collection_health,omitempty"`
+	OutsideReasons   map[string]int          `json:"outside_coverage_reasons,omitempty"`
+	Decisions        []CoverageDecision      `json:"coverage_decisions,omitempty"`
+	DecisionsOmitted int                     `json:"coverage_decisions_omitted,omitempty"`
+	// WindowMS is the match window the pass used.
+	WindowMS int64 `json:"window_ms,omitempty"`
 }
 
 // Endpoint correlates events in place and returns findings.
@@ -70,7 +91,7 @@ func Endpoint(events []schema.Event, records []endpoint.Record, opts EndpointOpt
 	if opts.Window <= 0 {
 		opts.Window = 3 * time.Second
 	}
-	res := &EndpointResult{Records: len(records)}
+	res := &EndpointResult{Records: len(records), WindowMS: opts.Window.Milliseconds()}
 	// Cloud audit records are a different witness with its own window and
 	// its own rules: they never contradict a command (the export may cover
 	// another account), and they must not widen the host telemetry's
@@ -85,9 +106,14 @@ func Endpoint(events []schema.Event, records []endpoint.Record, opts EndpointOpt
 	// ("process-image") are weaker still: they name only the program, so
 	// they can at most partly corroborate. Service-install and log-cleared
 	// records are notices for the operator, not correlation input.
-	var host, cloud, witnessCloud, sightings, script, image []endpoint.Record
+	// Windows context records (registry, scheduled tasks, WMI, process
+	// exits, Security-log logons) are not execution evidence either: they
+	// feed only the Windows persistence and credential rules.
+	var host, cloud, witnessCloud, sightings, script, image, ctx, hostState []endpoint.Record
 	for _, r := range records {
 		switch {
+		case r.Source == "tcc-db": // collected TCC.db rows: host state, not telemetry
+			hostState = append(hostState, r)
 		case endpoint.IsWitnessCloud(r):
 			witnessCloud = append(witnessCloud, r)
 		case r.Kind == "cloud":
@@ -99,16 +125,29 @@ func Endpoint(events []schema.Event, records []endpoint.Record, opts EndpointOpt
 		case r.Kind == endpoint.KindProcessImage:
 			image = append(image, r)
 		case r.Kind == "service", r.Kind == "log-clear":
+		case endpoint.IsContext(r):
+			ctx = append(ctx, r)
 		default:
 			host = append(host, r)
 		}
 	}
+	healthBy, healthList := sourceHealth(records, opts.Health)
+	res.Health = healthList
+	// Sightings and context records are listed per kind too, as not
+	// counting towards coverage (a context bound shows there as PARTIAL).
+	listed := make([]endpoint.Record, 0, len(sightings)+len(ctx))
+	listed = append(append(listed, sightings...), ctx...)
+	cov := buildCoverage(records, host, listed, healthBy)
+	res.KindCoverage = cov.Entries()
 	findings := endpointHost(events, host, opts, res)
+	findings = append(findings, windowsPass(events, host, ctx, opts, res)...)
 	findings = append(findings, cloudPass(events, cloud, res)...)
 	findings = append(findings, witnessCloudPass(events, witnessCloud, res)...)
+	findings = append(findings, linuxAgentRules(records, opts)...)
 	sightingPass(events, sightings, opts, res)
 	scriptPass(events, script, opts, res)
 	imagePass(events, image, opts, res)
+	findings = append(findings, HostState(events, hostState)...)
 	return res, findings
 }
 
@@ -137,8 +176,19 @@ func endpointHost(events []schema.Event, records []endpoint.Record, opts Endpoin
 			continue
 		}
 		res.ToolCalls++
+		needs := "process"
+		switch {
+		case ev.Command != "":
+		case ev.NetworkDest != "":
+			needs = "network"
+		default:
+			needs = "file"
+		}
+		assess := AssessCoverage(res.KindCoverage, ev.Host, needs, t, opts.Window)
 		if t.Before(res.CoverageStart.Add(-opts.Window)) || t.After(res.CoverageEnd.Add(opts.Window)) {
 			res.OutsideCover++
+			res.outside(CoverOutside)
+			res.decide(ev, needs, Assessment{Coverage: CoverOutside, Reason: "outside the time range of all endpoint telemetry"})
 			continue
 		}
 		lo, hi := t.Add(-opts.Window), t.Add(opts.Window)
@@ -160,12 +210,25 @@ func endpointHost(events []schema.Event, records []endpoint.Record, opts Endpoin
 			ev.Summary = appendNote(ev.Summary, fmt.Sprintf("corroborated by %s %s (%s)", r.Source, r.Kind, r.Ref))
 			addMatch(res, "endpoint", ev, r, bestScore, opts.Window, pids.relatedOf(records, best))
 			res.Corroborated++
+			res.decide(ev, needs, assess)
 			continue
 		}
+		res.decide(ev, needs, assess)
 		if ev.Command == "" {
-			continue // file/network-only calls without a match stay OBSERVED (telemetry may not cover that kind)
+			continue // file/network-only calls without a match stay OBSERVED (telemetry may not record every file or connection)
 		}
-		if !hasKind(records, "process") {
+		// Only process telemetry that covers this host at this time, with
+		// no sign of missed events, can disprove a command.
+		switch assess.Coverage {
+		case CoverHealthy, CoverUnverified:
+		case CoverPartial:
+			res.OutsideCover++
+			res.outside(assess.Coverage)
+			ev.Summary = appendNote(ev.Summary, "not checked for absence: "+assess.Reason)
+			continue
+		default:
+			res.OutsideCover++
+			res.outside(assess.Coverage)
 			continue
 		}
 		ev.Corroboration = schema.StateContradicted
@@ -259,7 +322,25 @@ func endpointHost(events []schema.Event, records []endpoint.Record, opts Endpoin
 			FalsePositive: "Telemetry/update checks by the agent runtime, or MCP servers reaching their own APIs; add known hosts with --known-destinations.",
 		})
 	}
+	findings = append(findings, macOSRules(events, records, lineage)...)
 	return findings
+}
+
+// outside counts a tool call left unchecked, by reason.
+func (res *EndpointResult) outside(reason string) {
+	if res.OutsideReasons == nil {
+		res.OutsideReasons = map[string]int{}
+	}
+	res.OutsideReasons[reason]++
+}
+
+// decide records the coverage decision for one checked tool call.
+func (res *EndpointResult) decide(ev *schema.Event, needs string, a Assessment) {
+	if len(res.Decisions) >= maxDecisions {
+		res.DecisionsOmitted++
+		return
+	}
+	res.Decisions = append(res.Decisions, CoverageDecision{EventID: ev.EventID, Needs: needs, Host: ev.Host, Coverage: a.Coverage, Reason: a.Reason, Sources: a.Sources})
 }
 
 // score rates how well an endpoint record explains a tool call: 0 = no.
@@ -362,22 +443,7 @@ func buildLineage(records []endpoint.Record, agentNames map[string]bool) []bool 
 			byPID[r.PID] = i
 		}
 	}
-	isAgentExe := func(exe, cmd string) bool {
-		if agentNames[exeName(exe)] {
-			return true
-		}
-		if ft := firstToken(cmd); ft != "" && agentNames[exeName(ft)] {
-			return true
-		}
-		// node/python running an agent CLI: `node …/claude/cli.js`
-		low := strings.ToLower(cmd)
-		for name := range agentNames {
-			if strings.Contains(low, "/"+name+"/") || strings.Contains(low, "\\"+name+"\\") || strings.Contains(low, "/"+name+".js") || strings.Contains(low, "@anthropic-ai/claude-code") || strings.Contains(low, "@openai/codex") {
-				return true
-			}
-		}
-		return false
-	}
+	isAgentExe := func(exe, cmd string) bool { return agentProcess(agentNames, exe, cmd) }
 	out := make([]bool, len(records))
 	for i, r := range records {
 		if isAgentExe(r.ParentExe, "") {
@@ -404,6 +470,25 @@ func buildLineage(records []endpoint.Record, agentNames map[string]bool) []bool 
 		}
 	}
 	return out
+}
+
+// agentProcess reports whether a process image or command line is an
+// agent binary (or a runtime running an agent CLI).
+func agentProcess(agentNames map[string]bool, exe, cmd string) bool {
+	if agentNames[exeName(exe)] {
+		return true
+	}
+	if ft := firstToken(cmd); ft != "" && agentNames[exeName(ft)] {
+		return true
+	}
+	// node/python running an agent CLI: `node …/claude/cli.js`
+	low := strings.ToLower(cmd)
+	for name := range agentNames {
+		if strings.Contains(low, "/"+name+"/") || strings.Contains(low, "\\"+name+"\\") || strings.Contains(low, "/"+name+".js") || strings.Contains(low, "@anthropic-ai/claude-code") || strings.Contains(low, "@openai/codex") {
+			return true
+		}
+	}
+	return false
 }
 
 func agentBinaryNames(extra []string) map[string]bool {

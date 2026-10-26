@@ -1,0 +1,7 @@
+{
+  "verdict": "FAILED",
+  "description": "delete one finding from findings.json",
+  "mutation": "manifest-finding-dropped",
+  "spec": "0.2.2",
+  "kind": "analysis"
+}

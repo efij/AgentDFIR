@@ -11,6 +11,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/efij/AgentDFIR/v4/internal/parsers/plaso"
 )
 
 // Second-witness telemetry beyond process auditing: DNS query logs, web
@@ -34,7 +36,7 @@ const (
 	FormatGitAud  Format = "git-audit"      // GitHub audit log export (JSON/CSV), GitLab audit events JSON
 	FormatStorage Format = "storage-access" // S3 server access, GCS usage CSV, Azure Storage analytics
 
-	telemetryFormatList = "zeek|dns-log|squid|authlog|journald|k8s-audit|git-audit|storage-access"
+	telemetryFormatList = "zeek|dns-log|squid|authlog|journald|k8s-audit|git-audit|storage-access|plaso|" + linuxFormatList
 )
 
 // sightingSources are the adapters whose records corroborate but never
@@ -44,6 +46,8 @@ var sightingSources = map[string]bool{
 	"bind": true, "dnsmasq": true, "pihole": true, "unbound": true, "windows-dns": true,
 	"squid": true, "proxy-export": true,
 	"authlog": true, "journald": true,
+	"plaso":      true,
+	"unifiedlog": true,
 }
 
 // IsSighting reports whether a record comes from a partial-coverage
@@ -81,8 +85,10 @@ func loadTelemetry(path string, f Format) (*LoadResult, bool, error) {
 		res, err = loadGitAudit(path)
 	case FormatStorage:
 		res, err = loadStorageLog(path)
+	case FormatPlaso:
+		res, err = loadPlaso(path)
 	default:
-		return nil, false, nil
+		return loadLinuxTelemetry(path, f)
 	}
 	return res, true, err
 }
@@ -96,7 +102,13 @@ var (
 // sniffTelemetry recognizes the formats above by content. It runs before
 // the generic JSON/CSV fallbacks and must not claim their files.
 func sniffTelemetry(head []byte) Format {
+	if plaso.Sniff(head) != "" {
+		return FormatPlaso
+	}
 	has := func(k string) bool { return bytes.Contains(head, []byte(`"`+k+`"`)) }
+	if lf := sniffLinuxTelemetry(head); lf != "" {
+		return lf
+	}
 	if bytes.HasPrefix(head, []byte("{")) || (bytes.HasPrefix(head, []byte("[")) && !epochBrRe.Match(head)) {
 		switch {
 		case has("auditID") && has("verb") && (has("objectRef") || bytes.Contains(head, []byte("audit.k8s.io"))):

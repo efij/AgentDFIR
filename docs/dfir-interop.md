@@ -28,4 +28,4 @@ agentdfir report CASE-42.adfir --format l2tcsv       # timeline.l2tcsv
 
 All exported strings are sanitized — terminal escapes and invisible Unicode from hostile transcripts are neutralized before they reach another tool.
 
-See also [SIEM interop](siem-interop.md) for OCSF, SARIF and Sigma.
+See also [SIEM interop](siem-interop.md) for OCSF, SARIF and Sigma, and [forensic-suite interop](forensic-suite-interop.md) for Cellebrite UFDR, Magnet AXIOM, Plaso (in) and Autopsy.

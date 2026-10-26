@@ -42,7 +42,11 @@ func discoveryProducts(includeOptIn bool) ([]products.Product, error) {
 		if err != nil {
 			return nil, err
 		}
-		prods = append(prods, extra...)
+		for _, p := range extra {
+			if p.ID == browserProductID { // --include-browser means browser history only
+				prods = append(prods, p)
+			}
+		}
 	}
 	return prods, nil
 }

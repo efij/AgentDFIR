@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
+	"github.com/efij/AgentDFIR/v4/internal/export"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -13,8 +14,10 @@ import (
 
 	"github.com/efij/AgentDFIR/v4/internal/casepkg"
 	"github.com/efij/AgentDFIR/v4/internal/collector"
+	"github.com/efij/AgentDFIR/v4/internal/hostpersist"
 	"github.com/efij/AgentDFIR/v4/internal/integrity"
 	"github.com/efij/AgentDFIR/v4/internal/live"
+	"github.com/efij/AgentDFIR/v4/internal/macoshost"
 	"github.com/efij/AgentDFIR/v4/internal/products"
 	"github.com/efij/AgentDFIR/v4/internal/sanitize"
 	"github.com/efij/AgentDFIR/v4/internal/seal"
@@ -46,9 +49,13 @@ COLLECT — where the evidence is
   agentdfir collect --docker <container|export.tar>                            a container (read-only export)
   agentdfir collect --archive <zip|tar|tgz>                                    CI artifact, support bundle, vendor export
   agentdfir collect --ai-export <zip|dir>                                      ChatGPT / Claude.ai / DeepSeek / Gemini Takeout export, UFDR
-  agentdfir collect --image <E01|raw|.001|vhd|vhdx|vmdk>                        forensic disk image, read-only (NTFS, ext2/3/4, FAT, exFAT; docs/disk-images.md)
+  agentdfir collect --suite-export <path>                                      UFDR, AXIOM CSV / Portable Case, Plaso timeline, Autopsy report (docs/forensic-suite-interop.md)
+  agentdfir collect --image <E01|raw|.001|vhd|vhdx|vmdk|qcow2|dmg|sparsebundle>  forensic disk image, read-only (NTFS, ext2/3/4, FAT, exFAT, XFS, Btrfs, LVM2, APFS, HFS+; docs/disk-images.md)
+      --recover-deleted · --include-vss   NTFS: also seal recoverable deleted content (RECOVERED_UNVERIFIED) · read Volume Shadow Copies
       --include-browser   any mode above, and "run": also take browser history (opt-in; only AI-service visits are parsed)
+      --include-macos-host  current-user / --path: also take macOS host state (launchd, BTM, TCC.db, keychain listing; opt-in)
   agentdfir verify <pkg>                                                       prove the package was not modified
+  agentdfir verify --reproduce <pkg> [--manifest f]                            re-run the recorded analysis, compare findings fingerprints
   agentdfir compact <pkg>                                                      delete the regenerable analysis overlay (analyze rebuilds it)
   agentdfir store status | store gc                                            shared evidence store: what it holds, reclaim what no case uses
 
@@ -64,10 +71,13 @@ LOOK — same results, different views
   agentdfir timeline <pkg>                the unified timeline in your terminal
   agentdfir investigate <pkg>             interactive terminal explorer
   agentdfir replay <pkg>                  step through one session
+  agentdfir replay ~/.agentdfir/monitor   step through a black-box recording (journal checked first)
   agentdfir explain <pkg>                 plain-language case digest (no AI, nothing sent anywhere)
   agentdfir gaps <pkg> [--json]           what the evidence does not show, and what to collect next
   agentdfir lineage <pkg> [--finding id|--session id] [--format text|json|mermaid|dot]   human → agent → tool → process → destination
   agentdfir correlate-cases <a> <b> [...] [--json]   what several cases share (destinations, IOCs, key fingerprints, accounts)
+  agentdfir reconstruct <pkg|case> [...] [--json|--mermaid|--dot] [--out f]   one incident across hosts: timeline, delegation, hand-offs, stages, missing evidence
+  agentdfir supply-chain <pkg> [--json] [--out f] [--since T]   skills, plugins, hooks, MCP servers: origin, hash history, drift, invocations
 
 MOVE A CASE — look at another computer's case here
   agentdfir export [<pkg>]                one file (<case>.adfir.tgz) + its SHA-256; default: this machine's case
@@ -101,12 +111,18 @@ ACCOUNTABILITY — who asked, who allowed, what happened (not legal advice)
 
 EDISCOVERY — derivative productions for legal review (structural RSMF validation; no admissibility claim)
   agentdfir report <pkg> --format rsmf [--session id] [--redact secrets,emails,paths,ips]   RSMF 2.0 per session
+  agentdfir report <pkg> --format proof [--json] [--session id]   per-action evidence chain, coverage and collection health
   agentdfir export <pkg> --production [--out dir] [--examiner n] [--redact …] [--produced-at t]   production set + manifest
 
 BEFORE AN INCIDENT
   agentdfir monitor --detect --alert <url|file>      live sensor: findings pushed as they happen
   agentdfir monitor --journal [--journal-anchor f]   hash-chain every transcript append; later edits become provable
-  agentdfir journal verify [--anchor <head>]         check the journal and an off-host anchor
+  sudo agentdfir monitor --es [--es-events a,b]     macOS: also capture Endpoint Security events via Apple's eslogger (root + Full Disk Access)
+  agentdfir journal verify [--anchor <head>]         check the journal, an off-host anchor and the recorder's captures
+  agentdfir monitor --record [--auditd f] [--tail f]... [--retain 7d,2GB]
+                                                     black-box recorder: journaled OS telemetry + MCP config changes
+  agentdfir monitor status [--json]                  recorder health: sources, gaps, retention, journal anchor
+  agentdfir run --endpoint ~/.agentdfir/monitor      investigate a recording: correlate transcripts with it
   agentdfir mcp audit                                MCP servers on this machine: unpinned, plaintext, poisoned
   agentdfir extensions [--path <home>]               IDE extensions, agent plugins, skills: hidden loaders, remote hooks
   agentdfir baseline create|check · agentdfir diff <a> <b>     known-good configs and drift
@@ -141,10 +157,14 @@ func Main(args []string) int {
 		return cmdCorrelate(args[1:])
 	case "correlate-cases":
 		return cmdCorrelateCases(args[1:])
+	case "reconstruct":
+		return cmdReconstruct(args[1:])
 	case "gaps":
 		return cmdGaps(args[1:])
 	case "lineage":
 		return cmdLineage(args[1:])
+	case "supply-chain":
+		return cmdSupplyChain(args[1:])
 	case "provenance":
 		return cmdProvenance(args[1:])
 	case "serve":
@@ -287,9 +307,13 @@ func cmdCollect(args []string) int {
 	dockerRef := fs.String("docker", "", "container id/name (docker export, read-only) or a saved export .tar")
 	archive := fs.String("archive", "", "zip / tar / tar.gz: GitHub Actions artifact, support bundle, vendor data export")
 	aiExport := fs.String("ai-export", "", "AI-service account export (ChatGPT, Claude.ai, DeepSeek, Gemini Takeout) or Cellebrite UFDR: zip/tar or unpacked directory")
+	suiteExport := fs.String("suite-export", "", "forensic-suite export: UFDR, AXIOM CSV export / Portable Case, Plaso psort timeline, Autopsy Files - Text report (file, zip/tar or directory)")
 	includeBrowser := fs.Bool("include-browser", false, "also collect browser history databases (opt-in: AI-service visits are parsed, the rest is sealed unread)")
-	image := fs.String("image", "", "forensic disk image (raw/dd, split .001/.aa, E01, VHD, VHDX, VMDK): read-only, agent evidence only")
+	includeMacHost := fs.Bool("include-macos-host", false, "also collect macOS host state: launchd plists, BTM, login items, TCC.db, keychain file listing (opt-in; keychains never opened)")
+	image := fs.String("image", "", "forensic disk image (raw/dd, split .001/.aa, E01, VHD, VHDX, VMDK, QCOW2): read-only, agent evidence only")
 	skipImageVerify := fs.Bool("skip-image-verify", false, "with --image: do not re-read an E01 to check its stored MD5/SHA-1")
+	recoverDeleted := fs.Bool("recover-deleted", false, "with --image: also seal recoverable deleted NTFS file content (RECOVERED_UNVERIFIED); metadata is always listed")
+	includeVSS := fs.Bool("include-vss", false, "with --image: also extract agent evidence from each NTFS Volume Shadow Copy (read-only)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -304,8 +328,10 @@ func cmdCollect(args []string) int {
 		return collectArchive(*archive, base)
 	case *aiExport != "":
 		return collectAIExport(*aiExport, base)
+	case *suiteExport != "":
+		return collectSuiteExport(*suiteExport, base)
 	case *image != "":
-		return collectImage(*image, base, !*skipImageVerify)
+		return collectImage(*image, base, !*skipImageVerify, imageExtras{recoverDeleted: *recoverDeleted, includeVSS: *includeVSS})
 	}
 
 	productID := *product
@@ -328,6 +354,10 @@ func cmdCollect(args []string) int {
 		productID = "copilot-chat-vscode"
 	}
 	man, err := products.Manifest(productID)
+	if productID == macoshost.Product {
+		// Named opt-in: every platform's entries (see collectMacOSHost).
+		man, err = products.ManifestAllPlatforms(productID)
+	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
@@ -398,6 +428,9 @@ func cmdCollect(args []string) int {
 	if *includeBrowser || productID == browserProductID {
 		info.Notes["browser_history"] = browserNote
 	}
+	if *includeMacHost || productID == macoshost.Product {
+		info.Notes["macos_host"] = macHostNote
+	}
 	if *offlineRoot != "" {
 		info.Notes["mode"] = "offline-path"
 		info.Notes["offline_root"] = *offlineRoot
@@ -462,6 +495,22 @@ func cmdCollect(args []string) int {
 		addStats(st, bst)
 		runErr = bErr
 	}
+	if runErr == nil && productID != browserProductID && hostpersist.Applies(systemRoot) {
+		// Linux persistence state (systemd, cron, shell init, ld.so.preload,
+		// authorized_keys): read-only, denied paths recorded with the reason.
+		pst, pErr := hostpersist.Collect(b, opts)
+		addStats(st, pst)
+		if pErr != nil {
+			fmt.Fprintln(os.Stderr, "linux persistence collection (continuing):", pErr)
+		}
+	}
+	if (*includeMacHost || productID == macoshost.Product) && runErr == nil {
+		// Opt-in pass: macOS host state (or, for --product macos-host, the
+		// keychain listing the manifest cannot express).
+		mst, mErr := collectMacOSHost(b, opts, productID != macoshost.Product)
+		addStats(st, mst)
+		runErr = mErr
+	}
 	roundStats := b.Stats()
 	signing := prepareSigning(b, *signKey, *noSign)
 	if err := b.Seal(); err != nil {
@@ -506,11 +555,22 @@ func cmdCollect(args []string) int {
 func cmdVerify(args []string) int {
 	fs := flag.NewFlagSet("verify", flag.ContinueOnError)
 	pubkey := fs.String("pubkey", "", "expected signer public key (hex) to pin")
-	if err := fs.Parse(args); err != nil || fs.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: agentdfir verify <package-dir> [--pubkey <hex>]")
+	reproduce := fs.Bool("reproduce", false, "re-run the recorded analysis from the sealed evidence and compare findings fingerprints")
+	manifest := fs.String("manifest", "", "with --reproduce: the analysis manifest to reproduce (default <pkg>/detections/analysis-manifest.json)")
+	honey := fs.String("honeytokens", "", "with --reproduce: the honeytoken file the analysis used")
+	asJSON := fs.Bool("json", false, "with --reproduce: print the comparison as JSON")
+	positional, err := parseInterleaved(fs, args)
+	if err != nil || len(positional) != 1 {
+		fmt.Fprintln(os.Stderr, "usage: agentdfir verify <package-dir|production-dir> [--pubkey <hex>]\n       agentdfir verify --reproduce <package-dir> [--manifest file] [--honeytokens file] [--json]")
 		return 2
 	}
-	pkgArg := fs.Arg(0)
+	pkgArg := positional[0]
+	if *reproduce {
+		return cmdVerifyReproduce(pkgArg, *manifest, *honey, *asJSON)
+	}
+	if export.IsProduction(pkgArg) {
+		return cmdVerifyProduction(pkgArg, *pubkey)
+	}
 	chk, err := integrity.VerifyPackage(pkgArg, *pubkey)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
@@ -539,9 +599,14 @@ func cmdVerify(args []string) int {
 	default:
 		fmt.Printf("Signature:          INVALID — %s\n", sanitize.Terminal(sigRes.Reason))
 	}
-	if len(res.Problems) == 0 {
+	overlayProblems := printOverlayCheck(pkgArg)
+	if len(res.Problems) == 0 && overlayProblems == 0 {
 		fmt.Println("Result:             VERIFIED — no modifications detected")
 		return 0
+	}
+	if len(res.Problems) == 0 {
+		fmt.Println("Result:             FAILED — the sealed evidence verifies, but the analysis files are inconsistent (listed above)")
+		return 1
 	}
 	fmt.Printf("Result:             FAILED — %d problem(s):\n", len(res.Problems))
 	for _, p := range res.Problems {

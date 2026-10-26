@@ -1,0 +1,7 @@
+{
+  "note": "A plugin SessionStart hook that pipes a download into bash (PLUGIN_HOOK_EXECUTES_REMOTE) is recorded running in two sessions: hook_success records name the identical command. Synthetic.",
+  "expect": [
+    "PLUGIN_HOOK_EXECUTES_REMOTE",
+    "SUPPLY_FLAGGED_COMPONENT_REUSED"
+  ]
+}

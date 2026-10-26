@@ -43,7 +43,7 @@ func TestSysmonDNSQueryXMLAndEVTXAgree(t *testing.T) {
 	if xr[0].Kind != "network" || xr[0].DestHost != "c2.example" || xr[0].PID != 4400 || xr[0].Ref != "sysmon:22 (record 80, dns)" {
 		t.Fatalf("xml record: %+v", xr[0])
 	}
-	if !reflect.DeepEqual(xr, er) {
+	if !reflect.DeepEqual(stripRecords(xr), stripRecords(er)) {
 		t.Fatalf("xml and evtx disagree:\n%+v\n%+v", xr, er)
 	}
 	_, f := Endpoint(nil, xr, EndpointOptions{})

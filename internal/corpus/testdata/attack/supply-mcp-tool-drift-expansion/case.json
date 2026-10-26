@@ -1,0 +1,6 @@
+{
+  "note": "Two sessions of the same project log the tool list of MCP server 'notes' at start-up. The second lists new delete_all and shell_exec tools the first did not: the server changed what it offers between sessions (rug-pull shape). Synthetic.",
+  "expect": [
+    "SUPPLY_MCP_TOOL_DRIFT_EXPANSION"
+  ]
+}

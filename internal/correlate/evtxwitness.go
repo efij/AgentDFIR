@@ -11,8 +11,9 @@ import (
 )
 
 // Corroborate-only witnesses from native Windows event logs: PowerShell
-// script blocks (4104) and process creations known only by image path
-// (Security 4688 without command-line auditing). Neither is complete
+// script blocks (4104) and module logs (4103, Operation "module"), and
+// process creations known only by image path (Security 4688 without
+// command-line auditing). Neither is complete
 // process telemetry, so neither contradicts a command or widens the
 // coverage window. Matches are marked in WitnessNote with their basis
 // ("script-block", "process-image") so they stay distinguishable from
@@ -63,7 +64,11 @@ func scriptPass(events []schema.Event, records []endpoint.Record, opts EndpointO
 		if bestScore < 100 {
 			how = "whole command inside the block"
 		}
-		ev.WitnessNote = appendNote(ev.WitnessNote, fmt.Sprintf("script-block: PowerShell script block log, %s match (%s)", how, r.Ref))
+		log := "PowerShell script block log"
+		if r.Operation == "module" { // 4103: same strict matching, against the module log payload
+			log = "PowerShell module log"
+		}
+		ev.WitnessNote = appendNote(ev.WitnessNote, fmt.Sprintf("script-block: %s, %s match (%s)", log, how, r.Ref))
 		// The pairing is recorded even beside a contradiction: the block
 		// exists, and the lineage edge carries the event's own state.
 		if bestScore >= 100 {

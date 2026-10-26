@@ -21,14 +21,16 @@ var (
 )
 
 type auditEvent struct {
-	ts      time.Time
-	serial  string
-	syscall map[string]string
-	execve  map[string]string
-	cwd     string
-	paths   []map[string]string
-	saddr   string
-	line    int
+	ts       time.Time
+	serial   string
+	syscall  map[string]string
+	execve   map[string]string
+	cwd      string
+	paths    []map[string]string
+	saddr    string
+	contid   string // container id: CONTAINER_ID/CONTAINER_OP contid=, or a cgroup= field
+	contAuth bool   // contid came from contid= and overrides a cgroup= value
+	line     int
 }
 
 func loadAuditd(path string) (*LoadResult, error) {
@@ -55,6 +57,10 @@ func loadAuditd(path string) (*LoadResult, error) {
 			order = append(order, key)
 		}
 		fields := parseKV(body)
+		auditDropSignal(res, typ, fields, ev.ts, fmt.Sprintf("audit.log:%d (serial %s)", n, serial))
+		if id, auth := auditContainerID(typ, fields); id != "" && !ev.contAuth && (auth || ev.contid == "") {
+			ev.contid, ev.contAuth = id, auth
+		}
 		switch typ {
 		case "SYSCALL":
 			ev.syscall = fields
@@ -71,9 +77,20 @@ func loadAuditd(path string) (*LoadResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	// The audit serial numbers every kernel audit event; it is tracked for
+	// each event in the file, used or not. It restarts at boot, and numbers
+	// that repeat are not read as gaps (the file is sorted by serial).
+	domain := "auditd/" + baseName(path)
+	for _, key := range order {
+		ev := events[key]
+		if sn, err := strconv.ParseUint(ev.serial, 10, 64); err == nil && sn > 0 {
+			res.seqObserve(domain, sn, ev.ts, true)
+		}
+	}
 	for _, key := range order {
 		ev := events[key]
 		ref := fmt.Sprintf("audit.log:%d (serial %s)", ev.line, ev.serial)
+		n0 := len(res.Records)
 		pid, _ := strconv.Atoi(ev.syscall["pid"])
 		ppid, _ := strconv.Atoi(ev.syscall["ppid"])
 		exe := unq(ev.syscall["exe"])
@@ -96,12 +113,12 @@ func loadAuditd(path string) (*LoadResult, error) {
 				argv = append(argv, decodeAuditArg(v))
 			}
 			res.Records = append(res.Records, Record{Time: ev.ts, Kind: "process", PID: pid, PPID: ppid, Exe: exe,
-				Cmdline: strings.Join(argv, " "), User: user, Source: "auditd", Ref: ref})
+				Cmdline: strings.Join(argv, " "), User: user, Cwd: ev.cwd, ContainerID: ev.contid, Source: "auditd", Ref: ref})
 		case ev.saddr != "":
 			ip, port := decodeSaddr(ev.saddr)
 			if ip != "" {
 				res.Records = append(res.Records, Record{Time: ev.ts, Kind: "network", PID: pid, PPID: ppid, Exe: exe,
-					Cmdline: unq(ev.syscall["comm"]), DestIP: ip, DestPort: port, User: user, Source: "auditd", Ref: ref})
+					Cmdline: unq(ev.syscall["comm"]), DestIP: ip, DestPort: port, User: user, ContainerID: ev.contid, Source: "auditd", Ref: ref})
 			}
 		case len(ev.paths) > 0:
 			for _, p := range ev.paths {
@@ -124,12 +141,55 @@ func loadAuditd(path string) (*LoadResult, error) {
 					name = strings.TrimSuffix(ev.cwd, "/") + "/" + name
 				}
 				res.Records = append(res.Records, Record{Time: ev.ts, Kind: "file", PID: pid, PPID: ppid, Exe: exe,
-					Cmdline: unq(ev.syscall["comm"]), FilePath: name, FileOp: op, User: user, Source: "auditd", Ref: ref})
+					Cmdline: unq(ev.syscall["comm"]), FilePath: name, FileOp: op, User: user, ContainerID: ev.contid, Source: "auditd", Ref: ref})
+			}
+		}
+		if sn, err := strconv.ParseUint(ev.serial, 10, 64); err == nil && sn > 0 {
+			for i := n0; i < len(res.Records); i++ {
+				res.Records[i].Seq, res.Records[i].SeqDomain = sn, domain
+				res.seqKind(domain, res.Records[i].Kind)
 			}
 		}
 	}
 	sort.SliceStable(res.Records, func(i, j int) bool { return res.Records[i].Time.Before(res.Records[j].Time) })
 	return res, nil
+}
+
+// auditDropSignal notes records in which auditd or the kernel says
+// events were lost: DAEMON_ERR / DAEMON_ABORT, and a nonzero lost= or
+// audit_lost= counter (CONFIG_CHANGE, DAEMON_* and status records).
+func auditDropSignal(res *LoadResult, typ string, fields map[string]string, t time.Time, ref string) {
+	lost := 0
+	for _, k := range []string{"lost", "audit_lost"} {
+		if v, err := strconv.Atoi(unq(fields[k])); err == nil && v > lost {
+			lost = v
+		}
+	}
+	switch {
+	case typ == "DAEMON_ERR" || typ == "DAEMON_ABORT":
+		res.dropSignal(DropSignal{Signal: "daemon", Start: t, Detail: "auditd " + typ + ": events after this point may not have been written", Ref: ref})
+	case lost > 0:
+		res.dropSignal(DropSignal{Signal: "lost-events", End: t, Count: lost, Detail: fmt.Sprintf("audit lost counter is %d: the kernel dropped events before this record", lost), Ref: ref})
+	}
+}
+
+// auditContainerID reads a container id from kernel-written audit fields
+// only: contid= of the audit container-id records (CONTAINER_ID,
+// CONTAINER_OP; kernels carrying that patch set), which is authoritative,
+// or a dedicated cgroup= field holding a /proc/<pid>/cgroup style path.
+// exe, comm, argv and path names are user-controlled (a binary can be
+// named docker-<id>.scope) and are never scanned. Stock kernels log
+// neither field, and then the record has no container.
+func auditContainerID(typ string, fields map[string]string) (id string, authoritative bool) {
+	if typ == "CONTAINER_ID" || typ == "CONTAINER_OP" {
+		if c := unq(fields["contid"]); c != "" && c != "-1" && c != "18446744073709551615" {
+			return c, true
+		}
+	}
+	if cg, ok := fields["cgroup"]; ok {
+		return ContainerIDFromCgroup(unq(cg)), false
+	}
+	return "", false
 }
 
 // isWriteSyscall: open/openat with write flags (a1/a2 contain O_WRONLY|O_RDWR|O_CREAT|O_TRUNC).

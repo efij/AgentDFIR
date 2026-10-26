@@ -1,0 +1,6 @@
+{
+  "endpoint": [
+    "windows.evtx"
+  ],
+  "note": "Benign twin of windows-agent-encoded-powershell-log-clear (synthetic .evtx): the agent runs an ordinary PowerShell listing (-ExecutionPolicy Bypass alone is not suspicious); an administrator's own PowerShell under explorer.exe runs a Chocolatey-style download cradle; the Security log is cleared three hours after the session. None of the host rules may fire."
+}

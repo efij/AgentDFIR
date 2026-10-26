@@ -1,0 +1,9 @@
+{
+  "endpoint": [
+    "tetragon.jsonl"
+  ],
+  "expect": [
+    "PACKAGE_SCRIPT_TOUCHED_AGENT"
+  ],
+  "note": "Synthetic Tetragon export (README-v45-rules.md): the person runs `npm install left-pad-utils`; its postinstall node script writes ~/.claude/settings.json and launches `claude --dangerously-skip-permissions -p …`, the package-to-agent pattern of the 2025 s1ngularity compromise. The tree is not agent-descended; PACKAGE_SCRIPT_TOUCHED_AGENT must fire CRITICAL."
+}

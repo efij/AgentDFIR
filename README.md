@@ -4,7 +4,7 @@
 
 **Open-source digital forensics and incident response for AI agents.**
 
-*Collect, preserve, reconstruct and investigate activity from Claude Code, Claude Cowork, Codex (CLI and desktop app), Cursor, Gemini CLI, Copilot and other AI agents — from a live machine, a disk image or an AI-service account export.*
+*Collect, preserve, reconstruct and investigate activity from Claude Code, Claude Cowork, Codex (CLI and desktop app), Cursor, Gemini CLI, Copilot and other AI agents — from a live machine, a Windows, macOS or Linux disk image, an AI-service account export or a forensic suite's export.*
 
 [![CI](https://github.com/efij/AgentDFIR/actions/workflows/ci.yml/badge.svg)](https://github.com/efij/AgentDFIR/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -109,8 +109,8 @@ agentdfir analyze CASE-2026-042.adfir --endpoint cloudtrail.json           # Clo
 agentdfir analyze CASE-2026-042.adfir --gateway-log mcp-gateway.jsonl        # your MCP gateway's own log
 ```
 
-Other ways in: `collect --path <copied home>`, `--import <KAPE/Velociraptor tree>`, `--image <E01|raw|vhd|vhdx|vmdk>`, `--ai-export <zip|dir>`, `--docker <container>`, `--archive <zip|tar>`; add `--include-browser` to any of them for AI-service browser history (opt-in).
-Other ways out: `report --format pdf|html|ocsf|sarif|timesketch|rsmf|…`, `export --production`, `rules list --packs rules` (every detection → [MITRE ATLAS / ATT&CK](docs/detection-coverage.md)), `rules export --sigma`. Before an incident: `monitor --detect --alert <url>`, `mcp audit`, `extensions`.
+Other ways in: `collect --path <copied home>`, `--import <KAPE/Velociraptor tree>`, `--image <E01|raw|vhd|vhdx|vmdk|qcow2|dmg|sparsebundle>` (add `--include-vss`, `--recover-deleted` for NTFS), `--suite-export <ufdr|axiom csv|plaso|autopsy>`, `--ai-export <zip|dir>`, `--docker <container>`, `--archive <zip|tar>`; add `--include-browser` (AI-service browser history) or `--include-macos-host` (launchd, TCC, keychain listing) — both opt-in.
+Other ways out: `report --format pdf|html|proof|stix|ocsf|sarif|timesketch|rsmf|…`, `export --production`, `verify --reproduce`, `reconstruct`, `supply-chain`, `rules list --packs rules` (every detection → [MITRE ATLAS / ATT&CK](docs/detection-coverage.md)), `rules export --sigma`. Before an incident: `monitor --record` (black-box recorder: `--auditd`, `--tail`, `--es`, `--retain`; `monitor status`), `monitor --detect --alert <url>`, `mcp audit`, `extensions`.
 Every command is listed by workflow step in `agentdfir help`.
 
 Example finding:
@@ -126,6 +126,44 @@ HIGH — Unexpected Agent Activity [ORPHAN_AGENT]
 ```
 
 No auto-escalation to "compromise" or "exfiltration" — findings state exactly what the evidence shows, with clickable references to the raw artifact behind every claim.
+
+## 🧾 v4.5 — the proof behind every action, and how complete it is
+
+v4.5 widens what a case can start from (macOS and Linux disk images, NTFS history, forensic-suite exports) and what can stand as a second witness (macOS Endpoint Security, eBPF tools, containers, more Windows channels). It also shows, for every tool call, the evidence chain behind its state and how complete the telemetry was.
+
+```sh
+agentdfir collect --image Mac.dmg                          # APFS / HFS+ in .dmg, sparsebundle or raw; XFS, Btrfs, QCOW2, LVM2
+agentdfir collect --image suspect.E01 --include-vss --recover-deleted   # NTFS: shadow copies; deleted content as RECOVERED_UNVERIFIED
+agentdfir collect --suite-export case42.ufdr               # UFDR, AXIOM CSV / Portable Case, Plaso, Autopsy
+agentdfir collect --product claude --include-macos-host    # opt-in: launchd, BTM, TCC.db, keychain listing (never opened)
+agentdfir analyze CASE.adfir --endpoint es.jsonl --endpoint tetragon.json   # eslogger, unified log, Tetragon, Falco, bpftrace, docker
+agentdfir report CASE.adfir --format proof                 # per action: claim → evidence chain → coverage and collection health
+agentdfir report CASE.adfir --format stix                  # a valid STIX 2.1 bundle
+agentdfir verify --reproduce CASE.adfir                    # re-run the recorded analysis, compare the findings fingerprint
+agentdfir reconstruct CASE-A.adfir CASE-B.adfir --mermaid  # one incident across hosts: timeline, delegation, hand-offs, stages
+agentdfir supply-chain CASE.adfir                          # skills, plugins, hooks, MCP servers: origin, hash history, drift, use
+sudo agentdfir monitor --record --auditd /var/log/audit/audit.log --tail /var/log/falco/events.json --retain 7d,2GB
+sudo agentdfir monitor --record --es --retain 7d           # macOS: Apple's eslogger, journaled
+agentdfir monitor status                                   # recorder health: sources, sequence gaps, retention
+```
+
+- **[Action proof](docs/action-proof.md)** — coverage is judged per kind of telemetry, per host and per telemetry file, and every file gets a collection-health verdict from its own sequence numbers and drop signals (`HEALTHY`, `PARTIAL`, `UNKNOWN`). A gap never turns a command into DISPROVED. The explorer adds a **Proof** view, a collection-health badge and per-kind health in **Coverage**.
+- **[macOS](docs/macos-filesystems.md)** and **[Linux](docs/linux-filesystems.md)** filesystems, **[NTFS USN journal, deleted records, shadow copies](docs/disk-images.md#ntfs-artifacts-usn-journal-deleted-records-shadow-copies)** — pure Go, read-only, nothing mounted or replayed.
+- **[macOS telemetry](docs/macos-telemetry.md)** — Endpoint Security through Apple's own `eslogger` (root and Full Disk Access; AgentDFIR has no Endpoint Security client of its own and needs no entitlement), the unified log as a partial witness, host state. **[Linux telemetry](docs/linux-telemetry.md)** — Tetragon, Falco, bpftrace, docker and podman events are imported; AgentDFIR loads no eBPF program. **[Windows](docs/endpoint-corroboration.md)** — registry, scheduled task, WMI, logon and PowerShell module events.
+- **[Forensic-suite interop](docs/forensic-suite-interop.md)** — only documented, generic structure is read; a suite's record is another tool's decoding, never proof of execution.
+- **[Black-box recorder](docs/black-box-recorder.md)**, **[incident reconstruction](docs/reconstruct.md)**, **[agent supply chain](docs/supply-chain.md)**, **[v4.5 detections](docs/detection-v45.md)** (18 proposals checked against every existing rule; 11 were already covered), **[verifying a case without trusting AgentDFIR](docs/open-evidence-standard.md)** ([spec 0.2.2](docs/adfir-spec.md)), **[cross-platform benchmark](docs/benchmark.md)**.
+
+**Honest coverage of the new formats.** The fixture column says where the test data came from; nothing below is skipped silently.
+
+| Format | Read | Not read / UNSUPPORTED (named, with the reason) | Fixtures |
+|---|---|---|---|
+| APFS, HFS+/HFSX, `.dmg`, sparsebundle | containers, volumes, snapshots, clones, hard links, xattrs, zlib decmpfs; HFS+ journal state reported | FileVault-encrypted APFS volumes, LZVN/LZFSE-compressed files, ADC/LZFSE/LZMA `.dmg` chunks, UDSP sparse images, Fusion, APM; encrypted images ENCRYPTED | made with `hdiutil`/`diskutil`/`ditto`; snapshots and zlib decmpfs hand-built |
+| XFS, Btrfs, QCOW2, LVM2 | XFS v4/v5, single-device Btrfs with subvolumes and zlib, QCOW2 v2/v3 with deflate, LVM2 linear LVs | XFS realtime files, Btrfs RAID/multi-device and lzo/zstd, QCOW2 backing files/zstd/encryption, LVM2 thin/snapshot/raid/striped | real tools in a container; non-linear LVM2 metadata partly hand-written |
+| NTFS USN, deleted records, VSS | USN V2/V3, deleted MFT records with content state, shadow-copy stores | USN V4 range records, EFS content, VSS block range lists and previous bitmaps, unknown store versions | real ntfs-3g volumes; USN records and the VSS store synthetic |
+| eslogger, unified log, macOS host state | exec/fork/exit, file, auth, BTM, TCC, UNIX sockets, signals; auth/TCC from genuine senders; XML plists, TCC.db | IP network events (Endpoint Security has none), unmapped event types, binary plists and the BTM store (sealed, UNSUPPORTED) | eslogger synthetic; one unified-log capture real (scrubbed) |
+| Tetragon, Falco, bpftrace, docker/podman | exec, connect, file and syscall hooks; Falco alerts; bpftrace printf JSON objects; container events | Tetragon uprobe/loader, Falco plugin sources, bpftrace aggregates, containerd/CRI-O text streams | synthetic, from each tool's documented schema |
+| Windows context events | Sysmon 5/12/13/14, Security 4689/4625/4648/4672/4697, PowerShell 4103, Task Scheduler, WMI-Activity | 4624 logons and other IDs (counted), chunk slack, provider message strings | synthetic `.evtx` from a test writer |
+| UFDR, UFD, AXIOM, Plaso, Autopsy | UFDR `report.xml` (generic model shape), `.ufd`/`.ufdx`, AXIOM CSV and Portable Case, Plaso `json_line`/`l2tcsv`, Autopsy Files - Text | AXIOM `Case.mfdb` sealed and inventoried, always `AXIOM_CASE_DB_UNSUPPORTED` (undocumented schema); `.clbx`; Autopsy HTML/Excel | synthetic, from the publicly described structure |
 
 ## 🧪 v4.0 — from coding agents to every AI evidence source
 
@@ -152,7 +190,7 @@ agentdfir export CASE.adfir --production --redact secrets  # production set + ma
 - **[Gaps, lineage, cross-case](docs/investigation-graph.md)** — every lineage edge names the evidence behind it; a gap is "nothing recorded", never "something hidden".
 - **[Continue and Windsurf](docs/ai-ide-products.md)**, **[extensions and plugins](docs/extensions-plugins.md)**, **[v4 detections](docs/detection-v4.md)**, **[eDiscovery](docs/ediscovery.md)** (structural RSMF validation; no admissibility claim), **[benchmark and an independent Python verifier](docs/benchmark.md)** (synthetic: 100% precision/recall on its own labeled fixtures is not real-world accuracy; 24/24 tamper mutations detected).
 
-**Honest coverage.** Every format page has a coverage table: what is read, what is sealed but not parsed, and what is reported UNSUPPORTED — for example Windsurf Cascade stores (protobuf with no published schema, encrypted on current builds) are sealed and reported, not guessed at, and APFS/BitLocker volumes are named with the route to read them. Nothing unsupported is skipped silently.
+**Honest coverage.** Every format page has a coverage table: what is read, what is sealed but not parsed, and what is reported UNSUPPORTED — for example Windsurf Cascade stores (protobuf with no published schema, encrypted on current builds) are sealed and reported, not guessed at, and FileVault/BitLocker volumes are named with the route to read them. Nothing unsupported is skipped silently.
 
 ## 🧭 The last twelve months of agent incidents, as commands (v3.0)
 
@@ -259,7 +297,7 @@ canary so a non-enforcing sandbox can never pass. Details:
 A list of 700 findings is not an answer. The explorer (`agentdfir serve`) turns it into one:
 
 - **The answer first, in plain words.** *"4 alerts need action now"*, then the few kinds of issue to start with. Findings are grouped by kind (1,237 → ~60 on a real machine), and each reads *what happened · why it matters · ask yourself · what to do*, with one verdict line (*"Act now if real · Needs your check"*) and the **account** it ran under — for people who are not security analysts.
-- **Attack chains (toxic combinations).** Individually unremarkable steps that together are an attack: *injection in a tool result → agent rewrites its own instructions → shell runs*, *secret read → upload*, *orphan agent → config change → tool use*, *poisoned MCP result → destructive command*, *injection → commit → push*, *action → log deletion*… Eleven ship built in, matched inside one session or one agent's lineage within a time window, mapped to MITRE ATLAS / ATT&CK. Add your own as `*.chains.json` ([docs](docs/attack-chains.md)).
+- **Attack chains (toxic combinations).** Individually unremarkable steps that together are an attack: *injection in a tool result → agent rewrites its own instructions → shell runs*, *secret read → upload*, *orphan agent → config change → tool use*, *poisoned MCP result → destructive command*, *injection → commit → push*, *action → log deletion*… Thirteen ship built in, matched inside one session or one agent's lineage within a time window, mapped to MITRE ATLAS / ATT&CK. Add your own as `*.chains.json` ([docs](docs/attack-chains.md)).
 - **How it happened, as a story.** Every finding opens to a swimlane diagram — *You · The AI agent · Tools & outside world* — one card per evidence line in time order, the flagged steps in red, the outside addresses they reach, and the **most likely start** (your request, an automatic skill message, injected text the agent read, or a helper agent) marked on its card. Every card opens the exact sealed log line.
 - **Plugin (MCP) activity.** Every MCP call in time order with the account, plugin, what the agent sent and what came back.
 - **Command palette.** `Cmd+K` / `Ctrl+K` (or `/`) opens one box for everything: jump to any view, finding or conversation by fuzzy match, run actions, and see matching actions from the evidence as you type. `Cmd/Ctrl+Enter` runs the full search.
@@ -343,7 +381,9 @@ Ships with wrappers for tools IR teams already run:
 - **Velociraptor** — [`deploy/velociraptor/`](deploy/velociraptor): client artifact invoking `agentdfir collect`
 - **Containers, CI, exports** — `collect --docker <container|export.tar>` and `collect --archive <zip|tar|tgz>` ([docs](docs/container-ci-collection.md))
 - **Triage-tree import** — `collect --import <tree>` turns any KAPE/Velociraptor/CyLR output or mounted image into one sealed package (all products, all users)
-- **Disk images** — `collect --image <E01|raw|vhd|vhdx|vmdk>` reads the image directly, no mount, no libewf ([docs](docs/disk-images.md))
+- **Disk images** — `collect --image <E01|raw|vhd|vhdx|vmdk|qcow2|dmg|sparsebundle>` reads the image directly, no mount, no libewf: NTFS (with USN journal, deleted records, shadow copies), ext, FAT, exFAT, XFS, Btrfs, LVM2, APFS, HFS+ ([docs](docs/disk-images.md))
+- **Forensic suites** — `collect --suite-export` reads Cellebrite UFDR, Magnet AXIOM CSV / Portable Case, Plaso and Autopsy exports; `--endpoint timeline.jsonl` uses a Plaso timeline as a partial witness ([docs](docs/forensic-suite-interop.md))
+- **macOS and Linux telemetry** — `--endpoint` reads `eslogger`, the unified log, Tetragon, Falco, bpftrace and docker/podman events ([macOS](docs/macos-telemetry.md), [Linux](docs/linux-telemetry.md))
 - **Windows event logs, DNS and proxy logs** — `analyze --endpoint Sysmon.evtx` (or Security / PowerShell `.evtx`), Zeek, BIND, Pi-hole, Squid ([docs](docs/endpoint-corroboration.md))
 - **Legal review** — `report --format rsmf` and `export --production` ([docs](docs/ediscovery.md))
 - **Timesketch / Plaso** — `report --format timesketch|l2tcsv` puts the agent timeline next to your host timeline ([docs](docs/dfir-interop.md))
@@ -354,7 +394,7 @@ Ships with wrappers for tools IR teams already run:
 |---|---|
 | ✅ | Sealed `.adfir` packages, hash-chained custody, `verify` |
 | ✅ | Claude Code: detect, collect, normalize, timeline, triage |
-| ✅ | [196 deterministic detections](docs/detection-coverage.md) (111 built-in incl. 11 attack chains + 85 pack rules; 134 HIGH/CRITICAL, all but two mapped to MITRE ATLAS 5.6 / ATT&CK — 28 ATLAS and 73 ATT&CK techniques): rogue/orphan agents, exfiltration via tool invocation, context/memory/tool/MCP poisoning, agent credential-store theft, agent config modification, jailbreak & system-prompt extraction, secret & sensitive-file access, persistence (rc files, services, run keys, git hooks), credential dumping, bulk encryption, self-modification, log deletion, timestomping, session tampering… `agentdfir rules list` prints the matrix |
+| ✅ | [217 deterministic detections](docs/detection-coverage.md) (132 built-in incl. 13 attack chains + 85 pack rules; 155 HIGH/CRITICAL, all but two mapped to MITRE ATLAS 5.6 / ATT&CK — 28 ATLAS and 80 ATT&CK techniques): rogue/orphan agents, exfiltration via tool invocation, context/memory/tool/MCP poisoning, agent credential-store theft, agent config modification, jailbreak & system-prompt extraction, secret & sensitive-file access, persistence (rc files, services, run keys, git hooks), credential dumping, bulk encryption, self-modification, log deletion, timestomping, session tampering… `agentdfir rules list` prints the matrix |
 | ✅ | `simulate` — synthetic incident generation (adversary emulation for AI agents): `orphan-agent`, `toxic-chain`, and reproductions of real incidents — `keyv-hook`, `sandworm-mcp`, `s1ngularity`, `mcpoison-rugpull`, `pocketos-wipe`, `swarm-antiforensics` (v3.0) |
 | ✅ | [Attack chains](docs/attack-chains.md), session cards, investigation tree, whole-case search and the hash-chained analyst case file in the [explorer](docs/serve.md) (v1.0) |
 | ✅ | Full parsers for 14 products: Claude Code, Claude Cowork (desktop-app agent mode: HMAC audit log, in-VM transcripts, shared folders and egress allowlist per session), Codex CLI + Codex desktop app (rollout JSONL and the SQLite thread store, read with a stdlib-only reader that applies the write-ahead log), Gemini CLI, Cursor, Copilot CLI, Copilot Chat (VS Code), Cline, Roo, OpenClaw, OpenCode, Aider, Warp, Continue (v4.0) — plus Windsurf (rules, memories, workflows, MCP; Cascade stores sealed, content UNSUPPORTED) and Kiro (steering, specs, MCP, powers, skills and extension state; no transcript store to parse) — [Continue and Windsurf](docs/ai-ide-products.md) |
@@ -382,7 +422,13 @@ Ships with wrappers for tools IR teams already run:
 | ✅ | [`benchmark`](docs/benchmark.md) (synthetic), [`.adfir` spec 0.2.1](docs/adfir-spec.md) with conformance fixtures and an independent Python verifier (v4.0) |
 | ✅ | [Accountability report, custody export](docs/accountability.md), [`selfcheck --offline`](docs/selfcheck.md) (v4.0) |
 | ✅ | Explorer: Coverage, Who did what, Second witness, AI conversations, Extensions, Bookmarks, `serve --compare` ([docs](docs/serve.md)) (v4.0) |
-| 🔜 | Volume Shadow Copy parsing, live raw-volume read for locked files, npm cache/log parsing for `hunt` |
+| ✅ | [macOS](docs/macos-filesystems.md) and [Linux](docs/linux-filesystems.md) disk images (APFS, HFS+, DMG, sparsebundle, XFS, Btrfs, QCOW2, LVM2); [NTFS USN journal, deleted records and Volume Shadow Copies](docs/disk-images.md) (v4.5) |
+| ✅ | Second witnesses: [macOS `eslogger`, unified log, host state](docs/macos-telemetry.md), [Tetragon, Falco, bpftrace, containers](docs/linux-telemetry.md), [Windows registry, task, WMI and logon events](docs/endpoint-corroboration.md) (v4.5) |
+| ✅ | [Forensic-suite interop](docs/forensic-suite-interop.md) — UFDR, AXIOM CSV / Portable Case, Plaso, Autopsy (v4.5) |
+| ✅ | [Action proof](docs/action-proof.md) — per-kind, per-host coverage with collection health; [`reconstruct`](docs/reconstruct.md), [`supply-chain`](docs/supply-chain.md), [black-box recorder](docs/black-box-recorder.md), [v4.5 detections](docs/detection-v45.md) (v4.5) |
+| ✅ | [`verify --reproduce`](docs/open-evidence-standard.md), STIX 2.1 bundles, signed productions, [`.adfir` spec 0.2.2](docs/adfir-spec.md); cross-platform [benchmark](docs/benchmark.md) suites (v4.5) |
+| ✅ | Explorer: Proof view, collection-health badge, Supply-chain and Reconstruct views, per-kind health in Coverage (v4.5) |
+| 🔜 | APFS encrypted volumes, LZVN/LZFSE decompression, ReFS, VSS block range lists, binary plist and BTM parsing, live raw-volume read for locked files, npm cache/log parsing for `hunt` |
 
 ## 🤝 Contributing
 

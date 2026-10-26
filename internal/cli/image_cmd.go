@@ -16,6 +16,7 @@ import (
 	"github.com/efij/AgentDFIR/v4/internal/casepkg"
 	"github.com/efij/AgentDFIR/v4/internal/diskimage"
 	"github.com/efij/AgentDFIR/v4/internal/diskimage/ntfs"
+	"github.com/efij/AgentDFIR/v4/internal/parsers/suite"
 	"github.com/efij/AgentDFIR/v4/internal/sanitize"
 )
 
@@ -52,6 +53,7 @@ type imageProvenance struct {
 	ADS             []string      `json:"alternate_data_streams,omitempty"`
 	E01Verification string        `json:"e01_stored_hash_verification"`
 	Problem         string        `json:"problem,omitempty"`
+	Snapshot        string        `json:"vss_snapshot,omitempty"` // set for files read from a Volume Shadow Copy
 }
 
 // volumeReport is what happened to one volume, for notes and the summary.
@@ -70,13 +72,15 @@ type volumeReport struct {
 // pipeline over that staging tree. The image is hashed before and after;
 // both results, the E01 stored-hash check and every volume's outcome
 // (including ones that could not be read) are sealed in the case.
-func collectImage(path string, o importOpts, verifyStored bool) int {
+func collectImage(path string, o importOpts, verifyStored bool, extras imageExtras) int {
 	abs, err := filepath.Abs(path)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
 	}
-	if fi, err := os.Stat(abs); err != nil || !fi.Mode().IsRegular() {
+	// A directory is accepted for Apple sparsebundles; diskimage.Open
+	// refuses any other directory.
+	if fi, err := os.Stat(abs); err != nil || !fi.Mode().IsRegular() && !fi.IsDir() {
 		fmt.Fprintf(os.Stderr, "--image: %s is not a readable file\n", sanitize.Terminal(abs))
 		return 2
 	}
@@ -149,9 +153,20 @@ func collectImage(path string, o importOpts, verifyStored bool) int {
 
 	var reports []*volumeReport
 	var prov []imageProvenance
+	var extraFiles []sealedExtra
+	artDir := filepath.Join(staging, "ntfs-artifacts") // sealed directly, never imported as a tree
+	budget := newImageBudget(lim)                      // shared by every extraction from this image
 	for _, v := range pt.Volumes {
 		rep := &volumeReport{vol: v}
 		reports = append(reports, rep)
+		switch {
+		case v.Unsupported != "": // e.g. an LVM2 LV that is not linear
+			rep.fsType, rep.status, rep.reason = v.Type, "UNSUPPORTED", v.Unsupported
+			continue
+		case v.LVM != "": // an LVM2 PV whose LVs follow as their own volumes
+			rep.fsType, rep.status, rep.reason = "lvm2-pv", statusLVMPV, v.LVM
+			continue
+		}
 		res := diskimage.OpenFS(v.Section(im), v.Size)
 		rep.fsType = res.Type
 		if res.FS == nil {
@@ -159,47 +174,93 @@ func collectImage(path string, o importOpts, verifyStored bool) int {
 			continue
 		}
 		rep.status = "read"
-		if nv, ok := res.FS.(*ntfs.Volume); ok {
+		nv, isNTFS := res.FS.(*ntfs.Volume)
+		if isNTFS {
 			st := nv.Stats()
 			rep.notes = append(rep.notes, fmt.Sprintf("%d deleted MFT records skipped, %d orphans, %d corrupt records, %d parent loops, %d self-parent", st.Deleted, st.Orphans, st.Corrupt, st.ParentLoops, st.SelfParent))
-			if st.ShadowStore > 0 {
-				rep.notes = append(rep.notes, fmt.Sprintf("volume shadow copy store present (%d file(s) in System Volume Information); shadow copies are NOT parsed", st.ShadowStore))
+			if st.ShadowStore > 0 && !extras.includeVSS {
+				rep.notes = append(rep.notes, fmt.Sprintf("volume shadow copy store present (%d file(s) in System Volume Information); shadow copies are NOT parsed (opt in with --include-vss)", st.ShadowStore))
 			}
 			for _, p := range st.Problems {
 				rep.notes = append(rep.notes, "ntfs: "+p)
 			}
 		}
+		// Readers that collect damage and unsupported structures (APFS
+		// skipped checkpoints and encrypted volumes, HFS+ dirty journal …).
+		if pr, ok := res.FS.(interface{ Problems() []string }); ok {
+			for _, p := range pr.Problems() {
+				rep.notes = append(rep.notes, res.Type+": "+p)
+			}
+		}
+		volStaging := filepath.Join(staging, fmt.Sprintf("vol%d", v.Index))
+		// Live agent evidence first: it gets the image's byte and file
+		// budget before shadow copies and NTFS artifacts do.
 		cands := diskimage.FindCandidates(res.FS, prods, lim)
 		rep.notes = append(rep.notes, cands.Problems...)
-		if len(cands.Files) == 0 {
-			continue
+		if len(cands.Files) > 0 {
+			if vl, ok := budget.limits(lim); !ok {
+				rep.notes = append(rep.notes, fmt.Sprintf("stopped: image-wide extraction limit reached; %d candidate file(s) not extracted", len(cands.Files)))
+			} else {
+				rep.staging = volStaging
+				ex := diskimage.ExtractFiles(res.FS, cands.Files, rep.staging, vl)
+				rep.notes = append(rep.notes, ex.Problems...)
+				for _, f := range ex.Files {
+					pr := imageProvenance{
+						ImagePath: abs, ImageSegments: before, ContainerType: im.Format,
+						PartitionScheme: v.Scheme, PartitionIndex: v.Index, PartitionOffset: v.Offset, PartitionType: v.Type,
+						FSType: res.Type, OriginalPath: "/" + f.FSPath, Size: f.Size, SHA256: f.SHA256,
+						E01Verification: e01, Problem: f.Problem,
+					}
+					if f.Staged != "" {
+						rel, _ := filepath.Rel(staging, f.Staged)
+						pr.StagedPath = filepath.ToSlash(rel)
+						rep.files++
+						budget.spend(0, 1)
+					}
+					fillTimes(&pr, f.Sys)
+					// The reader names the exact variant (ext2, fat32, exfat…);
+					// FAT stores local wall-clock time with no zone, which the
+					// provenance must say rather than imply UTC.
+					if v, ok := f.Sys["fs"].(string); ok && v != "" {
+						pr.FSType = v
+					}
+					if v, ok := f.Sys["tz"].(string); ok {
+						pr.TimeZone = v
+					}
+					prov = append(prov, pr)
+				}
+				budget.spend(ex.Bytes, 0)
+			}
 		}
-		rep.staging = filepath.Join(staging, fmt.Sprintf("vol%d", v.Index))
-		ex := diskimage.ExtractFiles(res.FS, cands.Files, rep.staging, lim)
-		rep.notes = append(rep.notes, ex.Problems...)
-		for _, f := range ex.Files {
-			pr := imageProvenance{
+		if isNTFS && extras.includeVSS {
+			base := imageProvenance{
 				ImagePath: abs, ImageSegments: before, ContainerType: im.Format,
 				PartitionScheme: v.Scheme, PartitionIndex: v.Index, PartitionOffset: v.Offset, PartitionType: v.Type,
-				FSType: res.Type, OriginalPath: "/" + f.FSPath, Size: f.Size, SHA256: f.SHA256,
-				E01Verification: e01, Problem: f.Problem,
+				E01Verification: e01,
 			}
-			if f.Staged != "" {
-				rel, _ := filepath.Rel(staging, f.Staged)
-				pr.StagedPath = filepath.ToSlash(rel)
-				rep.files++
+			cf := func(sv *ntfs.Volume) []string {
+				c := diskimage.FindCandidates(sv, prods, lim)
+				rep.notes = append(rep.notes, c.Problems...)
+				return c.Files
 			}
-			fillTimes(&pr, f.Sys)
-			// The reader names the exact variant (ext2, fat32, exfat…);
-			// FAT stores local wall-clock time with no zone, which the
-			// provenance must say rather than imply UTC.
-			if v, ok := f.Sys["fs"].(string); ok && v != "" {
-				pr.FSType = v
+			vp, notes, n := vssSnapshotFiles(v, v.Section(im), volStaging, cf, lim, budget, base)
+			rep.notes = append(rep.notes, notes...)
+			for i := range vp {
+				if vp[i].StagedPath != "" {
+					rel, _ := filepath.Rel(staging, vp[i].StagedPath)
+					vp[i].StagedPath = filepath.ToSlash(rel)
+				}
 			}
-			if v, ok := f.Sys["tz"].(string); ok {
-				pr.TimeZone = v
+			prov = append(prov, vp...)
+			if n > 0 {
+				rep.files += n
+				rep.staging = volStaging
 			}
-			prov = append(prov, pr)
+		}
+		if isNTFS {
+			arts, notes := ntfsVolumeArtifacts(nv, v.Index, artDir, extras, lim.MaxFileBytes, budget)
+			extraFiles = append(extraFiles, arts...)
+			rep.notes = append(rep.notes, notes...)
 		}
 	}
 	for _, p := range pt.Problems {
@@ -250,6 +311,12 @@ func collectImage(path string, o importOpts, verifyStored bool) int {
 		"image_files_extracted":    fmt.Sprint(staged),
 		"image_provenance_sidecar": imageProvenanceName,
 	}
+	if extras.recoverDeleted {
+		notes["image_recover_deleted"] = "on: recoverable deleted NTFS content sealed as " + ntfs.RecoveredUnverified
+	}
+	if extras.includeVSS {
+		notes["image_include_vss"] = "on: agent evidence extracted from each readable Volume Shadow Copy (vss/<n>-<created>/)"
+	}
 	if len(pt.Problems) > 0 {
 		notes["image_partition_problems"] = strings.Join(pt.Problems, "; ")
 	}
@@ -266,6 +333,8 @@ func collectImage(path string, o importOpts, verifyStored bool) int {
 		v := fmt.Sprintf("%s offset=%d size=%d type=%s fs=%s status=%s", r.vol.Scheme, r.vol.Offset, r.vol.Size, r.vol.Type, r.fsType, r.status)
 		if r.status == "read" {
 			v += fmt.Sprintf(" extracted=%d", r.files)
+		} else if r.status == statusLVMPV {
+			v += " reason=" + r.reason
 		} else {
 			v += " reason=" + r.reason
 			unread = append(unread, fmt.Sprintf("#%d %s (%s)", r.vol.Index, r.fsType, r.status))
@@ -278,6 +347,14 @@ func collectImage(path string, o importOpts, verifyStored bool) int {
 	if len(unread) > 0 {
 		notes["image_volumes_not_read"] = strings.Join(unread, "; ")
 		fmt.Printf("NOT READ: %s — listed in the case notes; see docs/disk-images.md for the mount-and---import route.\n", sanitize.Terminal(strings.Join(unread, "; ")))
+	}
+
+	// Cellebrite .ufd/.ufdx descriptors next to the image that name it are
+	// recorded in the case notes and sealed beside the image provenance.
+	ufdLinks := suite.DescriptorsFor(abs)
+	for i, l := range ufdLinks {
+		notes[fmt.Sprintf("image_ufd_descriptor_%d", i)] = filepath.Base(l.Path) + ": " + l.Summary
+		fmt.Printf("UFD descriptor %s names this image\n", sanitize.Terminal(filepath.Base(l.Path)))
 	}
 
 	provFile, err := writeProvenance(prov)
@@ -304,6 +381,19 @@ func collectImage(path string, o importOpts, verifyStored bool) int {
 		}); err != nil {
 			return err
 		}
+		for _, x := range extraFiles {
+			if err := x.ingest(b); err != nil {
+				return err
+			}
+		}
+		for _, l := range ufdLinks {
+			if err := b.IngestFile(l.Path, casepkg.ArtifactRecord{
+				SourcePath: l.Path, LogicalPath: "image-descriptor/" + filepath.Base(l.Path), Product: suite.ProductUFDR,
+				ArtifactType: suite.TypeExport, Sensitivity: "high", CollectorRule: suite.RuleUFD,
+			}); err != nil {
+				return err
+			}
+		}
 		_ = b.Log("image_acquired", map[string]any{
 			"image_path": abs, "container": im.Format, "segments": before, "e01_stored_hashes": e01,
 			"partition_scheme": pt.Scheme, "volumes": len(reports), "files_extracted": staged,
@@ -316,6 +406,10 @@ func collectImage(path string, o importOpts, verifyStored bool) int {
 	}
 	return code
 }
+
+// statusLVMPV marks an LVM2 physical volume: a container whose logical
+// volumes are reported as volumes of their own, so it is not "not read".
+const statusLVMPV = "LVM-PV"
 
 func errStatus(err error) string {
 	switch {

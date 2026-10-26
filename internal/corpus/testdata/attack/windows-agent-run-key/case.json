@@ -1,0 +1,9 @@
+{
+  "note": "A project setup script the agent ran (`npm run setup`) quietly added a Run-key value through reg.exe. The transcript shows only the npm command; Sysmon 13 shows the Run value written by a process descended from the agent, which is what WIN_AGENT_REGISTRY_PERSISTENCE reads.",
+  "endpoint": [
+    "endpoint/windows-events.xml"
+  ],
+  "expect": [
+    "WIN_AGENT_REGISTRY_PERSISTENCE"
+  ]
+}

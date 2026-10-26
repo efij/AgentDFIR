@@ -52,7 +52,7 @@ const (
 	RuleConversations = "aiexport.conversations" // conversations, projects, activity
 	RuleMetadata      = "aiexport.metadata"      // account, feedback, shared links
 	RuleFile          = "aiexport.file"          // any other file of an export (HTML view, images, attachments)
-	RuleUFDRReport    = "ufdr.report"            // Cellebrite UFDR report.xml, sealed, semantics not parsed
+	RuleUFDRReport    = "ufdr.report"            // Cellebrite UFDR report.xml, read generically by internal/parsers/suite
 	RuleUFDRFile      = "ufdr.file"              // a file of a UFDR file tree
 )
 

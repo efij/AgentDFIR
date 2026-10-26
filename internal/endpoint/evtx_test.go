@@ -40,8 +40,8 @@ func TestEVTXMapping(t *testing.T) {
 		sysmonEv(79, 11, at0.Add(5*time.Second), w.F("ProcessId", w.Uint32(4413)), w.F("Image", w.String(`C:\Program Files\nodejs\node.exe`)), w.F("TargetFilename", w.String(`C:\Users\dev\.ssh\authorized_keys`))),
 		sysmonEv(80, 22, at0.Add(6*time.Second), w.F("ProcessId", w.Uint32(4412)), w.F("Image", w.String(`C:\Program Files\nodejs\node.exe`)), w.F("QueryName", w.String("evil.example")), w.F("QueryResults", w.String("::ffff:185.10.10.10;"))),
 		sysmonEv(81, 26, at0.Add(7*time.Second), w.F("ProcessId", w.Uint32(4413)), w.F("Image", w.String(`C:\Windows\System32\cmd.exe`)), w.F("TargetFilename", w.String(`C:\proj\build\out.dll`))),
-		sysmonEv(82, 13, at0.Add(8*time.Second), w.F("TargetObject", w.String(`HKLM\Software\x`))), // registry: not mapped
-		sysmonEv(83, 5, at0.Add(9*time.Second), w.F("ProcessId", w.Uint32(4411))),                  // process exit: not mapped
+		sysmonEv(82, 13, at0.Add(8*time.Second), w.F("TargetObject", w.String(`HKLM\Software\x`))), // registry (see evtxkinds_test.go)
+		sysmonEv(83, 5, at0.Add(9*time.Second), w.F("ProcessId", w.Uint32(4411))),                  // process exit
 		{Provider: "Microsoft-Windows-Security-Auditing", ProviderGUID: "{54849625-5478-4994-A5BA-3E3B0328C30D}", EventID: 4688, Qualifiers: -1, Version: 2, Task: 13312,
 			Keywords: 0x8020000000000000, Time: at0.Add(10 * time.Second), RecordID: 5001, PID: 4, TID: 120, Channel: "Security", Computer: "DESK-01",
 			Data: []w.KV{w.F("SubjectUserSid", w.SID("S-1-5-21-1-2-3-1001")), w.F("SubjectUserName", w.String("dev")), w.F("SubjectDomainName", w.String("DESK")),
@@ -72,7 +72,7 @@ func TestEVTXMapping(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.Format != FormatEVTX || res.Skipped != 0 || len(res.Records) != 10 {
+	if res.Format != FormatEVTX || res.Skipped != 0 || len(res.Records) != 12 {
 		t.Fatalf("format=%s skipped=%d records=%d problems=%v\n%+v", res.Format, res.Skipped, len(res.Records), res.Problems, res.Records)
 	}
 	by := map[string]Record{}
@@ -114,11 +114,11 @@ func TestEVTXMapping(t *testing.T) {
 		!strings.Contains(notices, `"Microsoft-Windows-Sysmon/Operational" cleared`) {
 		t.Fatalf("notices: %v", res.Notices)
 	}
-	if probs := strings.Join(res.Problems, "\n"); !strings.Contains(probs, "3 event(s) of 3 unused provider/event id(s) not mapped") {
+	if probs := strings.Join(res.Problems, "\n"); !strings.Contains(probs, "1 event(s) of 1 unused provider/event id(s) not mapped (most common: Microsoft-Windows-Security-Auditing 4624 ×1)") {
 		t.Fatalf("unmapped summary: %v", res.Problems)
 	}
 	// --format evtx forces the adapter.
-	if res2, err := Load(p, FormatEVTX); err != nil || len(res2.Records) != 10 {
+	if res2, err := Load(p, FormatEVTX); err != nil || len(res2.Records) != 12 {
 		t.Fatalf("forced: %v", err)
 	}
 }
@@ -150,7 +150,7 @@ func TestEVTXMatchesSysmonXML(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(fromXML.Records) != 3 || !reflect.DeepEqual(fromXML.Records, fromEVTX.Records) {
+	if len(fromXML.Records) != 3 || !reflect.DeepEqual(stripProvenance(fromXML.Records), stripProvenance(fromEVTX.Records)) {
 		t.Fatalf("xml vs evtx differ:\n%+v\n%+v", fromXML.Records, fromEVTX.Records)
 	}
 }

@@ -1,0 +1,167 @@
+		snap {
+			id = "SNAPcw-0000-0000-0000-0000-0000-000001"
+			status = ["READ", "VISIBLE"]
+			flags = []
+			segment_count = 1
+			segment1 {
+				start_extent = 0
+				extent_count = 1
+				type = "striped"
+				stripe_count = 1
+				stripes = [
+					"pv1", 2
+				]
+			}
+		}
+		snapshot0 {
+			id = "SNAPsh-0000-0000-0000-0000-0000-000002"
+			status = ["READ"]
+			flags = []
+			segment_count = 1
+			segment1 {
+				start_extent = 0
+				extent_count = 6
+				type = "snapshot"
+				chunk_size = 8
+				origin = "root"
+				cow_store = "snap"
+			}
+		}
+		mirror {
+			id = "MIRRlv-0000-0000-0000-0000-0000-000003"
+			status = ["READ", "WRITE", "VISIBLE"]
+			flags = []
+			segment_count = 1
+			segment1 {
+				start_extent = 0
+				extent_count = 1
+				type = "raid1"
+				device_count = 2
+				region_size = 1024
+				raids = [
+					"mirror_rmeta_0", "mirror_rimage_0",
+					"mirror_rmeta_1", "mirror_rimage_1"
+				]
+			}
+		}
+		mirror_rmeta_0 {
+			id = "MIRRm0-0000-0000-0000-0000-0000-000004"
+			status = ["READ", "WRITE"]
+			flags = []
+			segment_count = 1
+			segment1 {
+				start_extent = 0
+				extent_count = 1
+				type = "striped"
+				stripe_count = 1
+				stripes = [
+					"pv1", 3
+				]
+			}
+		}
+		mirror_rimage_0 {
+			id = "MIRRi0-0000-0000-0000-0000-0000-000005"
+			status = ["READ", "WRITE"]
+			flags = []
+			segment_count = 1
+			segment1 {
+				start_extent = 0
+				extent_count = 1
+				type = "striped"
+				stripe_count = 1
+				stripes = [
+					"pv1", 4
+				]
+			}
+		}
+		mirror_rmeta_1 {
+			id = "MIRRm1-0000-0000-0000-0000-0000-000006"
+			status = ["READ", "WRITE"]
+			flags = []
+			segment_count = 1
+			segment1 {
+				start_extent = 0
+				extent_count = 1
+				type = "striped"
+				stripe_count = 1
+				stripes = [
+					"pv0", 8
+				]
+			}
+		}
+		mirror_rimage_1 {
+			id = "MIRRi1-0000-0000-0000-0000-0000-000007"
+			status = ["READ", "WRITE"]
+			flags = []
+			segment_count = 1
+			segment1 {
+				start_extent = 0
+				extent_count = 1
+				type = "striped"
+				stripe_count = 1
+				stripes = [
+					"pv0", 9
+				]
+			}
+		}
+		pool {
+			id = "POOLlv-0000-0000-0000-0000-0000-000008"
+			status = ["READ", "WRITE", "VISIBLE"]
+			flags = []
+			segment_count = 1
+			segment1 {
+				start_extent = 0
+				extent_count = 4
+				type = "thin-pool"
+				metadata = "pool_tmeta"
+				pool = "pool_tdata"
+				transaction_id = 1
+				chunk_size = 128
+				discards = "passdown"
+				zero_new_blocks = 1
+			}
+		}
+		pool_tmeta {
+			id = "POOLtm-0000-0000-0000-0000-0000-000009"
+			status = ["READ", "WRITE"]
+			flags = []
+			segment_count = 1
+			segment1 {
+				start_extent = 0
+				extent_count = 1
+				type = "striped"
+				stripe_count = 1
+				stripes = [
+					"pv1", 5
+				]
+			}
+		}
+		pool_tdata {
+			id = "POOLtd-0000-0000-0000-0000-0000-000010"
+			status = ["READ", "WRITE"]
+			flags = []
+			segment_count = 1
+			segment1 {
+				start_extent = 0
+				extent_count = 4
+				type = "striped"
+				stripe_count = 1
+				stripes = [
+					"pv1", 6
+				]
+			}
+		}
+		thin {
+			id = "THINlv-0000-0000-0000-0000-0000-000011"
+			status = ["READ", "WRITE", "VISIBLE"]
+			flags = []
+			segment_count = 1
+			segment1 {
+				start_extent = 0
+				extent_count = 8
+				type = "thin"
+				thin_pool = "pool"
+				transaction_id = 0
+				device_id = 1
+			}
+		}

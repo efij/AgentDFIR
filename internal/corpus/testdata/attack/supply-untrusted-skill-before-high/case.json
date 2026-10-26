@@ -1,0 +1,7 @@
+{
+  "note": "A skill from a third-party plugin marketplace runs (logged Skill tool call) and 40 seconds later the agent reads ~/.aws/credentials. The invocation and the HIGH finding are each verified; the link between them is temporal. Synthetic.",
+  "expect": [
+    "SUPPLY_UNTRUSTED_COMPONENT_BEFORE_HIGH",
+    "SENSITIVE_FILE_READ"
+  ]
+}

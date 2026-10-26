@@ -8,6 +8,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/efij/AgentDFIR/v4/internal/endpoint/evtx"
 )
 
 // Generic process/network/file event exports: JSON lines (Velociraptor,
@@ -118,6 +120,12 @@ func (res *LoadResult) add(flat map[string]string, ref string) {
 		}
 		return ""
 	}
+	// evtx_dump (and Velociraptor's parsed-evtx) output of a Windows
+	// context event goes through the shared event-log mapping; everything
+	// else keeps the alias mapping below.
+	if ev := flatWinEvent(flat); ev != nil && res.addWinContext(ev, ref) {
+		return
+	}
 	ts, ok := parseTime(get("time"))
 	if !ok {
 		res.problem(ref + ": no recognizable timestamp")
@@ -187,6 +195,40 @@ func (res *LoadResult) add(flat map[string]string, ref string) {
 		return
 	}
 	res.Records = append(res.Records, rec)
+}
+
+// flatWinEvent rebuilds a Windows event from a flattened evtx_dump
+// document ({"Event":{"System":…,"EventData":…}}, or the same without
+// the "Event" wrapper), or returns nil when the document is not one.
+func flatWinEvent(flat map[string]string) *evtx.Event {
+	for _, root := range []string{"Event.", ""} {
+		prov := flat[root+"System.Provider.#attributes.Name"]
+		if prov == "" {
+			continue
+		}
+		s := evtx.System{Provider: prov,
+			EventID:       firstOf(flat[root+"System.EventID"], flat[root+"System.EventID.#text"]),
+			TimeCreated:   flat[root+"System.TimeCreated.#attributes.SystemTime"],
+			EventRecordID: flat[root+"System.EventRecordID"],
+			ProcessID:     flat[root+"System.Execution.#attributes.ProcessID"],
+			Channel:       flat[root+"System.Channel"]}
+		if !isContextEvent(s.Provider, s.EventID) {
+			return nil
+		}
+		d := map[string]string{}
+		for k, v := range flat {
+			if name, ok := strings.CutPrefix(k, root+"EventData."); ok && !strings.HasPrefix(name, "#") {
+				d[name] = v
+			} else if rest, ok := strings.CutPrefix(k, root+"UserData."); ok {
+				// UserData.<ProviderElement>.<Field>
+				if _, field, ok := strings.Cut(rest, "."); ok && !strings.HasPrefix(field, "#") && !strings.Contains(field, ".") {
+					d[field] = v
+				}
+			}
+		}
+		return &evtx.Event{System: s, Data: d}
+	}
+	return nil
 }
 
 // flatten turns nested JSON into dot-path keys with stringified leaves.

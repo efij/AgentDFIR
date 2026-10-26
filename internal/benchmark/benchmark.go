@@ -23,6 +23,13 @@
 //	performance  analyze time and peak heap on a generated large case,
 //	             against a recorded baseline (a warning, never a failure)
 //
+// and the cross-platform suites, each with its own PASS / FAIL / SKIP
+// (suites.go): acquisition (every disk-image fixture), per-OS
+// corroboration (Windows, macOS, Linux telemetry and the incomplete-
+// telemetry contract), forensic interop (UFDR, AXIOM, Plaso, Autopsy),
+// detection quality per platform, and evidence integrity (mutations,
+// historical packages, the independent Python verifier).
+//
 // The results are SYNTHETIC. The fixtures are written to reproduce real
 // shapes, but a score on them says how the tool behaves on those shapes
 // and nothing about its accuracy on real evidence.
@@ -69,6 +76,15 @@ type Options struct {
 	Work string
 	// Log receives one progress line per section; nil is silent.
 	Log io.Writer
+	// RepoRoot is a source checkout holding the disk-image, telemetry and
+	// interop fixtures and the Python verifier; empty searches from the
+	// working directory. Without one those suites are skipped, with the
+	// reason in the report.
+	RepoRoot string
+	// PythonVerifier runs tools/adfir-verify from a checkout found by
+	// searching from the working directory. Without it (or RepoRoot) the
+	// script, which executes, is never run: the directory may be anyone's.
+	PythonVerifier bool
 }
 
 // Report is everything one run measured.
@@ -83,10 +99,20 @@ type Report struct {
 	Compat      Compat       `json:"compatibility"`
 	Robustness  Robustness   `json:"robustness"`
 	Performance *Performance `json:"performance,omitempty"`
+	// The cross-platform suites, each with its own verdict in Suites.
+	Suites       []Suite            `json:"suites,omitempty"`
+	Acquisition  *Acquisition       `json:"acquisition,omitempty"`
+	Platforms    *Platforms         `json:"platform_corroboration,omitempty"`
+	Interop      *Interop           `json:"forensic_interop,omitempty"`
+	IntegritySet *EvidenceIntegrity `json:"evidence_integrity,omitempty"`
 	// Failures are hard checks that did not hold. Empty means the run
 	// passed. Warnings never fail a run.
 	Failures []string `json:"failures"`
 	Warnings []string `json:"warnings"`
+
+	// newPackages are packages this run built, handed to the independent
+	// verifier by the evidence-integrity suite.
+	newPackages []string
 }
 
 // Passed reports whether every hard check held.
@@ -133,6 +159,7 @@ func Run(o Options) (*Report, error) {
 	if err := runRobustness(r, o, filepath.Join(work, "robustness"), prov); err != nil {
 		return nil, fmt.Errorf("robustness: %w", err)
 	}
+	runSuites(r, o, work, prov)
 	r.Provenance = prov.result()
 	if n := r.Provenance.Dangling(); n > 0 {
 		r.fail("provenance: %d dangling reference(s)", n)
@@ -187,6 +214,9 @@ func buildAndAnalyze(work, name string, c corpus.Case, ao analysis.Options) (a *
 	pkg := filepath.Join(work, name+".adfir")
 	if err := corpus.BuildPackage(c, pkg, "BENCH-"+name, "benchmark"); err != nil {
 		return nil, err
+	}
+	if len(c.Endpoint) > 0 {
+		ao.EndpointLogs = c.EndpointLogs()
 	}
 	res, err := analysis.Run(pkg, ao)
 	if err != nil {

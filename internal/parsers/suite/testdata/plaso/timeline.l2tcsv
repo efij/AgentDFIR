@@ -1,0 +1,5 @@
+date,time,timezone,MACB,source,sourcetype,type,user,host,short,desc,version,filename,inode,notes,format,extra
+02/28/2025,09:15:00,UTC,.A..,WEBHIST,Chrome History,Last Visited Time,syn,syn-host,https://gemini.google.com/app/abcdef123456,https://gemini.google.com/app/abcdef123456 (Gemini) [count: 1],2,OS:/x/History,-,-,sqlite/chrome_27_history,-
+02/28/2025,09:16:00,UTC,M...,FILE,OS Content Modification Time,Content Modification Time,-,syn-host,/Users/syn/notes.txt,/Users/syn/notes.txt,2,OS:/Users/syn/notes.txt,12,-,filestat,-
+02/28/2025,09:17:00,CET,.A..,WEBHIST,Chrome History,Last Visited Time,syn,syn-host,https://chatgpt.com/,https://chatgpt.com/ [count: 1],2,OS:/x/History,-,-,sqlite/chrome_27_history,-
+short,line

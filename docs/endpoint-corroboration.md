@@ -55,6 +55,35 @@ Raw Windows event log files are read directly by a parser written for AgentDFIR 
 | Service Control Manager (System) | 7045 | service + operator notice | ServiceName, ImagePath, AccountName |
 | Microsoft-Windows-Eventlog (Security / System) | 1102 / 104 | log-clear + operator notice | SubjectUserName, SubjectDomainName, Channel |
 
+Windows context events. They say what happened on the host around an agent session, but they are not execution evidence. They are read the same way from native `.evtx`, from a `wevtutil … /f:xml` export (any channel; an event with no `Provider` is taken as Sysmon) and from `evtx_dump` JSON:
+
+| Provider (channel) | Event ID | Becomes | Fields kept |
+|---|---|---|---|
+| Microsoft-Windows-Sysmon (Sysmon/Operational) | 5 | process-exit | ProcessId, Image, User |
+| | 12 / 13 / 14 | registry (`create-key`, `delete-key`, `delete-value`, `set-value`, `rename-key`) | TargetObject → key + value name, Details / NewName, EventType, Image, ProcessId |
+| Microsoft-Windows-Security-Auditing (Security) | 4689 | process-exit | ProcessId (hex), ProcessName, subject user, non-zero Status |
+| | 4625 | auth `logon-failed` | target and subject user, LogonType, IpAddress, ProcessId / ProcessName, FailureReason |
+| | 4648 | auth `explicit-credentials` | subject user, target user, TargetServerName, ProcessId / ProcessName, IpAddress |
+| | 4672 | auth `special-privileges` | subject user, PrivilegeList |
+| | 4697 | service + operator notice (like 7045) | ServiceName, ServiceFileName, ServiceAccount, subject user |
+| Microsoft-Windows-PowerShell (PowerShell/Operational) | 4103 | script, sub-type `module` | Payload (command invocations and parameter bindings), Command Name from ContextInfo, Execution ProcessID |
+| Microsoft-Windows-TaskScheduler (TaskScheduler/Operational) | 106 / 140 / 141 | scheduled-task `registered` / `updated` / `deleted`, with an operator notice for 106 and 141 (140 is routine churn and gets none) | TaskName, UserContext / UserName |
+| | 200 / 201 | scheduled-task `action-started` / `action-completed` | TaskName, ActionName, EnginePID, non-zero ResultCode |
+| Microsoft-Windows-WMI-Activity (WMI-Activity/Operational) | 5857 / 5858 | wmi `provider-started` / `client-failure` | ProviderName, ProviderPath, HostProcess / Operation, ResultCode, ClientProcessId |
+| | 5859 / 5860 | wmi `permanent-subscription` / `temporary-subscription` | NamespaceName, Query, processid, User |
+| | 5861 | wmi `consumer-binding` + operator notice | CONSUMER, ESS (filter), PossibleCause (the filter and consumer definitions) |
+
+Context records (`process-exit`, `registry`, `scheduled-task`, `wmi`, and `auth` from the Security log) never corroborate or contradict a tool call and never widen the coverage window. They are counted per kind (`context_kinds` in `corroboration.json`, and a "Windows event log context" source in `gaps`). The four rules below read them. 4103 records are `script` records and use the same strict matching as 4104; the match note reads `PowerShell module log`. The payload is never rebuilt into a command line. Each context record's reference names the record id and where it came from: `file Security.evtx, offset 73728` for `.evtx`, `file export.xml` for an XML export, `file.jsonl:12` for JSON. Free text (registry data, WMI queries and consumer definitions, 4103 payloads) is cut at 4 KiB and the cut is marked. A file keeps at most 100,000 records of each context kind. Records past that are counted as skipped (`ContextDropped`), and one note says that kind's coverage is INCOMPLETE. Records the rules act on are always kept, outside that bound: Run/RunOnce/service registry writes, 4648, task 106/140 and WMI 5861. A flood of noise of the same kind cannot push them out. Notices have their own bound per category: 1,000 each for cleared logs and service installs, and 50 each for scheduled tasks and WMI bindings, plus a line saying the rest are not shown. Task or WMI churn therefore never hides a cleared log.
+
+| Rule | Severity | ATT&CK | Fires when |
+|---|---|---|---|
+| `WIN_AGENT_REGISTRY_PERSISTENCE` | HIGH | T1547.001 / T1543.003 | Sysmon 13 writes a Run / RunOnce / Policies\Explorer\Run value, or Sysmon 12/13 creates a service key or sets its ImagePath / ServiceDll, and the writing process (by pid, image path agreeing) is the agent or descends from it |
+| `WIN_AGENT_SCHEDULED_TASK` | HIGH | T1053.005 | Task Scheduler 106 / 140 within 2 minutes after an agent-descended process ran `schtasks /create\|/change` (either `/` or `-`) or `Register-/Set-ScheduledTask`, or after any agent-descended `schtasks.exe`, `powershell.exe` or `pwsh.exe`, whatever its command line (the match notes when the command names the same task) |
+| `WIN_AGENT_WMI_PERSISTENCE` | HIGH | T1546.003 | WMI-Activity 5861 inside a transcript session's time span (±2 min). 5861 names no process, so the tie is time only, and the finding says so. Only the exact Windows default binding is ignored: `NTEventLogEventConsumer="SCM Event Log Consumer"` bound to `SCM Event Log Filter`. A lookalike name under any other class or filter still fires |
+| `WIN_AGENT_EXPLICIT_CREDENTIALS` | HIGH | T1078 | Security 4648 whose ProcessId resolves to an agent-descended process |
+
+These rules read what the host recorded. The rule-pack rules for `schtasks /create` and `reg add …\Run` read what the transcript says the agent ran. The Windows rules therefore also fire when the transcript says nothing. Process ancestry comes from Sysmon 1 / 4688 records in the same import, so without process creation telemetry, the registry, task and credential rules cannot fire. Each rule lists at most 50 findings; any more are counted in `context_findings_omitted`.
+
 Sysmon events go through the same mapping as the XML export, so the same events read from `Sysmon.evtx` or from `wevtutil … /f:xml` give identical records, notes and states.
 
 **Why Sysmon event 22 is a `network` record, not a `dns` record.** The DNS query log adapters (Zeek, BIND, dnsmasq, Unbound, Windows DNS) produce kind `dns`: partial-coverage records that can at most PARTLY CONFIRM a call and never raise `UNLOGGED_*` findings, because a resolver log names a client IP, not a process. Sysmon event 22 is different: it names the process (`ProcessId`, `Image`) that made the lookup, so it is host telemetry. As a `network` record it (a) raises `UNLOGGED_AGENT_NETWORK` when the agent process resolves a name no tool call references, and (b) corroborates a call that names that host, like event 3. Moving it to kind `dns` would drop finding (a), so it stays `network`, from both the XML export and `.evtx` (the XML adapter used to skip event 22; it now maps it the same way). Event 22 records do count toward the telemetry's coverage window, as event 3 records do. A query without a `QueryName` is a recorded problem, not a record.
@@ -63,7 +92,7 @@ Script blocks (4104) are a weaker witness. They can **corroborate** a command, b
 
 Security 4688 records with no command line (command-line auditing off) become `process-image` records. They name only the program, so the most they give is **PARTLY CONFIRMED** (`PARTIALLY_CORROBORATED`): a command, or one of its `&&` / `|` / `;` segments, must start with a program whose name equals the record's image basename (`.exe` ignored) within the window. They never contradict a command and never widen coverage, and a match is marked `process-image:` in `witness_note`. 4688 records that do carry a command line, including ones in the same file, are ordinary process telemetry and behave like Sysmon event 1.
 
-Service installs and cleared logs are not correlation input. They are listed as `notice:` lines under the log's summary (`agentdfir correlate`, and the `analyze` / `run` log). No new detection rule is attached to them.
+Service installs (7045, 4697), cleared logs, scheduled-task registrations, updates and deletions, and WMI consumer bindings are listed as `notice:` lines under the log's summary (`agentdfir correlate`, and the `analyze` / `run` log). Service installs and cleared logs are not correlation input and have no rule of their own.
 
 What the parser checks and how it handles damage:
 
@@ -80,11 +109,11 @@ What the parser checks and how it handles damage:
 
 Binary XML support: fragment headers, elements with and without the dependency identifier, attributes, value text, CDATA, character and entity references, processing instructions (ignored as content), template instances with inline or back-referenced definitions (cached per chunk), normal and optional substitutions, names inline or by chunk offset, and all value types (strings UTF-16 and ANSI, signed/unsigned 8–64-bit integers, hex integers, reals, bool, binary, GUID, size_t, FILETIME, SYSTEMTIME, SID, arrays of these, nested BinXml).
 
-Not read, by design: records left in chunk slack space after the free-space offset (counted and noted, not parsed), the header's dirty flag (noted; records are read as found), registry events (Sysmon 12–14), process termination (Sysmon 5), logons (Security 4624/4625) and every other provider/event ID (a single note counts them and names the most common). Message strings from provider DLLs are not resolved; only the event's own data is used.
+Not read, by design: records left in chunk slack space after the free-space offset (counted and noted, not parsed), the header's dirty flag (noted; records are read as found), successful logons (Security 4624: the most frequent Security event, and it says nothing about what an agent did) and every other provider/event ID (a single note counts them and names the most common). Message strings from provider DLLs are not resolved; only the event's own data is used.
 
 Bounds: files up to 2 GiB, read one 64 KiB chunk at a time; nesting depth 32; per-chunk and per-record caps on parsed nodes, rendered nodes and rendered text (attribute values included); a fault inside one record is converted to a recorded problem.
 
-Fixtures are synthetic. The tests build .evtx files with a test-only writer (`internal/endpoint/evtx/evtxtest`) that emits valid headers, chunks with correct CRCs and string/template tables, and templates with substitution arrays; no real Windows logs are committed. A fuzz test (`FuzzChunk`) mutates chunks seeded from that writer.
+Fixtures are synthetic. The tests build .evtx files with a test-only writer (`internal/endpoint/evtx/evtxtest`) that emits valid headers, chunks with correct CRCs and string/template tables, and templates with substitution arrays; no real Windows logs are committed. The context-event constructors (`evtxtest.Host`) follow the providers' manifests (names, GUIDs, channels, field order), but the records are synthetic. So are the Windows corpus cases (`internal/corpus/testdata/*/windows-*`, XML exports written for the cases). A fuzz test (`FuzzChunk`) mutates chunks seeded from that writer, and `FuzzContextXML` exercises the context mapping through the XML export.
 
 ## What the engine does
 

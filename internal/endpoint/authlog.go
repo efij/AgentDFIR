@@ -23,7 +23,7 @@ import (
 // to it, one process record per pid and command line.
 
 var (
-	sudoCmdRe   = regexp.MustCompile(`^\s*(\S+) : (?:([^;=]+?) ; )?(?:TTY=\S+ ; )?PWD=(\S*) ; USER=(\S+) ;(?: [A-Z]+=\S* ;)* COMMAND=(.*)$`)
+	sudoCmdRe   = regexp.MustCompile(`^\s*(\S+) : (?:([^;=]+?) ; )?(?:TTY=(\S+) ; )?PWD=(\S*) ; USER=(\S+) ;(?: [A-Z]+=\S* ;)* COMMAND=(.*)$`)
 	sshAcceptRe = regexp.MustCompile(`^Accepted (\S+) for (\S+) from (\S+) port (\d+)`)
 	sshFailRe   = regexp.MustCompile(`^Failed (\S+) for (?:invalid user )?(\S+) from (\S+) port (\d+)`)
 	sshInvalRe  = regexp.MustCompile(`^Invalid user (\S*) from (\S+)`)
@@ -32,7 +32,7 @@ var (
 	suFailRe    = regexp.MustCompile(`^(?:FAILED SU \(to (\S+)\) (\S+) on \S+|FAILED su for (\S+) by (\S+))`)
 )
 
-var authProgs = map[string]bool{"sshd": true, "sudo": true, "su": true, "login": true, "systemd-logind": true, "polkitd": true, "passwd": true, "useradd": true, "usermod": true, "groupadd": true, "chpasswd": true}
+var authProgs = map[string]bool{"sshd": true, "sudo": true, "su": true, "pkexec": true, "login": true, "systemd-logind": true, "polkitd": true, "passwd": true, "useradd": true, "usermod": true, "groupadd": true, "chpasswd": true}
 
 // isAuthLine: a syslog-shaped line from an authentication program.
 func isAuthLine(l string) bool {
@@ -67,8 +67,8 @@ func loadAuthLog(path string) (*LoadResult, error) {
 			return
 		}
 		pid, _ := strconv.Atoi(m[3])
-		if r, ok := authRecord(strings.ToLower(m[2]), m[4], pid, t, at, "authlog"); ok {
-			res.Records = append(res.Records, r)
+		if rs := authRecords(strings.ToLower(m[2]), m[4], pid, t, at, "authlog"); len(rs) > 0 {
+			res.Records = append(res.Records, rs...)
 		} else {
 			res.ignore()
 		}
@@ -85,7 +85,8 @@ func authRecord(prog, msg string, pid int, t time.Time, at, source string) (Reco
 		if m == nil {
 			return Record{}, false
 		}
-		r := Record{Time: t, Kind: "process", PID: pid, User: m[1], Cmdline: strings.TrimSpace(m[5]), Resource: "USER=" + m[4], Source: source, Ref: at}
+		r := Record{Time: t, Kind: "process", PID: pid, User: m[1], Cmdline: strings.TrimSpace(m[6]), Resource: "USER=" + m[5], Source: source, Ref: at,
+			Cwd: m[4], TTY: m[3], PrivFrom: m[1], PrivTo: m[5]}
 		r.Exe = firstField(r.Cmdline)
 		if m[2] != "" { // "command not allowed", "3 incorrect password attempts"
 			r.Failed = m[2]
@@ -103,13 +104,15 @@ func authRecord(prog, msg string, pid int, t time.Time, at, source string) (Reco
 		}
 	case strings.HasPrefix(prog, "su"):
 		if m := suOpenRe.FindStringSubmatch(msg); m != nil {
-			return Record{Time: t, Kind: "auth", PID: pid, Operation: "su", Resource: m[1], User: m[2], Source: source, Ref: at}, true
+			return Record{Time: t, Kind: "auth", PID: pid, Operation: "su", Resource: m[1], User: m[2], PrivFrom: m[2], PrivTo: m[1], Source: source, Ref: at}, true
 		}
 		if m := suFailRe.FindStringSubmatch(msg); m != nil {
-			return Record{Time: t, Kind: "auth", PID: pid, Operation: "su", Resource: firstNonEmpty(m[1], m[3]), User: firstNonEmpty(m[2], m[4]), Failed: "su failed", Source: source, Ref: at}, true
+			to, by := firstNonEmpty(m[1], m[3]), firstNonEmpty(m[2], m[4])
+			return Record{Time: t, Kind: "auth", PID: pid, Operation: "su", Resource: to, User: by, PrivFrom: by, PrivTo: to, Failed: "su failed", Source: source, Ref: at}, true
 		}
 		if m := suOKRe.FindStringSubmatch(msg); m != nil {
-			return Record{Time: t, Kind: "auth", PID: pid, Operation: "su", Resource: firstNonEmpty(m[1], m[3]), User: firstNonEmpty(m[2], m[4]), Source: source, Ref: at}, true
+			to, by := firstNonEmpty(m[1], m[3]), firstNonEmpty(m[2], m[4])
+			return Record{Time: t, Kind: "auth", PID: pid, Operation: "su", Resource: to, User: by, PrivFrom: by, PrivTo: to, Source: source, Ref: at}, true
 		}
 	}
 	return Record{}, false
@@ -138,8 +141,30 @@ func loadJournal(path string) (*LoadResult, error) {
 		msg := journalMessage(doc["MESSAGE"])
 		prog := strings.ToLower(firstNonEmpty(leaf(doc, "SYSLOG_IDENTIFIER"), leaf(doc, "_COMM")))
 		emitted := false
-		if r, ok := authRecord(prog, msg, pid, t, ref, "journald"); ok {
-			res.Records = append(res.Records, r)
+		n0 := len(res.Records)
+		host := leaf(doc, "_HOSTNAME")
+		// __SEQNUM counts entries within one journal (__SEQNUM_ID). A
+		// filtered export (journalctl -u …) skips numbers by design, so a
+		// journal export is only HEALTHY when it is unfiltered; journal
+		// records are corroborate-only either way.
+		domain := ""
+		if sn, err := strconv.ParseUint(leaf(doc, "__SEQNUM"), 10, 64); err == nil && sn > 0 {
+			domain = "journald/" + firstNonEmpty(leaf(doc, "__SEQNUM_ID"), host, baseName(path))
+			res.seqObserve(domain, sn, t, true)
+			defer func() {
+				for i := n0; i < len(res.Records); i++ {
+					res.Records[i].Seq, res.Records[i].SeqDomain = sn, domain
+					res.seqKind(domain, res.Records[i].Kind)
+				}
+			}()
+		}
+		defer func() {
+			for i := n0; i < len(res.Records); i++ {
+				res.Records[i].Host = host
+			}
+		}()
+		if rs := authRecords(prog, msg, pid, t, ref, "journald"); len(rs) > 0 {
+			res.Records = append(res.Records, rs...)
 			emitted = true
 		}
 		if cmd := strings.TrimSpace(leaf(doc, "_CMDLINE")); cmd != "" {

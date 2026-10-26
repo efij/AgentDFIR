@@ -1,0 +1,8 @@
+{
+  "community": {
+    "source": {
+      "source": "github",
+      "repo": "someone/agent-plugins"
+    }
+  }
+}

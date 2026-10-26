@@ -55,6 +55,7 @@ func (r *Report) WriteMarkdown(w io.Writer) error {
 		m := r.Performance.Measured
 		p("| Performance | analyze %d ms, peak heap %.1f MiB on %d events (baseline %d ms, %.1f MiB) |", m.AnalyzeMS, m.PeakHeapMB, m.Events, r.Performance.Baseline.AnalyzeMS, r.Performance.Baseline.PeakHeapMB)
 	}
+	r.suiteRows(p)
 	p("")
 	if len(r.Failures) > 0 {
 		p("## Failures")
@@ -195,6 +196,7 @@ func (r *Report) WriteMarkdown(w io.Writer) error {
 		p("| platform | %s, %d CPUs, %s | %s, %d CPUs, %s |", m.Platform, m.CPUs, m.GoVersion, bl.Platform, bl.CPUs, bl.GoVersion)
 		p("")
 	}
+	r.writeSuites(p)
 	_, err := io.WriteString(w, b.String())
 	return err
 }

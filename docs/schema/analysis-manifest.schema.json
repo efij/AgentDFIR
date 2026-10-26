@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://efij.github.io/AgentDFIR/schema/analysis-manifest.schema.json",
+  "title": "AgentDFIR Reproducible Analysis Manifest",
+  "description": "detections/analysis-manifest.json (overlay, never sealed): what produced a package's findings and how to reproduce them. findings_fingerprint is recomputable from detections/findings.json with the algorithm in docs/adfir-spec.md (0.2.2); `agentdfir verify --reproduce` re-runs the analysis from the sealed zone and compares it. analyzed_utc is not part of the fingerprint. Unknown properties MUST be ignored by readers.",
+  "type": "object",
+  "required": ["schema", "adfir_spec", "tool", "rule_set", "input", "options", "analyzed_utc", "findings", "findings_fingerprint"],
+  "properties": {
+    "schema": {"const": "agentdfir.analysis-manifest/1"},
+    "adfir_spec": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$"},
+    "tool": {
+      "type": "object",
+      "required": ["name", "version", "go_version", "os", "arch", "analysis_fingerprint"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "minLength": 1},
+        "go_version": {"type": "string"},
+        "os": {"type": "string"},
+        "arch": {"type": "string"},
+        "analysis_fingerprint": {"$ref": "#/$defs/sha256", "description": "Hash of the code that turns evidence into findings (parsers, built-in rules, embedded packs)."},
+        "parse_fingerprint": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "rule_set": {
+      "type": "object",
+      "required": ["builtin_fingerprint", "builtin_packs", "packs"],
+      "properties": {
+        "builtin_fingerprint": {"$ref": "#/$defs/sha256"},
+        "builtin_packs": {"type": "boolean"},
+        "packs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["pack", "version", "rules", "origin"],
+            "properties": {
+              "pack": {"type": "string"},
+              "version": {"type": "string"},
+              "rules": {"type": "integer", "minimum": 0},
+              "origin": {"type": "string", "description": "\"embedded\" or the --rules directory."},
+              "sha256": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"const": ""}]}
+            }
+          }
+        },
+        "rules_dir": {"type": "string"},
+        "rules_dir_files": {"type": "array", "items": {"$ref": "#/$defs/fileRef"}}
+      }
+    },
+    "input": {
+      "type": "object",
+      "required": ["seal_sha256", "artifacts"],
+      "properties": {
+        "case_id": {"type": "string"},
+        "adfir_version": {"type": "string"},
+        "seal_sha256": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"const": ""}], "description": "SHA-256 of SHA256SUMS: commits to the whole sealed zone."},
+        "manifest_file": {"enum": ["manifest.jsonl", "manifest.json"]},
+        "manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "inputs_digest": {"type": "string"},
+        "artifacts": {"type": "integer", "minimum": 0},
+        "retired_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "options": {
+      "type": "object",
+      "required": ["no_builtin_packs", "spawn_threshold"],
+      "properties": {
+        "endpoint_logs": {"type": "array", "items": {"$ref": "#/$defs/fileRef"}},
+        "endpoint_format": {"type": "string"},
+        "window_ms": {"type": "integer", "minimum": 0},
+        "shell_history": {"$ref": "#/$defs/fileRef"},
+        "gateway_log": {"$ref": "#/$defs/fileRef"},
+        "gateway_map": {"$ref": "#/$defs/fileRef"},
+        "gateway_servers": {"type": "array", "items": {"type": "string"}},
+        "no_builtin_packs": {"type": "boolean"},
+        "spawn_threshold": {"type": "integer", "minimum": 1},
+        "known_destinations": {"type": "array", "items": {"type": "string"}},
+        "ioc_files": {"type": "array", "items": {"$ref": "#/$defs/fileRef"}},
+        "retire_excluded": {"type": "boolean"},
+        "honeytokens": {"type": "integer", "minimum": 0, "description": "How many were used. Neither the values nor any digest of them is recorded: a digest in the package would let its holder confirm guessed tokens."},
+        "reused_correlation": {"type": "boolean"},
+        "reused_correlation_findings": {"type": "integer", "minimum": 0},
+        "overlay_reused": {"type": "boolean"}
+      }
+    },
+    "analyzed_utc": {"type": "string"},
+    "findings": {
+      "type": "object",
+      "required": ["count", "file", "algorithm", "fields"],
+      "properties": {
+        "count": {"type": "integer", "minimum": 0},
+        "file": {"const": "detections/findings.json"},
+        "algorithm": {"const": "adfir-findings-sha256/1"},
+        "fields": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "findings_fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "notes": {"type": "array", "items": {"type": "string"}}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "fileRef": {
+      "type": "object",
+      "required": ["path", "size"],
+      "properties": {
+        "path": {"type": "string"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size": {"type": "integer", "minimum": 0},
+        "error": {"type": "string"}
+      }
+    }
+  }
+}

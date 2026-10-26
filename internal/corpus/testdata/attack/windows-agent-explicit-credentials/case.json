@@ -1,0 +1,9 @@
+{
+  "note": "The agent mapped a share as a service account it was never given (net use /user:CORP\\svc_backup). Security 4648 records the explicit-credential logon by net.exe, a process descended from the agent (WIN_AGENT_EXPLICIT_CREDENTIALS).",
+  "endpoint": [
+    "endpoint/windows-events.xml"
+  ],
+  "expect": [
+    "WIN_AGENT_EXPLICIT_CREDENTIALS"
+  ]
+}

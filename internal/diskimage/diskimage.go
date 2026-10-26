@@ -4,9 +4,10 @@
 //
 // Layers:
 //
-//	container  raw / split raw / E01 / VHD / VHDX / VMDK  → one io.ReaderAt (logical disk)
-//	partition  MBR (+ extended) / GPT / none              → volumes (offset + size)
-//	filesystem registry (NTFS here; ext4, FAT plug in)     → io/fs.FS
+//	container  raw / split raw / E01 / VHD / VHDX / VMDK / QCOW2 /
+//	           DMG (UDIF) / sparsebundle                  → one io.ReaderAt (logical disk)
+//	partition  MBR (+ extended) / GPT / none, then LVM2 linear LVs → volumes
+//	filesystem registry (NTFS, ext4, FAT, XFS, Btrfs, APFS, HFS+)  → io/fs.FS
 //
 // Inputs are hostile. Every size read from an image is bounded before it
 // drives an allocation or a loop, and every failure is a typed *Error, so
@@ -63,6 +64,7 @@ const (
 	FormatVHDDynamic = "vhd-dynamic"
 	FormatVHDX       = "vhdx"
 	FormatVMDK       = "vmdk"
+	FormatQCOW2      = "qcow2"
 )
 
 // maxSegments bounds how many files one image may span.
@@ -115,8 +117,15 @@ func (im *Image) Close() error {
 
 // Open sniffs path by its magic bytes (never its extension) and opens the
 // container read-only. Split raw and EWF segment siblings are found next
-// to path; VMDK extents are resolved relative to the descriptor.
+// to path; VMDK extents are resolved relative to the descriptor. A
+// directory is accepted only when it is an Apple sparsebundle.
 func Open(path string) (*Image, error) {
+	if fi, err := os.Stat(path); err == nil && fi.IsDir() {
+		if isSparseBundle(path) {
+			return openSparseBundle(path)
+		}
+		return nil, unsupported("image", "%s is a directory, not a disk image or sparsebundle; use collect --import for a file tree", filepath.Base(path))
+	}
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -164,14 +173,18 @@ func Open(path string) (*Image, error) {
 		f.Close()
 		return nil, unsupported("vmdk", "ESX %s extents are not supported; convert with qemu-img convert -O raw", strings.TrimPrefix(kind, "vmdk-"))
 	case "qcow":
-		f.Close()
-		return nil, unsupported("qcow2", "QCOW images are not supported; convert with qemu-img convert -O raw")
+		return openQCOW2(f, fi.Size(), path)
 	case "vdi":
 		f.Close()
 		return nil, unsupported("vdi", "VirtualBox VDI images are not supported; convert with qemu-img convert -O raw")
 	case "dmg":
+		return openDMG(f, fi.Size(), path)
+	case "dmg-encrypted":
 		f.Close()
-		return nil, unsupported("dmg", "Apple disk images are not supported; convert to raw (hdiutil convert -format UDTO) first")
+		return nil, &Error{Kind: ErrEncrypted, Format: "dmg", Reason: "encrypted Apple disk image (AES); decryption is not supported: attach it read-only with hdiutil (it asks for the passphrase) and convert to raw (hdiutil convert -format UDTO), then collect --image the copy"}
+	case "dmg-sparseimage":
+		f.Close()
+		return nil, unsupported("dmg", "UDSP sparse images are not supported; convert to UDZO or raw (hdiutil convert -format UDZO) first")
 	case "gzip", "xz", "bzip2", "zstd", "zip", "7z":
 		f.Close()
 		return nil, unsupported(kind, "compressed file, not a disk image; decompress it first")
@@ -184,6 +197,11 @@ func Open(path string) (*Image, error) {
 func sniff(head, tail []byte) string {
 	has := func(off int, sig string) bool {
 		return len(head) >= off+len(sig) && string(head[off:off+len(sig)]) == sig
+	}
+	// A UDIF trailer wins over magic bytes at offset 0: a bzip2- or
+	// zlib-chunked .dmg starts with its first compressed chunk.
+	if len(tail) == 512 && string(tail[:4]) == "koly" {
+		return "dmg"
 	}
 	switch {
 	case has(0, "EVF\x09\x0d\x0a\xff\x00"):
@@ -202,6 +220,10 @@ func sniff(head, tail []byte) string {
 		return "vmdk-sesparse"
 	case has(0, "# Disk DescriptorFile"), isVMDKDescriptorText(head):
 		return "vmdk-descriptor"
+	case has(0, "encrcdsa"), len(tail) == 512 && string(tail[504:]) == "cdsaencr":
+		return "dmg-encrypted"
+	case has(0, "sprs"):
+		return "dmg-sparseimage"
 	case has(0, "QFI\xfb"):
 		return "qcow"
 	case has(64, "\x7f\x10\xda\xbe"):

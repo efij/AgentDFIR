@@ -7,10 +7,12 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/efij/AgentDFIR/v4/internal/compat"
 	"github.com/efij/AgentDFIR/v4/internal/integrity"
+	"github.com/efij/AgentDFIR/v4/internal/repro"
 )
 
 // Conformance fixtures for the .adfir format live at the repository root,
@@ -21,6 +23,7 @@ import (
 //
 //	go test ./internal/benchmark -run TestConformance -update-conformance
 var updateConformance = flag.Bool("update-conformance", false, "regenerate testdata/conformance")
+var updateAnalysisConformance = flag.Bool("update-conformance-analysis", false, "regenerate only the 0.2.2 analysis fixtures in testdata/conformance")
 
 const conformanceDir = "../../testdata/conformance"
 
@@ -31,6 +34,10 @@ type conformanceExpect struct {
 	// Pubkey, when set, is pinned (`verify --pubkey`, adfir_verify.py --pubkey).
 	Pubkey string `json:"pubkey,omitempty"`
 	Spec   string `json:"spec"`
+	// Kind is "analysis" for the 0.2.2 fixtures of the optional analysis
+	// files (whose verdict covers those files; the sealed zone is valid),
+	// empty for the integrity fixtures.
+	Kind string `json:"kind,omitempty"`
 }
 
 func generateConformance(t *testing.T) {
@@ -44,33 +51,11 @@ func generateConformance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	write := func(name string, e conformanceExpect, mutate func(string) error) {
-		dir := filepath.Join(conformanceDir, name)
-		pkg := filepath.Join(dir, "package")
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			t.Fatal(err)
-		}
-		if err := copyTree(base, pkg); err != nil {
-			t.Fatal(err)
-		}
-		if mutate != nil {
-			if err := mutate(pkg); err != nil {
-				t.Fatalf("%s: %v", name, err)
-			}
-		}
-		// Modes are not part of the format; keep the checkout tidy.
-		_ = filepath.WalkDir(pkg, func(p string, d os.DirEntry, _ error) error {
-			if d.IsDir() {
-				return os.Chmod(p, 0o755)
-			}
-			return os.Chmod(p, 0o644)
-		})
-		e.Spec = "0.2"
-		data, _ := json.MarshalIndent(e, "", "  ")
-		if err := os.WriteFile(filepath.Join(dir, "expected.json"), append(data, '\n'), 0o644); err != nil {
-			t.Fatal(err)
-		}
+	writeFrom := func(name string, e conformanceExpect, base string, mutate func(string) error) {
+		writeFixture(t, name, e, base, mutate)
 	}
+	write := func(name string, e conformanceExpect, mutate func(string) error) { writeFrom(name, e, base, mutate) }
+	writeAnalysisConformance(t, writeFrom)
 	write("valid", conformanceExpect{Verdict: "VERIFIED", Pubkey: ref.Signer,
 		Description: "two rounds, both signed (ed25519); a plain blob, a gzip blob, a chunked artifact; round 1's seal and signature archived in seals/"}, nil)
 	for _, m := range Mutations() {
@@ -83,6 +68,58 @@ func generateConformance(t *testing.T) {
 	}
 }
 
+// writeFixture copies base to testdata/conformance/<name>/package, applies
+// mutate, and writes expected.json.
+func writeFixture(t *testing.T, name string, e conformanceExpect, base string, mutate func(string) error) {
+	t.Helper()
+	dir := filepath.Join(conformanceDir, name)
+	pkg := filepath.Join(dir, "package")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := copyTree(base, pkg); err != nil {
+		t.Fatal(err)
+	}
+	if mutate != nil {
+		if err := mutate(pkg); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+	}
+	// Modes are not part of the format; keep the checkout tidy.
+	_ = filepath.WalkDir(pkg, func(p string, d os.DirEntry, _ error) error {
+		if d.IsDir() {
+			return os.Chmod(p, 0o755)
+		}
+		return os.Chmod(p, 0o644)
+	})
+	if e.Spec = "0.2"; e.Kind == "analysis" {
+		e.Spec = "0.2.2"
+	}
+	data, _ := json.MarshalIndent(e, "", "  ")
+	if err := os.WriteFile(filepath.Join(dir, "expected.json"), append(data, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// generateAnalysisConformance rewrites only the 0.2.2 analysis fixtures,
+// leaving the integrity fixtures byte-for-byte as they are:
+//
+//	go test ./internal/benchmark -run TestConformance -update-conformance-analysis
+func generateAnalysisConformance(t *testing.T) {
+	t.Helper()
+	entries, _ := os.ReadDir(conformanceDir)
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), "analysis-") {
+			if err := os.RemoveAll(filepath.Join(conformanceDir, e.Name())); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	writeAnalysisConformance(t, func(name string, e conformanceExpect, base string, mutate func(string) error) {
+		writeFixture(t, name, e, base, mutate)
+	})
+}
+
 func loadConformance(t *testing.T) map[string]conformanceExpect {
 	t.Helper()
 	entries, err := os.ReadDir(conformanceDir)
@@ -91,6 +128,9 @@ func loadConformance(t *testing.T) map[string]conformanceExpect {
 	}
 	out := map[string]conformanceExpect{}
 	for _, e := range entries {
+		if !e.IsDir() {
+			continue // README.md
+		}
 		data, err := os.ReadFile(filepath.Join(conformanceDir, e.Name(), "expected.json"))
 		if err != nil {
 			t.Fatal(err)
@@ -101,8 +141,8 @@ func loadConformance(t *testing.T) map[string]conformanceExpect {
 		}
 		out[e.Name()] = x
 	}
-	if len(out) != len(Mutations())+1 {
-		t.Fatalf("%d conformance fixtures, want %d (valid + one per mutation); regenerate with -update-conformance", len(out), len(Mutations())+1)
+	if want := len(Mutations()) + 1 + len(analysisMutations()) + 2; len(out) != want {
+		t.Fatalf("%d conformance fixtures, want %d (valid + one per mutation, and the analysis set); regenerate with -update-conformance", len(out), want)
 	}
 	return out
 }
@@ -120,6 +160,8 @@ func sortedNames(m map[string]conformanceExpect) []string {
 func TestConformanceGoVerify(t *testing.T) {
 	if *updateConformance {
 		generateConformance(t)
+	} else if *updateAnalysisConformance {
+		generateAnalysisConformance(t)
 	}
 	fx := loadConformance(t)
 	for _, name := range sortedNames(fx) {
@@ -132,14 +174,23 @@ func TestConformanceGoVerify(t *testing.T) {
 				t.Fatal(err)
 			}
 			c, err := integrity.VerifyPackage(pkg, want.Pubkey)
+			// The analysis files are checked too (0.2.2); a fixture of
+			// either kind passes only when both checks agree with it.
+			ov := repro.CheckOverlay(pkg)
 			got := "VERIFIED"
-			if err != nil || len(c.Package.Problems) > 0 {
+			if err != nil || len(c.Package.Problems) > 0 || len(ov.Problems) > 0 {
 				got = "FAILED"
 			}
+			if want.Kind == "analysis" && (err != nil || len(c.Package.Problems) > 0) {
+				t.Fatalf("an analysis fixture's sealed zone must verify: %v %v", err, c.Package.Problems)
+			}
+			if want.Kind == "analysis" && want.Verdict == "VERIFIED" && len(ov.Checked) < 3 {
+				t.Fatalf("analysis fixture checked only %v", ov.Checked)
+			}
 			if got != want.Verdict {
-				var problems []string
+				problems := ov.Problems
 				if c != nil {
-					problems = c.Package.Problems
+					problems = append(problems, c.Package.Problems...)
 				}
 				t.Fatalf("verdict %s, want %s (%s): %v %v", got, want.Verdict, want.Description, err, problems)
 			}
@@ -173,11 +224,15 @@ func TestConformancePythonVerifier(t *testing.T) {
 			}
 		}
 		var res struct {
-			Verdict  string   `json:"verdict"`
-			Problems []string `json:"problems"`
+			Verdict          string   `json:"verdict"`
+			IntegrityVerdict string   `json:"integrity_verdict"`
+			Problems         []string `json:"problems"`
 		}
 		if err := json.Unmarshal(out, &res); err != nil {
 			t.Fatalf("adfir_verify.py output: %v\n%s", err, out)
+		}
+		if res.IntegrityVerdict != "" && res.IntegrityVerdict != "VERIFIED" && strings.Contains(pkg, "analysis-") {
+			t.Fatalf("an analysis fixture's sealed zone must verify: %v", res.Problems)
 		}
 		return res.Verdict, res.Problems
 	}

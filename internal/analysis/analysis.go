@@ -29,10 +29,12 @@ import (
 	"github.com/efij/AgentDFIR/v4/internal/index"
 	"github.com/efij/AgentDFIR/v4/internal/ioc"
 	"github.com/efij/AgentDFIR/v4/internal/journal"
+	"github.com/efij/AgentDFIR/v4/internal/macoshost"
 	"github.com/efij/AgentDFIR/v4/internal/mcpaudit"
 	"github.com/efij/AgentDFIR/v4/internal/normalize"
 	"github.com/efij/AgentDFIR/v4/internal/overlay"
 	"github.com/efij/AgentDFIR/v4/internal/provenance"
+	"github.com/efij/AgentDFIR/v4/internal/repro"
 	"github.com/efij/AgentDFIR/v4/internal/rulepack"
 	"github.com/efij/AgentDFIR/v4/internal/sanitize"
 	"github.com/efij/AgentDFIR/v4/internal/schema"
@@ -373,6 +375,7 @@ func Run(pkg string, o Options) (*Result, error) {
 		}
 		if len(o.EndpointLogs) > 0 {
 			var records []endpoint.Record
+			var health []*endpoint.SourceHealth
 			for _, p := range o.EndpointLogs {
 				lr, err := endpoint.Load(p, o.EndpointFormat)
 				if err != nil {
@@ -382,9 +385,20 @@ func Run(pkg string, o Options) (*Result, error) {
 				for _, n := range lr.Notices {
 					o.logf("  notice: %s", sanitize.Terminal(n))
 				}
+				if h := lr.Health; h != nil && h.Verdict == endpoint.HealthPartial {
+					o.logf("  collection health: PARTIAL (%d sequence gap(s), %d drop signal(s)); absence in the affected intervals is not evaluated", h.Gaps, len(h.Drops)+h.DropsOmitted)
+				}
 				records = append(records, lr.Records...)
+				health = append(health, lr.Health)
 			}
-			cres, cf := correlate.Endpoint(events, records, correlate.EndpointOptions{Window: o.Window, KnownDests: o.KnownDests})
+			cres, cf := correlate.Endpoint(events, records, correlate.EndpointOptions{Window: o.Window, KnownDests: o.KnownDests, Health: health})
+			hf, hcov := correlate.HostRules(events, records, correlate.EndpointOptions{Window: o.Window, KnownDests: o.KnownDests})
+			cf = append(cf, hf...)
+			for _, c := range hcov {
+				if !c.Evaluated {
+					o.logf("  host rule %s not evaluated: %s", c.Rule, c.Missing)
+				}
+			}
 			res.Correlation = cres
 			findings = append(findings, cf...)
 			_ = overlay.WriteJSON(filepath.Join(detDir, "corroboration.json"), struct {
@@ -418,6 +432,7 @@ func Run(pkg string, o Options) (*Result, error) {
 	// Earlier second-witness results stay part of the case as long as the
 	// overlay they were computed on is still in use; a re-parse invalidates them.
 	corrPath := filepath.Join(detDir, "corroboration.json")
+	reusedCorr := -1 // findings carried forward with earlier correlation results; -1 = none reused
 	if len(o.EndpointLogs) == 0 {
 		if res.Renormalized {
 			_ = overlay.Remove(corrPath)
@@ -429,6 +444,7 @@ func Run(pkg string, o Options) (*Result, error) {
 			if json.Unmarshal(data, &prev) == nil {
 				res.Correlation = prev.Summary
 				findings = append(findings, prev.Findings...)
+				reusedCorr = len(prev.Findings)
 				o.logf("Endpoint correlation: reusing earlier results (%d finding(s))", len(prev.Findings))
 			}
 		}
@@ -450,6 +466,20 @@ func Run(pkg string, o Options) (*Result, error) {
 		findings = append(findings, jf...)
 		if len(jf) > 0 {
 			o.logf("Monitor journal: %d finding(s)", len(jf))
+		}
+		// macOS host state (opt-in collection): TCC.db rows inside agent
+		// session windows, plus an inventory for the analyst.
+		if hs := macoshost.Read(man, casepkg.NewStore(pkg, man)); !hs.Empty() {
+			hf := correlate.HostState(allEvents(), hs.TCCRows)
+			findings = append(findings, hf...)
+			_ = overlay.WriteJSON(filepath.Join(detDir, "macos_host.json"), hs)
+			o.logf("macOS host state: %s; %d finding(s)", hs.Summary(), len(hf))
+			for _, u := range hs.Unsupported {
+				o.logf("  %s", sanitize.Terminal(u))
+			}
+			for _, sk := range hs.Skipped {
+				o.logf("  not readable: %s", sanitize.Terminal(sk))
+			}
 		}
 	}
 
@@ -573,6 +603,13 @@ func Run(pkg string, o Options) (*Result, error) {
 		res.StageNotes = append(res.StageNotes, "incident IOC check skipped: "+err.Error())
 	}
 
+	// Agent-environment supply chain (normalized/supplychain.json): origins,
+	// hash history across rounds, MCP and settings drift, and component →
+	// invocation → command links, verified apart from inferred.
+	sf, snotes := supplyOverlay(pkg, allEvents(), findings, res.Correlation, inv, ext)
+	findings = append(findings, sf...)
+	res.StageNotes = append(res.StageNotes, snotes...)
+
 	o.stage(6, "provenance")
 	// ---- 6. instruction & memory provenance.
 	if prov, err := provenance.Run(pkg, allEvents(), ""); err == nil {
@@ -634,6 +671,11 @@ func Run(pkg string, o Options) (*Result, error) {
 		"overlay_build": normalize.Status(pkg).BuildID, "inputs_digest": inputsDigest,
 		"options_digest": o.optionsDigest(),
 	})
+	// How to reproduce these findings and check them without trusting this
+	// binary: detections/analysis-manifest.json (see package repro).
+	if err := repro.Write(pkg, BuildManifest(pkg, o, packSrcs, findings, inputsDigest, reusedCorr, !res.Renormalized, time.Now())); err != nil {
+		res.StageNotes = append(res.StageNotes, "analysis manifest not written: "+err.Error())
+	}
 	// The explorer's offset index over the finished overlay, built here so
 	// opening a case is instant instead of re-parsing hundreds of MB of
 	// JSON. It is derived data: it sits in <pkg>/index/, outside the sealed

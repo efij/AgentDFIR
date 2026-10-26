@@ -1,0 +1,7 @@
+{
+  "verdict": "FAILED",
+  "description": "remove the tool object from the manifest",
+  "mutation": "manifest-missing-tool",
+  "spec": "0.2.2",
+  "kind": "analysis"
+}

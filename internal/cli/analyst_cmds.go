@@ -15,10 +15,12 @@ import (
 	"time"
 
 	"github.com/efij/AgentDFIR/v4/internal/detect"
+	"github.com/efij/AgentDFIR/v4/internal/endpoint"
 	"github.com/efij/AgentDFIR/v4/internal/journal"
 	"github.com/efij/AgentDFIR/v4/internal/normalize"
 	"github.com/efij/AgentDFIR/v4/internal/products"
 	"github.com/efij/AgentDFIR/v4/internal/realtime"
+	"github.com/efij/AgentDFIR/v4/internal/recorder"
 	"github.com/efij/AgentDFIR/v4/internal/sanitize"
 	"github.com/efij/AgentDFIR/v4/internal/schema"
 	"github.com/efij/AgentDFIR/v4/internal/seal"
@@ -110,9 +112,16 @@ func cmdReplay(args []string) int {
 	fs := flag.NewFlagSet("replay", flag.ContinueOnError)
 	session := fs.String("session", "", "replay only this session (substring)")
 	all := fs.Bool("all", false, "print without pausing")
-	if err := fs.Parse(args); err != nil || fs.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: agentdfir replay <package-dir> [--session <id>] [--all]")
+	pos, rest := splitPositional(args)
+	if pos != "" {
+		rest = append(rest, pos)
+	}
+	if err := fs.Parse(rest); err != nil || fs.NArg() != 1 {
+		fmt.Fprintln(os.Stderr, "usage: agentdfir replay <package-dir | monitor-state-dir> [--session <id>] [--all]")
 		return 2
+	}
+	if recorder.IsStateDir(fs.Arg(0)) {
+		return cmdReplayMonitor(fs.Arg(0), *session, *all) // black-box recording
 	}
 	res, err := normalize.ParsePackage(fs.Arg(0))
 	if err != nil {
@@ -144,6 +153,9 @@ func cmdReplay(args []string) int {
 
 // cmdMonitor tails live session directories (killer feature #5).
 func cmdMonitor(args []string) int {
+	if len(args) > 0 && args[0] == "status" {
+		return cmdMonitorStatus(args[1:])
+	}
 	fs := flag.NewFlagSet("monitor", flag.ContinueOnError)
 	interval := fs.Duration("interval", 2*time.Second, "poll interval")
 	cycles := fs.Int("cycles", 0, "number of poll cycles (0 = run until interrupted)")
@@ -156,6 +168,9 @@ func cmdMonitor(args []string) int {
 	quiet := fs.Bool("quiet", false, "print findings only, not every transcript line")
 	useJournal := fs.Bool("journal", false, "keep a hash-chained journal of every transcript append (~/.agentdfir/monitor/journal.jsonl) so later edits are provable")
 	anchorFile := fs.String("journal-anchor", "", "also append each journal seal's chain head to this file (put it somewhere the watched user cannot write)")
+	useES := fs.Bool("es", false, "macOS: also run Apple's eslogger (root + Full Disk Access) and capture Endpoint Security events to ~/.agentdfir/monitor/eslogger-*.jsonl")
+	esEvents := fs.String("es-events", "", "with --es: comma-separated eslogger event types (default: process, file-change, persistence, TCC, auth, XProtect)")
+	rec := addRecordFlags(fs)
 	// Directories may come first or after the flags.
 	var positional []string
 	rest := args
@@ -164,7 +179,11 @@ func cmdMonitor(args []string) int {
 		rest = rest[1:]
 	}
 	if err := fs.Parse(rest); err != nil {
-		fmt.Fprintln(os.Stderr, "usage: agentdfir monitor [dirs...] [--detect] [--alert <target>]... [--honeytokens f] [--min-severity S] [--quiet]")
+		fmt.Fprintln(os.Stderr, "usage: agentdfir monitor [dirs...] [--detect] [--alert <target>]... [--honeytokens f] [--min-severity S] [--quiet] [--journal] [--es [--es-events a,b]] [--record [--auditd f] [--tail f]... [--retain 7d,2GB]] | monitor status [--json]")
+		return 2
+	}
+	if err := rec.validate(); err != nil {
+		fmt.Fprintln(os.Stderr, "monitor:", err)
 		return 2
 	}
 	paths := append(positional, fs.Args()...)
@@ -232,8 +251,15 @@ func cmdMonitor(args []string) int {
 		defer eng.Close()
 		w.OnLine = eng.OnLine
 	}
-	if *useJournal || *anchorFile != "" {
-		home, _ := os.UserHomeDir()
+	es := &esHandle{}
+	var jnl *journal.Journal
+	var rcd *recorder.Recorder
+	if *useJournal || *anchorFile != "" || rec.enabled() {
+		home, err := monitorHome() // effective user's home; a root monitor refuses a state dir it does not own
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "monitor:", err)
+			return 1
+		}
 		jp := journal.DefaultPath(home)
 		jn, err := journal.Open(jp)
 		if err != nil {
@@ -257,11 +283,50 @@ func cmdMonitor(args []string) int {
 		signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
 		go func() {
 			<-sig
+			es.Stop()
+			rcd.Stop()
 			_ = jn.Close()
 			os.Exit(130)
 		}()
+		jnl = jn
 		w.OnBaseline, w.OnGrow, w.OnShrink, w.OnGone = jn.Baseline, jn.Grow, jn.Shrink, jn.Gone
 		fmt.Printf("journal: %s (verify later: agentdfir journal verify --anchor <head>)\n", jp)
+	}
+	if rec.enabled() {
+		home, err := monitorHome() // effective user's home; a root monitor refuses a state dir it does not own
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "monitor:", err)
+			return 1
+		}
+		r, err := rec.start(jnl, home, *anchorFile, *interval)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "monitor:", err)
+			return 2
+		}
+		wireTranscripts(w, r, paths)
+		es.rec = r
+		r.Start()
+		defer r.Stop()
+		rcd = r
+		fmt.Printf("recorder: %s (health: agentdfir monitor status)\n", r.Dir)
+	}
+	if *useES {
+		home, err := monitorHome() // effective user's home; a root monitor refuses a state dir it does not own
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "monitor:", err)
+			return 1
+		}
+		startES(endpoint.NewESLauncher(), *esEvents, *quiet, jnl, home, es)
+		defer es.Stop()
+		if jnl == nil {
+			sig := make(chan os.Signal, 1)
+			signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
+			go func() {
+				<-sig
+				es.Stop()
+				os.Exit(130)
+			}()
+		}
 	}
 	mode := "tail"
 	if *detectLive {

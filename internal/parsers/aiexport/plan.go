@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/efij/AgentDFIR/v4/internal/casepkg"
+	"github.com/efij/AgentDFIR/v4/internal/parsers/suite"
 )
 
 // Planning decides, before anything is sealed, which files of a tree are
@@ -44,6 +45,10 @@ type PlannedFile struct {
 	Type      string     // artifact type
 	Product   string     // product id
 	Detection *Detection // nil when the file is sealed but not an export file
+	// Suite is set for a forensic-suite export file (AXIOM CSV, Case.mfdb,
+	// Plaso timeline, Autopsy report, UFD descriptor); internal/parsers/suite
+	// reads it.
+	Suite *suite.Detection
 }
 
 // Plan is the result of planning a tree.
@@ -53,11 +58,25 @@ type Plan struct {
 	UFDR       bool   // a Cellebrite UFDR report.xml was found at the top of the tree
 	UFDRReport string // its in-tree path
 	Recognized int    // files with a detection (including UNSUPPORTED ones)
+	Suite      int    // forensic-suite export files (see PlannedFile.Suite)
 	Truncated  bool   // more than maxPlanFiles files; the rest were not inspected
 }
 
 // Found reports whether the tree holds anything this package handles.
-func (p *Plan) Found() bool { return p != nil && (p.Recognized > 0 || p.UFDR) }
+func (p *Plan) Found() bool { return p != nil && (p.Recognized > 0 || p.UFDR || p.Suite > 0) }
+
+// SuiteDetections lists "<in-tree path>=<product/kind[/artifact]>" for
+// every forensic-suite export file, sorted, for case notes.
+func (p *Plan) SuiteDetections() []string {
+	var out []string
+	for _, f := range p.Files {
+		if f.Suite != nil {
+			out = append(out, f.Rel+"="+f.Suite.String())
+		}
+	}
+	sort.Strings(out)
+	return out
+}
 
 // Detections lists "<in-export path>=<service/kind/variant>" for every
 // recognized file, sorted, for case notes.
@@ -146,6 +165,16 @@ func PlanTree(root string, mode PlanMode, skip func(path string) bool) (*Plan, e
 				return nil
 			}
 		}
+		if d.Type().IsRegular() && suite.Candidate(rel) {
+			if sd, ok := suite.ClassifyFile(path, rel); ok {
+				sd := sd
+				f.Suite = &sd
+				f.Rule, f.Type, f.Product = sd.Rule, sd.Type, sd.Product
+				pl.Suite++
+				pl.Files = append(pl.Files, f)
+				return nil
+			}
+		}
 		if mode == PlanAll {
 			f.Rule, f.Type, f.Product = RuleFile, TypeFile, genericProduct
 			if pl.UFDR {
@@ -218,13 +247,16 @@ func (p *Plan) Filter(keep func(path string) bool) {
 		return
 	}
 	out := p.Files[:0]
-	p.Recognized = 0
+	p.Recognized, p.Suite = 0, 0
 	for _, f := range p.Files {
 		if !keep(f.Path) {
 			continue
 		}
 		if f.Detection != nil {
 			p.Recognized++
+		}
+		if f.Suite != nil {
+			p.Suite++
 		}
 		out = append(out, f)
 	}

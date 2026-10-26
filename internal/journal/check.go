@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -34,6 +35,11 @@ type rec struct {
 	Now        int64  `json:"now"`
 	At         string `json:"monitor_utc"`
 	PrevBroken string `json:"previous_chain_broken"`
+	// prune records (monitor --retain)
+	Reason        string `json:"reason"`
+	JournaledSize *int64 `json:"journaled_size"`
+	PrunePrefixSz *int64 `json:"prune_prefix_size"`
+	PrunePrefix   string `json:"prune_prefix_sha256"`
 }
 
 // maxJournal bounds the journal read at analysis.
@@ -114,6 +120,19 @@ func Check(man *casepkg.Manifest, store *casepkg.Store) []schema.Finding {
 
 func checkPath(p string, rs []rec, bySource map[string]casepkg.ArtifactRecord, store *casepkg.Store, jref string) []schema.Finding {
 	var out []schema.Finding
+	// Retention only ever prunes the recorder's own capture files. A prune
+	// record naming anything else (a transcript) is an attempt to make a
+	// deletion look like housekeeping.
+	if !isRecorderCapture(p) {
+		for _, r := range rs {
+			if r.Kind == "prune" || r.Kind == "prune_failed" {
+				out = append(out, schema.Finding{RuleID: "TRANSCRIPT_DELETED", Severity: "HIGH", Title: "Prune Record for a File the Recorder Does Not Own",
+					Description:  fmt.Sprintf("The journal has a retention prune record for %s at %s, but retention only deletes the recorder's own capture files (~/.agentdfir/monitor/<source>-<UTC>.<ext>). The record does not account for this file; treat its absence or change as unexplained.", p, r.At),
+					EvidenceRefs: []string{jref}, Related: []string{"path: " + p}, Status: schema.StateObserved, Endpoint: schema.StateUnknown, MitreATTACK: "T1070.004"})
+				break
+			}
+		}
+	}
 	start := 0
 	for i, r := range rs {
 		switch r.Kind {
@@ -139,7 +158,25 @@ func checkPath(p string, rs []rec, bySource map[string]casepkg.ArtifactRecord, s
 	a, ok := bySource[p]
 	if !ok {
 		last := rs[len(rs)-1]
-		if last.Kind == "deleted" || last.Kind == "append" || last.Kind == "baseline" {
+		if last.Kind == "prune" && isRecorderCapture(p) {
+			// Deleted by the monitor's own retention policy and journaled as
+			// such (monitor --retain): accounted for, when what was deleted
+			// is what had been journaled.
+			if why := pruneMismatch(rs); why != "" {
+				out = append(out, schema.Finding{RuleID: "TRANSCRIPT_DELETED", Severity: "HIGH", Title: "Pruned Capture Does Not Match What Was Journaled",
+					Description:  fmt.Sprintf("%s was pruned by retention at %s, but %s. The capture was changed before it was deleted.", path.Base(p), last.At, why),
+					EvidenceRefs: []string{jref}, Related: []string{"path: " + p}, Status: schema.StateObserved, Endpoint: schema.StateUnknown, MitreATTACK: "T1070.004"})
+			}
+			return out
+		}
+		if last.Kind == "prune" {
+			return out // already reported above
+		}
+		if (last.Kind == "deleted" || last.Kind == "append" || last.Kind == "baseline" || last.Kind == "prune_failed") && isRecorderCapture(p) {
+			out = append(out, schema.Finding{RuleID: "TRANSCRIPT_DELETED", Severity: "HIGH", Title: "Recorded Capture Deleted Without a Prune Record",
+				Description:  fmt.Sprintf("%s is a black-box recorder capture the monitor journaled, and it is not among the collected files. Retention journals every file it prunes; this one has no prune record, so something else removed it (or it was not collected).", p),
+				EvidenceRefs: []string{jref}, Related: []string{"path: " + p}, Status: schema.StateObserved, Endpoint: schema.StateUnknown, MitreATTACK: "T1070.004"})
+		} else if last.Kind == "deleted" || last.Kind == "append" || last.Kind == "baseline" {
 			out = append(out, schema.Finding{RuleID: "TRANSCRIPT_DELETED", Severity: "INFO", Title: "Journaled Transcript Not in the Case",
 				Description:  fmt.Sprintf("%s was journaled by the monitor but is not among the collected files. Agents clean up old sessions on their own (Claude Code: cleanupPeriodDays); check whether this one was due.", p),
 				EvidenceRefs: []string{jref}, Related: []string{"path: " + p}, Status: schema.StateObserved, Endpoint: schema.StateUnknown, MitreATTACK: "T1070.004"})
@@ -178,6 +215,84 @@ func checkPath(p string, rs []rec, bySource map[string]casepkg.ArtifactRecord, s
 		}
 	}
 	return out
+}
+
+// isRecorderCapture reports whether p is a capture file the monitor itself
+// wrote (~/.agentdfir/monitor/<source>-<UTC>.<ext>), as opposed to an
+// agent transcript.
+func isRecorderCapture(p string) bool {
+	p = strings.ReplaceAll(p, `\`, "/")
+	dir, base := path.Split(p)
+	return strings.HasSuffix(dir, "/.agentdfir/monitor/") && IsCaptureName(base)
+}
+
+// captureNameRe matches recorder capture names (internal/recorder, which
+// imports nothing from here; kept in step with recorder.IsCaptureName).
+var captureNameRe = regexp.MustCompile(`^([a-z0-9][a-z0-9._-]*)-(\d{8}T\d{6}Z)(?:-\d{1,3})?\.(jsonl|log|xml)$`)
+
+// IsCaptureName reports whether a base name is a recorder capture file.
+func IsCaptureName(base string) bool {
+	m := captureNameRe.FindStringSubmatch(base)
+	return m != nil && !strings.HasPrefix(m[1], "journal")
+}
+
+// pruneMismatch compares the last prune record of a capture with the last
+// range journaled before it; "" when the deleted file is what the journal
+// recorded.
+func pruneMismatch(rs []rec) string {
+	var journaled int64
+	var prefix string
+	var prune *rec
+	for i := range rs {
+		switch r := rs[i]; r.Kind {
+		case "baseline":
+			journaled, prefix = r.Size, r.SHA256
+		case "append":
+			journaled, prefix = r.Offset+r.Len, r.Prefix
+		case "prune":
+			prune = &rs[i]
+		}
+	}
+	if prune == nil {
+		return ""
+	}
+	return pruneVerdict(journaled, prefix, prune)
+}
+
+// pruneVerdict checks a prune record against the journal's last range for
+// the file (journaled bytes, running prefix hash). It returns "" only when
+// the deleted file's journaled bytes are shown to be what was journaled;
+// a prune that cannot be checked is reported, never accepted quietly.
+func pruneVerdict(journaled int64, prefix string, prune *rec) string {
+	if prune.JournaledSize != nil && (*prune.JournaledSize != journaled || (prune.Prefix != "" && prune.Prefix != prefix)) {
+		return fmt.Sprintf("its prune record claims %d journaled bytes with a different running hash than the journal's last range (%d bytes)", *prune.JournaledSize, journaled)
+	}
+	switch {
+	case journaled == 0 || prefix == "":
+		return ""
+	case prune.Size < journaled:
+		return fmt.Sprintf("it had %d bytes at deletion while %d had been journaled", prune.Size, journaled)
+	case prune.PrunePrefix != "" && prune.PrunePrefixSz != nil && *prune.PrunePrefixSz == journaled:
+		if prune.PrunePrefix != prefix {
+			return fmt.Sprintf("the SHA-256 of its first %d bytes at deletion differs from the journaled content", journaled)
+		}
+		return ""
+	case prune.Size == journaled:
+		if prune.SHA256 != prefix {
+			return "its SHA-256 at deletion differs from the journaled content"
+		}
+		return ""
+	case prune.PrunePrefix != "":
+		return fmt.Sprintf("its prune record hashes the first %d bytes, but %d were journaled: the journaled range cannot be checked", derefOr(prune.PrunePrefixSz), journaled)
+	}
+	return fmt.Sprintf("it had %d bytes at deletion, %d journaled, and its prune record has no hash of the journaled range: the deleted bytes cannot be checked", prune.Size, journaled)
+}
+
+func derefOr(p *int64) int64 {
+	if p == nil {
+		return 0
+	}
+	return *p
 }
 
 func truncated(p, aref, jref string, have, want int64, at string) schema.Finding {

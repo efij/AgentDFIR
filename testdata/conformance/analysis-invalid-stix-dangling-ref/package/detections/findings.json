@@ -1,0 +1,75 @@
+[
+  {
+    "rule_id": "KNOWN_INCIDENT_IOC",
+    "severity": "CRITICAL",
+    "title": "Indicator of a Known Incident: Conformance incident",
+    "description": "domain:c2.conformance.example observed in a command the agent ran (1 time(s)). First seen 2026-09-20T10:00:02Z (transcript time). Synthetic incident for the conformance fixtures.",
+    "related": [
+      "incident: CONF-1",
+      "indicator: domain:c2.conformance.example",
+      "where: OBSERVED",
+      "surface: command"
+    ],
+    "evidence_refs": [
+      ".claude/projects/-home-dev-app/session.jsonl:2 (artifact ca2fc4a985c4)"
+    ],
+    "status": "CORROBORATED",
+    "endpoint_corroboration": "UNKNOWN",
+    "mitre_atlas": "AML.T0010",
+    "mitre_attack": "T1071.001",
+    "confidence": "MEDIUM",
+    "false_positive_notes": "A security write-up, detection rule or test fixture on disk can carry the same strings; check the evidence location."
+  },
+  {
+    "rule_id": "DESTRUCTIVE_COMMAND",
+    "severity": "MEDIUM",
+    "title": "Potentially Destructive Command",
+    "description": "Agent-invoked shell command matches a destructive pattern: rm -rf ",
+    "session_id": "cccccccc-0001-4000-8000-000000000001",
+    "agent_id": "main:cccccccc-0001-4000-8000-000000000001",
+    "evidence_refs": [
+      ".claude/projects/-home-dev-app/session.jsonl:4 (artifact ca2fc4a985c4, offset 942)"
+    ],
+    "status": "CORROBORATED",
+    "endpoint_corroboration": "CORROBORATED",
+    "mitre_atlas": "AML.T0101",
+    "mitre_attack": "T1485",
+    "confidence": "MEDIUM",
+    "false_positive_notes": "Destructive patterns are common in legitimate development; path context and repo scope decide."
+  },
+  {
+    "rule_id": "UNEXPECTED_NETWORK_DESTINATION",
+    "severity": "LOW",
+    "title": "Network Destination Outside Allowlist",
+    "description": "Agent command contacts c2.conformance.example, not in the default development allowlist or org baseline.",
+    "session_id": "cccccccc-0001-4000-8000-000000000001",
+    "agent_id": "main:cccccccc-0001-4000-8000-000000000001",
+    "evidence_refs": [
+      ".claude/projects/-home-dev-app/session.jsonl:2 (artifact ca2fc4a985c4, offset 256)"
+    ],
+    "status": "CORROBORATED",
+    "endpoint_corroboration": "CORROBORATED",
+    "mitre_attack": "T1071",
+    "confidence": "MEDIUM",
+    "false_positive_notes": "Internal registries and project APIs are common; add via baseline/--known-destinations."
+  },
+  {
+    "rule_id": "SHELL_EXECUTION",
+    "severity": "INFO",
+    "title": "Shell Execution Present",
+    "description": "2 shell command(s) invoked via a shell tool across the collected sessions.",
+    "evidence_refs": [
+      ".claude/projects/-home-dev-app/session.jsonl:2 (artifact ca2fc4a985c4, offset 256)"
+    ],
+    "status": "OBSERVED",
+    "endpoint_corroboration": "UNKNOWN",
+    "mitre_atlas": "AML.T0050",
+    "mitre_attack": "T1059",
+    "confidence": "LOW",
+    "confidence_reasons": [
+      "this rule describes ordinary agent activity and exists as context for the chain rules"
+    ],
+    "class": "building_block",
+    "false_positive_notes": "Expected in virtually every coding-agent session; informational context."
+  }
+]
