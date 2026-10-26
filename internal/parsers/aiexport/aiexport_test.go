@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -475,7 +476,7 @@ func TestOverlayCacheReplay(t *testing.T) {
 		t.Fatalf("stream %d/%d events, %d/%d entities", len(streamed), len(full.Events), len(res.Entities), len(full.Entities))
 	}
 	for i := range streamed {
-		if streamed[i] != full.Events[i] {
+		if !reflect.DeepEqual(streamed[i], full.Events[i]) {
 			t.Fatalf("event %d differs", i)
 		}
 	}
