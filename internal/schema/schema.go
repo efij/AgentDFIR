@@ -204,6 +204,9 @@ type Finding struct {
 	Class         string      `json:"class,omitempty"`
 	FalsePositive string      `json:"false_positive_notes,omitempty"`
 	ChainSteps    []ChainStep `json:"chain_steps,omitempty"` // set only by attack-chain findings: the ordered steps that matched
+	// LinkReason is a sentence naming the value the chain's steps share
+	// (shortened and redacted, never a secret). Set only by linked chains.
+	LinkReason string `json:"link_reason,omitempty"`
 }
 
 // ChainStep is one matched step of an attack chain: which named step, which
@@ -215,6 +218,10 @@ type ChainStep struct {
 	AgentID   string `json:"agent_id,omitempty"`
 	Summary   string `json:"summary,omitempty"`
 	Evidence  string `json:"evidence"`
+	// Link names what joins this step to the previous one when the chain
+	// declares a link (a shared file, tool, destination or agent), with
+	// the value shortened and redacted. Empty for unlinked chains.
+	Link string `json:"link,omitempty"`
 }
 
 // Normalized is the merged output of all parsers for one package.
