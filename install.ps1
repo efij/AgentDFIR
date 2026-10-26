@@ -96,7 +96,17 @@ macOS / Linux: curl -fsSL https://raw.githubusercontent.com/efij/AgentDFIR/main/
       if ($parts.Count -ge 2 -and ($parts[1] -replace '^\*', '') -eq $asset) { $expected = "$($parts[0])".ToLower(); break }
     }
     if (-not $expected) { throw "install.ps1: $asset not listed in SHA256SUMS.txt" }
-    $actual = "$((Get-FileHash -LiteralPath (Join-Path $tmp $asset) -Algorithm SHA256).Hash)".ToLower()
+    $actual = $null
+    try { $actual = "$((Get-FileHash -LiteralPath (Join-Path $tmp $asset) -Algorithm SHA256 -ErrorAction Stop).Hash)".ToLower() } catch {}
+    if (-not $actual) {
+      # Get-FileHash on Windows PowerShell 5.1 can refuse to run in
+      # Constrained Language Mode; certutil ships with every Windows.
+      foreach ($l in (& certutil.exe -hashfile (Join-Path $tmp $asset) SHA256)) {
+        $h = ("$l" -replace '\s', '').ToLower()
+        if ($h -match '^[0-9a-f]{64}$') { $actual = $h; break }
+      }
+    }
+    if (-not $actual) { throw "install.ps1: could not compute the SHA-256 of $asset" }
     if ($expected -ne $actual) { throw "install.ps1: checksum mismatch for $asset`n  expected $expected`n  actual   $actual" }
     Write-Host "checksum ok  $actual"
 
