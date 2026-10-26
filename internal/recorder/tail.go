@@ -36,7 +36,7 @@ func (t *Tailer) open(name string) (*os.File, error) {
 	if t.Open != nil {
 		return t.Open(name)
 	}
-	return os.Open(name)
+	return openTailed(name)
 }
 
 func (t *Tailer) stat(name string) (os.FileInfo, error) {
