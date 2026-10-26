@@ -172,7 +172,6 @@ var revokedAllowed = map[string]string{
 	"internal/mitre/mitre_test.go":   "this test",
 	"internal/reconstruct/stages.go": "stages findings stored by earlier releases",
 	"docs/reconstruct.md":            "documents that backward-compatible mapping",
-	"docs/index.html":                "site page owned by the release workstream; migrate there, then drop this line",
 }
 
 func repoRoot(t *testing.T) string {
