@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/mcpaudit"
+	"github.com/efij/AgentDFIR/v5/internal/mcpaudit"
 )
 
 const (

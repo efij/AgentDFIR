@@ -8,9 +8,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/casepkg"
-	"github.com/efij/AgentDFIR/v4/internal/detect"
-	"github.com/efij/AgentDFIR/v4/internal/mcpaudit"
+	"github.com/efij/AgentDFIR/v5/internal/casepkg"
+	"github.com/efij/AgentDFIR/v5/internal/detect"
+	"github.com/efij/AgentDFIR/v5/internal/mcpaudit"
 )
 
 // Bounds on history work over hostile or very long-lived cases.

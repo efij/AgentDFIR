@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/efij/AgentDFIR/v4/internal/baseline"
-	"github.com/efij/AgentDFIR/v4/internal/sanitize"
+	"github.com/efij/AgentDFIR/v5/internal/baseline"
+	"github.com/efij/AgentDFIR/v5/internal/sanitize"
 )
 
 // cmdDiff compares config-relevant state between two sealed packages.

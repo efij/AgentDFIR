@@ -5,9 +5,9 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/efij/AgentDFIR/v4/internal/decode"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
-	"github.com/efij/AgentDFIR/v4/internal/shellshape"
+	"github.com/efij/AgentDFIR/v5/internal/decode"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/shellshape"
 )
 
 // decoded holds, per event index, the payloads its command decodes to, and

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v4/internal/mitre"
-	"github.com/efij/AgentDFIR/v4/internal/rulepack"
+	"github.com/efij/AgentDFIR/v5/internal/mitre"
+	"github.com/efij/AgentDFIR/v5/internal/rulepack"
 )
 
 // ruleIDRe matches every way the code base names a finding rule:

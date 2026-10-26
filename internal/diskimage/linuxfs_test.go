@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	fx "github.com/efij/AgentDFIR/v4/internal/diskimage/internal/fixture"
+	fx "github.com/efij/AgentDFIR/v5/internal/diskimage/internal/fixture"
 )
 
 // The fixtures below were made by qemu-img, mkfs.btrfs, mkfs.xfs and the

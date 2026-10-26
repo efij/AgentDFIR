@@ -16,7 +16,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/shellshape"
+	"github.com/efij/AgentDFIR/v5/internal/shellshape"
 )
 
 // Match is one headless, permission-bypassing agent CLI invocation.

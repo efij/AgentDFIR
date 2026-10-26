@@ -6,13 +6,13 @@ import (
 	"io"
 	"io/fs"
 
-	"github.com/efij/AgentDFIR/v4/internal/diskimage/apfs"
-	"github.com/efij/AgentDFIR/v4/internal/diskimage/btrfs"
-	"github.com/efij/AgentDFIR/v4/internal/diskimage/ext4"
-	"github.com/efij/AgentDFIR/v4/internal/diskimage/fat"
-	"github.com/efij/AgentDFIR/v4/internal/diskimage/hfsplus"
-	"github.com/efij/AgentDFIR/v4/internal/diskimage/ntfs"
-	"github.com/efij/AgentDFIR/v4/internal/diskimage/xfs"
+	"github.com/efij/AgentDFIR/v5/internal/diskimage/apfs"
+	"github.com/efij/AgentDFIR/v5/internal/diskimage/btrfs"
+	"github.com/efij/AgentDFIR/v5/internal/diskimage/ext4"
+	"github.com/efij/AgentDFIR/v5/internal/diskimage/fat"
+	"github.com/efij/AgentDFIR/v5/internal/diskimage/hfsplus"
+	"github.com/efij/AgentDFIR/v5/internal/diskimage/ntfs"
+	"github.com/efij/AgentDFIR/v5/internal/diskimage/xfs"
 )
 
 // Filesystem is one registered read-only filesystem reader.

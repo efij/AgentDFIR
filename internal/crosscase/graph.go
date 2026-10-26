@@ -47,11 +47,11 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/efij/AgentDFIR/v4/internal/catalog"
-	"github.com/efij/AgentDFIR/v4/internal/detect"
-	"github.com/efij/AgentDFIR/v4/internal/lineage"
-	"github.com/efij/AgentDFIR/v4/internal/netdest"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/catalog"
+	"github.com/efij/AgentDFIR/v5/internal/detect"
+	"github.com/efij/AgentDFIR/v5/internal/lineage"
+	"github.com/efij/AgentDFIR/v5/internal/netdest"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // GraphSchema identifies the graph document (the `graph` member of the

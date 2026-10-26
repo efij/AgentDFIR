@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // Run evaluates all rules and returns findings ordered by severity.

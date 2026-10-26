@@ -34,14 +34,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/chain"
-	"github.com/efij/AgentDFIR/v4/internal/correlate"
-	"github.com/efij/AgentDFIR/v4/internal/crosscase"
-	"github.com/efij/AgentDFIR/v4/internal/detect"
-	"github.com/efij/AgentDFIR/v4/internal/gaps"
-	"github.com/efij/AgentDFIR/v4/internal/lineage"
-	"github.com/efij/AgentDFIR/v4/internal/netdest"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/chain"
+	"github.com/efij/AgentDFIR/v5/internal/correlate"
+	"github.com/efij/AgentDFIR/v5/internal/crosscase"
+	"github.com/efij/AgentDFIR/v5/internal/detect"
+	"github.com/efij/AgentDFIR/v5/internal/gaps"
+	"github.com/efij/AgentDFIR/v5/internal/lineage"
+	"github.com/efij/AgentDFIR/v5/internal/netdest"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // Schema identifies the document this package writes.

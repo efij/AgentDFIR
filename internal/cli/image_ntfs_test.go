@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v4/internal/casepkg"
-	"github.com/efij/AgentDFIR/v4/internal/diskimage"
-	"github.com/efij/AgentDFIR/v4/internal/diskimage/ntfs"
+	"github.com/efij/AgentDFIR/v5/internal/casepkg"
+	"github.com/efij/AgentDFIR/v5/internal/diskimage"
+	"github.com/efij/AgentDFIR/v5/internal/diskimage/ntfs"
 )
 
 func TestCollectImageNTFSArtifacts(t *testing.T) {

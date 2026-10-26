@@ -17,10 +17,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/accounts"
-	"github.com/efij/AgentDFIR/v4/internal/casepkg"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
-	"github.com/efij/AgentDFIR/v4/internal/shellshape"
+	"github.com/efij/AgentDFIR/v5/internal/accounts"
+	"github.com/efij/AgentDFIR/v5/internal/casepkg"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/shellshape"
 )
 
 // RunAgentRules evaluates the v4 agent-behaviour rules over the decoded

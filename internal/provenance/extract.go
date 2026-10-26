@@ -9,9 +9,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 
-	"github.com/efij/AgentDFIR/v4/internal/casepkg"
+	"github.com/efij/AgentDFIR/v5/internal/casepkg"
 )
 
 // extractWrite re-reads the raw transcript line behind a tool_call event

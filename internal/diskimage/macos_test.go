@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v4/internal/diskimage/apfs"
+	"github.com/efij/AgentDFIR/v5/internal/diskimage/apfs"
 )
 
 // The macOS fixtures are made by hdiutil/diskutil (testdata/gen-macos.sh).

@@ -3,8 +3,8 @@ package detect
 import (
 	"testing"
 
-	"github.com/efij/AgentDFIR/v4/internal/parsers/claudejsonl"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/parsers/claudejsonl"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // The parser emits a permission_change event at the line where the mode

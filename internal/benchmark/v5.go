@@ -14,16 +14,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/analysis"
-	"github.com/efij/AgentDFIR/v4/internal/catalog"
-	"github.com/efij/AgentDFIR/v4/internal/chain"
-	"github.com/efij/AgentDFIR/v4/internal/crosscase"
-	"github.com/efij/AgentDFIR/v4/internal/mitre"
-	"github.com/efij/AgentDFIR/v4/internal/mitre/coverage"
-	"github.com/efij/AgentDFIR/v4/internal/normalize"
-	"github.com/efij/AgentDFIR/v4/internal/overlay"
-	"github.com/efij/AgentDFIR/v4/internal/rulepack"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/analysis"
+	"github.com/efij/AgentDFIR/v5/internal/catalog"
+	"github.com/efij/AgentDFIR/v5/internal/chain"
+	"github.com/efij/AgentDFIR/v5/internal/crosscase"
+	"github.com/efij/AgentDFIR/v5/internal/mitre"
+	"github.com/efij/AgentDFIR/v5/internal/mitre/coverage"
+	"github.com/efij/AgentDFIR/v5/internal/normalize"
+	"github.com/efij/AgentDFIR/v5/internal/overlay"
+	"github.com/efij/AgentDFIR/v5/internal/rulepack"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // The v5 suites: the rules and chains v5 added, measured on labeled

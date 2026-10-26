@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/diskimage/ntfs"
+	"github.com/efij/AgentDFIR/v5/internal/diskimage/ntfs"
 )
 
 const (

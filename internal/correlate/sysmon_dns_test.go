@@ -4,8 +4,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v4/internal/endpoint"
-	w "github.com/efij/AgentDFIR/v4/internal/endpoint/evtx/evtxtest"
+	"github.com/efij/AgentDFIR/v5/internal/endpoint"
+	w "github.com/efij/AgentDFIR/v5/internal/endpoint/evtx/evtxtest"
 )
 
 // Sysmon event 22 is a process-attributed DNS query. Read from the XML

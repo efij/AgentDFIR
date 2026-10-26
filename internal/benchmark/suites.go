@@ -145,7 +145,7 @@ func isRepoRoot(dir string) bool {
 // module line is matched after trimming, not byte for byte.
 func declaresModule(gomod []byte) bool {
 	for _, line := range bytes.Split(gomod, []byte("\n")) {
-		if string(bytes.TrimSpace(line)) == "module github.com/efij/AgentDFIR/v4" {
+		if string(bytes.TrimSpace(line)) == "module github.com/efij/AgentDFIR/v5" {
 			return true
 		}
 	}

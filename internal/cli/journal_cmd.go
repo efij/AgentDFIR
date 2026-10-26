@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/efij/AgentDFIR/v4/internal/hashchain"
-	"github.com/efij/AgentDFIR/v4/internal/journal"
-	"github.com/efij/AgentDFIR/v4/internal/sanitize"
+	"github.com/efij/AgentDFIR/v5/internal/hashchain"
+	"github.com/efij/AgentDFIR/v5/internal/journal"
+	"github.com/efij/AgentDFIR/v5/internal/sanitize"
 )
 
 // cmdJournal: agentdfir journal verify [path] [--anchor <head>].

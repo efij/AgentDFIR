@@ -14,7 +14,7 @@ package chain
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/efij/AgentDFIR/v4/internal/netdest"
+	"github.com/efij/AgentDFIR/v5/internal/netdest"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -23,9 +23,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/redact"
-	"github.com/efij/AgentDFIR/v4/internal/rulepack"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/redact"
+	"github.com/efij/AgentDFIR/v5/internal/rulepack"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // Step is one predicate in a chain. Every non-empty field must hold for an

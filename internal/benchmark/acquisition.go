@@ -18,7 +18,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/diskimage"
+	"github.com/efij/AgentDFIR/v5/internal/diskimage"
 )
 
 // Acquisition is the disk-image section: every disk-image fixture in the

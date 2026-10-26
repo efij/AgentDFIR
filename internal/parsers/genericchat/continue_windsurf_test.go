@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // A Continue agent-mode session in the shape Continue 1.x writes: wrapped

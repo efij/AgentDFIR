@@ -142,8 +142,7 @@ contiguous) passes as DISPROVED either way.
 
 ## Current numbers
 
-The v5 integration branch (`feat/v5-bench`; the binary still reports
-4.5.0 until the version bump), `benchmark --no-perf --repo .` from a source
+AgentDFIR 5.0.0, `benchmark --no-perf --repo .` from a source
 checkout, darwin/arm64, go1.27.1, on a machine shared with parallel builds
 (wall time not meaningful). Synthetic.
 

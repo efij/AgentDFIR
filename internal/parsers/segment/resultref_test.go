@@ -3,7 +3,7 @@ package segment
 import (
 	"testing"
 
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // A cached segment moved to a new base keeps its call/result pairing: the

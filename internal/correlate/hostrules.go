@@ -11,8 +11,8 @@ import (
 	"unicode/utf16"
 	"unicode/utf8"
 
-	"github.com/efij/AgentDFIR/v4/internal/endpoint"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/endpoint"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // Host-witness rules added in v4.5 after a dedupe of the proposed

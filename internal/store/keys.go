@@ -11,8 +11,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/hashchain"
-	"github.com/efij/AgentDFIR/v4/internal/seal"
+	"github.com/efij/AgentDFIR/v5/internal/hashchain"
+	"github.com/efij/AgentDFIR/v5/internal/seal"
 )
 
 // The machine sealing key.

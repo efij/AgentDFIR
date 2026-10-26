@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/ioc"
-	"github.com/efij/AgentDFIR/v4/internal/repro"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/ioc"
+	"github.com/efij/AgentDFIR/v5/internal/repro"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 func stixFixture() STIXInput {

@@ -16,10 +16,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/catalog"
-	"github.com/efij/AgentDFIR/v4/internal/chain"
-	"github.com/efij/AgentDFIR/v4/internal/mitre"
-	"github.com/efij/AgentDFIR/v4/internal/rulepack"
+	"github.com/efij/AgentDFIR/v5/internal/catalog"
+	"github.com/efij/AgentDFIR/v5/internal/chain"
+	"github.com/efij/AgentDFIR/v5/internal/mitre"
+	"github.com/efij/AgentDFIR/v5/internal/rulepack"
 )
 
 // Row is one ATLAS technique in the report.

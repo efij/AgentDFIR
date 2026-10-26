@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	w "github.com/efij/AgentDFIR/v4/internal/endpoint/evtx/evtxtest"
+	w "github.com/efij/AgentDFIR/v5/internal/endpoint/evtx/evtxtest"
 )
 
 // All fixtures here are synthetic (internal/endpoint/evtx/evtxtest): real

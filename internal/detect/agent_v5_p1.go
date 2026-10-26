@@ -3,7 +3,7 @@
 //
 // Each rule was checked against the existing catalog first; the dedupe
 // verdicts, thresholds and what each rule deliberately does not cover are in
-// docs/detection-v5-p1.md. None of them states an intent. Autonomous
+// docs/detection-v5.md. None of them states an intent. Autonomous
 // discovery can be legitimate, a sequence is not causation, a definition
 // that omits a tool is not proof the call was unauthorized when it ran, and
 // a field the parser did not fill is never read as "clean".
@@ -21,11 +21,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/accounts"
-	"github.com/efij/AgentDFIR/v4/internal/casepkg"
-	"github.com/efij/AgentDFIR/v4/internal/netdest"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
-	"github.com/efij/AgentDFIR/v4/internal/shellshape"
+	"github.com/efij/AgentDFIR/v5/internal/accounts"
+	"github.com/efij/AgentDFIR/v5/internal/casepkg"
+	"github.com/efij/AgentDFIR/v5/internal/netdest"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/shellshape"
 )
 
 // agentRulesV5P1 runs the v5 P1/P2 rules. man may be nil: the delegation

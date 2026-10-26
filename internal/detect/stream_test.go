@@ -9,8 +9,8 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v4/internal/normalize"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/normalize"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // writeOverlayForTest streams a package's events to the overlay the way

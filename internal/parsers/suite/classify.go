@@ -7,7 +7,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/parsers/plaso"
+	"github.com/efij/AgentDFIR/v5/internal/parsers/plaso"
 )
 
 // Collector rules for forensic-suite export artifacts. RuleUFDRReport is

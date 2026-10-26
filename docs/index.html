@@ -427,7 +427,7 @@ footer a:hover{color:var(--text)}
       AgentDFIR
     </a>
     <nav class="nav-links" aria-label="Main">
-      <a href="#v45">New in v4.5</a>
+      <a href="#v5">New in v5</a>
       <a href="#evidence">Evidence</a>
       <a href="#chains">Attack chains</a>
       <a href="#incidents">Incidents</a>
@@ -438,7 +438,7 @@ footer a:hover{color:var(--text)}
       <a href="#docs">Docs</a>
     </nav>
     <div class="nav-r">
-      <a class="ver" href="https://github.com/efij/AgentDFIR/releases/latest">v4.5.0</a>
+      <a class="ver" href="https://github.com/efij/AgentDFIR/releases/latest">v5.0.0</a>
       <a class="btn" href="https://github.com/efij/AgentDFIR">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55v-2.17c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.75 2.69 1.25 3.35.95.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.79 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.12 3.05.74.81 1.18 1.83 1.18 3.09 0 4.41-2.69 5.38-5.25 5.66.41.35.77 1.05.77 2.12v3.15c0 .3.21.66.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></svg>
         GitHub
@@ -453,7 +453,7 @@ footer a:hover{color:var(--text)}
   <div class="wrap">
     <div class="hero-grid">
       <div>
-        <a class="status" href="https://github.com/efij/AgentDFIR/blob/main/CHANGELOG.md"><i aria-hidden="true"></i>v4.5.0 — action proof, macOS and Linux images, eslogger and eBPF witnesses, suite exports</a>
+        <a class="status" href="https://github.com/efij/AgentDFIR/blob/main/CHANGELOG.md"><i aria-hidden="true"></i>v5.0.0 — ATLAS coverage engine, evidence-aware detections, cross-case graph</a>
         <h1 id="h1">Incident response for <span class="a">AI agents</span>.</h1>
         <p class="sub">Claude Code, Codex, Cursor and thirteen other agents run shell commands, read credentials and call MCP servers with your privileges. AgentDFIR acquires what they leave on disk into sealed, hash-chained evidence, reconstructs the attack chain, and puts the exact log line behind every finding.</p>
         <div class="ctas">
@@ -486,9 +486,9 @@ footer a:hover{color:var(--text)}
 
     <div class="spec stg" role="list">
       <div role="listitem"><b>16</b><span>AI agents parsed</span></div>
-      <div role="listitem"><b>217</b><span>deterministic detections</span></div>
-      <div role="listitem"><b>13</b><span>attack chains</span></div>
-      <div role="listitem"><b>ATLAS 5.6</b><span>+ ATT&amp;CK mapping</span></div>
+      <div role="listitem"><b>236</b><span>deterministic detections</span></div>
+      <div role="listitem"><b>20</b><span>attack chains</span></div>
+      <div role="listitem"><b>ATLAS 2026.09</b><span>+ ATT&amp;CK v20 mapping</span></div>
       <div role="listitem"><b>SHA-256</b><span>sealed, hash-chained</span></div>
       <div role="listitem"><b>0</b><span>runtime dependencies</span></div>
     </div>
@@ -561,18 +561,20 @@ footer a:hover{color:var(--text)}
   <div class="wrap split rev">
     <div class="rv">
       <h2>Seven hundred alerts are not an answer. The chain is.</h2>
-      <p class="sub" style="margin-top:18px">Attack chains match ordered steps inside one session: harmless alone, an incident together. Each match is one finding with the steps, the root cause marked, and the event that proves every step.</p>
+      <p class="sub" style="margin-top:18px">Attack chains match ordered steps inside one session, or across the case when the steps share a file, host, tool or target: harmless alone, an incident together. Each match is one finding with the steps, the root cause marked, and the event that proves every step.</p>
       <ul class="stg chains">
         <li><span><span class="sev c">CRIT</span>Secret read, then data left the host</span><code>AML.T0086 · T1048</code></li>
         <li><span><span class="sev c">CRIT</span>Tool result rewrote instructions, then code ran</span><code>AML.T0080.000 · T1059</code></li>
         <li><span><span class="sev c">CRIT</span>Poisoned MCP result, then a destructive command</span><code>AML.T0099 · T1485</code></li>
-        <li><span><span class="sev c">CRIT</span>Orphan agent changed config, then acted</span><code>AML.T0081 · T1562.001</code></li>
+        <li><span><span class="sev c">CRIT</span>Orphan agent changed config, then acted</span><code>AML.T0081 · T1685</code></li>
         <li><span><span class="sev c">CRIT</span>Risky action, then the agent's logs deleted</span><code>AML.T0101 · T1070.004</code></li>
         <li><span><span class="sev h">HIGH</span>Injected instructions, then code pushed</span><code>AML.T0010 · T1195.002</code></li>
         <li><span><span class="sev h">HIGH</span>Subagent cross-talk, then exfiltration</span><code>AML.T0086 · T1048</code></li>
         <li><span><span class="sev h">HIGH</span>Secret staged, then sent through another tool</span><code>AML.T0086 · T1567</code></li>
         <li><span><span class="sev h">HIGH</span>MCP result, then a credential read or permission grant</span><code>AML.T0099 · T1552</code></li>
-        <li><span><span class="sev h">HIGH</span>Permissions widened, then impact</span><code>AML.T0081 · T1562.001</code></li>
+        <li><span><span class="sev h">HIGH</span>Permissions widened, then impact</span><code>AML.T0081 · T1685</code></li>
+        <li><span><span class="sev c">CRIT</span>Tool response, then credentials read and sent out</span><code>AML.T0110.002 · T1567</code></li>
+        <li><span><span class="sev h">HIGH</span>MCP tool changed under the agent, then an action</span><code>AML.T0109 · T1195.002</code></li>
         <li><span><span class="sev m">MED</span>Download, then execute</span><code>T1105</code></li>
       </ul>
       <a class="more" href="https://github.com/efij/AgentDFIR/blob/main/docs/attack-chains.md">Write your own chains in JSON</a>
@@ -620,8 +622,39 @@ footer a:hover{color:var(--text)}
   </div>
 </section>
 
-<section id="v45" class="band">
+<section id="v5" class="band">
   <div class="wrap split">
+    <div class="rv">
+      <h2>MITRE coverage you can check. Detections that read the tool call.</h2>
+      <p class="sub" style="margin-top:18px">New in v5. Every ATLAS technique is classified for whether an offline forensic tool can see it at all, tool calls carry what they did without carrying what they said, and cross-case joins say how strong they are. A missing finding is never proof that nothing happened.</p>
+      <ul class="stg points">
+        <li><b><code>rules coverage</code> — all 208 ATLAS techniques.</b> ATLAS 2026.09 and ATT&amp;CK Enterprise v20.0, pinned by SHA-256. 63 direct, 41 supporting, 14 unobservable, 90 out of scope; 30 of 31 P0 observable techniques have a rule or chain, and the one without (<code>AML.T0077</code>) has a written exception. OWASP LLM 2025 and Agentic 2026 references per technique. Six revoked ATT&amp;CK IDs found by strict validation are migrated, on the record.</li>
+        <li><b>Evidence-aware detections.</b> Tool calls carry argument and result digests, argument names, a few allowlisted and redacted identifiers, the recorded outcome and the recorded approval, never the raw arguments. Ten new rules read them: credentials in an external tool call, an MCP call that breaks its declaration, MCP identity drift, changes in plan mode, permission widened with no recorded approval, recon sweeps, a different method after a block, subagents outside their definition, call loops, actions after non-text input.</li>
+        <li><b>Linked chains.</b> Seven new chains, twenty built in. Steps can be required to share a file, host, tool call, MCP tool, skill or target, and the finding names the shared value (<code>link_reason</code>, redacted).</li>
+        <li><b><code>correlate-cases --graph</code>.</b> Strong joins (session, agent, delegation or tool-call id, commit, file hash, principal plus resource), moderate and weak ones, each with its time relation and evidence on both sides. Weak joins never raise a finding.</li>
+      </ul>
+    </div>
+    <div class="rv">
+      <div class="panel">
+        <div class="ph"><span>$ agentdfir rules coverage</span><span class="ok">exit 0</span></div>
+<pre>  ATLAS        CLASS       PRI  DET  NAME
+  AML.T0086    direct      P0   18   Exfiltration via
+                                     AI Agent Tool Invocation
+  AML.T0109    direct      P0   6    AI Supply Chain Rug Pull
+  AML.T0117    direct      P1   3    Autonomous Attack-Path
+                                     Adaptation
+  AML.T0077    supporting  P0   exc  LLM Response Rendering
+
+  <b>208/208 classified</b>; P0 observable covered 30/31
+<span class="c"># covered = a rule is mapped, not every variant detected</span></pre>
+      </div>
+      <p class="sub" style="margin-top:18px;font-size:15px">These rules decide no intent: a schema mismatch is not a compromise, a missing approval record is not an unauthorized action, autonomous recon can be legitimate, and a sequence is not causation. A field a parser did not record means no finding, not a clean result. Fixtures are synthetic. <a class="more" style="margin:0" href="https://github.com/efij/AgentDFIR/blob/main/docs/detection-v5.md">Rules, dedupe and limits</a></p>
+    </div>
+  </div>
+</section>
+
+<section id="v45">
+  <div class="wrap split rev">
     <div class="rv">
       <h2>The proof behind every action, and how complete it is.</h2>
       <p class="sub" style="margin-top:18px">New in v4.5. Every tool call can be shown as one evidence chain, with the telemetry coverage behind its state and the collection health of every telemetry file. A gap in the telemetry is a reason to look, never proof that nothing happened.</p>
@@ -653,8 +686,8 @@ footer a:hover{color:var(--text)}
   </div>
 </section>
 
-<section id="v4">
-  <div class="wrap split rev">
+<section id="v4" class="band">
+  <div class="wrap split">
     <div class="rv">
       <h2>From coding agents to every AI evidence source.</h2>
       <p class="sub" style="margin-top:18px">New in v4.0. The evidence an investigation runs into is not always a transcript on a live machine. Each new source says plainly what it can prove, and what it reports as unsupported instead of guessing.</p>
@@ -688,7 +721,7 @@ footer a:hover{color:var(--text)}
     EDR process events) covering 10:00–10:01 UTC
     would verify 1 shell command(s).</pre>
       </div>
-      <p class="sub" style="margin-top:18px;font-size:15px">Synthetic benchmark, stated as such: 100% precision and recall on its own labeled fixtures, which is not real-world accuracy; 24 of 24 tamper mutations detected; 0 dangling provenance references; packages from five earlier releases still verify. <a class="more" style="margin:0" href="https://github.com/efij/AgentDFIR/blob/main/docs/benchmark.md">How it is measured</a></p>
+      <p class="sub" style="margin-top:18px;font-size:15px">Synthetic corpus, stated as such: 100% precision and recall on its own labeled fixtures, which is not real-world accuracy (independent-corpus metrics are separate); 24 of 24 tamper mutations detected; 0 dangling provenance references; packages from five earlier releases still verify. <a class="more" style="margin:0" href="https://github.com/efij/AgentDFIR/blob/main/docs/benchmark.md">How it is measured</a></p>
     </div>
   </div>
 </section>
@@ -851,7 +884,7 @@ Result:             <span class="bad">FAILED — 2 problem(s):</span>
         </tbody>
       </table>
     </div>
-    <a class="more" href="https://github.com/efij/AgentDFIR/blob/main/docs/detection-coverage.md">Full matrix: 217 detections, 28 ATLAS and 80 ATT&amp;CK techniques</a>
+    <a class="more" href="https://github.com/efij/AgentDFIR/blob/main/docs/detection-coverage.md">Full matrix: 236 detections, 37 ATLAS and 82 ATT&amp;CK techniques</a> · <a class="more" href="https://github.com/efij/AgentDFIR/blob/main/docs/atlas-coverage.md">All 208 ATLAS techniques, classified</a>
 
     <div class="stg integ" style="margin-top:56px">
       <div><h3>Collect from anywhere</h3><p>this machine · --path · --import KAPE/Velociraptor/CyLR<br>--image E01 · raw · VHD(X) · VMDK · QCOW2 · DMG<br>NTFS · ext · XFS · Btrfs · LVM2 · APFS · HFS+<br>--suite-export UFDR · AXIOM · Plaso · Autopsy<br>--ai-export ChatGPT · Claude.ai · DeepSeek · Gemini<br>--docker · --archive CI</p></div>
@@ -879,7 +912,7 @@ Result:             <span class="bad">FAILED — 2 problem(s):</span>
       <div><span>Chocolatey</span><code>choco install agentdfir</code></div>
       <div><span>Scoop</span><code>scoop bucket add agentdfir https://github.com/efij/scoop-agentdfir; scoop install agentdfir</code></div>
       <div><span>Windows (cmd or PowerShell)</span><code>powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex"</code></div>
-      <div><span>Go</span><code>go install github.com/efij/AgentDFIR/v4/cmd/agentdfir@latest</code></div>
+      <div><span>Go</span><code>go install github.com/efij/AgentDFIR/v5/cmd/agentdfir@latest</code></div>
       <div><span>Verify a release</span><span>Every asset ships a Sigstore bundle; <code>cosign verify-blob --offline</code> works air-gapped. <a class="more" style="margin:0" href="https://github.com/efij/AgentDFIR/blob/main/docs/install.md">Exact command</a></span></div>
     </div>
   </div>
@@ -895,9 +928,9 @@ Result:             <span class="bad">FAILED — 2 problem(s):</span>
         <details><summary>Is anything sent off the machine?</summary><p>No. No account, no cloud, no telemetry, no language model in the analysis. The explorer binds to 127.0.0.1, serves a strict CSP with no external resources, and never writes to the sealed evidence.</p></details>
       </div>
       <div>
-        <details open><summary>What is an attack chain?</summary><p>An ordered sequence of agent events that is unremarkable alone and an attack together: instruction-override content in a tool result, then the agent writing its own settings, then a shell command, in one session within a time window. Thirteen chains ship built in; you can add your own in JSON.</p></details>
+        <details open><summary>What is an attack chain?</summary><p>An ordered sequence of agent events that is unremarkable alone and an attack together: instruction-override content in a tool result, then the agent writing its own settings, then a shell command, in one session within a time window. Twenty chains ship built in; you can add your own in JSON.</p></details>
         <details><summary>Does it work on a disk image or a KAPE collection?</summary><p>Yes. <code>collect --image</code> reads an E01, raw, VHD, VHDX, VMDK, QCOW2, <code>.dmg</code> or sparsebundle image directly, without mounting it (NTFS with its USN journal, deleted records and shadow copies, ext2/3/4, FAT, exFAT, XFS, Btrfs, LVM2, APFS and HFS+; encrypted and unsupported volumes are named, with the route to read them), <code>--suite-export</code> reads UFDR, AXIOM, Plaso and Autopsy exports, <code>collect --path</code> takes a copied home or a mounted image, <code>--import</code> takes a KAPE, Velociraptor or CyLR tree with every user and every agent, <code>--docker</code> snapshots a container read-only and <code>--archive</code> ingests CI artifacts and support bundles.</p></details>
-        <details><summary>What does it detect?</summary><p>217 deterministic rules: orphan agents, cross-agent messaging, destructive and exfiltrating commands, agents editing their own instructions or hooks, credentials read from agent config, poisoned or unpinned MCP servers, honeytoken hits and transcript integrity gaps. See the <a href="https://github.com/efij/AgentDFIR/blob/main/docs/detection-coverage.md">coverage matrix</a>.</p></details>
+        <details><summary>What does it detect?</summary><p>236 deterministic rules: orphan agents, cross-agent messaging, destructive and exfiltrating commands, agents editing their own instructions or hooks, credentials read from agent config, poisoned or unpinned MCP servers, honeytoken hits and transcript integrity gaps. See the <a href="https://github.com/efij/AgentDFIR/blob/main/docs/detection-coverage.md">coverage matrix</a>.</p></details>
       </div>
     </div>
   </div>
@@ -915,7 +948,7 @@ Result:             <span class="bad">FAILED — 2 problem(s):</span>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/evidence-authentication.md"><b>Evidence authentication</b><span>Seal chain, custody package, FRE 902(13)/(14) certification. Not legal advice.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/selfcheck.md"><b>Offline self-check</b><span>Prove on your own machine: no socket, no child process, no stray writes.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/serve.md"><b>Case explorer</b><span>Overview, findings, story diagram, coverage, lineage, AI conversations, compare.</span></a>
-      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/detection-coverage.md"><b>Detection coverage</b><span>217 detections mapped to MITRE ATLAS 5.6 and ATT&amp;CK.</span></a>
+      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/detection-coverage.md"><b>Detection coverage</b><span>236 detections mapped to MITRE ATLAS 2026.09 and ATT&amp;CK v20.0.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/action-proof.md"><b>Action proof</b><span>Per-action evidence chain, per-kind coverage, collection health.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/macos-filesystems.md"><b>macOS filesystems</b><span>APFS, HFS+, DMG, sparsebundle; what is UNSUPPORTED.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/linux-filesystems.md"><b>Linux filesystems</b><span>XFS, Btrfs, QCOW2, LVM2; what is UNSUPPORTED.</span></a>
@@ -925,10 +958,12 @@ Result:             <span class="bad">FAILED — 2 problem(s):</span>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/black-box-recorder.md"><b>Black-box recorder</b><span>monitor --record: journaled transcripts, OS telemetry, MCP config changes.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/reconstruct.md"><b>Reconstruct</b><span>One incident across hosts: timeline, delegation, hand-offs, stages.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/supply-chain.md"><b>Agent supply chain</b><span>Skills, plugins, hooks, MCP servers: origin, hash history, drift.</span></a>
+      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/atlas-coverage.md"><b>ATLAS coverage</b><span>All 208 ATLAS techniques: observable or not, rules, tests, OWASP, exceptions.</span></a>
+      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/detection-v5.md"><b>v5 detections</b><span>Rules on structured tool-call evidence, dedupe decisions and limits.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/detection-v45.md"><b>v4.5 detections</b><span>Host-witness rules and chains, and the proposals already covered.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/open-evidence-standard.md"><b>Verify without trusting us</b><span>What a third party can check, and how, with the Python verifier.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/detection-v4.md"><b>v4 detections</b><span>New agent-behaviour rules and chains, and why some proposals were not built.</span></a>
-      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/attack-chains.md"><b>Attack chains</b><span>The thirteen built-in chains and how to write your own.</span></a>
+      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/attack-chains.md"><b>Attack chains</b><span>The twenty built-in chains, link conditions and how to write your own.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/claude-code-forensic-artifacts.md"><b>Claude Code artifacts</b><span>Every on-disk location and the JSONL session schema.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/mcp-audit.md"><b>MCP supply-chain audit</b><span>Inventory, risky configuration, poisoning and drift.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/endpoint-corroboration.md"><b>Endpoint corroboration</b><span>auditd, Sysmon, raw .evtx incl. registry, task and WMI events, EDR, DNS, proxy, auth and cloud audit logs.</span></a>
@@ -941,7 +976,7 @@ Result:             <span class="bad">FAILED — 2 problem(s):</span>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/ai-service-exports.md"><b>AI-service exports</b><span>ChatGPT, Claude.ai, DeepSeek, Gemini Takeout, UFDR layout.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/browser-ai-sessions.md"><b>Browser AI sessions</b><span>Opt-in: AI-service visits from browser history, never content.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/ai-ide-products.md"><b>Continue and Windsurf</b><span>Collectors, parsed sessions and what stays UNSUPPORTED.</span></a>
-      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/investigation-graph.md"><b>Gaps, lineage, cross-case</b><span>What a case does not show, who did what, what cases share.</span></a>
+      <a href="https://github.com/efij/AgentDFIR/blob/main/docs/investigation-graph.md"><b>Gaps, lineage, cross-case</b><span>What a case does not show, who did what, what cases share; the graded cross-case graph.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/extensions-plugins.md"><b>Extensions and plugins</b><span>IDE extensions, agent plugins and skills: hidden loaders, remote hooks.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/ediscovery.md"><b>eDiscovery</b><span>RSMF 2.0, production sets, derivative-only redaction.</span></a>
       <a href="https://github.com/efij/AgentDFIR/blob/main/docs/benchmark.md"><b>Benchmark</b><span>Synthetic accuracy, tamper detection, an independent Python verifier.</span></a>
@@ -986,7 +1021,7 @@ Result:             <span class="bad">FAILED — 2 problem(s):</span>
     win:['>','powershell -NoProfile -ExecutionPolicy Bypass -Command "[Environment]::SetEnvironmentVariable(\'AGENTDFIR_RUN\',\'1\'); irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex"'],
     brew:['$','brew install efij/agentdfir/agentdfir && agentdfir run'],
     choco:['>','choco install agentdfir -y\nagentdfir run'],
-    go:['$','go install github.com/efij/AgentDFIR/v4/cmd/agentdfir@latest && agentdfir run']};
+    go:['$','go install github.com/efij/AgentDFIR/v5/cmd/agentdfir@latest && agentdfir run']};
   var os=/Win/.test(navigator.platform||navigator.userAgent)?'win':'unix';
   var body=document.getElementById('cmd-body'),p=document.getElementById('cmd-p'),tabs=document.querySelectorAll('.term-top button'),btn=document.getElementById('copy');
   function pick(k){os=k;p.textContent=C[k][0];body.textContent=C[k][1];tabs.forEach(function(t){t.setAttribute('aria-selected',String(t.dataset.os===k))})}

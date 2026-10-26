@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/endpoint"
-	w "github.com/efij/AgentDFIR/v4/internal/endpoint/evtx/evtxtest"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/endpoint"
+	w "github.com/efij/AgentDFIR/v5/internal/endpoint/evtx/evtxtest"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 func decisionOf(res *EndpointResult, id string) CoverageDecision {

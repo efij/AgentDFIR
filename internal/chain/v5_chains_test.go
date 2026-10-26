@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // step5 is one event of a v5 scenario and the finding rules that cite it.

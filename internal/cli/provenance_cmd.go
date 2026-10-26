@@ -7,9 +7,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/efij/AgentDFIR/v4/internal/overlay"
-	"github.com/efij/AgentDFIR/v4/internal/provenance"
-	"github.com/efij/AgentDFIR/v4/internal/sanitize"
+	"github.com/efij/AgentDFIR/v5/internal/overlay"
+	"github.com/efij/AgentDFIR/v5/internal/provenance"
+	"github.com/efij/AgentDFIR/v5/internal/sanitize"
 )
 
 const provenanceUsage = `usage: agentdfir provenance <package-dir> [file] [--json] [--all-lines]

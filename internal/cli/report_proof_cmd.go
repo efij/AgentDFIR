@@ -7,8 +7,8 @@ import (
 	"io"
 	"os"
 
-	"github.com/efij/AgentDFIR/v4/internal/analysis"
-	"github.com/efij/AgentDFIR/v4/internal/proof"
+	"github.com/efij/AgentDFIR/v5/internal/analysis"
+	"github.com/efij/AgentDFIR/v5/internal/proof"
 )
 
 const reportProofUsage = `usage: agentdfir report <package-dir> --format proof [--json] [--session ID] [--max N] [--out file]

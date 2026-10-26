@@ -6,13 +6,13 @@ package detect
 import (
 	"bytes"
 	"fmt"
-	"github.com/efij/AgentDFIR/v4/internal/secretpat"
-	"github.com/efij/AgentDFIR/v4/internal/shellshape"
+	"github.com/efij/AgentDFIR/v5/internal/secretpat"
+	"github.com/efij/AgentDFIR/v5/internal/shellshape"
 	"regexp"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/casepkg"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/casepkg"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // Options tunes package-aware detection.

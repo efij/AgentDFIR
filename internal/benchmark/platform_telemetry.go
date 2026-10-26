@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	w "github.com/efij/AgentDFIR/v4/internal/endpoint/evtx/evtxtest"
+	w "github.com/efij/AgentDFIR/v5/internal/endpoint/evtx/evtxtest"
 )
 
 // Telemetry writers for the per-OS corroboration suite. Each renders the

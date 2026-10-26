@@ -1,3 +1,3 @@
-module github.com/efij/AgentDFIR/v4
+module github.com/efij/AgentDFIR/v5
 
 go 1.27.0

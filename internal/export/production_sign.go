@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/seal"
+	"github.com/efij/AgentDFIR/v5/internal/seal"
 )
 
 // ProductionSignature is the detached ed25519 signature over

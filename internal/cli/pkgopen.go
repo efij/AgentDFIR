@@ -6,11 +6,11 @@ import (
 	"io"
 	"os"
 
-	"github.com/efij/AgentDFIR/v4/internal/casepkg"
-	"github.com/efij/AgentDFIR/v4/internal/integrity"
-	"github.com/efij/AgentDFIR/v4/internal/sanitize"
-	"github.com/efij/AgentDFIR/v4/internal/seal"
-	"github.com/efij/AgentDFIR/v4/internal/store"
+	"github.com/efij/AgentDFIR/v5/internal/casepkg"
+	"github.com/efij/AgentDFIR/v5/internal/integrity"
+	"github.com/efij/AgentDFIR/v5/internal/sanitize"
+	"github.com/efij/AgentDFIR/v5/internal/seal"
+	"github.com/efij/AgentDFIR/v5/internal/store"
 )
 
 // openPackage opens the destination package for writing: a new one when

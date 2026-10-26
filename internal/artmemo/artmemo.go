@@ -31,9 +31,9 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/efij/AgentDFIR/v4/internal/casepkg"
-	"github.com/efij/AgentDFIR/v4/internal/fingerprint"
-	"github.com/efij/AgentDFIR/v4/internal/store"
+	"github.com/efij/AgentDFIR/v5/internal/casepkg"
+	"github.com/efij/AgentDFIR/v5/internal/fingerprint"
+	"github.com/efij/AgentDFIR/v5/internal/store"
 )
 
 // Memo is one scan's remembered results, by artifact.

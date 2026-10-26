@@ -11,10 +11,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/casepkg"
-	"github.com/efij/AgentDFIR/v4/internal/diskimage"
-	"github.com/efij/AgentDFIR/v4/internal/diskimage/ntfs"
-	"github.com/efij/AgentDFIR/v4/internal/diskimage/ntfs/vss"
+	"github.com/efij/AgentDFIR/v5/internal/casepkg"
+	"github.com/efij/AgentDFIR/v5/internal/diskimage"
+	"github.com/efij/AgentDFIR/v5/internal/diskimage/ntfs"
+	"github.com/efij/AgentDFIR/v5/internal/diskimage/ntfs/vss"
 )
 
 // maxVSSSnapshots bounds how many shadow copies of one volume are

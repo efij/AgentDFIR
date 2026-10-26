@@ -3,7 +3,7 @@ package rulepack
 import (
 	"testing"
 
-	"github.com/efij/AgentDFIR/v4/internal/shellshape"
+	"github.com/efij/AgentDFIR/v5/internal/shellshape"
 )
 
 // TestCommunityPackV4RuleSamples: hit/miss table for the rules added in

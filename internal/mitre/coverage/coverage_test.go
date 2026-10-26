@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efij/AgentDFIR/v4/internal/mitre"
+	"github.com/efij/AgentDFIR/v5/internal/mitre"
 )
 
 // enforcePlannedResolved turns on the integration gate in

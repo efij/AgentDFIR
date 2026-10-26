@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/endpoint/evtx"
+	"github.com/efij/AgentDFIR/v5/internal/endpoint/evtx"
 )
 
 // Generic process/network/file event exports: JSON lines (Velociraptor,

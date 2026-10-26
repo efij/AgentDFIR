@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/mitre"
+	"github.com/efij/AgentDFIR/v5/internal/mitre"
 )
 
 // Markdown renders docs/atlas-coverage.md. The output is deterministic (no

@@ -30,8 +30,8 @@ import (
 	"sync"
 	"unicode/utf8"
 
-	"github.com/efij/AgentDFIR/v4/internal/redact"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/redact"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // Bounds.

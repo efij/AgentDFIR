@@ -8,11 +8,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/efij/AgentDFIR/v4/internal/casepkg"
-	"github.com/efij/AgentDFIR/v4/internal/detect"
-	"github.com/efij/AgentDFIR/v4/internal/mcpaudit"
-	"github.com/efij/AgentDFIR/v4/internal/provenance"
-	"github.com/efij/AgentDFIR/v4/internal/schema"
+	"github.com/efij/AgentDFIR/v5/internal/casepkg"
+	"github.com/efij/AgentDFIR/v5/internal/detect"
+	"github.com/efij/AgentDFIR/v5/internal/mcpaudit"
+	"github.com/efij/AgentDFIR/v5/internal/provenance"
+	"github.com/efij/AgentDFIR/v5/internal/schema"
 )
 
 // caseAuth is the authority picture of the whole case, computed once:

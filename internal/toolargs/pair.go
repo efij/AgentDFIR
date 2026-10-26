@@ -1,6 +1,6 @@
 package toolargs
 
-import "github.com/efij/AgentDFIR/v4/internal/schema"
+import "github.com/efij/AgentDFIR/v5/internal/schema"
 
 // Pairer links tool calls to their results by tool_call_id inside one
 // source artifact and sets ResultRef on both: the result points at the

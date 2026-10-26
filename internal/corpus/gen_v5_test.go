@@ -11,7 +11,7 @@ import (
 )
 
 // TestGenerateV5RuleFixtures writes the synthetic corpus cases for the v5
-// rules and chains (docs/detection-v5.md, docs/detection-v5-p1.md,
+// rules and chains (docs/detection-v5.md,
 // docs/attack-chains.md) into testdata: one attack case and one benign
 // twin per rule or chain. The committed files are its output; run it only
 // to change them:

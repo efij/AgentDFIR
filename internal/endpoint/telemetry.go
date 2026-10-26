@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/parsers/plaso"
+	"github.com/efij/AgentDFIR/v5/internal/parsers/plaso"
 )
 
 // Second-witness telemetry beyond process auditing: DNS query logs, web

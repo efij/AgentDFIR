@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efij/AgentDFIR/v4/internal/parsers/linereader"
+	"github.com/efij/AgentDFIR/v5/internal/parsers/linereader"
 )
 
 // Formats.
