@@ -77,3 +77,95 @@ func WriteText(w io.Writer, r *Report) {
 		fmt.Fprintf(w, "note: %d timeline entries not shown (bound)\n", n)
 	}
 }
+
+// maxTextJoins bounds the join edges the text summary lists.
+const maxTextJoins = 60
+
+// WriteGraphText prints the activity graph's summary: what it holds, the
+// cross-case joins (strong first) and the cross-case findings.
+func WriteGraphText(w io.Writer, g *Graph) {
+	if g == nil {
+		return
+	}
+	fmt.Fprintln(w, "\nACTIVITY GRAPH")
+	if g.Unverified {
+		fmt.Fprintln(w, "  WARNING: includes a case whose seal did NOT verify; its nodes, edges and findings are marked UNVERIFIED.")
+	}
+	var kinds []string
+	for _, k := range []string{NodeCase, NodeHost, NodeExecEnv, NodeSession, NodeAgent, NodeMCPTool, NodePrincipal, NodeResource, NodeCommit, NodeFile, NodeDestination} {
+		if n := g.Summary.Nodes[k]; n > 0 {
+			kinds = append(kinds, fmt.Sprintf("%d %s", n, k))
+		}
+	}
+	fmt.Fprintf(w, "  %d node(s): %s\n", len(g.Nodes), strings.Join(kinds, ", "))
+	fmt.Fprintf(w, "  joins: %d strong, %d moderate, %d weak · %d context edge(s)\n",
+		g.Summary.JoinEdges[Strong], g.Summary.JoinEdges[Moderate], g.Summary.JoinEdges[Weak], g.Summary.ContextEdges)
+	shown := 0
+	for _, e := range g.Edges {
+		if e.JoinKey == "" {
+			continue
+		}
+		if shown++; shown > maxTextJoins {
+			continue
+		}
+		rel := e.Time.Relation
+		if e.Time.FromTime != "" || e.Time.ToTime != "" {
+			rel += fmt.Sprintf(" (%s → %s)", orDash(e.Time.FromTime), orDash(e.Time.ToTime))
+		}
+		un := ""
+		if e.Unverified {
+			un = " · UNVERIFIED"
+		}
+		fmt.Fprintf(w, "  [%s] %s %s: %s → %s · %s%s\n", strings.ToUpper(e.Confidence), e.JoinKey, sanitize.Terminal(e.JoinValue),
+			sanitize.Terminal(e.From), sanitize.Terminal(e.To), rel, un)
+		fmt.Fprintf(w, "       why: %s\n", sanitize.Terminal(e.Reason))
+		for _, r := range e.Evidence {
+			fmt.Fprintf(w, "       evidence: %s\n", sanitize.Terminal(r.String()))
+		}
+	}
+	if shown > maxTextJoins {
+		fmt.Fprintf(w, "  … %d more join(s) in --json\n", shown-maxTextJoins)
+	}
+	if len(g.Findings) == 0 {
+		fmt.Fprintln(w, "\n  No cross-case findings. (Weak joins alone never raise one.)")
+	}
+	for _, f := range g.Findings {
+		un := ""
+		if f.Unverified {
+			un = " · UNVERIFIED"
+		}
+		fmt.Fprintf(w, "\n  %s  %s  %s (cases %s · ATLAS %s%s · evidence %s · confidence %s%s)\n", f.Severity, f.RuleID, f.Title,
+			strings.Join(f.Cases, ","), f.MitreATLAS, prefixed(" · ATT&CK ", f.MitreATTACK), f.Status, f.Confidence, un)
+		fmt.Fprintf(w, "    %s\n", sanitize.Terminal(f.Description))
+		for _, s := range f.ChainSteps {
+			fmt.Fprintf(w, "    step: %s · %s · %s\n", s.Step, orDash(s.Timestamp), sanitize.Terminal(s.Evidence))
+		}
+		for _, j := range f.Joins {
+			fmt.Fprintf(w, "    join: [%s] %s %s (%s → %s, %s)\n", strings.ToUpper(j.Confidence), j.JoinKey, sanitize.Terminal(j.JoinValue),
+				sanitize.Terminal(j.From), sanitize.Terminal(j.To), j.Relation)
+		}
+		for _, l := range f.Limits {
+			fmt.Fprintf(w, "    limit: %s\n", l)
+		}
+	}
+	for _, n := range g.Notes {
+		fmt.Fprintf(w, "  note: %s\n", sanitize.Terminal(n))
+	}
+	for _, k := range sortedKeys(g.Omitted) {
+		fmt.Fprintf(w, "  note: %d %s not shown (bound)\n", g.Omitted[k], strings.ReplaceAll(k, "_", " "))
+	}
+}
+
+func orDash(s string) string {
+	if s == "" {
+		return "-"
+	}
+	return s
+}
+
+func prefixed(p, s string) string {
+	if s == "" {
+		return ""
+	}
+	return p + s
+}

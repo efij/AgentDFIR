@@ -145,7 +145,7 @@ func loadLineage(pkg string) *lineage.Graph {
 	return &g
 }
 
-const correlateCasesUsage = `usage: agentdfir correlate-cases <case-a> <case-b> [<case-c> ...] [--json] [--allow-unverified] [--include-common]
+const correlateCasesUsage = `usage: agentdfir correlate-cases <case-a> <case-b> [<case-c> ...] [--graph] [--json] [--allow-unverified] [--include-common]
 
 What two or more analyzed cases have in common: outbound destinations, incident
 indicator hits, credentials (by SHA-256 fingerprint, never the value),
@@ -156,6 +156,11 @@ linked only by an exact shared account email or account uuid, and the link
 names it. Every package's seal is verified first (full re-hash); one that fails
 is refused unless --allow-unverified, which marks every result from it.
 Packages must be analyzed by this version (agentdfir analyze <case>).
+--graph adds a typed activity graph (hosts, sessions, agents, MCP tools, cloud
+principals and resources, commits, files, destinations) whose cross-case edges
+are graded strong / moderate / weak with evidence on both sides and a time
+relation, plus the cross-case findings AGENT_CROSS_HOST_ACTIVITY and
+CHAIN_CROSS_HOST_AGENT_PROPAGATION. Weak joins never raise a finding.
 (agentdfir correlate is endpoint-telemetry correlation for one case.)
 `
 
@@ -165,6 +170,7 @@ func cmdCorrelateCases(args []string) int {
 	asJSON := fs.Bool("json", false, "print the structured report")
 	allow := fs.Bool("allow-unverified", false, "compare packages whose seal does not verify (results are marked)")
 	common := fs.Bool("include-common", false, "also compare allowlisted destinations (model providers, package registries)")
+	graph := fs.Bool("graph", false, "also build the cross-case activity graph and its findings")
 	var pkgs []string
 	rest := args
 	for len(rest) > 0 && !strings.HasPrefix(rest[0], "-") {
@@ -181,7 +187,7 @@ func cmdCorrelateCases(args []string) int {
 		fmt.Fprint(os.Stderr, correlateCasesUsage)
 		return 2
 	}
-	rep, err := crosscase.Run(pkgs, crosscase.Options{AllowUnverified: *allow, IncludeCommon: *common})
+	rep, err := crosscase.Run(pkgs, crosscase.Options{AllowUnverified: *allow, IncludeCommon: *common, Graph: *graph})
 	if err != nil {
 		var re *crosscase.RefusedError
 		if errors.As(err, &re) {
@@ -198,6 +204,7 @@ func cmdCorrelateCases(args []string) int {
 		return writeJSONOut(rep)
 	}
 	crosscase.WriteText(os.Stdout, rep)
+	crosscase.WriteGraphText(os.Stdout, rep.Graph)
 	return 0
 }
 

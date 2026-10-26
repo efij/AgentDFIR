@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://efij.github.io/AgentDFIR/schema/crosscase-graph.schema.json",
+  "title": "AgentDFIR Cross-Case Activity Graph",
+  "description": "The `graph` member of `agentdfir correlate-cases --graph --json` (agentdfir.crosscase-graph/1). Entities stay in their own case: a node belongs to exactly one case, and a join edge between nodes of two cases names the identifier that ties them, the evidence on each side, a confidence grade with its reason, and how the two sides sit in time. Context edges place an entity inside its own case (case -> host -> execution environment -> session -> agent / entity) and carry no join_key. Weak joins never justify a finding. Node kinds, edge kinds and join keys are open sets: a consumer MUST accept values it does not know. Output order is deterministic.",
+  "type": "object",
+  "required": ["schema", "includes_unverified_cases", "cases", "nodes", "edges", "findings", "summary", "limits", "truncated", "notes", "caveats"],
+  "properties": {
+    "schema": {"type": "string", "pattern": "^agentdfir\\.crosscase-graph/[0-9]+$", "description": "agentdfir.crosscase-graph/1 today."},
+    "includes_unverified_cases": {"type": "boolean", "description": "True when a case whose seal did not verify was included with --allow-unverified."},
+    "cases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["label", "case_id", "host"],
+        "properties": {
+          "label": {"type": "string", "description": "C1, C2, ... in argument order."},
+          "case_id": {"type": "string"},
+          "host": {"type": "string", "description": "Host name from the case manifest. Not a unique machine identifier."},
+          "unverified": {"type": "boolean"}
+        }
+      }
+    },
+    "nodes": {"type": "array", "items": {"$ref": "#/$defs/node"}},
+    "edges": {"type": "array", "items": {"$ref": "#/$defs/edge"}},
+    "findings": {"type": "array", "items": {"$ref": "#/$defs/finding"}},
+    "summary": {
+      "type": "object",
+      "required": ["nodes_by_kind", "join_edges_by_confidence", "context_edges", "findings"],
+      "properties": {
+        "nodes_by_kind": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+        "join_edges_by_confidence": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+        "context_edges": {"type": "integer", "minimum": 0},
+        "findings": {"type": "integer", "minimum": 0}
+      }
+    },
+    "limits": {
+      "type": "object",
+      "required": ["max_nodes", "max_edges", "max_edges_per_join", "propagation_window_seconds", "clock_skew_seconds"],
+      "properties": {
+        "max_nodes": {"type": "integer", "minimum": 0},
+        "max_edges": {"type": "integer", "minimum": 0},
+        "max_edges_per_join": {"type": "integer", "minimum": 0, "description": "Edges of one join key type per pair of cases."},
+        "propagation_window_seconds": {"type": "integer", "minimum": 0},
+        "clock_skew_seconds": {"type": "integer", "minimum": 0}
+      }
+    },
+    "truncated": {"type": "boolean", "description": "True when a bound left nodes or edges out. No edge ever points at a dropped node."},
+    "omitted": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}, "description": "What a bound left out, by kind (nodes, edges, edges_<join_key>, identifiers_over_bound, unusable_identifiers, remote_launches)."},
+    "notes": {"type": "array", "items": {"type": "string"}},
+    "caveats": {"type": "array", "items": {"type": "string"}, "description": "What the graph can and cannot say, in plain sentences."}
+  },
+  "$defs": {
+    "confidence": {"enum": ["strong", "moderate", "weak"]},
+    "node": {
+      "type": "object",
+      "required": ["id", "kind", "case", "label"],
+      "properties": {
+        "id": {"type": "string", "description": "<kind>:<case label>:<key>; keys pass through credential masking."},
+        "kind": {"type": "string", "description": "case | host | exec_env | agent_session | agent | mcp_tool | cloud_principal | cloud_resource | git_commit | file | destination (open set). File keys are sha256:<hex> (content) or name:<basename> (name only)."},
+        "case": {"type": "string"},
+        "label": {"type": "string"},
+        "first_seen": {"type": "string", "format": "date-time"},
+        "last_seen": {"type": "string", "format": "date-time"},
+        "attributes": {"type": "object", "additionalProperties": {"type": "string"}},
+        "from_unverified_case": {"type": "boolean"}
+      }
+    },
+    "sideRef": {
+      "type": "object",
+      "required": ["case"],
+      "description": "Evidence for one side of an edge: the case and the sealed source of the event or collected artifact.",
+      "properties": {
+        "case": {"type": "string"},
+        "artifact_id": {"type": "string"},
+        "logical_path": {"type": "string"},
+        "line": {"type": "integer", "minimum": 0},
+        "offset": {"type": "integer", "minimum": 0},
+        "event_id": {"type": "string"},
+        "telemetry_ref": {"type": "string"},
+        "source_json_path": {"type": "string", "description": "RFC 6901 pointer inside the source artifact, for one-line JSON documents."}
+      }
+    },
+    "edge": {
+      "type": "object",
+      "required": ["kind", "from", "to", "confidence", "confidence_reason", "time_relation", "evidence"],
+      "properties": {
+        "kind": {"type": "string", "description": "Join edges: same_session, same_agent, delegated_to, launched, same_tool_call, same_commit, same_content, same_principal_resource, same_principal, same_exec_env, same_destination, same_filename, similar_prompt. Context edges: collected_from, hosts, ran, contains, called, acted_as, acted_on, named_commit, named_destination, named_file, collected (open set)."},
+        "from": {"type": "string"},
+        "to": {"type": "string"},
+        "join_key": {
+          "type": "string",
+          "description": "Join key type; absent on context edges. strong: session_id, agent_id, delegation_ref, tool_call_id, session_id_in_command, git_commit, file_sha256, principal_resource. moderate: principal, exec_env. weak: destination, filename, prompt_similarity, git_commit_abbreviated, launch_timing. A strong join whose timestamps contradict its direction, or whose two recordings overlap, is downgraded to moderate."
+        },
+        "join_value": {"type": "string", "description": "The identifier, after credential masking. For prompt_similarity only the score; prompt text is never written."},
+        "confidence": {"$ref": "#/$defs/confidence"},
+        "confidence_reason": {"type": "string"},
+        "time_relation": {
+          "type": "object",
+          "required": ["relation"],
+          "properties": {
+            "relation": {"enum": ["before", "after", "overlap", "unknown"], "description": "How the from side's recorded activity sits against the to side's."},
+            "from_time": {"type": "string", "format": "date-time", "description": "First recorded time on the from side."},
+            "to_time": {"type": "string", "format": "date-time", "description": "First recorded time on the to side."}
+          }
+        },
+        "evidence": {"type": "array", "items": {"$ref": "#/$defs/sideRef"}, "minItems": 1, "description": "One entry per side: two on a join edge, one on a context edge."},
+        "from_unverified_case": {"type": "boolean"}
+      }
+    },
+    "finding": {
+      "type": "object",
+      "description": "A finding that exists only across cases. Carries the finding.schema.json fields (rule_id, severity, title, description, evidence_refs prefixed with the case label, corroboration status, confidence, mitre_atlas, mitre_attack, false_positive_notes, chain_steps) plus the fields below.",
+      "required": ["rule_id", "severity", "title", "description", "evidence_refs", "status", "cases", "joins", "limits"],
+      "properties": {
+        "rule_id": {"enum": ["AGENT_CROSS_HOST_ACTIVITY", "CHAIN_CROSS_HOST_AGENT_PROPAGATION"]},
+        "severity": {"enum": ["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"]},
+        "title": {"type": "string"},
+        "description": {"type": "string"},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "status": {"type": "string"},
+        "confidence": {"enum": ["HIGH", "MEDIUM", "LOW"]},
+        "confidence_reasons": {"type": "array", "items": {"type": "string"}},
+        "mitre_atlas": {"type": "string"},
+        "mitre_attack": {"type": "string"},
+        "false_positive_notes": {"type": "string"},
+        "chain_steps": {"type": "array", "items": {"type": "object"}},
+        "cases": {"type": "array", "items": {"type": "string"}},
+        "joins": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["join_key", "join_value", "from", "to", "confidence", "time_relation"],
+            "properties": {
+              "join_key": {"type": "string"},
+              "join_value": {"type": "string"},
+              "from": {"type": "string"},
+              "to": {"type": "string"},
+              "confidence": {"const": "strong"},
+              "time_relation": {"enum": ["before", "after", "overlap", "unknown"]}
+            }
+          }
+        },
+        "limits": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+        "from_unverified_case": {"type": "boolean"}
+      }
+    }
+  }
+}
