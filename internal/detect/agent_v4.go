@@ -40,6 +40,7 @@ func RunAgentRules(events []schema.Event, pkgDir string, man *casepkg.Manifest) 
 		out = append(out, clockAnomaly(ix, man)...)
 		out = append(out, crossSessionSecretReuse(events, pkgDir, man, store)...)
 	}
+	out = append(out, runV5Rules(ix, pkgDir, man)...)
 	return sortBySeverity(out)
 }
 
