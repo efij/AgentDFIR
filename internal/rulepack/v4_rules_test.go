@@ -50,6 +50,8 @@ func TestCommunityPackV4RuleSamples(t *testing.T) {
 				`wevtutil sl Microsoft-Windows-Sysmon/Operational /e:false`,
 				`auditpol /clear /y`,
 				`sudo log config --mode "level:off"`,
+				`jq '.env.CLAUDE_CODE_ENABLE_TELEMETRY = "0"' ~/.claude/settings.json > /tmp/s`,
+				`export CLAUDE_CODE_ENABLE_TELEMETRY=false`,
 			},
 			[]string{
 				`jq '.cleanupPeriodDays = 30' ~/.claude/settings.json`,
@@ -60,6 +62,8 @@ func TestCommunityPackV4RuleSamples(t *testing.T) {
 				`log show --last 1h`,
 				`sudo systemctl restart nginx`,
 				`git commit -m "docs: never run systemctl stop rsyslog on prod"`,
+				`export CLAUDE_CODE_ENABLE_TELEMETRY=1`,
+				`OTEL_SDK_DISABLED=true go test ./...`,
 			}},
 	}
 	for _, c := range cases {

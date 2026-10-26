@@ -80,6 +80,30 @@ func scanSightings(store *casepkg.Store, a casepkg.ArtifactRecord) []secretSight
 	return out
 }
 
+// caseSecretSightings fingerprints the credentials in every collected
+// transcript and prompt history, through the per-artifact memo so the rules
+// that need them share one scan.
+func caseSecretSightings(pkgDir string, man *casepkg.Manifest, store *casepkg.Store) ([]casepkg.ArtifactRecord, [][]secretSighting) {
+	var cur []casepkg.ArtifactRecord
+	for _, a := range man.Current() {
+		if isType(a, "agent_session", "prompt_history") && a.ArtifactID != "" {
+			cur = append(cur, a)
+		}
+	}
+	memo := artmemo.Open[[]secretSighting](pkgDir, "detect-secret-reuse", "v1")
+	per := make([][]secretSighting, len(cur))
+	forEachParallel(len(cur), func(i int) {
+		if m, ok := memo.Get(cur[i]); ok {
+			per[i] = m
+			return
+		}
+		per[i] = scanSightings(store, cur[i])
+		memo.Put(cur[i], per[i])
+	})
+	_ = memo.Save() // advisory, like the content-scan memo
+	return cur, per
+}
+
 // secretContext is where a transcript sits: product, login profile and
 // project. Two artifacts in the same context may be one conversation
 // (resumed, continued, a subagent of it); two contexts are unrelated work.
@@ -105,23 +129,7 @@ func crossSessionSecretReuse(events []schema.Event, pkgDir string, man *casepkg.
 			}
 		}
 	}
-	var cur []casepkg.ArtifactRecord
-	for _, a := range man.Current() {
-		if isType(a, "agent_session", "prompt_history") && a.ArtifactID != "" {
-			cur = append(cur, a)
-		}
-	}
-	memo := artmemo.Open[[]secretSighting](pkgDir, "detect-secret-reuse", "v1")
-	per := make([][]secretSighting, len(cur))
-	forEachParallel(len(cur), func(i int) {
-		if m, ok := memo.Get(cur[i]); ok {
-			per[i] = m
-			return
-		}
-		per[i] = scanSightings(store, cur[i])
-		memo.Put(cur[i], per[i])
-	})
-	_ = memo.Save() // advisory, like the content-scan memo
+	cur, per := caseSecretSightings(pkgDir, man, store)
 
 	type entry struct {
 		kind  string
