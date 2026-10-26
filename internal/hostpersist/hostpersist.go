@@ -217,7 +217,10 @@ func (inv *Inventory) add(category, path string) {
 	it := Item{Category: category, Path: path, Size: fi.Size(), Mode: fi.Mode().String(), ModTimeUTC: fi.ModTime().UTC().Format(time.RFC3339Nano)}
 	switch {
 	case fi.Mode()&os.ModeSymlink != 0:
-		it.SymlinkTarget, _ = os.Readlink(path) // recorded, never followed
+		// Recorded, never followed. The target is a Linux path; Readlink on
+		// Windows (an offline root) hands it back with backslashes.
+		t, _ := os.Readlink(path)
+		it.SymlinkTarget = filepath.ToSlash(t)
 		inv.Items = append(inv.Items, it)
 		return
 	case !fi.Mode().IsRegular():
