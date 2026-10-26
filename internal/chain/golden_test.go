@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -132,7 +133,7 @@ func TestV45ChainsGolden(t *testing.T) {
 	if err != nil {
 		t.Fatalf("%v (run with -update-golden on the v4.5 engine)", err)
 	}
-	if string(got) != string(want) {
+	if strings.ReplaceAll(string(got), "\r\n", "\n") != strings.ReplaceAll(string(want), "\r\n", "\n") {
 		t.Fatal("v4.5 chain output over the golden stream changed")
 	}
 }

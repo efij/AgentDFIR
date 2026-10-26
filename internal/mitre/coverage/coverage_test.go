@@ -156,7 +156,7 @@ func TestCoverageDocCurrent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(got) != want {
+	if strings.ReplaceAll(string(got), "\r\n", "\n") != want {
 		t.Error("docs/atlas-coverage.md is stale: run `go run ./cmd/agentdfir rules coverage --format md > docs/atlas-coverage.md`")
 	}
 }

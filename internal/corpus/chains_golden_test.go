@@ -68,7 +68,7 @@ func TestV45ChainOutputUnchanged(t *testing.T) {
 	if err != nil {
 		t.Fatalf("%v (run with -update-chain-golden on the v4.5 engine)", err)
 	}
-	if got != string(want) {
+	if got != strings.ReplaceAll(string(want), "\r\n", "\n") {
 		t.Errorf("v4.5 chain output changed over the corpus.\n--- want\n%s\n--- got\n%s", want, got)
 	}
 }

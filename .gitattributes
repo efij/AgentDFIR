@@ -9,3 +9,8 @@ internal/compat/testdata/** -text -diff
 
 # Conformance fixtures for the .adfir format: sealed bytes, same rule.
 testdata/conformance/** -text -diff
+
+# Golden outputs compared byte for byte with what the code prints (LF).
+internal/chain/testdata/*.golden.json text eol=lf
+internal/corpus/testdata/*.golden text eol=lf
+docs/atlas-coverage.md text eol=lf
