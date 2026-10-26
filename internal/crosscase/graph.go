@@ -59,6 +59,10 @@ import (
 const GraphSchema = "agentdfir.crosscase-graph/1"
 
 // Node kinds, in reporting order.
+// maxCommitPrefixPeers bounds how many ids sharing a 7-digit prefix are
+// tried when matching an abbreviated commit id.
+const maxCommitPrefixPeers = 16
+
 const (
 	NodeCase        = "case"
 	NodeHost        = "host"
@@ -1006,15 +1010,23 @@ func (g *gbuild) pair(a, b *cidx) {
 			g.mcpContext(y, ys)
 		}
 	}
+	// An abbreviated id in one case and the full id in the other share
+	// their first 7 hex digits: index b's ids by that prefix once, so the
+	// match is a map lookup plus a bounded scan, not a pass over every id.
+	byPrefix := map[string][]string{}
+	for _, d := range sortedKeys(b.commits) {
+		if len(d) >= 7 && len(byPrefix[d[:7]]) < maxCommitPrefixPeers {
+			byPrefix[d[:7]] = append(byPrefix[d[:7]], d)
+		}
+	}
 	for _, c := range sortedKeys(a.commits) {
 		sb := b.commits[c]
 		var cb string
 		if sb != nil {
 			cb = c
-		} else {
-			// an abbreviated id in one case and the full id in the other
-			for _, d := range sortedKeys(b.commits) {
-				if len(c) >= 7 && len(d) >= 7 && c != d && (strings.HasPrefix(c, d) || strings.HasPrefix(d, c)) {
+		} else if len(c) >= 7 {
+			for _, d := range byPrefix[c[:7]] {
+				if c != d && (strings.HasPrefix(c, d) || strings.HasPrefix(d, c)) {
 					sb, cb = b.commits[d], d
 					break
 				}
