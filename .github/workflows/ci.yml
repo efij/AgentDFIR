@@ -22,7 +22,11 @@ jobs:
           go-version: "1.24"
       - name: gofmt
         if: runner.os != 'Windows'
-        run: test -z "$(gofmt -l .)"
+        # gofmt from the go.mod toolchain, not the setup-go bootstrap one.
+        run: |
+          files="$("$(go env GOROOT)/bin/gofmt" -l .)"
+          echo "$files"
+          test -z "$files"
       - name: vet
         run: go vet ./...
       - name: build
