@@ -178,4 +178,7 @@ var atlasTechniques = map[string]string{
 	"AML.T0112":     "Machine Compromise",
 	"AML.T0112.000": "Local AI Agent",
 	"AML.T0112.001": "AI Artifacts",
+	"AML.T0116":     "Autonomous Reconnaissance",
+	"AML.T0117":     "Autonomous Attack-Path Adaptation",
+	"AML.T0129":     "Triggers in Multimodal Inputs",
 }
