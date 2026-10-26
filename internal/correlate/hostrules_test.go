@@ -308,7 +308,9 @@ func TestHostRulesHostileInput(t *testing.T) {
 	}()
 	select {
 	case <-done:
-	case <-time.After(10 * time.Second):
+	// A liveness bound, not a speed target: shared CI runners under -race
+	// take several times longer than a workstation.
+	case <-time.After(60 * time.Second):
 		t.Fatal("HostRules did not finish on cyclic input")
 	}
 	if d := psDecode("!!!not base64"); d != "" {
