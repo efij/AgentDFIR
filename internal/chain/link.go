@@ -52,6 +52,7 @@ var (
 	urlArgKeys   = []string{"url", "uri", "host", "endpoint"}
 	resArgKeys   = []string{"resource_id", "resource", "arn", "bucket"}
 	skillArgKeys = []string{"skill", "command", "name"}
+	envAssignRe  = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*=`)
 )
 
 // linkValues returns the normalized values an event offers for one link
@@ -140,23 +141,38 @@ func actor(e schema.Event) string { return e.SessionID + "\x00" + e.AgentID }
 // method is how an action was carried out: the tool, and for shell calls
 // the program run. `rm` refused and `find -delete` allowed are two methods.
 func method(e schema.Event) string {
-	m := strings.ToLower(e.Tool)
-	if f := firstProgram(e.Command); f != "" {
-		return m + ":" + f
-	}
-	return m + ":" + strings.ToLower(e.MCPTool)
+	return methodWith(nil, e)
 }
 
-func firstProgram(cmd string) string {
+// methodWith builds the method, masking each raw part before it is
+// lowercased: lowercasing first can carry a secret past case-sensitive
+// patterns, and a masked part keeps its marker intact.
+func methodWith(red *redact.Redactor, e schema.Event) string {
+	low := func(v string) string {
+		if red != nil {
+			if m := red.String(v, "chain_link"); m != v {
+				return m
+			}
+		}
+		return strings.ToLower(v)
+	}
+	m := low(e.Tool)
+	if f := firstProgramRaw(e.Command); f != "" {
+		return m + ":" + low(f)
+	}
+	return m + ":" + low(e.MCPTool)
+}
+
+func firstProgramRaw(cmd string) string {
 	for _, tok := range strings.Fields(clip(cmd)) {
-		if strings.Contains(tok, "=") && !strings.HasPrefix(tok, "-") && !strings.Contains(tok, "/") {
-			continue // VAR=value prefix
+		if envAssignRe.MatchString(tok) {
+			continue // VAR=value prefix, whatever the value holds
 		}
 		switch tok {
 		case "sudo", "doas", "env", "nohup", "time", "exec", "command":
 			continue
 		}
-		return strings.ToLower(path.Base(tok))
+		return path.Base(tok)
 	}
 	return ""
 }
@@ -290,34 +306,46 @@ func related(kind string, s *Step, prev, cur schema.Event, st joinState) ([]stri
 }
 
 // linkSentence describes one join for an analyst: the kind and the shared
-// value, shortened and with anything secret-shaped masked.
+// value, shortened and with anything secret-shaped masked. The full value
+// is redacted before it is shortened, so a cut can never hide a secret from
+// the patterns, and the finished sentence (method and agent text included)
+// goes through the redactor once more before it is stored.
 func linkSentence(red *redact.Redactor, kind string, from, to int, shared []string, s *Step, prev, cur schema.Event) string {
 	var parts []string
 	if kind != "" && len(shared) > 0 {
-		v := display(kind, shared[0])
+		v := shared[0]
 		if red != nil {
 			v = red.String(v, "chain_link")
 		}
+		v = display(kind, v)
 		noun := map[string]string{LinkFile: "the file", LinkNetDest: "the destination", LinkToolCallID: "the tool call",
 			LinkMCPTool: "the MCP tool", LinkMCPServer: "the MCP server", LinkTarget: "the target", LinkSkill: "the skill",
 			LinkSession: "the session", LinkAgent: "the agent"}[kind]
 		parts = append(parts, "steps "+strconv.Itoa(from)+"→"+strconv.Itoa(to)+" share "+noun+" "+v)
 	}
 	if s.DifferentAgent {
-		parts = append(parts, "step "+strconv.Itoa(to)+" is a different agent ("+short(agentName(cur), 40)+") from step "+strconv.Itoa(from)+" ("+short(agentName(prev), 40)+")")
+		parts = append(parts, "step "+strconv.Itoa(to)+" is a different agent ("+short(agentName(red, cur), 40)+") from step "+strconv.Itoa(from)+" ("+short(agentName(red, prev), 40)+")")
 	}
 	if s.DifferentMethod {
-		parts = append(parts, "step "+strconv.Itoa(to)+" used a different method ("+short(method(cur), 40)+") from step "+strconv.Itoa(from)+" ("+short(method(prev), 40)+")")
+		parts = append(parts, "step "+strconv.Itoa(to)+" used a different method ("+short(methodWith(red, cur), 40)+") from step "+strconv.Itoa(from)+" ("+short(methodWith(red, prev), 40)+")")
 	}
-	return strings.Join(parts, "; ")
+	out := strings.Join(parts, "; ")
+	if red != nil {
+		out = red.String(out, "chain_link")
+	}
+	return out
 }
 
-func agentName(e schema.Event) string {
-	a := e.AgentID
+// agentName labels an actor, masking the raw IDs before any shortening.
+func agentName(red *redact.Redactor, e schema.Event) string {
+	a, sid := e.AgentID, e.SessionID
+	if red != nil {
+		a, sid = red.String(a, "chain_link"), red.String(sid, "chain_link")
+	}
 	if a == "" {
 		a = "main"
 	}
-	return a + " in session " + short(e.SessionID, 12)
+	return a + " in session " + short(sid, 12)
 }
 
 // display shortens a link value: the last path components, the host, an ID
@@ -348,6 +376,9 @@ func display(kind, v string) string {
 	return short(v, 80)
 }
 
+// short cuts s to at most n bytes plus an ellipsis, on a rune boundary,
+// and never inside a redaction marker: a marker the cut would split is
+// dropped whole rather than left as a fragment.
 func short(s string, n int) string {
 	if len(s) <= n {
 		return s
@@ -356,5 +387,20 @@ func short(s string, n int) string {
 	for cut > 0 && cut < len(s) && (s[cut]&0xC0) == 0x80 {
 		cut--
 	}
+	for off := 0; off < cut; {
+		i := strings.Index(s[off:], redactMarkerOpen)
+		if i < 0 || off+i >= cut {
+			break
+		}
+		i += off
+		j := strings.IndexByte(s[i:], ']')
+		if j < 0 || i+j >= cut {
+			cut = i // the cut lands inside this marker (or its opening)
+			break
+		}
+		off = i + j + 1
+	}
 	return s[:cut] + "…"
 }
+
+const redactMarkerOpen = "[REDACTED:"
