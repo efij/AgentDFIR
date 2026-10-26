@@ -29,7 +29,12 @@ func collectMacOSHost(b *casepkg.Builder, base collector.Options, withManifest b
 	_ = b.Log("collection_run_started", map[string]any{"product": macoshost.Product, "profile_root": opts.ProfileRoot, "opt_in": true})
 	var runErr error
 	if withManifest {
-		man, err := products.Manifest(macoshost.Product)
+		// Every platform's entries: the operator opted in by name, and a
+		// macOS profile collected with --path from a Linux or Windows
+		// workstation must not come back empty because the entries are
+		// tagged darwin. On a non-macOS live host the paths are absent and
+		// simply not found.
+		man, err := products.ManifestAllPlatforms(macoshost.Product)
 		if err != nil {
 			return st, err
 		}

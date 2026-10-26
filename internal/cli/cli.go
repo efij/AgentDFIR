@@ -354,6 +354,10 @@ func cmdCollect(args []string) int {
 		productID = "copilot-chat-vscode"
 	}
 	man, err := products.Manifest(productID)
+	if productID == macoshost.Product {
+		// Named opt-in: every platform's entries (see collectMacOSHost).
+		man, err = products.ManifestAllPlatforms(productID)
+	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
