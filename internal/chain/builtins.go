@@ -51,7 +51,7 @@ var Builtin = []Chain{
 			{Name: "orphan writes config/instructions", FindingRules: []string{"AGENT_SELF_MODIFICATION", "INSTRUCTION_FILE_WRITTEN_BY_AGENT", "INSTRUCTION_WRITTEN_BY_SUBAGENT"}},
 			{Name: "orphan executes a tool", EventTypes: []string{"tool_call"}},
 		},
-		MitreATLAS: "AML.T0081", MitreATTACK: "T1562.001",
+		MitreATLAS: "AML.T0081", MitreATTACK: "T1685",
 		FalsePositive: "Partial acquisition: the spawning session may simply not have been collected.",
 	},
 	{
@@ -153,7 +153,7 @@ var Builtin = []Chain{
 					{FindingRules: []string{"CLOUD_IAM_PERSISTENCE"}},
 					{EventTypes: []string{"tool_call"}, CommandRegex: cloudMutation}}},
 		},
-		MitreATLAS: "AML.T0081", MitreATTACK: "T1562.001",
+		MitreATLAS: "AML.T0081", MitreATTACK: "T1685",
 		FalsePositive: "A person running a cleanup in bypass mode on purpose. Ask who switched the mode and whether the follow-up was the task.",
 	},
 	// v4.5 (docs/detection-v45.md): transfer routes the earlier chains do

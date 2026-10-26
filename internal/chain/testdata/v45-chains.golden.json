@@ -444,7 +444,7 @@
   "status": "CORROBORATED",
   "endpoint_corroboration": "UNKNOWN",
   "mitre_atlas": "AML.T0081",
-  "mitre_attack": "T1562.001",
+  "mitre_attack": "T1685",
   "false_positive_notes": "Partial acquisition: the spawning session may simply not have been collected.",
   "chain_steps": [
    {
@@ -488,7 +488,7 @@
   "status": "OBSERVED",
   "endpoint_corroboration": "UNKNOWN",
   "mitre_atlas": "AML.T0081",
-  "mitre_attack": "T1562.001",
+  "mitre_attack": "T1685",
   "false_positive_notes": "Partial acquisition: the spawning session may simply not have been collected.",
   "chain_steps": [
    {
@@ -1374,7 +1374,7 @@
   "status": "OBSERVED",
   "endpoint_corroboration": "UNKNOWN",
   "mitre_atlas": "AML.T0081",
-  "mitre_attack": "T1562.001",
+  "mitre_attack": "T1685",
   "false_positive_notes": "A person running a cleanup in bypass mode on purpose. Ask who switched the mode and whether the follow-up was the task.",
   "chain_steps": [
    {
@@ -1409,7 +1409,7 @@
   "status": "OBSERVED",
   "endpoint_corroboration": "UNKNOWN",
   "mitre_atlas": "AML.T0081",
-  "mitre_attack": "T1562.001",
+  "mitre_attack": "T1685",
   "false_positive_notes": "A person running a cleanup in bypass mode on purpose. Ask who switched the mode and whether the follow-up was the task.",
   "chain_steps": [
    {
@@ -1444,7 +1444,7 @@
   "status": "OBSERVED",
   "endpoint_corroboration": "UNKNOWN",
   "mitre_atlas": "AML.T0081",
-  "mitre_attack": "T1562.001",
+  "mitre_attack": "T1685",
   "false_positive_notes": "A person running a cleanup in bypass mode on purpose. Ask who switched the mode and whether the follow-up was the task.",
   "chain_steps": [
    {
@@ -1479,7 +1479,7 @@
   "status": "CORROBORATED",
   "endpoint_corroboration": "UNKNOWN",
   "mitre_atlas": "AML.T0081",
-  "mitre_attack": "T1562.001",
+  "mitre_attack": "T1685",
   "false_positive_notes": "A person running a cleanup in bypass mode on purpose. Ask who switched the mode and whether the follow-up was the task.",
   "chain_steps": [
    {
@@ -1512,7 +1512,7 @@
   "status": "CORROBORATED",
   "endpoint_corroboration": "UNKNOWN",
   "mitre_atlas": "AML.T0081",
-  "mitre_attack": "T1562.001",
+  "mitre_attack": "T1685",
   "false_positive_notes": "A person running a cleanup in bypass mode on purpose. Ask who switched the mode and whether the follow-up was the task.",
   "chain_steps": [
    {
@@ -1547,7 +1547,7 @@
   "status": "OBSERVED",
   "endpoint_corroboration": "UNKNOWN",
   "mitre_atlas": "AML.T0081",
-  "mitre_attack": "T1562.001",
+  "mitre_attack": "T1685",
   "false_positive_notes": "A person running a cleanup in bypass mode on purpose. Ask who switched the mode and whether the follow-up was the task.",
   "chain_steps": [
    {
