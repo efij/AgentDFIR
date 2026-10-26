@@ -1,0 +1,4 @@
+{
+  "note": "Twin of browser-cookies-then-authenticated-post: a cookie-jar fixture in the project and an anonymous health check. No browser store is read and no authenticated request is sent; CHAIN_BROWSER_TOKEN_TO_ACCOUNT_ACTION must stay silent.",
+  "twin": "browser-cookies-then-authenticated-post"
+}

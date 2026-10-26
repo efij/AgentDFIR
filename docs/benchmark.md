@@ -53,7 +53,7 @@ cross-platform suite. Performance is never measured in `go test`.
 
 | Section | Input | Hard check |
 |---|---|---|
-| Detection | the labeled corpus (`internal/corpus/testdata`) and every `simulate` scenario, collected and analyzed by the real pipeline | no lost detection; benign false positives within the corpus budget (`budget.json`) |
+| Detection | the labeled synthetic corpus (`internal/corpus/testdata`) and every `simulate` scenario, collected and analyzed by the real pipeline | no lost detection; benign false positives within the corpus budget (`budget.json`) |
 | Evidence states | five scenarios with endpoint telemetry in formats read today (auditd, Sysmon XML, generic JSONL) or none | every labeled state matches; every event keeps the contract below |
 | Provenance | every package the other sections analyze | zero dangling references |
 | Integrity | a signed, two-round package with plain, gzip and chunked blobs and an archived seal, mutated one way per copy | every mutation detected by `agentdfir verify` |
@@ -107,9 +107,9 @@ deleted `SEAL.sig` is detected because `case.json` (which is sealed)
 records the last round's signer; a package whose `case.json` cannot be
 read reports that as a problem rather than passing.
 
-## Cross-platform suites
+## Cross-platform and v5 suites
 
-Five suites run after the sections above, and each ends in its own
+Nine suites run after the sections above, and each ends in its own
 **PASS / FAIL / SKIP** verdict, in the Markdown report and under
 `suites` in the JSON. Every suite carries the label *synthetic or
 tool-generated fixtures; not a comparison with any other product*.
@@ -123,6 +123,10 @@ through another tool.
 | Per-OS corroboration | generated Claude Code sessions whose tool calls claim commands, a file write and network use, with synthetic telemetry in each source's documented shape: Windows Sysmon in a native `.evtx`, macOS eslogger JSON and unified log ndjson, Linux auditd, Tetragon, Falco and docker events; then every labeled corpus case that carries endpoint telemetry | each claim's labeled state and the expected CORROBORATED count per scenario; the evidence-state contract on every event; for corpus cases, the expected rules fire. The incomplete-telemetry contract, per platform, on observable states: telemetry without file or network records never contradicts a write or a fetch; a sequence gap (EVTX EventRecordID, eslogger seq_num / global_seq_num, audit serial) never turns a claim inside it into DISPROVED, while a claim where numbering is contiguous still is; a process file that stops does not keep processes "covered" because a file of another kind goes on; Falco, docker events and the unified log corroborate, never contradict |
 | Forensic interop | the hand-made UFDR, UFD/UFDX, AXIOM CSV, AXIOM Portable Case, Plaso (json_line, l2tcsv) and Autopsy fixtures in `internal/parsers/suite/testdata`, sealed the way `collect --suite-export` seals them and analyzed | record, UNSUPPORTED and unparsed-line counts equal the ones the reader's own tests pin; every original sealed byte-identical; `Case.mfdb` yields the `AXIOM_CASE_DB_UNSUPPORTED` finding |
 | Detection quality | the detection section above | as above, plus a breakdown by the platform of each fixture's telemetry (windows, macos, linux; "any" for transcript-only fixtures), and each of the three platforms has labeled attack fixtures |
+| v5 detections | the 17 attack cases and 17 benign twins for the v5 rules and chains (`internal/corpus/testdata/README-v5-rules.md`): Claude Code transcripts, MCP gateway logs, an MCP client log with a cached tool declaration and an agent definition, all through the real parsers, so `arg_keys`, `safe_args`, `result_status`, `approval_state`, `permission_from`, `input_modality`, `mcp_server_version` and `tool_def_digest` are filled the way collected evidence fills them | for each of MCP_ARGUMENT_BEHAVIOR_MISMATCH, MCP_TOOL_IDENTITY_DRIFT, AGENT_PERMISSION_STATE_DRIFT, AGENT_CREDENTIAL_TO_EXTERNAL_TOOL, AGENT_UNAUTHORIZED_RESOURCE_CHANGE, AGENT_AUTONOMOUS_RECON_SEQUENCE, AGENT_ADAPTIVE_ATTACK_SEQUENCE, AGENT_DELEGATION_SCOPE_EXPANSION, AGENT_RESOURCE_EXHAUSTION, AGENT_MULTIMODAL_TRIGGER_CHAIN and the chains CHAIN_SKILL_POISON_TO_EXEC, CHAIN_MCP_RUG_PULL_TO_ACTION, CHAIN_TOOL_RESPONSE_TO_SECRET_EXFIL, CHAIN_SHARED_MEMORY_TO_SUBAGENT, CHAIN_BROWSER_TOKEN_TO_ACCOUNT_ACTION, CHAIN_AGENT_RECON_TO_IMPACT, CHAIN_ADAPTIVE_RETRY_TO_BYPASS: an attack case raises it and its benign twin (which names the attack case back) does not. The twins also count as ordinary benign cases, so any other unallowed firing on them fails the detection section |
+| Evidence fields | a generated transcript whose tool calls carry three credential-shaped values (built at run time) in an MCP message, nested MCP arguments, a URL query and file content | the MCP call records its sorted top-level argument keys, an argument digest and its paired outcome; nested values never surface; a URL is reduced to scheme and host; AGENT_CREDENTIAL_TO_EXTERNAL_TOOL sees the credential; and no credential value appears in any file of the package outside the sealed source (`normalized/`, `detections/`, reports) or in the events and findings |
+| Cross-case graph | four sealed, analyzed packages, compared in pairs with `correlate-cases --graph`. Strong pair: a session runs `ssh devbox "claude --resume <id> …"` and the session with that id, in the other package, deletes a release directory. Weak-only pair: two unrelated sessions sharing only a destination IP and near-identical prompt text. Both packages of a pair are collected on the benchmark machine, so each package's events are stamped with an execution environment (the field a container or endpoint witness sets) to stand for two hosts | strong pair: a strong `session_id_in_command` edge and the CHAIN_CROSS_HOST_AGENT_PROPAGATION finding; weak pair: weak edges only, no finding, no prompt text in the graph |
+| MITRE catalogs | every ATLAS and ATT&CK reference of the built-in rules, embedded pack rules and built-in chains, and of every finding the detection section produced; the ATLAS relevance inventory (`internal/mitre/data/atlas-relevance.json`) | every ATLAS ID exists in ATLAS 2026.09; every ATT&CK ID is active (not revoked or deprecated) in ATT&CK Enterprise v20.0; the inventory gate passes (208/208 classified, no errors, no planned placeholders, every P0 observable technique covered or excepted); all 17 v5 rules and chains are listed in the inventory |
 | Evidence integrity | the integrity and compatibility sections above, and `tools/adfir-verify/adfir_verify.py` (Python 3 standard library) over every package this run built and the five historical packages | every mutation detected, every historical package verifies, the Python verifier says VERIFIED on every package; SKIP, with the reason, without `--repo` / `--python-verifier` or when `python3` is not on `PATH` |
 
 **Expected failures.** A check can be marked as failing on this build for
@@ -138,38 +142,97 @@ contiguous) passes as DISPROVED either way.
 
 ## Current numbers
 
-AgentDFIR 4.5.0, `benchmark --no-perf --repo .` from a source checkout,
-darwin/arm64, go1.27.1, 12.5 s wall time. Synthetic.
+The v5 integration branch (`feat/v5-bench`; the binary still reports
+4.5.0 until the version bump), `benchmark --no-perf --repo .` from a source
+checkout, darwin/arm64, go1.27.1, on a machine shared with parallel builds
+(wall time not meaningful). Synthetic.
 
 | Section | Result |
 |---|---|
-| Detection | precision 100.0%, recall 100.0% (79 TP, 0 FP, 0 FN) over 34 attack cases, 8 scenarios, 58 benign cases |
-| Rule coverage | 69 of 213 alert rules have an attack fixture; 144 have none (listed in the report); 4 building blocks |
+| Detection | precision 100.0%, recall 100.0% **on the synthetic corpus** (98 TP, 0 FP, 0 FN) over 51 attack cases, 8 scenarios, 75 benign cases |
+| Rule coverage | 87 of 232 alert rules have an attack fixture; the rest are listed in the report; 4 building blocks |
 | Evidence states | 14/14 labeled checks, 0 contract violations over 30 events |
-| Provenance | 0 dangling over 149 packages: 733 of 765 events resolved to artifact, line and line start (the other 32 describe a whole artifact, line 0); 374 of 460 finding references resolved, 86 cite external witness logs |
+| Provenance | 0 dangling of 1,143 events and 569 finding references |
 | Integrity mutations | 24/24 detected |
 | Compatibility | 5/5 historical packages verify and analyze |
 | Robustness | 7/7 cases |
-| Performance | not measured in this run (`--no-perf`) |
+| Performance | measured separately, below |
 
-Cross-platform suites, same run:
+Suites, same run:
 
 | Suite | Verdict | Measured |
 |---|---|---|
-| Acquisition | PASS | 41 fixtures in 2.3 s (35 compared with a manifest or the image they wrap, 6 enumerated only); 45 volumes; 16,031 files enumerated; manifest files 14,179 of 14,185 recovered with matching SHA-256, the other 6 reported UNSUPPORTED as documented (ext4 fscrypt directory, the Btrfs zstd extent in the raw image and both QCOW2 copies, the LZVN-compressed file on APFS and HFS+); 17 UNSUPPORTED / ENCRYPTED states in all (also: QCOW2 backing file and zstd cluster type, DMG LZFSE chunks, encrypted DMG, the FileVault volume, the non-linear LVM2 LVs); source unchanged 41/41 |
-| Per-OS corroboration | PASS | 72 of 72 checks, 0 expected failures. Windows (Sysmon .evtx): 4 scenarios, CORROBORATED 5 of 5 labeled, 11 corpus cases; macOS (eslogger, unified log): 5 scenarios, 5 of 5, 5 corpus cases; Linux (auditd, Tetragon, Falco, docker events): 6 scenarios, 10 of 10, 5 corpus cases |
-| Forensic interop | PASS | 6 exports; 17 of 17 expected records; 13 of 13 originals sealed byte-identical; 2 UNSUPPORTED notices: Case.mfdb (with the `AXIOM_CASE_DB_UNSUPPORTED` finding) and the unknown UFDR element |
-| Detection quality | PASS | as above; by platform: Windows 5 attack / 6 benign fixtures (6 rules), macOS 2 / 3 (6 rules), Linux 2 / 3 (5 rules), transcript-only 33 / 46 (53 rules), each 100.0% / 100.0% |
-| Evidence integrity | PASS | 24/24 mutations, 5/5 historical packages; Python 3.12 verifier: 27 of 27 packages VERIFIED |
+| Acquisition | PASS | 41 fixtures (35 compared with a manifest or the image they wrap, 6 enumerated only); 45 volumes; 16,031 files enumerated; manifest files 14,179 of 14,185 recovered with matching SHA-256, the other 6 reported UNSUPPORTED as documented; 17 UNSUPPORTED / ENCRYPTED states in all; source unchanged 41/41 |
+| Per-OS corroboration | PASS | 72 of 72 checks, 0 expected failures. Windows: 4 scenarios, CORROBORATED 5 of 5, 11 corpus cases; macOS: 5 scenarios, 5 of 5, 5 corpus cases; Linux: 6 scenarios, 10 of 10, 5 corpus cases |
+| Forensic interop | PASS | 6 exports; 17 of 17 expected records; 13 of 13 originals sealed byte-identical; 2 UNSUPPORTED notices |
+| Detection quality | PASS | as above, on the synthetic corpus; by platform: Windows 5 attack / 6 benign fixtures (6 rules), macOS 2 / 3 (6 rules), Linux 2 / 3 (5 rules), transcript-only 50 / 63 (71 rules), each 100.0% / 100.0% |
+| v5 detections | PASS | 17 of 17 v5 rules and chains raised by their attack case, benign twin silent |
+| Evidence fields | PASS | 3 credentials in 4 tool calls; argument keys, digests, allowlisted values and paired outcomes filled; no credential value in 22 derived files, 10 events, 7 findings |
+| Cross-case graph | PASS | strong pair: `session_id_in_command` edge (strong) and CHAIN_CROSS_HOST_AGENT_PROPAGATION; weak-only pair: 2 weak edges, 0 strong or moderate, 0 findings |
+| MITRE catalogs | PASS | ATLAS 2026.09 and ATT&CK Enterprise 20.0: 242 ATLAS and 331 ATT&CK references, all valid; inventory 208/208 classified, 0 errors, 0 planned; P0 observable 31 = 30 covered + 1 exception; 17 of 17 v5 detections listed |
+| Evidence integrity | PASS | 24/24 mutations, 5/5 historical packages; Python verifier: 32 of 32 packages VERIFIED |
 
-Read the detection line for what it is. The labels were written next to
-the rules, and the corpus gates the build, so 100% means the rules still
-do what their fixtures say, not that they are 100% accurate. The number
-that carries information is the coverage gap: 144 alert rules have no
-attack fixture at all. The per-platform rows are small (two attack
-fixtures each on macOS and Linux). The performance baseline was recorded
-on a shared, loaded machine; re-record it with `--save-baseline` on a
-quiet one before relying on the 25% warning.
+Read the detection line for what it is. The 100% is measured on the
+synthetic corpus: the labels were written next to the rules, and the
+corpus gates the build, so 100% means the rules still do what their
+fixtures say, not that they are 100% accurate. Detection metrics on an
+independent corpus are reported separately; none are published yet. The
+number that carries information is the coverage gap: 145 alert rules
+have no attack fixture at all. The per-platform rows are small (two
+attack fixtures each on macOS and Linux).
+
+### Performance: v5 against v4.5
+
+The performance case (400 generated sessions, 24,000 tool calls, 48,800
+events) was run on v4.5.0 (`release/v4.5.0`, 12b5eaf, built from a
+temporary worktree) and on this branch, alternating the two so that both
+saw the same machine load. Machine: darwin/arm64, 11 CPUs, go1.27.1,
+shared with parallel builds (1-minute load average 5 to 9 throughout),
+so single runs vary by up to 25%; the table gives medians.
+
+| | v4.5.0 | v5 branch | Change |
+|---|---:|---:|---:|
+| analyze, median of 10 interleaved runs | 14,624 ms (12,707 to 16,047) | 15,745 ms (13,695 to 19,392) | +7.7% (median of the paired ratios +8.5%) |
+| peak live heap, median | 181 MiB (156 to 202) | 224 MiB (217 to 282) | +24% |
+| allocated during analyze | 4,409 MB | 4,760 MB | +8.0% |
+| events | 48,800 | 48,800 | same |
+
+A first round on this branch, before the two fixes below, measured
+analyze +14% (median of 6 pairs), allocation +13% and peak heap +35%. A
+profile showed two avoidable costs in v5 code, both fixed: the argument
+allowlist built a `strings.Replacer` for every argument name of every
+tool call (153 MB of the 590 MB extra allocation), and
+AGENT_RESOURCE_EXHAUSTION kept full event copies in its sliding windows
+(75 MB); it now keeps indices.
+
+What remains is explained, not noise, and within the 25% tolerance:
+
+- **Peak heap +24%.** `schema.Event` grew from 584 to 816 bytes (the
+  fifteen structured tool-call fields of the v5 evidence contract), and
+  calls and results now carry two 64-character digests. That is about
+  18 MB per resident copy of the 48,800 events; the detector's index and
+  the chain engine each hold one.
+- **Analyze +8%, allocation +8%.** Every tool call and result is now
+  digested over its canonical JSON and paired with its result, the
+  larger events are written to and read back from the overlay, and ten
+  rules and seven chains were added. The analyze delta is smaller than
+  the run-to-run spread on this machine, but 9 of 10 pairs were slower on
+  v5, so it is reported as a real cost, not as noise.
+
+Re-measure on a quiet machine before release and record the baseline
+with `--save-baseline`.
+
+### Defects the v5 suites found (fixed on this branch)
+
+Running the v5 rules end to end, through the real parser instead of on
+hand-made events, found three defects the unit tests could not see; the
+performance comparison found two avoidable costs (above):
+
+| Found by | Defect | Fix |
+|---|---|---|
+| `write-denied-then-shell-copy` | CHAIN_ADAPTIVE_RETRY_TO_BYPASS never matched collected evidence: its steps read the outcome (`result_status`) on the tool call, and the parsers recorded it only on the result event. | The call/result pairer (`internal/toolargs`) copies the paired result's status onto a call that has none, so the call says whether it was refused, failed or completed. No v4.5 chain output changed (`chains-v45.golden`). |
+| `permission-mode-widened-by-person` | AGENT_PERMISSION_STATE_DRIFT fired when the person changed the mode and typed a prompt (the common shape): the parser emits a line's `permission_change` event before the prompt on the same line, so the rule saw the change before the approval. | A change event that shares its source line with a prompt the person typed counts as recorded approval; a prompt on a later line still does not. |
+| `skill-written-from-fetched-page-then-run` | CHAIN_SKILL_POISON_TO_EXEC could not join a `Skill` tool invocation on collected evidence: the skill name was not in the allowlisted arguments, so `safe_args.skill` was always empty. | `skill` (an identifier) is allowlisted in `internal/toolargs`. |
 
 ### Defects the benchmark found (fixed in 4.0.0)
 

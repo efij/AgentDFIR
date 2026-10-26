@@ -56,6 +56,9 @@ import (
 // Label heads every report, in every format.
 const Label = "SYNTHETIC benchmark — measured on labeled synthetic fixtures; not evidence of real-world accuracy"
 
+// IndependentNote qualifies every precision and recall figure.
+const IndependentNote = "Precision and recall here are measured on the synthetic corpus, whose labels were written next to the rules. Metrics on an independent corpus are reported separately; none are published yet."
+
 // Options controls one run.
 type Options struct {
 	// Quick runs the fast subset `go test` uses: a sample of the corpus
@@ -105,6 +108,8 @@ type Report struct {
 	Platforms    *Platforms         `json:"platform_corroboration,omitempty"`
 	Interop      *Interop           `json:"forensic_interop,omitempty"`
 	IntegritySet *EvidenceIntegrity `json:"evidence_integrity,omitempty"`
+	// V5 holds the checks of the v5 suites (v5.go).
+	V5 *V5 `json:"v5,omitempty"`
 	// Failures are hard checks that did not hold. Empty means the run
 	// passed. Warnings never fail a run.
 	Failures []string `json:"failures"`
@@ -113,6 +118,12 @@ type Report struct {
 	// newPackages are packages this run built, handed to the independent
 	// verifier by the evidence-integrity suite.
 	newPackages []string
+	// fixtures are the labeled detection fixtures, fired the rules each
+	// one that ran produced, and mitreSeen the MITRE references of every
+	// finding the detection section produced (rule → "ATLAS ATT&CK").
+	fixtures  []fixture
+	fired     map[string]map[string]int
+	mitreSeen map[string]string
 }
 
 // Passed reports whether every hard check held.
@@ -217,6 +228,9 @@ func buildAndAnalyze(work, name string, c corpus.Case, ao analysis.Options) (a *
 	}
 	if len(c.Endpoint) > 0 {
 		ao.EndpointLogs = c.EndpointLogs()
+	}
+	if c.Gateway != "" {
+		ao.GatewayLog = c.GatewayLog()
 	}
 	res, err := analysis.Run(pkg, ao)
 	if err != nil {

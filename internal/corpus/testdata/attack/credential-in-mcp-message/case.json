@@ -1,0 +1,7 @@
+{
+  "expect": [
+    "AGENT_CREDENTIAL_TO_EXTERNAL_TOOL"
+  ],
+  "note": "A JWT (built from harmless parts) is read from .env and then handed to an MCP tool that posts to Slack, inside the call's arguments. AGENT_CREDENTIAL_TO_EXTERNAL_TOOL re-reads the sealed call line, fingerprints the credential and drops it; the finding carries the type and fingerprint, never the value.",
+  "twin": "mcp-message-without-credential"
+}

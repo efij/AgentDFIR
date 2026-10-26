@@ -1,0 +1,7 @@
+{
+  "expect": [
+    "AGENT_DELEGATION_SCOPE_EXPANSION"
+  ],
+  "note": "The docs-writer subagent's collected definition grants Read, Grep, Glob and Write; it ran Bash (git commit and push to main). AGENT_DELEGATION_SCOPE_EXPANSION links the subagent to its Task call by the spawn record and the definition by the recorded subagent_type. A definition mismatch is not proof the call was unauthorized.",
+  "twin": "subagent-within-definition"
+}

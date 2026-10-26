@@ -1,0 +1,4 @@
+{
+  "note": "Twin of adaptive-keychain-method-switch: an ordinary tool error (file not read yet), a read, then the same Edit succeeds. An ordinary failure is not a block and the method did not change; neither AGENT_ADAPTIVE_ATTACK_SEQUENCE nor CHAIN_ADAPTIVE_RETRY_TO_BYPASS may fire.",
+  "twin": "adaptive-keychain-method-switch"
+}

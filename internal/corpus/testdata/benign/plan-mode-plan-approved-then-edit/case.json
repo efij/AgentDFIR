@@ -1,0 +1,4 @@
+{
+  "note": "Twin of plan-mode-file-edited: in plan mode the agent writes only its plan file, the person approves the plan (ExitPlanMode result), and the edit follows in acceptEdits. Neither AGENT_UNAUTHORIZED_RESOURCE_CHANGE nor AGENT_PERMISSION_STATE_DRIFT may fire.",
+  "twin": "plan-mode-file-edited"
+}

@@ -1,0 +1,7 @@
+{
+  "expect": [
+    "AGENT_PERMISSION_STATE_DRIFT"
+  ],
+  "note": "The recorded permission mode moves from default to acceptEdits on a tool-result line, with no prompt the person typed and no approval record in between. The parser emits a permission_change event; AGENT_PERMISSION_STATE_DRIFT reports it. A missing approval record is not an unauthorized change.",
+  "twin": "permission-mode-widened-by-person"
+}

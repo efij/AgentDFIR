@@ -44,7 +44,7 @@ func (r *Report) WriteMarkdown(w io.Writer) error {
 	p("| Section | Result |")
 	p("|---|---|")
 	d := r.Detection
-	p("| Detection (synthetic) | precision %s, recall %s over %d attack cases, %d scenarios, %d benign cases |", pct(d.Precision), pct(d.Recall), d.AttackCases, d.Scenarios, d.BenignCases)
+	p("| Detection (synthetic) | precision %s, recall %s on the synthetic corpus, over %d attack cases, %d scenarios, %d benign cases |", pct(d.Precision), pct(d.Recall), d.AttackCases, d.Scenarios, d.BenignCases)
 	p("| Rule coverage (synthetic) | %d of %d alert rules have an attack fixture; %d building blocks |", d.RuleUniverse-d.BuildingBlocks-len(d.Uncovered), d.RuleUniverse-d.BuildingBlocks, d.BuildingBlocks)
 	p("| Evidence states | %d/%d labeled checks, %d contract violations over %d events |", r.Evidence.Passed, r.Evidence.Total, len(r.Evidence.ContractViolations), r.Evidence.Events)
 	p("| Provenance | %d dangling of %d events and %d finding references |", r.Provenance.Dangling(), r.Provenance.Events, r.Provenance.Refs)
@@ -77,6 +77,8 @@ func (r *Report) WriteMarkdown(w io.Writer) error {
 	p("## Detection (synthetic)")
 	p("")
 	p("Labels come from `internal/corpus/testdata` (attack cases name the rules they must produce, benign cases the rules they may) and from each `simulate` scenario's expected rules. A firing on an attack fixture that its label does not mention is not scored.")
+	p("")
+	p("%s", IndependentNote)
 	p("")
 	p("| Rule | TP | FP | FN | Precision | Recall |")
 	p("|---|---:|---:|---:|---:|---:|")

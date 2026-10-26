@@ -1,0 +1,8 @@
+{
+  "allow": {
+    "MCP_TOOL_IDENTITY_DRIFT": "the server did change mid-session (gateway log); the rule is right to report it. The twin checks the chain, which needs a consequential action after the changed tool."
+  },
+  "gateway": "gateway/mcp-gateway.jsonl",
+  "note": "Twin of mcp-rug-pull-then-credential-read: the same mid-session server change, followed by a test run instead of a consequential action. The drift is real and is reported; the chain must not complete without the consequential step.",
+  "twin": "mcp-rug-pull-then-credential-read"
+}

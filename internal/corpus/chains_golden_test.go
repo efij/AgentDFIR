@@ -37,6 +37,11 @@ func TestV45ChainOutputUnchanged(t *testing.T) {
 	}
 	var lines []string
 	for _, c := range cases {
+		if c.Twin != "" {
+			// The v5 attack/twin cases (gen_v5_test.go) came after the
+			// golden was recorded; TestCorpus and the benchmark score them.
+			continue
+		}
 		for _, f := range analyseCase(t, c) {
 			if !v45Chains[f.RuleID] {
 				continue

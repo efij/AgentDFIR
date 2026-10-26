@@ -1,0 +1,4 @@
+{
+  "note": "Twin of agent-autonomous-recon-burst: the same breadth of discovery, but the person asks for each pair of commands. Every run between instructions is short; AGENT_AUTONOMOUS_RECON_SEQUENCE must stay silent.",
+  "twin": "agent-autonomous-recon-burst"
+}

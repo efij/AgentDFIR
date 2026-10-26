@@ -1,0 +1,8 @@
+{
+  "expect": [
+    "MCP_TOOL_IDENTITY_DRIFT"
+  ],
+  "gateway": "gateway/mcp-gateway.jsonl",
+  "note": "Inside one session the notes MCP server answered initialize as 2.3.0, then as 2.4.0-rc.1 with a reworded search tool. The MCP gateway log recorded both; the analysis writes mcp_server_version and tool_def_digest onto the matched transcript calls, and MCP_TOOL_IDENTITY_DRIFT reads them. Nothing consequential follows, so no chain.",
+  "twin": "mcp-server-stable-identity"
+}

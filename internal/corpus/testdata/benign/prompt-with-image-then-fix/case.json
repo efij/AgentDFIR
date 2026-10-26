@@ -1,0 +1,4 @@
+{
+  "note": "Twin of image-result-then-shell-post: the person attaches a screenshot together with a text instruction, and the agent edits the file. A prompt with text is an instruction; AGENT_MULTIMODAL_TRIGGER_CHAIN must stay silent.",
+  "twin": "image-result-then-shell-post"
+}
