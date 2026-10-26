@@ -15,7 +15,7 @@ import (
 // and chains; the integration branch flips this to true once they are all
 // merged and listed under rules/chains (or sets
 // AGENTDFIR_ENFORCE_PLANNED_RESOLVED=1 to try it early).
-const enforcePlannedResolved = false
+const enforcePlannedResolved = true
 
 func repoRoot(t *testing.T) string {
 	root, err := filepath.Abs(filepath.Join("..", "..", ".."))

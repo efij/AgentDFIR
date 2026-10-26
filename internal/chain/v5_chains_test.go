@@ -464,3 +464,30 @@ func TestBuiltinChainCount(t *testing.T) {
 		t.Fatalf("built-in chains: %d, want 20 (13 from v4.5 + 7 from v5)", len(Builtin))
 	}
 }
+
+// TestV5ChainsByID names each v5 chain and checks it matches its own
+// scenario and not the scenario with its last step removed, so the ATLAS
+// inventory can cite a test per chain.
+func TestV5ChainsByID(t *testing.T) {
+	ids := []string{"CHAIN_SKILL_POISON_TO_EXEC", "CHAIN_MCP_RUG_PULL_TO_ACTION", "CHAIN_TOOL_RESPONSE_TO_SECRET_EXFIL",
+		"CHAIN_SHARED_MEMORY_TO_SUBAGENT", "CHAIN_BROWSER_TOKEN_TO_ACCOUNT_ACTION", "CHAIN_AGENT_RECON_TO_IMPACT", "CHAIN_ADAPTIVE_RETRY_TO_BYPASS"}
+	scs := map[string]scenario5{}
+	for _, sc := range v5Scenarios() {
+		scs[sc.chain] = sc
+	}
+	for _, id := range ids {
+		sc, ok := scs[id]
+		if !ok {
+			t.Errorf("%s: no scenario", id)
+			continue
+		}
+		events, findings := build(sc.steps)
+		if out := Run(events, findings, only(id)); len(out) != 1 || out[0].RuleID != id {
+			t.Errorf("%s: positive scenario: %+v", id, out)
+		}
+		events, findings = build(sc.steps[:len(sc.steps)-1])
+		if out := Run(events, findings, only(id)); len(out) != 0 {
+			t.Errorf("%s: matched with its last step missing: %+v", id, out)
+		}
+	}
+}

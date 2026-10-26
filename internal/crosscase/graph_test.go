@@ -682,3 +682,26 @@ func TestRunGraphSealedPackages(t *testing.T) {
 		}
 	}
 }
+
+// TestCrossCaseFindingIDs pins the rule IDs of the two cross-case
+// findings and checks each is raised by its positive scenario.
+func TestCrossCaseFindingIDs(t *testing.T) {
+	if RuleCrossHostActivity != "AGENT_CROSS_HOST_ACTIVITY" || RuleCrossHostPropagation != "CHAIN_CROSS_HOST_AGENT_PROPAGATION" {
+		t.Fatal("cross-case rule IDs changed")
+	}
+	g := BuildGraph([]GraphCase{
+		gcase("C1", "laptop", gev(sidP, schema.EventHumanPrompt, 0),
+			gev(sidP, schema.EventToolCall, 5, cmd(`ssh devbox "claude --resume `+sidS+` -p go"`))),
+		gcase("C2", "devbox", gev(sidS, schema.EventHumanPrompt, 6), gev(sidS, schema.EventToolCall, 7, cmd("rm -rf /srv/app/releases"))),
+	}, GraphOptions{})
+	if len(findings(g, "CHAIN_CROSS_HOST_AGENT_PROPAGATION")) != 1 {
+		t.Fatalf("propagation: %+v", g.Findings)
+	}
+	g = BuildGraph([]GraphCase{
+		gcase("C1", "laptop", gev(sidS, schema.EventHumanPrompt, 0), gev(sidS, schema.EventToolCall, 1, cmd("ls"))),
+		gcase("C2", "devbox", gev(sidS, schema.EventHumanPrompt, 30), gev(sidS, schema.EventToolCall, 31, cmd("make test"))),
+	}, GraphOptions{})
+	if len(findings(g, "AGENT_CROSS_HOST_ACTIVITY")) != 1 {
+		t.Fatalf("cross-host activity: %+v", g.Findings)
+	}
+}
