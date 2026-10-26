@@ -34,6 +34,7 @@ func RunAgentRules(events []schema.Event, pkgDir string, man *casepkg.Manifest) 
 	out = append(out, externalArtifactExecution(ix)...)
 	out = append(out, permissionModeEscalation(ix)...)
 	out = append(out, identitySwitch(ix)...)
+	out = append(out, agentRulesV5P1(ix, pkgDir, man)...)
 	if man != nil {
 		store := casepkg.NewStore(pkgDir, man)
 		out = append(out, permissionBoundaryCrossing(ix, loadDenyRules(store, man))...)
