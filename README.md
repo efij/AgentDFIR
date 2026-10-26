@@ -56,7 +56,7 @@ curl -fsSL https://raw.githubusercontent.com/efij/AgentDFIR/main/install.sh | sh
 **Windows** (x64 or ARM64) — Command Prompt **or** PowerShell
 
 ```bat
-powershell -NoProfile -ExecutionPolicy Bypass -Command "[Environment]::SetEnvironmentVariable('AGENTDFIR_RUN','1'); irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Set-Item Env:AGENTDFIR_RUN 1; irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex"
 ```
 
 Already installed: `agentdfir run`. Homebrew: `brew install efij/agentdfir/agentdfir && agentdfir run`. Scoop: `scoop bucket add agentdfir https://github.com/efij/scoop-agentdfir; scoop install agentdfir`. Chocolatey: `choco install agentdfir`.

@@ -14,7 +14,7 @@ curl -fsSL https://raw.githubusercontent.com/efij/AgentDFIR/main/install.sh | sh
 Windows, x64 or ARM64 — paste into **Command Prompt or PowerShell** (installs to `%LOCALAPPDATA%\agentdfir\bin`, added to your PATH):
 
 ```bat
-powershell -NoProfile -ExecutionPolicy Bypass -Command "[Environment]::SetEnvironmentVariable('AGENTDFIR_RUN','1'); irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Set-Item Env:AGENTDFIR_RUN 1; irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex"
 ```
 
 Already in PowerShell, the short form works too: `$env:AGENTDFIR_RUN=1; irm https://raw.githubusercontent.com/efij/AgentDFIR/main/install.ps1 | iex`.

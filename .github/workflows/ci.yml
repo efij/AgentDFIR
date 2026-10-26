@@ -137,20 +137,45 @@ jobs:
       - name: one-liner shape from cmd.exe
         shell: cmd
         run: |
-          powershell -NoProfile -ExecutionPolicy Bypass -Command "[Environment]::SetEnvironmentVariable('AGENTDFIR_VERSION','v0.0.0-ci'); [Environment]::SetEnvironmentVariable('AGENTDFIR_BASE_URL','file:///'+((Join-Path (Get-Location) 'dist') -replace '\\','/')); [Environment]::SetEnvironmentVariable('AGENTDFIR_INSTALL_DIR',(Join-Path (Get-Location) 'ibin-cmd')); Get-Content -Raw .\install.ps1 | iex"
+          powershell -NoProfile -ExecutionPolicy Bypass -Command "Set-Item Env:AGENTDFIR_VERSION ('v0.0.0-ci'); Set-Item Env:AGENTDFIR_BASE_URL ('file:///'+((Join-Path (Get-Location) 'dist') -replace '\\','/')); Set-Item Env:AGENTDFIR_INSTALL_DIR ((Join-Path (Get-Location) 'ibin-cmd')); Get-Content -Raw .\install.ps1 | iex"
           if errorlevel 1 exit /b 1
           ibin-cmd\agentdfir.exe version | findstr /c:"agentdfir v0.0.0-ci" || exit /b 1
       - name: one-liner shape from Windows PowerShell 5.1
         shell: powershell
         run: |
-          powershell -NoProfile -ExecutionPolicy Bypass -Command "[Environment]::SetEnvironmentVariable('AGENTDFIR_VERSION','v0.0.0-ci'); [Environment]::SetEnvironmentVariable('AGENTDFIR_BASE_URL','file:///'+((Join-Path (Get-Location) 'dist') -replace '\\','/')); [Environment]::SetEnvironmentVariable('AGENTDFIR_INSTALL_DIR',(Join-Path (Get-Location) 'ibin-ps5')); Get-Content -Raw .\install.ps1 | iex"
+          powershell -NoProfile -ExecutionPolicy Bypass -Command "Set-Item Env:AGENTDFIR_VERSION ('v0.0.0-ci'); Set-Item Env:AGENTDFIR_BASE_URL ('file:///'+((Join-Path (Get-Location) 'dist') -replace '\\','/')); Set-Item Env:AGENTDFIR_INSTALL_DIR ((Join-Path (Get-Location) 'ibin-ps5')); Get-Content -Raw .\install.ps1 | iex"
           if ($LASTEXITCODE -ne 0) { throw "install failed" }
           $out = & .\ibin-ps5\agentdfir.exe version
           if ($out -notmatch 'agentdfir v0\.0\.0-ci') { throw "unexpected output: $out" }
       - name: one-liner shape from PowerShell 7
         shell: pwsh
         run: |
-          powershell -NoProfile -ExecutionPolicy Bypass -Command "[Environment]::SetEnvironmentVariable('AGENTDFIR_VERSION','v0.0.0-ci'); [Environment]::SetEnvironmentVariable('AGENTDFIR_BASE_URL','file:///'+((Join-Path (Get-Location) 'dist') -replace '\\','/')); [Environment]::SetEnvironmentVariable('AGENTDFIR_INSTALL_DIR',(Join-Path (Get-Location) 'ibin-pwsh')); Get-Content -Raw .\install.ps1 | iex"
+          powershell -NoProfile -ExecutionPolicy Bypass -Command "Set-Item Env:AGENTDFIR_VERSION ('v0.0.0-ci'); Set-Item Env:AGENTDFIR_BASE_URL ('file:///'+((Join-Path (Get-Location) 'dist') -replace '\\','/')); Set-Item Env:AGENTDFIR_INSTALL_DIR ((Join-Path (Get-Location) 'ibin-pwsh')); Get-Content -Raw .\install.ps1 | iex"
           if ($LASTEXITCODE -ne 0) { throw "install failed" }
           $out = & .\ibin-pwsh\agentdfir.exe version
           if ($out -notmatch 'agentdfir v0\.0\.0-ci') { throw "unexpected output: $out" }
+      # Locked-down Windows (AppLocker / WDAC) runs PowerShell in Constrained
+      # Language Mode: no .NET method calls. The installer has to work there.
+      - name: install.ps1 under Constrained Language Mode
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+          $env:AGENTDFIR_VERSION = 'v0.0.0-ci'
+          $env:AGENTDFIR_BASE_URL = 'file:///' + ($PWD.Path -replace '\\', '/') + '/dist'
+          $env:AGENTDFIR_INSTALL_DIR = "$PWD\ibin-clm"
+          $script = Get-Content -Raw .\install.ps1
+          $ExecutionContext.SessionState.LanguageMode = 'ConstrainedLanguage'
+          Invoke-Expression $script
+          if ($ExecutionContext.SessionState.LanguageMode -ne 'ConstrainedLanguage') { throw "not in CLM" }
+          $out = & "$PWD\ibin-clm\agentdfir.exe" version
+          if ($out -notmatch 'agentdfir v0\.0\.0-ci') { throw "unexpected output: $out" }
+      - name: install.ps1 under Constrained Language Mode, real latest release
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+          $env:AGENTDFIR_INSTALL_DIR = "$PWD\ibin-clm-online"
+          $script = Get-Content -Raw .\install.ps1
+          $ExecutionContext.SessionState.LanguageMode = 'ConstrainedLanguage'
+          Invoke-Expression $script
+          $out = & "$PWD\ibin-clm-online\agentdfir.exe" version
+          if ($out -notmatch '^agentdfir v') { throw "unexpected output: $out" }
